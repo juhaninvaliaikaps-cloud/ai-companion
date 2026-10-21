@@ -66,22 +66,29 @@ namespace AICompanion.AI
         public ChatErrorKind Error { get; }
         public string UserMessage { get; }
 
-        public ChatResult(bool ok, string text, ChatErrorKind error, string userMessage)
+        /// <summary>
+        /// Console line for this failure. Already scrubbed. Empty when the
+        /// on-screen message is enough.
+        /// </summary>
+        public string LogMessage { get; }
+
+        public ChatResult(bool ok, string text, ChatErrorKind error, string userMessage, string logMessage)
         {
             Ok = ok;
             Text = text ?? string.Empty;
             Error = error;
             UserMessage = userMessage ?? string.Empty;
+            LogMessage = logMessage ?? string.Empty;
         }
 
         public static ChatResult Success(string text)
         {
-            return new ChatResult(true, text, ChatErrorKind.None, string.Empty);
+            return new ChatResult(true, text, ChatErrorKind.None, string.Empty, string.Empty);
         }
 
-        public static ChatResult Fail(ChatErrorKind error, string userMessage)
+        public static ChatResult Fail(ChatErrorKind error, string userMessage, string logMessage = null)
         {
-            return new ChatResult(false, string.Empty, error, userMessage);
+            return new ChatResult(false, string.Empty, error, userMessage, logMessage);
         }
     }
 }

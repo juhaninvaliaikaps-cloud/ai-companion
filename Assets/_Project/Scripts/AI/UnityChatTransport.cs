@@ -43,11 +43,12 @@ namespace AICompanion.AI
             }
 
             var www = new UnityWebRequest(request.Url, UnityWebRequest.kHttpVerbPOST);
+            var handler = new StreamingDownloadHandler(www, onBodyChunk);
             try
             {
                 var body = Encoding.UTF8.GetBytes(request.Body ?? string.Empty);
                 www.uploadHandler = new UploadHandlerRaw(body);
-                www.downloadHandler = new StreamingDownloadHandler(www, onBodyChunk);
+                www.downloadHandler = handler;
                 var timeout = request.TimeoutSeconds <= 0f ? ChatDefaults.TimeoutSeconds : request.TimeoutSeconds;
                 www.timeout = Mathf.CeilToInt(timeout);
                 if (request.Headers != null)
@@ -85,17 +86,18 @@ namespace AICompanion.AI
 
                 if (www.result == UnityWebRequest.Result.Success || (code >= 200 && code < 300))
                 {
+                    handler.ReleaseHeld();
                     completion.TrySetResult(ChatHttpResult.Ok(code == 0 ? 200 : code));
                     yield break;
                 }
 
                 if (code >= 400)
                 {
-                    completion.TrySetResult(ChatHttpResult.Ok(code));
+                    completion.TrySetResult(ChatHttpResult.Http(code, handler.ErrorText));
                     yield break;
                 }
 
-                completion.TrySetResult(ChatHttpResult.Network());
+                completion.TrySetResult(ChatHttpResult.Network(error));
             }
             finally
             {
@@ -113,9 +115,14 @@ namespace AICompanion.AI
 
         sealed class StreamingDownloadHandler : DownloadHandlerScript
         {
+            const int Cap = 4096;
+
             readonly UnityWebRequest _request;
             readonly Action<string> _onChunk;
             readonly Utf8ChunkDecoder _decoder = new Utf8ChunkDecoder();
+            readonly StringBuilder _held = new StringBuilder();
+            readonly StringBuilder _error = new StringBuilder();
+            bool _streamed;
 
             public StreamingDownloadHandler(UnityWebRequest request, Action<string> onChunk)
                 : base(new byte[2048])
@@ -124,19 +131,57 @@ namespace AICompanion.AI
                 _onChunk = onChunk;
             }
 
+            public string ErrorText => _error.ToString();
+
+            public void ReleaseHeld()
+            {
+                if (_streamed || _held.Length == 0 || _onChunk == null)
+                    return;
+                _onChunk(_held.ToString());
+                _held.Length = 0;
+            }
+
             protected override bool ReceiveData(byte[] data, int dataLength)
             {
-                if (_onChunk == null || data == null || dataLength <= 0)
-                    return true;
-
-                var code = _request.responseCode;
-                if (code >= 400)
+                if (data == null || dataLength <= 0)
                     return true;
 
                 var text = _decoder.Take(data, dataLength);
-                if (text.Length > 0)
-                    _onChunk(text);
+                if (text.Length == 0)
+                    return true;
+
+                var code = (int)_request.responseCode;
+                if (code >= 400)
+                {
+                    AppendCap(_error, text);
+                    return true;
+                }
+
+                if (code >= 200 && code < 300)
+                {
+                    if (_held.Length > 0 && _onChunk != null)
+                    {
+                        _onChunk(_held.ToString());
+                        _held.Length = 0;
+                    }
+
+                    if (_onChunk != null)
+                        _onChunk(text);
+                    _streamed = true;
+                    return true;
+                }
+
+                AppendCap(_held, text);
+                AppendCap(_error, text);
                 return true;
+            }
+
+            static void AppendCap(StringBuilder sb, string text)
+            {
+                if (sb.Length >= Cap || string.IsNullOrEmpty(text))
+                    return;
+                var room = Cap - sb.Length;
+                sb.Append(text.Length <= room ? text : text.Substring(0, room));
             }
         }
     }

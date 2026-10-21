@@ -13,7 +13,7 @@ namespace AICompanion.AI
     public sealed class ChatDebugHarness : MonoBehaviour, ICompanionStartup, IDebugPanel
     {
         const float PanelWidth = 464f;
-        const float PanelHeight = 200f;
+        const float PanelHeight = 220f;
 
         struct PendingDelta
         {
@@ -99,11 +99,11 @@ namespace AICompanion.AI
             y += 22f;
             _prompt = GUI.TextField(new Rect(x, y, width, 22f), _prompt ?? string.Empty);
             y += 26f;
-            GUI.Label(new Rect(x, y, width, 18f), string.IsNullOrEmpty(_status) ? " " : _status, line);
-            y += 20f;
+            GUI.Label(new Rect(x, y, width, 48f), string.IsNullOrEmpty(_status) ? " " : _status, line);
+            y += 50f;
             var reply = string.IsNullOrEmpty(_reply) ? "Reply appears here." : _reply;
-            GUI.Label(new Rect(x, y, width, 72f), reply, line);
-            y += 76f;
+            GUI.Label(new Rect(x, y, width, 52f), reply, line);
+            y += 56f;
             _keyField = GUI.PasswordField(new Rect(x, y, width - 88f, 22f), _keyField ?? string.Empty, '*');
             if (GUI.Button(new Rect(x + width - 80f, y, 80f, 22f), "Save key"))
                 SaveKey();
@@ -169,7 +169,10 @@ namespace AICompanion.AI
                 else
                 {
                     _status = result.UserMessage;
-                    Debug.Log("Chat error: " + result.UserMessage);
+                    if (!string.IsNullOrEmpty(result.LogMessage))
+                        Debug.LogWarning(result.LogMessage);
+                    else
+                        Debug.Log("Chat error: " + result.UserMessage);
                 }
             }
             catch (Exception)

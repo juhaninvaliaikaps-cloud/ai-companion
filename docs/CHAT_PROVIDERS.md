@@ -47,7 +47,7 @@ The debug box sits at the bottom of the Game view and the player window. It is t
 2. The prompt defaults to `Say hello in one short sentence.` Edit it if you want.
 3. Press **F9**. The reply streams into the box and into the Console (`Chat delta:` lines, then `Chat reply:`).
 4. **Esc** cancels the request that is in flight.
-5. A failure stays on the box: `No API key is set`, `Invalid API key`, `Rate limited, try again shortly`, `Couldn't reach Grok`, or `Grok took too long to answer`.
+5. A failure stays on the box. The Console gets a warning with the HTTP status and the provider's message (`Chat error: HTTP 403 from Grok: ...`). The box shows a shorter line, or a hint when the cause is clear: `Invalid API key`, `xAI account has no API credits or billing is not set up (console.x.ai > Billing)`, `Model grok-4.7 not available for this key; change ChatSettings.model`, `Rate limited, try again shortly`, `Couldn't reach Grok`, or `Grok took too long to answer`. The log never includes the API key.
 
 F7, F8, 1–5, T, and R are unchanged. Empty pixels around the avatar still click through. The chat box itself stays clickable.
 

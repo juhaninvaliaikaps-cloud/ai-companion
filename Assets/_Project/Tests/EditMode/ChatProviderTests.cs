@@ -103,6 +103,73 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Errors_ReportStatusAndScrubSecrets()
+        {
+            const string secret = "xai-SuperSecretKey1";
+            var billing = ChatErrors.FromTransport(
+                "Grok",
+                ChatHttpResult.Http(403, "{\"code\":\"permission-denied\",\"error\":\"No credits. Bearer " + secret + "\"}"),
+                "",
+                false,
+                false);
+            Assert.AreEqual(ChatErrors.BillingHint, billing.UserMessage);
+            StringAssert.StartsWith("Chat error: HTTP 403 from Grok: ", billing.LogMessage);
+            StringAssert.Contains("No credits", billing.LogMessage);
+            Assert.IsFalse(billing.LogMessage.Contains(secret));
+            Assert.IsFalse(billing.UserMessage.Contains(secret));
+            Assert.IsFalse(billing.LogMessage.Contains("Authorization"));
+
+            var invalidKey = ChatErrors.FromTransport(
+                "Grok",
+                ChatHttpResult.Http(400, "{\"error\":\"Incorrect API key provided: " + secret + "\"}"),
+                "",
+                false,
+                false);
+            Assert.AreEqual("Invalid API key", invalidKey.UserMessage);
+            StringAssert.Contains("HTTP 400", invalidKey.LogMessage);
+            Assert.IsFalse(invalidKey.LogMessage.Contains(secret));
+
+            var missingModel = ChatErrors.FromTransport(
+                "Grok",
+                ChatHttpResult.Http(404, "{\"error\":\"The model does not exist\"}"),
+                "",
+                false,
+                false,
+                "grok-4.7");
+            Assert.AreEqual("Model grok-4.7 not available for this key; change ChatSettings.model", missingModel.UserMessage);
+
+            var namedInBody = ChatErrors.FromTransport(
+                "Grok",
+                ChatHttpResult.Http(400, "{\"error\":{\"message\":\"unknown model\"}}"),
+                "",
+                false,
+                false,
+                "demo-model");
+            Assert.AreEqual("Model demo-model not available for this key; change ChatSettings.model", namedInBody.UserMessage);
+            StringAssert.Contains("unknown model", namedInBody.LogMessage);
+
+            var plain = new string('b', 600);
+            var rejected = ChatErrors.FromTransport("Grok", ChatHttpResult.Http(422, plain), "", false, false);
+            const string screenPrefix = "Grok rejected the request (HTTP 422): ";
+            const string logPrefix = "Chat error: HTTP 422 from Grok: ";
+            StringAssert.StartsWith(screenPrefix, rejected.UserMessage);
+            Assert.AreEqual(ChatErrors.ScreenBodyLimit, rejected.UserMessage.Length - screenPrefix.Length);
+            StringAssert.StartsWith(logPrefix, rejected.LogMessage);
+            Assert.AreEqual(new string('b', ChatErrors.LogBodyLimit), rejected.LogMessage.Substring(logPrefix.Length));
+
+            var offline = ChatErrors.FromTransport(
+                "Grok",
+                ChatHttpResult.Network("Cannot connect to destination host Bearer " + secret),
+                "",
+                false,
+                false);
+            Assert.AreEqual("Couldn't reach Grok", offline.UserMessage);
+            StringAssert.Contains("Cannot connect to destination host", offline.LogMessage);
+            Assert.IsFalse(offline.LogMessage.Contains(secret));
+            Assert.AreEqual("see Bearer [redacted] and [redacted].", ChatErrors.Scrub("see Bearer " + secret + " and " + secret + "."));
+        }
+
+        [Test]
         public void Registry_SelectsByIdAndKeepsTheFirstRegistration()
         {
             var registry = new ChatProviderRegistry();
@@ -225,6 +292,20 @@ namespace AICompanion.Tests.EditMode
 
             var slow = new ScriptedTransport { Result = ChatHttpResult.Timeout() };
             Assert.AreEqual(ChatErrorKind.Timeout, Grok(slow, "test-key").StreamChat(new ChatRequest(), null, CancellationToken.None).GetAwaiter().GetResult().Error);
+
+            const string secret = "xai-SuperSecretKey1";
+            var deniedBilling = new ScriptedTransport
+            {
+                Result = ChatHttpResult.Http(403, "{\"error\":\"Team has no credits. Bearer " + secret + "\"}")
+            };
+            var billing = Grok(deniedBilling, secret).StreamChat(new ChatRequest(), null, CancellationToken.None).GetAwaiter().GetResult();
+            Assert.AreEqual(ChatErrors.BillingHint, billing.UserMessage);
+            StringAssert.Contains("HTTP 403", billing.LogMessage);
+            StringAssert.Contains("Team has no credits", billing.LogMessage);
+            Assert.IsFalse(billing.LogMessage.Contains(secret));
+            Assert.IsFalse(billing.UserMessage.Contains(secret));
+            Assert.IsFalse(deniedBilling.Last.Body.Contains(secret));
+            Assert.AreEqual("Bearer " + secret, Header(deniedBilling.Last, "Authorization"));
         }
 
         [Test]

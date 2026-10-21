@@ -97,10 +97,10 @@ namespace AICompanion.AI
                 if (httpTask.IsFaulted || httpTask.IsCanceled)
                     return Task.FromResult(FailedTask(httpTask, DisplayName));
                 state.Flush(onDelta);
-                return Task.FromResult(ChatErrors.FromTransport(DisplayName, httpTask.Result, state.Text, state.Done, state.Malformed));
+                return Task.FromResult(ChatErrors.FromTransport(DisplayName, httpTask.Result, state.Text, state.Done, state.Malformed, model));
             }
 
-            return Finish(httpTask, state, onDelta);
+            return Finish(httpTask, state, onDelta, model);
         }
 
         string ReadKey()
@@ -118,7 +118,7 @@ namespace AICompanion.AI
             return timeout;
         }
 
-        async Task<ChatResult> Finish(Task<ChatHttpResult> httpTask, StreamState state, Action<string> onDelta)
+        async Task<ChatResult> Finish(Task<ChatHttpResult> httpTask, StreamState state, Action<string> onDelta, string model)
         {
             ChatHttpResult http;
             try
@@ -135,7 +135,7 @@ namespace AICompanion.AI
             }
 
             state.Flush(onDelta);
-            return ChatErrors.FromTransport(DisplayName, http, state.Text, state.Done, state.Malformed);
+            return ChatErrors.FromTransport(DisplayName, http, state.Text, state.Done, state.Malformed, model);
         }
 
         static ChatResult FailedTask(Task<ChatHttpResult> httpTask, string displayName)
