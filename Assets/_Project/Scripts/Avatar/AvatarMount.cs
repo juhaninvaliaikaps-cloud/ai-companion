@@ -10,10 +10,10 @@ namespace AICompanion.Avatar
 {
     /// <summary>
     /// Loads the configured humanoid and hides the placeholder capsule while it is showing.
-    /// Drag and click-through use the model's renderer bounds.
+    /// Click-through uses the framebuffer silhouette, not this object's bounds.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class AvatarMount : MonoBehaviour, ICompanionStartup, IAvatarDescriptorService, IOverlayHitBounds
+    public sealed class AvatarMount : MonoBehaviour, ICompanionStartup, IAvatarDescriptorService
     {
         [SerializeField] AvatarSelection selection;
         [SerializeField] GameObject placeholder;
@@ -58,17 +58,9 @@ namespace AICompanion.Avatar
             Cycle();
         }
 
-        void OnDisable()
-        {
-            if (ReferenceEquals(OverlayHitBoundsRegistry.Current, this))
-                OverlayHitBoundsRegistry.Current = null;
-        }
-
         void OnDestroy()
         {
             CancelLoad();
-            if (ReferenceEquals(OverlayHitBoundsRegistry.Current, this))
-                OverlayHitBoundsRegistry.Current = null;
         }
 
         public bool TryGetBlendShapeNames(out IReadOnlyList<string> names)
@@ -92,24 +84,6 @@ namespace AICompanion.Avatar
             }
 
             return _current.TryGetExpression(preset, out blendShapeNames);
-        }
-
-        public bool RayHits(Ray ray)
-        {
-            if (_instance == null)
-                return false;
-
-            var renderers = _instance.GetComponentsInChildren<Renderer>(false);
-            for (var i = 0; i < renderers.Length; i++)
-            {
-                var renderer = renderers[i];
-                if (renderer == null || !renderer.enabled)
-                    continue;
-                if (renderer.bounds.IntersectRay(ray))
-                    return true;
-            }
-
-            return false;
         }
 
         void Cycle()
@@ -278,7 +252,6 @@ namespace AICompanion.Avatar
             _current = descriptor;
             _loaded = source;
             SetPlaceholderVisible(false);
-            OverlayHitBoundsRegistry.Current = this;
 
             if (!report.IsValid)
                 Debug.LogError(report.Message);
@@ -293,8 +266,6 @@ namespace AICompanion.Avatar
             _current = null;
             _loaded = AvatarPreference.Auto;
             SetPlaceholderVisible(true);
-            if (ReferenceEquals(OverlayHitBoundsRegistry.Current, this))
-                OverlayHitBoundsRegistry.Current = null;
         }
 
         int BeginLoad()

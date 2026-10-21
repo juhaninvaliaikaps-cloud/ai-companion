@@ -8,8 +8,9 @@ namespace AICompanion.Overlay
 {
     /// <summary>
     /// Borderless transparent window, topmost toggle, drag, and click-through.
-    /// Win32 runs only in the Windows player. In the editor this still clears the camera,
-    /// limits the frame rate, and updates the debug label.
+    /// A point is on the avatar only when the framebuffer pixel under the cursor is
+    /// opaque. Win32 runs only in the Windows player. In the editor this still clears
+    /// the camera, limits the frame rate, and updates the debug label.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class OverlayWindow : MonoBehaviour, ICompanionStartup
@@ -46,10 +47,10 @@ namespace AICompanion.Overlay
         WindowDrag _drag;
         bool _samplePending;
         bool _sampleRoutineRunning;
+        bool _onSilhouette;
+        bool _hasSample;
         Vector2Int _pendingSample = new Vector2Int(-1, -1);
-        Vector2Int _lastSamplePixel = new Vector2Int(int.MinValue, int.MinValue);
-        float _lastAlpha;
-        bool _hasAlpha;
+        Vector2Int _sampledPixel = new Vector2Int(int.MinValue, int.MinValue);
         Texture2D _pixel;
         WaitForEndOfFrame _endOfFrame;
         MaterialPropertyBlock _tintBlock;
@@ -94,16 +95,16 @@ namespace AICompanion.Overlay
 
             EnsureChrome();
             bool inside = TryReadPointer(out var unityScreen, out var screenCursor);
-            bool overCollider = inside && IsOverCollider(unityScreen);
             bool overPanel = inside && OverlayPointerMath.IsInsideTopLeftRect(PanelRect, unityScreen, Screen.height);
             bool overUi = overPanel || (inside && IsOverUi(unityScreen));
-            bool opaque = inside && !overCollider && !overUi && _hasAlpha && ClickThroughDecision.IsOpaque(_lastAlpha, opaqueAlphaThreshold);
-            bool interactive = !ClickThroughDecision.ShouldClickThrough(overCollider, overUi, opaque);
+            var pixel = new Vector2Int(Mathf.RoundToInt(unityScreen.x), Mathf.RoundToInt(unityScreen.y));
+            bool outsideSlack = !_hasSample || !SilhouetteHit.WithinSlack(_sampledPixel, pixel, SilhouetteHit.SampleSlackPixels);
+            bool onSilhouette = inside && _onSilhouette;
             bool leftHeld = LeftHeld();
             bool leftDown = leftHeld && !_leftWasHeld;
             _leftWasHeld = leftHeld;
 
-            if (!_dragging && leftDown && (overCollider || overPanel) && _chrome.TryGetWindowPosition(out var origin) && _chrome.TryGetScreenCursor(out var cursor))
+            if (!_dragging && leftDown && (onSilhouette || overPanel) && _chrome.TryGetWindowPosition(out var origin) && _chrome.TryGetScreenCursor(out var cursor))
             {
                 _dragging = true;
                 _userMoved = true;
@@ -113,19 +114,17 @@ namespace AICompanion.Overlay
             if (_dragging)
             {
                 if (leftHeld && _chrome.TryGetScreenCursor(out screenCursor))
-                {
                     _chrome.MoveWindow(_drag.PositionFor(screenCursor), _topmost);
-                    interactive = true;
-                }
                 else if (!leftHeld)
                 {
                     _dragging = false;
                 }
             }
 
+            bool interactive = !SilhouetteHit.ShouldClickThrough(overUi, onSilhouette, _dragging);
             _clickThrough = !interactive;
             _chrome.SetClickThrough(_clickThrough);
-            QueueAlphaSample(inside, overCollider, overUi, unityScreen);
+            QueueAlphaSample(inside, outsideSlack, pixel);
 
             if (Input.GetKeyDown(topmostKey))
                 SetTopmost(!_topmost);
@@ -243,19 +242,6 @@ namespace AICompanion.Overlay
             return mouse.x >= 0f && mouse.y >= 0f && mouse.x < Screen.width && mouse.y < Screen.height;
         }
 
-        bool IsOverCollider(Vector2 unityScreen)
-        {
-            if (_camera == null)
-                return false;
-
-            var ray = _camera.ScreenPointToRay(unityScreen);
-            var bounds = OverlayHitBoundsRegistry.Current;
-            if (bounds != null)
-                return bounds.RayHits(ray);
-
-            return Physics.Raycast(ray, out _, _camera.farClipPlane, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
-        }
-
         bool IsOverUi(Vector2 unityScreen)
         {
             var system = EventSystem.current;
@@ -282,21 +268,14 @@ namespace AICompanion.Overlay
             return Input.GetMouseButton(0);
         }
 
-        void QueueAlphaSample(bool inside, bool overCollider, bool overUi, Vector2 unityScreen)
+        void QueueAlphaSample(bool inside, bool outsideSlack, Vector2Int pixel)
         {
-            if (!inside || overCollider || overUi)
-                return;
-
-            int x = Mathf.RoundToInt(unityScreen.x);
-            int y = Mathf.RoundToInt(unityScreen.y);
-            var pixel = new Vector2Int(x, y);
-            if (_hasAlpha && pixel == _lastSamplePixel)
+            if (!SilhouetteHit.ShouldSample(inside, outsideSlack, _sampleRoutineRunning))
                 return;
 
             _pendingSample = pixel;
             _samplePending = true;
-            if (!_sampleRoutineRunning)
-                StartCoroutine(SampleAlphaAtEndOfFrame());
+            StartCoroutine(SampleAlphaAtEndOfFrame());
         }
 
         IEnumerator SampleAlphaAtEndOfFrame()
@@ -309,21 +288,27 @@ namespace AICompanion.Overlay
 
             _samplePending = false;
             var pixel = _pendingSample;
-            _lastSamplePixel = pixel;
-            if (pixel.x < 0 || pixel.y < 0 || pixel.x >= Screen.width || pixel.y >= Screen.height)
-            {
-                _lastAlpha = 0f;
-                _hasAlpha = true;
-                yield break;
-            }
+            float alpha = 0f;
+            if (pixel.x >= 0 && pixel.y >= 0 && pixel.x < Screen.width && pixel.y < Screen.height)
+                alpha = ReadFramebufferAlpha(pixel);
 
+            _sampledPixel = pixel;
+            _hasSample = true;
+            _onSilhouette = SilhouetteHit.NextOpaque(_onSilhouette, alpha, opaqueAlphaThreshold, SilhouetteHit.ReleaseAlpha);
+        }
+
+        float ReadFramebufferAlpha(Vector2Int pixel)
+        {
             if (_pixel == null)
                 _pixel = new Texture2D(1, 1, TextureFormat.RGBA32, false);
 
+            var previous = RenderTexture.active;
+            RenderTexture.active = null;
             _pixel.ReadPixels(new Rect(pixel.x, pixel.y, 1f, 1f), 0, 0, false);
+            RenderTexture.active = previous;
+
             var data = _pixel.GetRawTextureData<Color32>();
-            _lastAlpha = data.Length > 0 ? data[0].a / 255f : 0f;
-            _hasAlpha = true;
+            return data.Length > 0 ? data[0].a / 255f : 0f;
         }
 
         void ApplyFrameRate(int rate)

@@ -1,6 +1,6 @@
 # Avatars
 
-The overlay shows one humanoid at a time. `AvatarMount` loads it, hides the pink capsule while a model is showing, and registers the model's renderer bounds so drag and click-through hit the mesh. The capsule comes back if nothing loads.
+The overlay shows one humanoid at a time. `AvatarMount` loads it and hides the pink capsule while a model is showing. Drag and click-through follow the rendered silhouette (the framebuffer pixel under the cursor), so the empty space around the mesh stays click-through. The capsule comes back if nothing loads.
 
 `Assets/_Project/Settings/AvatarSelection.asset` chooses the model. Preference `Auto` uses the first source that exists:
 
@@ -96,4 +96,4 @@ If the built player is a solid rectangle, check **Support HDR** on `UniversalRen
 
 1. Play mode shows the CC0 VRM (or Asuna, if the local prefab is assigned) instead of the capsule. The Console has an `Avatar ready` line with `humanoid=True` and the mapped shapes.
 2. Press **F7**. The other sample appears. Press **F7** again to return. Clearing **Local Prefab** and both sample paths brings the capsule back.
-3. Build the Windows player (`unity command build_windows_player`, then poll `build_status`) and run `Builds/Windows/AICompanion.exe`. The desktop shows around the model. Drag the model. Click empty window space and the click reaches the window behind. **F8** still toggles topmost. The frame-rate label still drops to about 15 after the pointer leaves for about 3 seconds.
+3. Build the Windows player (`unity command build_windows_player`, then poll `build_status`) and run `Builds/Windows/AICompanion.exe`. The desktop shows around the model. Drag her body, not the empty space beside it. Clicks in that empty space, close to the mesh as well as farther away, reach the window behind. **F8** still toggles topmost. **F7** still cycles avatars. The frame-rate label still drops to about 15 after the pointer leaves for about 3 seconds.

@@ -99,6 +99,53 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void NextOpaque_EngagesAtTheThresholdAndReleasesLower()
+        {
+            Assert.IsFalse(SilhouetteHit.NextOpaque(false, 0.079f));
+            Assert.IsTrue(SilhouetteHit.NextOpaque(false, 0.08f));
+            Assert.IsTrue(SilhouetteHit.NextOpaque(true, 0.04f));
+            Assert.IsTrue(SilhouetteHit.NextOpaque(true, 0.05f));
+            Assert.IsFalse(SilhouetteHit.NextOpaque(true, 0.039f));
+            Assert.IsFalse(SilhouetteHit.NextOpaque(true, 0f));
+        }
+
+        [Test]
+        public void NextOpaque_ReleaseCannotSitAboveEngage()
+        {
+            Assert.IsFalse(SilhouetteHit.NextOpaque(true, 0.1f, 0.2f, 0.5f));
+            Assert.IsTrue(SilhouetteHit.NextOpaque(true, 0.2f, 0.2f, 0.5f));
+        }
+
+        [Test]
+        public void WithinSlack_KeepsAShortPixelCache()
+        {
+            var origin = new Vector2Int(40, 50);
+
+            Assert.IsTrue(SilhouetteHit.WithinSlack(origin, new Vector2Int(40, 50), 3));
+            Assert.IsTrue(SilhouetteHit.WithinSlack(origin, new Vector2Int(43, 50), 3));
+            Assert.IsFalse(SilhouetteHit.WithinSlack(origin, new Vector2Int(44, 50), 3));
+            Assert.IsFalse(SilhouetteHit.WithinSlack(origin, new Vector2Int(0, 0), 3));
+        }
+
+        [Test]
+        public void ShouldSample_OnlyWhenInsideMovedAndIdle()
+        {
+            Assert.IsTrue(SilhouetteHit.ShouldSample(true, true, false));
+            Assert.IsFalse(SilhouetteHit.ShouldSample(false, true, false));
+            Assert.IsFalse(SilhouetteHit.ShouldSample(true, false, false));
+            Assert.IsFalse(SilhouetteHit.ShouldSample(true, true, true));
+        }
+
+        [Test]
+        public void SilhouetteClickThrough_UsesThePixelAndKeepsADrag()
+        {
+            Assert.IsTrue(SilhouetteHit.ShouldClickThrough(false, false, false));
+            Assert.IsFalse(SilhouetteHit.ShouldClickThrough(false, true, false));
+            Assert.IsFalse(SilhouetteHit.ShouldClickThrough(true, false, false));
+            Assert.IsFalse(SilhouetteHit.ShouldClickThrough(false, false, true));
+        }
+
+        [Test]
         public void ApplyTransparentCamera_ClearsToTransparentBlackWithoutHdrOrMsaa()
         {
             var host = new GameObject("overlay camera");
