@@ -249,6 +249,10 @@ namespace AICompanion.Overlay
                 return false;
 
             var ray = _camera.ScreenPointToRay(unityScreen);
+            var bounds = OverlayHitBoundsRegistry.Current;
+            if (bounds != null)
+                return bounds.RayHits(ray);
+
             return Physics.Raycast(ray, out _, _camera.farClipPlane, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
         }
 

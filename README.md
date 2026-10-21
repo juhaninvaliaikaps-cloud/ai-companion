@@ -67,15 +67,7 @@ This environment has no Unity Editor, so the package was not downloaded and thes
 
 ## Render pipeline
 
-The skeleton uses the **built-in render pipeline**. `GraphicsSettings` has no custom render pipeline asset, so the project opens without pipeline files that would have to match a specific Universal Render Pipeline (URP) package revision.
-
-URP is a later step, once the avatar scene exists:
-
-1. In Package Manager, install **Universal RP** for this editor.
-2. Use **Create > Rendering > URP Asset (with Universal Renderer)**.
-3. Assign that asset under **Project Settings > Graphics** and on each quality level under **Project Settings > Quality**.
-
-`preserveFramebufferAlpha` is on, and **Use DXGI Flip Model Swapchain** is off, so the Windows player can keep framebuffer alpha. The rest of the overlay setup is in [docs/OVERLAY.md](docs/OVERLAY.md).
+The project uses the **Universal Render Pipeline 17.5.0**, the URP release for Unity 6000.6. `Assets/_Project/Settings/UniversalRenderPipelineAsset.asset` is assigned in Graphics and on every quality level. HDR and MSAA are off so the transparent overlay keeps framebuffer alpha. How to load a VRM, an FBX, or the local Asuna prefab is in [docs/AVATARS.md](docs/AVATARS.md). The window itself is in [docs/OVERLAY.md](docs/OVERLAY.md).
 
 ## Packages
 
@@ -89,24 +81,18 @@ URP is a later step, once the avatar scene exists:
 | `com.unity.timeline` 6.6.0 | Core package on Unity 6000.6, renumbered from the 1.8 line. UniVRM depends on Timeline. |
 | `com.unity.mathematics` 1.3.3 | Required by UniVRM. Latest registry release; its package metadata allows Unity 2021.3 and newer. It is not a 6000.6 core package. |
 | `com.unity.pipeline` 0.6.0-exp.1 | Experimental Pipeline package. Lets the Unity CLI run Editor commands, including the project commands under `Assets/_Project/Editor/CliCommands`. |
-| `com.vrmc.gltf` and `com.vrmc.vrm` | UniVRM **VRM 1.0**, tag `v0.131.4`. That release includes the Unity 6.6 deprecation fix. |
+| `com.unity.render-pipelines.universal` 17.5.0 | URP for Unity 6000.6. Required for Asuna's materials and for UniVRM MToon on this editor. |
+| `com.vrmc.gltf`, `com.vrmc.vrm`, and `com.vrmc.univrm` | UniVRM **v0.131.4**. VRM 1.0 plus the VRM 0.x importer. That release includes the Unity 6.6 deprecation fix. |
 
 UniVRM is installed the way the project documents it: Git URLs in the manifest, not a copied `.unitypackage`.
 
 ```json
 "com.vrmc.gltf": "https://github.com/vrm-c/UniVRM.git?path=/Packages/UniGLTF#v0.131.4",
+"com.vrmc.univrm": "https://github.com/vrm-c/UniVRM.git?path=/Packages/VRM#v0.131.4",
 "com.vrmc.vrm": "https://github.com/vrm-c/UniVRM.git?path=/Packages/VRM10#v0.131.4"
 ```
 
-`com.vrmc.vrm` is VRM 1.0. It depends on `com.vrmc.gltf` (UniGLTF). Both entries are required because Unity does not accept Git dependencies inside a package manifest; the project manifest has to list them.
-
-VRM 0.x models need a third package, added the same way when those files show up:
-
-```text
-https://github.com/vrm-c/UniVRM.git?path=/Packages/VRM#v0.131.4
-```
-
-That package name is `com.vrmc.univrm`. Source and release notes: [github.com/vrm-c/UniVRM](https://github.com/vrm-c/UniVRM/releases/tag/v0.131.4).
+`com.vrmc.vrm` is VRM 1.0. It depends on `com.vrmc.gltf` (UniGLTF). `com.vrmc.univrm` is the VRM 0.x importer. Unity does not accept Git dependencies inside a package manifest, so the project manifest lists all three. Runtime loads also migrate a VRM 0.x file through `Vrm10.LoadPathAsync`. Source and release notes: [github.com/vrm-c/UniVRM](https://github.com/vrm-c/UniVRM/releases/tag/v0.131.4).
 
 Test Framework, uGUI, and Timeline are core packages on Unity 6000.6: the editor ships one version of each, and Package Manager will not substitute a different one. The pins above come from the Unity 6000.6.0 package update (`test-framework` 1.8.0, `ugui` 2.6.0, `timeline` 6.6.0) and the 6000.6 manual (`inputsystem` 1.20.1). The 6000.6.6f1 patch notes do not change those four. This repository was not opened in the editor, so the bundled versions were not read from that install's package manifest.
 
@@ -134,12 +120,14 @@ Assets/_Project/
     Core/                  AppBootstrap, AnimationCue, Emotion          AICompanion.Core
     AI/                    IChatProvider                                 AICompanion.AI
     Voice/                 speech-to-text and text-to-speech             AICompanion.Voice
-    Avatar/                VRM and humanoid avatar runtime               AICompanion.Avatar
+    Avatar/                humanoid load, blendshapes, descriptor        AICompanion.Avatar
     AnimationDirector/     cue to Animator mapping                       AICompanion.AnimationDirector
     Overlay/               transparent always-on-top window              AICompanion.Overlay
     UI/                    chat and settings UI                          AICompanion.UI
-  Models/                  FBX and other source meshes (Git LFS)
-  Avatars/                 VRM files (Git LFS)
+  Models/                  other source meshes (Git LFS). Character FBX here is imported as Humanoid.
+  Avatars/                 FBX humanoids, including the CC0 sample (Git LFS)
+  StreamingAssets/Avatars/ CC0 VRM loaded at runtime (Git LFS)
+LocalAvatars/              gitignored. Asset Store models such as Asuna go here.
   Animations/              clips and controllers
   Scenes/                  Unity scenes
   Settings/                  runtime settings assets (not API keys)
@@ -153,7 +141,7 @@ Config/
   appsettings.json         gitignored local secrets
 ```
 
-`AICompanion.AI` references `Core`. `UI` references `Core` and `AI`. Voice, Avatar, AnimationDirector, and Overlay each reference `Core` only, so chat and animation cannot form a cycle. `AnimationCue` lives in `Core` because both the provider layer and the director will use it.
+`AICompanion.AI` references `Core`. `UI` references `Core` and `AI`. `Avatar` references `Core` and UniVRM's `VRM10` assembly. Voice, AnimationDirector, and Overlay each reference `Core` only, so chat and animation cannot form a cycle. `AnimationCue` lives in `Core` because both the provider layer and the director will use it.
 
 Git LFS tracks binary assets (`.fbx`, `.vrm`, `.png`, `.wav`, audio, video, and similar). Scenes, prefabs, and `.asset` files stay as text. Run `git lfs install` before adding those binaries.
 

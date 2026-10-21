@@ -130,6 +130,7 @@ GameObject:
   - component: {fileID: 550823690}
   - component: {fileID: 550823689}
   - component: {fileID: 550823688}
+  - component: {fileID: 550823691}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -196,6 +197,43 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
+--- !u!114 &550823691
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 550823687}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
+  m_RenderShadows: 1
+  m_RequiresDepthTextureOption: 0
+  m_RequiresOpaqueTextureOption: 0
+  m_CameraType: 0
+  m_Cameras: []
+  m_RendererIndex: -1
+  m_VolumeLayerMask:
+    serializedVersion: 2
+    m_Bits: 1
+  m_VolumeTrigger: {fileID: 550823690}
+  m_VolumeFrameworkUpdateModeOption: 2
+  m_RenderPostProcessing: 0
+  m_Antialiasing: 0
+  m_AntialiasingQuality: 2
+  m_StopNaN: 0
+  m_Dithering: 0
+  m_ClearDepth: 1
+  m_AllowXRRendering: 0
+  m_AllowHDROutput: 0
+  m_UseScreenCoordOverride: 0
+  m_ScreenSizeOverride: {x: 0, y: 0, z: 0, w: 0}
+  m_ScreenCoordScaleBias: {x: 0, y: 0, z: 0, w: 0}
+  m_RequiresDepthTexture: 0
+  m_RequiresColorTexture: 0
+  m_Version: 2
 --- !u!4 &550823690
 Transform:
   m_ObjectHideFlags: 0
@@ -319,6 +357,7 @@ GameObject:
   - component: {fileID: 1911444197}
   - component: {fileID: 1911444198}
   - component: {fileID: 1911444199}
+  - component: {fileID: 1911444200}
   m_Layer: 0
   m_Name: AppBootstrap
   m_TagString: Untagged
@@ -374,6 +413,21 @@ MonoBehaviour:
   idleFrameRate: 15
   idleAfterSeconds: 3
   opaqueAlphaThreshold: 0.08
+--- !u!114 &1911444200
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1911444196}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 57e67bc6a6805e78214b4c813e689256, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: AICompanion.Avatar::AICompanion.Avatar.AvatarMount
+  selection: {fileID: 11400000, guid: 0a22ccfbccc60133385a0541ddad77f0, type: 2}
+  placeholder: {fileID: 2100000101}
+  cycleKey: 288
 --- !u!1 &2100000101
 GameObject:
   m_ObjectHideFlags: 0
@@ -439,7 +493,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: 9b2734d96b3b40295bced1181550b892, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
