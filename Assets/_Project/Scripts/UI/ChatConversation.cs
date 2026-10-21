@@ -273,6 +273,8 @@ namespace AICompanion.UI
 
         public Action<bool> Talking;
 
+        public Action<string> SpokenDelta;
+
         public Task<ChatResult> Run(IChatProvider provider, string userText, string systemPrompt, float temperature, int maxTokens, CancellationToken token)
         {
             if (!_conversation.TryBeginSend(userText, systemPrompt, temperature, maxTokens, out var request))
@@ -299,7 +301,19 @@ namespace AICompanion.UI
             Task<ChatResult> pending;
             try
             {
-                pending = provider.StreamChat(request, piece => _conversation.PushDelta(generation, piece), token);
+                pending = provider.StreamChat(request, piece =>
+                {
+                    _conversation.PushDelta(generation, piece);
+                    if (SpokenDelta == null)
+                        return;
+                    try
+                    {
+                        SpokenDelta(piece);
+                    }
+                    catch (Exception)
+                    {
+                    }
+                }, token);
             }
             catch (Exception)
             {

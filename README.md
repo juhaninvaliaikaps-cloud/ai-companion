@@ -135,13 +135,13 @@ Config/
   appsettings.example.json pointer only; the xAI key is not stored here
 ```
 
-`AICompanion.AI` references `Core`. `UI` references `Core`, `AI`, and uGUI. `Avatar` references `Core` and UniVRM's `VRM10` assembly. Voice, AnimationDirector, and Overlay each reference `Core` only, so chat and animation cannot form a cycle. `AnimationCue` lives in `Core` because both the provider layer and the director will use it.
+`AICompanion.AI` references `Core`. `UI` references `Core`, `AI`, and uGUI. `Avatar` references `Core` and UniVRM's `VRM10` assembly. `AICompanion.Voice` references `Core`, `AI`, and the Unity web request module so speech can use the same xAI key lookup as chat. `UI` does not reference `Voice`. The panel reaches speech through `ISpeechOutput` and `ISpeechNotes` in `Core`. AnimationDirector and Overlay each reference `Core` only. `AnimationCue` lives in `Core` because both the provider layer and the director will use it.
 
 Git LFS tracks binary assets (`.fbx`, `.vrm`, `.png`, `.wav`, audio, video, and similar). Scenes, prefabs, and `.asset` files stay as text. Run `git lfs install` before adding those binaries.
 
 ## What the skeleton contains
 
-- `IChatProvider.StreamChat` is the boundary for a cloud or local LLM. Grok is the first provider. Callers resolve the id on `ChatSettings` through `ChatProviderRegistry`. The API key stays outside the repo. The chat panel sends the session through that registry. **F10** shows it, **Enter** sends, and a reply streams into the transcript. See [docs/CHAT_UI.md](docs/CHAT_UI.md).
+- `IChatProvider.StreamChat` is the boundary for a cloud or local LLM. Grok is the first provider. Callers resolve the id on `ChatSettings` through `ChatProviderRegistry`. The API key stays outside the repo. The chat panel sends the session through that registry. **F10** shows it, **Enter** sends, and a reply streams into the transcript. See [docs/CHAT_UI.md](docs/CHAT_UI.md). Spoken replies go through `ITtsProvider`. The first voice is xAI's `eve`. **F6** mutes it. See [docs/VOICE.md](docs/VOICE.md).
 - `AnimationCue` carries an `Emotion`, an intensity clamped to 0–1, and a gesture name.
 - `IAvatarAnimator` is the runtime hook for that cue. `SetTalking(bool)` and `SetEmotion(Emotion, intensity)` drive the shared humanoid controller and the face. The debug keys are 1–5 and T. On spawn the humanoid root yaws to face the overlay camera. Right-click a visible pixel, then drag, to add a yaw that is saved per avatar source.
 - `AppBootstrap` is the `MonoBehaviour` scene entry point. `Awake` logs once and starts `ICompanionStartup` components on the same object, including `OverlayWindow`.

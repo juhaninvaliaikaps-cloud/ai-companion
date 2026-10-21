@@ -173,7 +173,9 @@ namespace AICompanion.Tests.EditMode
             var conversation = new ChatConversation();
             var exchange = new ChatExchange(conversation);
             var talking = new List<bool>();
+            var spoken = new List<string>();
             exchange.Talking = talking.Add;
+            exchange.SpokenDelta = spoken.Add;
             var provider = new ScriptedProvider { Deltas = new[] { "He", "llo" }, Result = ChatResult.Success("Hello") };
 
             var result = exchange.Run(provider, "hi", "persona", 0.5f, 24, CancellationToken.None).GetAwaiter().GetResult();
@@ -186,6 +188,22 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("hi", provider.Last.Messages[0].Content);
             Assert.IsNull(provider.Last.Model);
             CollectionAssert.AreEqual(new[] { true, false }, talking);
+            CollectionAssert.AreEqual(new[] { "He", "llo" }, spoken);
+        }
+
+        [Test]
+        public void Exchange_SpeechSinkFailureDoesNotBreakTheReply()
+        {
+            var conversation = new ChatConversation();
+            var exchange = new ChatExchange(conversation);
+            exchange.SpokenDelta = _ => throw new InvalidOperationException("xai-leak-from-speech");
+            var provider = new ScriptedProvider { Deltas = new[] { "Hi" }, Result = ChatResult.Success("Hi") };
+
+            var result = exchange.Run(provider, "hi", "persona", 0.5f, 24, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.IsTrue(result.Ok);
+            StringAssert.Contains("Hi", conversation.FormatTranscript());
+            StringAssert.DoesNotContain("xai-leak-from-speech", conversation.FormatTranscript());
         }
 
         [Test]
@@ -323,6 +341,7 @@ namespace AICompanion.Tests.EditMode
         public void DebugInputGuard_BlocksDebugKeysOnlyWhileATextFieldIsFocused()
         {
             Assert.IsFalse(DebugInputGuard.IsBlocked(KeyCode.T));
+            Assert.IsFalse(DebugInputGuard.IsBlocked(KeyCode.F6));
             Assert.IsFalse(DebugInputGuard.IsBlocked(KeyCode.F9));
 
             DebugInputGuard.SetTextFieldFocused(true);
@@ -331,6 +350,7 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(DebugInputGuard.IsBlocked(KeyCode.Keypad5));
             Assert.IsTrue(DebugInputGuard.IsBlocked(KeyCode.T));
             Assert.IsTrue(DebugInputGuard.IsBlocked(KeyCode.R));
+            Assert.IsTrue(DebugInputGuard.IsBlocked(KeyCode.F6));
             Assert.IsTrue(DebugInputGuard.IsBlocked(KeyCode.F7));
             Assert.IsTrue(DebugInputGuard.IsBlocked(KeyCode.F8));
             Assert.IsTrue(DebugInputGuard.IsBlocked(KeyCode.F9));

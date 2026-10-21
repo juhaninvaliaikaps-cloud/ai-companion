@@ -34,6 +34,7 @@ namespace AICompanion.Core
                 case KeyCode.Keypad5:
                 case KeyCode.T:
                 case KeyCode.R:
+                case KeyCode.F6:
                 case KeyCode.F7:
                 case KeyCode.F8:
                 case KeyCode.F9:
