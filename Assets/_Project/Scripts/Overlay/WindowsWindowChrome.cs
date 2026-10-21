@@ -17,6 +17,8 @@ namespace AICompanion.Overlay
         const int SmCxScreen = 0;
         const int SmCyScreen = 1;
         const int VkLButton = 0x01;
+        const int VkRButton = 0x02;
+        const int VkMButton = 0x04;
 
         const uint SwpNoSize = 0x0001;
         const uint SwpNoMove = 0x0002;
@@ -102,6 +104,16 @@ namespace AICompanion.Overlay
         public bool IsLeftButtonHeld()
         {
             return (GetAsyncKeyState(VkLButton) & 0x8000) != 0;
+        }
+
+        public bool IsRightButtonHeld()
+        {
+            return (GetAsyncKeyState(VkRButton) & 0x8000) != 0;
+        }
+
+        public bool IsMiddleButtonHeld()
+        {
+            return (GetAsyncKeyState(VkMButton) & 0x8000) != 0;
         }
 
         public bool TryGetScreenCursor(out Vector2Int screenPixels)

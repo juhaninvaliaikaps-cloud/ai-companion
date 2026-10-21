@@ -9,6 +9,8 @@ namespace AICompanion.Overlay
         void SetTopmost(bool topmost);
         void SetClickThrough(bool clickThrough);
         bool IsLeftButtonHeld();
+        bool IsRightButtonHeld();
+        bool IsMiddleButtonHeld();
         bool TryGetScreenCursor(out Vector2Int screenPixels);
         bool TryGetClientCursor(out Vector2Int clientPixels, out Vector2Int clientSize);
         bool TryGetWindowPosition(out Vector2Int topLeft);
@@ -43,6 +45,10 @@ namespace AICompanion.Overlay
         }
 
         public bool IsLeftButtonHeld() => false;
+
+        public bool IsRightButtonHeld() => false;
+
+        public bool IsMiddleButtonHeld() => false;
 
         public bool TryGetScreenCursor(out Vector2Int screenPixels)
         {

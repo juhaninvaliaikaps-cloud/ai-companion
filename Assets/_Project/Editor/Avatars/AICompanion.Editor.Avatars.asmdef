@@ -2,6 +2,7 @@
     "name": "AICompanion.Editor.Avatars",
     "rootNamespace": "AICompanion.Editor.Avatars",
     "references": [
+        "AICompanion.Core",
         "AICompanion.Avatar"
     ],
     "includePlatforms": [

@@ -15,6 +15,7 @@ namespace AICompanion.Avatar
         Joy,
         Angry,
         Sorrow,
-        Fun
+        Fun,
+        Surprised
     }
 }

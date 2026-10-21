@@ -45,6 +45,10 @@ namespace AICompanion.Avatar
                 return ExpressionPreset.Angry;
             if (normalized.StartsWith("mouthfrown", StringComparison.Ordinal))
                 return ExpressionPreset.Sorrow;
+            if (normalized.StartsWith("browinnerup", StringComparison.Ordinal)
+                || normalized.StartsWith("browouterup", StringComparison.Ordinal)
+                || normalized.StartsWith("eyewide", StringComparison.Ordinal))
+                return ExpressionPreset.Surprised;
 
             return ExpressionPreset.None;
         }
@@ -135,6 +139,7 @@ namespace AICompanion.Avatar
             Add(map, ExpressionPreset.Angry, "angry", "fclallangry", "browdownleft", "browdownright", "browdown");
             Add(map, ExpressionPreset.Sorrow, "sorrow", "sad", "fclallsorrow", "mouthfrownleft", "mouthfrownright", "mouthfrown");
             Add(map, ExpressionPreset.Fun, "fun", "relaxed", "fclallfun");
+            Add(map, ExpressionPreset.Surprised, "surprised", "surprise", "fclallsurprised", "browinnerup", "browouterup", "browouterupleft", "browouterupright", "eyewide", "eyewideleft", "eyewideright");
             return map;
         }
 

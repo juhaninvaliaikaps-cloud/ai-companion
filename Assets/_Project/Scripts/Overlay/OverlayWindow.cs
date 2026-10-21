@@ -17,7 +17,8 @@ namespace AICompanion.Overlay
     {
         const string TopmostOnLabel = "Topmost on   F8";
         const string TopmostOffLabel = "Topmost off  F8";
-        static readonly Rect PanelRect = new Rect(8f, 8f, 168f, 48f);
+        static readonly Rect PanelRect = new Rect(8f, 8f, 360f, 108f);
+        static GUIStyle _rotateStyle;
         static readonly Color AvatarTint = new Color(0.95f, 0.45f, 0.62f, 1f);
 
         [SerializeField] Renderer placeholderAvatar;
@@ -38,8 +39,13 @@ namespace AICompanion.Overlay
         bool _chromeApplied;
         bool _placed;
         bool _dragging;
+        bool _yawDrag;
+        bool _rotating;
         bool _userMoved;
         bool _leftWasHeld;
+        bool _rightWasHeld;
+        bool _middleWasHeld;
+        float _yawPointerX;
         bool _clickThrough;
         int _warmup;
         float _idleFor;
@@ -60,6 +66,16 @@ namespace AICompanion.Overlay
         int _fpsFrames;
         float _fpsTimer;
         string _fpsText = "--";
+        IAvatarAnimator _animator;
+        IAvatarTurntable _turntable;
+        string _emotionText = "";
+        Emotion _shownEmotion;
+        float _shownIntensity = -1f;
+        bool _shownTalking;
+        bool _emotionReady;
+        string _rotateText = AvatarRotateMode.OffLabel;
+        bool _shownRotating;
+        bool _rotateReady;
 
         public bool IsTopmost => _topmost;
         public bool IsClickThrough => _clickThrough;
@@ -103,8 +119,45 @@ namespace AICompanion.Overlay
             bool leftHeld = LeftHeld();
             bool leftDown = leftHeld && !_leftWasHeld;
             _leftWasHeld = leftHeld;
+            bool rightHeld = RightHeld();
+            bool rightDown = rightHeld && !_rightWasHeld;
+            _rightWasHeld = rightHeld;
+            bool middleHeld = MiddleHeld();
+            bool middleDown = middleHeld && !_middleWasHeld;
+            _middleWasHeld = middleHeld;
 
-            if (!_dragging && leftDown && (onSilhouette || overPanel) && _chrome.TryGetWindowPosition(out var origin) && _chrome.TryGetScreenCursor(out var cursor))
+            if (_turntable == null)
+                _turntable = GetComponent<IAvatarTurntable>();
+
+            bool toggle = AvatarRotateMode.ShouldToggle(rightDown, onSilhouette, overUi);
+            _rotating = AvatarRotateMode.Next(_rotating, toggle, Input.GetKeyDown(KeyCode.Escape));
+            if (_turntable != null && AvatarRotateMode.ShouldReset(_rotating, Input.GetKeyDown(KeyCode.R), middleDown, onSilhouette, overUi))
+                _turntable.ResetYaw();
+
+            if (!_yawDrag && leftDown && AvatarRotateMode.ShouldRotateInsteadOfMovingWindow(_rotating, onSilhouette, overUi))
+            {
+                _yawDrag = true;
+                _yawPointerX = unityScreen.x;
+            }
+
+            if (_yawDrag)
+            {
+                if (leftHeld && _rotating)
+                {
+                    float delta = unityScreen.x - _yawPointerX;
+                    _yawPointerX = unityScreen.x;
+                    if (delta != 0f && _turntable != null)
+                        _turntable.AddYawPixels(delta);
+                }
+                else
+                {
+                    _yawDrag = false;
+                    if (_turntable != null)
+                        _turntable.CommitYaw();
+                }
+            }
+
+            if (!_dragging && !_yawDrag && leftDown && (onSilhouette || overPanel) && _chrome.TryGetWindowPosition(out var origin) && _chrome.TryGetScreenCursor(out var cursor))
             {
                 _dragging = true;
                 _userMoved = true;
@@ -121,7 +174,7 @@ namespace AICompanion.Overlay
                 }
             }
 
-            bool interactive = !SilhouetteHit.ShouldClickThrough(overUi, onSilhouette, _dragging);
+            bool interactive = !SilhouetteHit.ShouldClickThrough(overUi, onSilhouette, _dragging || _yawDrag);
             _clickThrough = !interactive;
             _chrome.SetClickThrough(_clickThrough);
             QueueAlphaSample(inside, outsideSlack, pixel);
@@ -129,7 +182,7 @@ namespace AICompanion.Overlay
             if (Input.GetKeyDown(topmostKey))
                 SetTopmost(!_topmost);
 
-            bool awake = inside || leftHeld || _dragging || Input.anyKey;
+            bool awake = inside || leftHeld || rightHeld || middleHeld || _dragging || _yawDrag || Input.anyKey;
             if (awake)
                 _idleFor = 0f;
             else
@@ -154,9 +207,15 @@ namespace AICompanion.Overlay
             if (!_started)
                 return;
 
+            RefreshEmotionLabel();
+            RefreshRotateLabel();
+            var line = RotateStyle();
             GUI.Box(PanelRect, GUIContent.none);
-            GUI.Label(new Rect(12f, 10f, 156f, 18f), _topmost ? TopmostOnLabel : TopmostOffLabel);
-            GUI.Label(new Rect(12f, 28f, 156f, 18f), _fpsText);
+            GUI.Label(new Rect(12f, 10f, 336f, 18f), _topmost ? TopmostOnLabel : TopmostOffLabel, line);
+            GUI.Label(new Rect(12f, 28f, 336f, 18f), _fpsText, line);
+            GUI.Label(new Rect(12f, 46f, 336f, 18f), _emotionText, line);
+            GUI.Label(new Rect(12f, 64f, 336f, 18f), AvatarAnimatorModel.DebugHint, line);
+            GUI.Label(new Rect(12f, 82f, 336f, 18f), _rotateText, line);
         }
 
         void OnDestroy()
@@ -268,6 +327,34 @@ namespace AICompanion.Overlay
             return Input.GetMouseButton(0);
         }
 
+        bool RightHeld()
+        {
+            if (_chrome != null && _chrome.IsSupported)
+                return _chrome.IsRightButtonHeld();
+
+            return Input.GetMouseButton(1);
+        }
+
+        bool MiddleHeld()
+        {
+            if (_chrome != null && _chrome.IsSupported)
+                return _chrome.IsMiddleButtonHeld();
+
+            return Input.GetMouseButton(2);
+        }
+
+        static GUIStyle RotateStyle()
+        {
+            if (_rotateStyle == null)
+            {
+                _rotateStyle = new GUIStyle(GUI.skin.label);
+                _rotateStyle.wordWrap = false;
+                _rotateStyle.clipping = TextClipping.Clip;
+            }
+
+            return _rotateStyle;
+        }
+
         void QueueAlphaSample(bool inside, bool outsideSlack, Vector2Int pixel)
         {
             if (!SilhouetteHit.ShouldSample(inside, outsideSlack, _sampleRoutineRunning))
@@ -318,6 +405,40 @@ namespace AICompanion.Overlay
 
             _appliedRate = rate;
             Application.targetFrameRate = rate;
+        }
+
+        void RefreshEmotionLabel()
+        {
+            if (_animator == null)
+                _animator = GetComponent<IAvatarAnimator>();
+            if (_animator == null)
+            {
+                if (_emotionText.Length != 0)
+                    _emotionText = string.Empty;
+                return;
+            }
+
+            var emotion = _animator.Emotion;
+            var intensity = _animator.EmotionIntensity;
+            var talking = _animator.IsTalking;
+            if (_emotionReady && emotion == _shownEmotion && talking == _shownTalking && intensity == _shownIntensity)
+                return;
+
+            _emotionReady = true;
+            _shownEmotion = emotion;
+            _shownIntensity = intensity;
+            _shownTalking = talking;
+            _emotionText = AvatarAnimatorModel.FormatLabel(emotion, intensity, talking);
+        }
+
+        void RefreshRotateLabel()
+        {
+            if (_rotateReady && _shownRotating == _rotating)
+                return;
+
+            _rotateReady = true;
+            _shownRotating = _rotating;
+            _rotateText = AvatarRotateMode.Format(_rotating);
         }
 
         void AccumulateFps()

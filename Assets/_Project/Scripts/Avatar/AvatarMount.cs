@@ -252,6 +252,7 @@ namespace AICompanion.Avatar
             _current = descriptor;
             _loaded = source;
             SetPlaceholderVisible(false);
+            NotifyAnimator();
 
             if (!report.IsValid)
                 Debug.LogError(report.Message);
@@ -266,6 +267,14 @@ namespace AICompanion.Avatar
             _current = null;
             _loaded = AvatarPreference.Auto;
             SetPlaceholderVisible(true);
+            NotifyAnimator();
+        }
+
+        void NotifyAnimator()
+        {
+            var driver = GetComponent<AvatarAnimationController>();
+            if (driver != null)
+                driver.Attach(_instance, _current, _loaded);
         }
 
         int BeginLoad()
