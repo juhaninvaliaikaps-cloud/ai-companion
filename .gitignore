@@ -112,6 +112,23 @@ InitTestScene*.unity*
 Thumbs.db
 Desktop.ini
 
+# Local avatars. Asset Store models and other files that cannot be redistributed.
+# Move an imported folder here inside the Unity Editor so its .meta GUIDs stay valid.
+/Assets/LocalAvatars/
+/Assets/LocalAvatars.meta
+
+# Free Test Character Asuna (MSGDI, Asset Store 205897, Standard Unity Asset Store EULA).
+# The import root is not fixed. These are the likely folder names. If Unity imports
+# it somewhere else, move that folder to Assets/LocalAvatars/ before committing.
+/Assets/Asuna/
+/Assets/Asuna.meta
+/Assets/MSGDI/
+/Assets/MSGDI.meta
+/Assets/FreeTestCharacterAsuna/
+/Assets/FreeTestCharacterAsuna.meta
+/Assets/Free Test Character Asuna/
+/Assets/Free Test Character Asuna.meta
+
 # Local secrets. Copy Config/appsettings.example.json to Config/appsettings.json.
 /Config/appsettings.json
 /Config/*.local.json

@@ -2,7 +2,10 @@
     "name": "AICompanion.Avatar",
     "rootNamespace": "AICompanion.Avatar",
     "references": [
-        "AICompanion.Core"
+        "AICompanion.Core",
+        "VRM10",
+        "UniGLTF",
+        "UniGLTF.Utils"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

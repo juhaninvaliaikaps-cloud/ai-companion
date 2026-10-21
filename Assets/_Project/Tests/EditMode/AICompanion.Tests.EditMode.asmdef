@@ -4,6 +4,7 @@
     "references": [
         "AICompanion.Core",
         "AICompanion.AI",
+        "AICompanion.Avatar",
         "AICompanion.Overlay",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

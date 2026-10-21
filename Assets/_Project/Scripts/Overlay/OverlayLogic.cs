@@ -35,6 +35,57 @@ namespace AICompanion.Overlay
         }
     }
 
+    /// <summary>
+    /// Click-through follows the rendered silhouette. A pixel counts only when its
+    /// alpha crosses the engage threshold, and it stays counted until alpha falls
+    /// below the release threshold so the edge does not flicker.
+    /// </summary>
+    public static class SilhouetteHit
+    {
+        public const float EngageAlpha = ClickThroughDecision.DefaultOpaqueAlpha;
+        public const float ReleaseAlpha = 0.04f;
+        public const int SampleSlackPixels = 3;
+
+        public static bool NextOpaque(bool wasOpaque, float alpha, float engage = EngageAlpha, float release = ReleaseAlpha)
+        {
+            if (release > engage)
+                release = engage;
+
+            if (wasOpaque)
+                return alpha >= release;
+
+            return alpha >= engage;
+        }
+
+        public static bool WithinSlack(Vector2Int origin, Vector2Int current, int slackPixels = SampleSlackPixels)
+        {
+            if (slackPixels < 0)
+                slackPixels = 0;
+
+            int dx = origin.x - current.x;
+            int dy = origin.y - current.y;
+            return dx * dx + dy * dy <= slackPixels * slackPixels;
+        }
+
+        public static bool ShouldSample(bool insideWindow, bool outsideSlack, bool readInFlight)
+        {
+            return insideWindow && outsideSlack && !readInFlight;
+        }
+
+        /// <summary>
+        /// The window lets clicks through unless the cursor is on UI or on an opaque
+        /// silhouette pixel. A drag that has already started keeps the window
+        /// interactive until the button is released.
+        /// </summary>
+        public static bool ShouldClickThrough(bool overUi, bool onSilhouette, bool dragging)
+        {
+            if (dragging)
+                return false;
+
+            return !overUi && !onSilhouette;
+        }
+    }
+
     public static class OverlayFrameRate
     {
         public const int Active = 60;
