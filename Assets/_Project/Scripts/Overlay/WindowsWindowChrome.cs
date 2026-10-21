@@ -207,6 +207,20 @@ namespace AICompanion.Overlay
             SetWindowPos(_hwnd, after, topLeft.x, topLeft.y, 0, 0, SwpNoSize | SwpNoActivate | SwpShowWindow);
         }
 
+        public void PlaceWindow(Vector2Int topLeft, int width, int height, bool topmost)
+        {
+            if (!TryGetHwnd())
+                return;
+
+            if (width < 1)
+                width = 1;
+            if (height < 1)
+                height = 1;
+
+            var after = topmost ? HwndTopMost : HwndNoTopMost;
+            SetWindowPos(_hwnd, after, topLeft.x, topLeft.y, width, height, SwpNoActivate | SwpShowWindow);
+        }
+
         public void FocusForTyping()
         {
             if (!TryGetHwnd())

@@ -3,14 +3,18 @@ using System.Collections.Generic;
 using AICompanion.Core;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace AICompanion.Overlay
 {
     /// <summary>
     /// Borderless transparent window, topmost toggle, drag, and click-through.
     /// A point is on the avatar only when the framebuffer pixel under the cursor is
-    /// opaque. Win32 runs only in the Windows player. In the editor this still clears
-    /// the camera, limits the frame rate, and updates the debug label.
+    /// opaque. Scroll over that pixel zooms the camera. Ctrl+scroll scales the avatar.
+    /// The window stays at 480×720 until she would be clipped, then the transparent
+    /// window grows. Chat and labels stay at their normal pixel size. Win32 runs only
+    /// in the Windows player. In the editor this still clears the camera, limits the
+    /// frame rate, frames the avatar, and updates the debug label.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class OverlayWindow : MonoBehaviour, ICompanionStartup, ITypingFocus, IDesktopWindow
@@ -37,16 +41,24 @@ namespace AICompanion.Overlay
         bool _topmost;
         bool _resolutionApplied;
         bool _chromeApplied;
-        bool _placed;
         bool _dragging;
         bool _yawDrag;
         bool _rotating;
-        bool _userMoved;
         bool _leftWasHeld;
         bool _rightWasHeld;
         bool _middleWasHeld;
         float _yawPointerX;
         bool _clickThrough;
+        float _windowScale = 1f;
+        int _anchorRight;
+        int _anchorBottom;
+        bool _hasAnchor;
+        int _repositionFrames;
+        int _appliedWidth = -1;
+        int _appliedHeight = -1;
+        AvatarCameraFrame _frame;
+        int _shownSizePct = -1;
+        int _shownZoomPct = -1;
         int _warmup;
         float _idleFor;
         int _appliedRate = -1;
@@ -93,12 +105,16 @@ namespace AICompanion.Overlay
             _endOfFrame = new WaitForEndOfFrame();
             _camera = Camera.main;
             ApplyTransparentCamera(_camera);
+            _windowScale = PlayerPrefs.GetFloat(OverlayWindowSize.ScalePrefKey, 1f);
+            EnsureCameraFrame();
             TintAvatar();
             Application.runInBackground = true;
             QualitySettings.vSyncCount = 0;
             ApplyFrameRate(activeFrameRate);
             ApplyPlayerResolution();
             EnsureChrome();
+            PushAvatarScale();
+            LockUiPixels();
         }
 
         void Start()
@@ -139,6 +155,8 @@ namespace AICompanion.Overlay
             bool resetKey = Input.GetKeyDown(KeyCode.R) && !DebugInputGuard.IsBlocked(KeyCode.R);
             if (_turntable != null && AvatarRotateMode.ShouldReset(_rotating, resetKey, middleDown, onSilhouette, overUi))
                 _turntable.ResetYaw();
+            if (middleDown && onSilhouette && !overUi)
+                ResetCameraZoom();
 
             if (leftDown && overOtherUi)
                 FocusForTyping();
@@ -182,7 +200,6 @@ namespace AICompanion.Overlay
             if (!_dragging && !_yawDrag && WindowDragGate.ShouldStart(leftDown, onSilhouette, overPanel, overOtherUi) && _chrome.TryGetWindowPosition(out var origin) && _chrome.TryGetScreenCursor(out var cursor))
             {
                 _dragging = true;
-                _userMoved = true;
                 _drag = new WindowDrag(origin, cursor);
             }
 
@@ -193,7 +210,19 @@ namespace AICompanion.Overlay
                 else if (!leftHeld)
                 {
                     _dragging = false;
+                    RememberAnchor();
                 }
+            }
+
+            float scroll = Input.mouseScrollDelta.y;
+            bool adjustView = OverlayWindowSize.CursorCanAdjust(onSilhouette, overUi) && Mathf.Abs(scroll) > 0.01f;
+            if (adjustView)
+            {
+                bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+                if (ctrl)
+                    AdjustSize(scroll);
+                else
+                    AdjustZoom(scroll, unityScreen);
             }
 
             bool interactive = !SilhouetteHit.ShouldClickThrough(overUi, onSilhouette, _dragging || _yawDrag);
@@ -204,7 +233,7 @@ namespace AICompanion.Overlay
             if (Input.GetKeyDown(topmostKey) && !DebugInputGuard.IsBlocked(topmostKey))
                 SetTopmost(!_topmost);
 
-            bool awake = inside || leftHeld || rightHeld || middleHeld || _dragging || _yawDrag || Input.anyKey || KeepAwake();
+            bool awake = inside || leftHeld || rightHeld || middleHeld || _dragging || _yawDrag || adjustView || Input.anyKey || KeepAwake();
             if (awake)
                 _idleFor = 0f;
             else
@@ -219,8 +248,14 @@ namespace AICompanion.Overlay
                 _chrome.SetTopmost(_topmost);
                 _chrome.SetClickThrough(_clickThrough);
                 _warmup--;
-                if (_warmup == 0 && !_userMoved)
-                    TryPlace(force: true);
+                if (_warmup == 0 && !_dragging)
+                    ApplySizedWindow(false);
+            }
+
+            if (_repositionFrames > 0 && !_dragging && _chrome != null && _chrome.IsSupported)
+            {
+                ApplySizedWindow(false);
+                _repositionFrames--;
             }
         }
 
@@ -276,10 +311,15 @@ namespace AICompanion.Overlay
                 return;
 
             _resolutionApplied = true;
+            _windowScale = OverlayWindowSize.ClampScale(_windowScale, 10000, 10000);
+            OverlayWindowSize.SizeFor(WindowFactor(), out windowWidth, out windowHeight);
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             Screen.fullScreenMode = FullScreenMode.Windowed;
             Screen.SetResolution(windowWidth, windowHeight, FullScreenMode.Windowed);
+            _appliedWidth = windowWidth;
+            _appliedHeight = windowHeight;
             _warmup = 30;
+            _repositionFrames = 30;
 #endif
         }
 
@@ -294,7 +334,7 @@ namespace AICompanion.Overlay
             _chromeApplied = true;
             _warmup = 30;
             _chrome.SetTopmost(_topmost);
-            TryPlace(force: false);
+            ApplySizedWindow(true);
         }
 
         public bool TryGetDesktopWindow(out DesktopWindow window)
@@ -327,20 +367,168 @@ namespace AICompanion.Overlay
             return true;
         }
 
-        void TryPlace(bool force)
+        void EnsureCameraFrame()
         {
-            if ((_placed && !force) || !_chrome.TryGetMonitorSize(out var monitor))
+            if (_frame == null)
+                _frame = GetComponent<AvatarCameraFrame>();
+            if (_frame == null)
+                _frame = gameObject.AddComponent<AvatarCameraFrame>();
+
+            _frame.Attach(_camera);
+            _frame.SetZoom(Mathf.Clamp01(PlayerPrefs.GetFloat(OverlayWindowSize.ZoomPrefKey, 0f)));
+            PushAvatarScale();
+        }
+
+        void ResetCameraZoom()
+        {
+            if (_frame == null)
                 return;
 
-            int x = monitor.x - windowWidth - 48;
-            int y = monitor.y - windowHeight - 96;
-            if (x < 0)
-                x = 0;
-            if (y < 0)
-                y = 0;
+            _frame.ResetZoom();
+            PlayerPrefs.SetFloat(OverlayWindowSize.ZoomPrefKey, 0f);
+        }
 
-            _chrome.MoveWindow(new Vector2Int(x, y), _topmost);
-            _placed = true;
+        void AdjustZoom(float scrollY, Vector2 unityScreen)
+        {
+            if (_frame == null)
+                return;
+
+            float next = OverlayWindowSize.NextZoom(_frame.TargetZoom, scrollY);
+            if (_frame.TryPivotFromCursor(unityScreen, out var pivot))
+                _frame.SetZoomToward(next, pivot);
+            else
+                _frame.SetZoom(next);
+
+            PlayerPrefs.SetFloat(OverlayWindowSize.ZoomPrefKey, next);
+        }
+
+        void AdjustSize(float scrollY)
+        {
+            int workWidth = 10000;
+            int workHeight = 10000;
+            if (TryReadWorkArea(out var left, out var top, out var right, out var bottom))
+            {
+                workWidth = right - left;
+                workHeight = bottom - top;
+            }
+
+            _windowScale = OverlayWindowSize.NextScale(_windowScale, scrollY, workWidth, workHeight);
+            PlayerPrefs.SetFloat(OverlayWindowSize.ScalePrefKey, _windowScale);
+            ApplySizedWindow(true);
+            PushAvatarScale();
+            LockUiPixels();
+        }
+
+        float WindowFactor()
+        {
+            return OverlayWindowSize.ClampScale(OverlayWindowSize.WindowFactorFor(_windowScale), 10000, 10000);
+        }
+
+        void PushAvatarScale()
+        {
+            if (_frame == null)
+                return;
+
+            float factor = 1f;
+            if (_chrome != null && _chrome.IsSupported && windowHeight > 0)
+                factor = windowHeight / (float)OverlayWindowSize.BaseHeight;
+            _frame.SetModelScale(_windowScale, factor);
+        }
+
+        void LockUiPixels()
+        {
+            var scalers = FindObjectsByType<CanvasScaler>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (var i = 0; i < scalers.Length; i++)
+            {
+                var scaler = scalers[i];
+                if (scaler == null)
+                    continue;
+
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
+                scaler.scaleFactor = 1f;
+            }
+        }
+
+        void ApplySizedWindow(bool allowResize)
+        {
+            bool haveWork = TryReadWorkArea(out var workLeft, out var workTop, out var workRight, out var workBottom);
+            int workWidth = haveWork ? workRight - workLeft : 10000;
+            int workHeight = haveWork ? workBottom - workTop : 10000;
+            _windowScale = OverlayWindowSize.ClampScale(_windowScale, workWidth, workHeight);
+            float factor = OverlayWindowSize.ClampScale(OverlayWindowSize.WindowFactorFor(_windowScale), workWidth, workHeight);
+            OverlayWindowSize.SizeFor(factor, out var width, out var height);
+            windowWidth = width;
+            windowHeight = height;
+            if (!haveWork || _chrome == null || !_chrome.IsSupported)
+                return;
+
+            if (!_hasAnchor)
+            {
+                _anchorRight = workRight - OverlayWindowSize.EdgeMargin;
+                _anchorBottom = workBottom - OverlayWindowSize.EdgeMargin;
+                _hasAnchor = true;
+            }
+
+            OverlayWindowSize.PlaceAnchored(
+                _anchorRight,
+                _anchorBottom,
+                workLeft,
+                workTop,
+                workRight,
+                workBottom,
+                width,
+                height,
+                out var x,
+                out var y);
+
+            bool sizeChanged = width != _appliedWidth || height != _appliedHeight;
+            _appliedWidth = width;
+            _appliedHeight = height;
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            if (allowResize && sizeChanged)
+            {
+                Screen.fullScreenMode = FullScreenMode.Windowed;
+                Screen.SetResolution(width, height, FullScreenMode.Windowed);
+                _repositionFrames = 30;
+                if (_warmup < 30)
+                    _warmup = 30;
+            }
+#endif
+            _chrome.PlaceWindow(new Vector2Int(x, y), width, height, _topmost);
+        }
+
+        bool TryReadWorkArea(out int left, out int top, out int right, out int bottom)
+        {
+            left = 0;
+            top = 0;
+            right = 0;
+            bottom = 0;
+            if (_chrome == null || !_chrome.IsSupported)
+                return false;
+
+            if (_chrome.TryGetWorkArea(out left, out top, out right, out bottom) && right > left && bottom > top)
+                return true;
+
+            if (_chrome.TryGetMonitorSize(out var monitor) && monitor.x > 0 && monitor.y > 0)
+            {
+                left = 0;
+                top = 0;
+                right = monitor.x;
+                bottom = monitor.y;
+                return true;
+            }
+
+            return false;
+        }
+
+        void RememberAnchor()
+        {
+            if (_chrome == null || !_chrome.TryGetWindowRect(out _, out _, out var right, out var bottom))
+                return;
+
+            _anchorRight = right;
+            _anchorBottom = bottom;
+            _hasAnchor = true;
         }
 
         bool TryReadPointer(out Vector2 unityScreen, out Vector2Int screenCursor)
@@ -540,12 +728,20 @@ namespace AICompanion.Overlay
 
         void RefreshRotateLabel()
         {
-            if (_rotateReady && _shownRotating == _rotating)
+            int sizePct = Mathf.RoundToInt(_windowScale * 100f);
+            int zoomPct = _frame != null && _frame.ShownZoom > 0.01f
+                ? Mathf.Max(1, Mathf.RoundToInt(_frame.ShownZoom * 100f))
+                : 0;
+            if (_rotateReady && _shownRotating == _rotating && _shownSizePct == sizePct && _shownZoomPct == zoomPct)
                 return;
 
             _rotateReady = true;
             _shownRotating = _rotating;
-            _rotateText = AvatarRotateMode.Format(_rotating);
+            _shownSizePct = sizePct;
+            _shownZoomPct = zoomPct;
+            _rotateText = AvatarRotateMode.Format(_rotating) + "   Size " + sizePct + "%";
+            if (zoomPct > 1)
+                _rotateText += "   Zoom " + zoomPct + "%";
         }
 
         void AccumulateFps()
