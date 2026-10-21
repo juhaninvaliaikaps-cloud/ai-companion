@@ -159,10 +159,10 @@ namespace AICompanion.Tests.EditMode
         public void AvatarDoubleClick_RequiresAShortGap()
         {
             Assert.IsFalse(AvatarDoubleClick.IsSecond(-1f, 1f));
-            Assert.IsFalse(AvatarDoubleClick.IsSecond(1f, 1.01f));
-            Assert.IsTrue(AvatarDoubleClick.IsSecond(1f, 1.2f));
-            Assert.IsTrue(AvatarDoubleClick.IsSecond(1f, 1.35f));
-            Assert.IsFalse(AvatarDoubleClick.IsSecond(1f, 1.36f));
+            Assert.IsFalse(AvatarDoubleClick.IsSecond(0f, 0.02f));
+            Assert.IsTrue(AvatarDoubleClick.IsSecond(0f, 0.2f));
+            Assert.IsTrue(AvatarDoubleClick.IsSecond(0f, AvatarDoubleClick.MaxGapSeconds));
+            Assert.IsFalse(AvatarDoubleClick.IsSecond(0f, AvatarDoubleClick.MaxGapSeconds + 0.05f));
         }
 
         [Test]
