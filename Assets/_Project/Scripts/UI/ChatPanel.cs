@@ -14,7 +14,7 @@ namespace AICompanion.UI
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(-200)]
-    public sealed class ChatPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IAvatarDoubleClick
+    public sealed class ChatPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IAvatarDoubleClick, ISpeechNotes
     {
         const string OpenPref = "ai-companion.chat-open";
         const string HelloPrompt = "Say hello in one short sentence.";
@@ -34,6 +34,8 @@ namespace AICompanion.UI
         RectTransform _content;
         Text _transcript;
         Text _actionLabel;
+        Text _muteLabel;
+        ISpeechOutput _speech;
         InputField _input;
         InputField _keyInput;
         Sprite _white;
@@ -56,6 +58,9 @@ namespace AICompanion.UI
             {
                 if (_conversation != null && _conversation.IsBusy)
                     return true;
+                BindSpeech();
+                if (_speech != null && _speech.IsSpeaking)
+                    return true;
                 if (_input != null && _input.isFocused)
                     return true;
                 return _keyInput != null && _keyInput.isFocused;
@@ -73,7 +78,7 @@ namespace AICompanion.UI
 
             _conversation = new ChatConversation();
             _exchange = new ChatExchange(_conversation);
-            _exchange.Talking = SetTalking;
+            _exchange.SpokenDelta = ForwardSpeech;
             _registry = ChatProviderFactory.Create(settings, new EnvironmentApiKeySource(), new UnityChatTransport(this));
             _visible = PlayerPrefs.GetInt(OpenPref, 1) != 0;
             BuildUi();
@@ -101,6 +106,9 @@ namespace AICompanion.UI
                 _cancel = null;
             }
 
+            BindSpeech();
+            if (_speech != null)
+                _speech.Cancel();
             SetTalking(false);
             if (_white != null)
                 Destroy(_white);
@@ -128,6 +136,13 @@ namespace AICompanion.UI
             {
                 if (_conversation != null && _conversation.IsBusy)
                     CancelReply();
+                else
+                {
+                    BindSpeech();
+                    if (_speech != null)
+                        _speech.Cancel();
+                }
+
                 if (_input != null && _input.isFocused)
                     _input.DeactivateInputField();
                 if (_keyInput != null && _keyInput.isFocused)
@@ -136,10 +151,14 @@ namespace AICompanion.UI
 
             RefreshPlacement();
             RefreshTranscript(false);
-            if (_actionLabel != null && _conversation != null)
-                _actionLabel.text = _conversation.IsBusy ? "Stop" : "Send";
+            BindSpeech();
+            var busy = _conversation != null && _conversation.IsBusy;
+            var speaking = _speech != null && _speech.IsSpeaking;
+            if (_actionLabel != null)
+                _actionLabel.text = busy || speaking ? "Stop" : "Send";
+            RefreshMuteLabel();
             if (_input != null && _conversation != null)
-                _input.interactable = !_conversation.IsBusy;
+                _input.interactable = !busy;
 
             fieldFocused = (_input != null && _input.isFocused) || (_keyInput != null && _keyInput.isFocused);
             DebugInputGuard.SetTextFieldFocused(fieldFocused);
@@ -193,6 +212,13 @@ namespace AICompanion.UI
             if (_cancel != null)
                 _cancel.Dispose();
             _cancel = new CancellationTokenSource();
+            BindSpeech();
+            if (_speech != null)
+            {
+                _speech.Cancel();
+                _speech.BeginUtterance();
+            }
+
             var prompt = settings.systemPrompt;
             var temperature = settings.temperature;
             var maxTokens = settings.maxTokens;
@@ -206,6 +232,15 @@ namespace AICompanion.UI
             if (!_alive)
                 return;
 
+            BindSpeech();
+            if (_speech != null && _cancel != null && _cancel.Token.Equals(token))
+            {
+                if (result.Ok)
+                    _speech.CompleteUtterance();
+                else
+                    _speech.Cancel();
+            }
+
             if (result.Ok)
                 Debug.Log("Chat reply: " + result.Text);
             else if (!string.IsNullOrEmpty(result.LogMessage))
@@ -218,6 +253,9 @@ namespace AICompanion.UI
 
         void CancelReply()
         {
+            BindSpeech();
+            if (_speech != null)
+                _speech.Cancel();
             if (_cancel != null)
                 _cancel.Cancel();
         }
@@ -227,6 +265,13 @@ namespace AICompanion.UI
             if (_conversation != null && _conversation.IsBusy)
             {
                 CancelReply();
+                return;
+            }
+
+            BindSpeech();
+            if (_speech != null && _speech.IsSpeaking)
+            {
+                _speech.Cancel();
                 return;
             }
 
@@ -269,6 +314,47 @@ namespace AICompanion.UI
             var animator = GetComponent<IAvatarAnimator>();
             if (animator != null)
                 animator.SetTalking(talking);
+        }
+
+        public void ShowSpeechNote(string message)
+        {
+            if (!_alive || _conversation == null || string.IsNullOrWhiteSpace(message))
+                return;
+
+            _conversation.AddSystem(message);
+            RefreshTranscript(true);
+        }
+
+        void ForwardSpeech(string piece)
+        {
+            BindSpeech();
+            if (_speech != null)
+                _speech.Append(piece);
+        }
+
+        void BindSpeech()
+        {
+            if (_speech == null)
+                _speech = GetComponent<ISpeechOutput>();
+        }
+
+        void OnMuteClick()
+        {
+            BindSpeech();
+            if (_speech == null)
+                return;
+
+            _speech.SetMuted(!_speech.IsMuted);
+            RefreshMuteLabel();
+        }
+
+        void RefreshMuteLabel()
+        {
+            if (_muteLabel == null)
+                return;
+
+            BindSpeech();
+            _muteLabel.text = _speech != null && _speech.IsMuted ? "Muted" : "Mute";
         }
 
         void SetVisible(bool visible, bool focusInput)
@@ -488,8 +574,17 @@ namespace AICompanion.UI
             title.rectTransform.anchorMax = new Vector2(1f, 1f);
             title.rectTransform.pivot = new Vector2(0f, 1f);
             title.rectTransform.anchoredPosition = new Vector2(8f, 0f);
-            title.rectTransform.sizeDelta = new Vector2(-76f, 28f);
+            title.rectTransform.sizeDelta = new Vector2(-140f, 28f);
             title.raycastTarget = false;
+
+            var mute = CreateButton(_panel.transform, font, "Mute", OnMuteClick);
+            var muteRect = mute.GetComponent<RectTransform>();
+            muteRect.anchorMin = new Vector2(1f, 1f);
+            muteRect.anchorMax = new Vector2(1f, 1f);
+            muteRect.pivot = new Vector2(1f, 1f);
+            muteRect.anchoredPosition = new Vector2(-74f, -4f);
+            muteRect.sizeDelta = new Vector2(52f, 22f);
+            _muteLabel = mute.GetComponentInChildren<Text>();
 
             var action = CreateButton(_panel.transform, font, "Send", OnActionClick);
             var actionRect = action.GetComponent<RectTransform>();

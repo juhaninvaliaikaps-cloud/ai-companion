@@ -2,7 +2,9 @@
     "name": "AICompanion.Voice",
     "rootNamespace": "AICompanion.Voice",
     "references": [
-        "AICompanion.Core"
+        "AICompanion.Core",
+        "AICompanion.AI",
+        "UnityEngine.UnityWebRequestModule"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

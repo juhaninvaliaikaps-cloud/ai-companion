@@ -59,4 +59,4 @@ The chat panel is documented in [CHAT_UI.md](CHAT_UI.md). Short version:
 
 ## Tests
 
-`ChatProviderTests` feeds a fake transport. It does not open a socket and does not need `XAI_API_KEY`. `ChatConversationTests` does the same for the transcript. CI stays green without a key.
+`ChatProviderTests` feeds a fake transport. It does not open a socket and does not need `XAI_API_KEY`. `ChatConversationTests` does the same for the transcript. CI stays green without a key. Speech uses the same key and is described in [VOICE.md](VOICE.md).
