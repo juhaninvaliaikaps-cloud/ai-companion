@@ -456,6 +456,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: AICompanion.UI::AICompanion.UI.ChatPanel
   settings: {fileID: 11400000, guid: 7b04abe5e4bec49afdb9310a2acb7057, type: 2}
+  sideGap: 40
 --- !u!1 &2100000101
 GameObject:
   m_ObjectHideFlags: 0

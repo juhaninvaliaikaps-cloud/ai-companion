@@ -20,6 +20,7 @@ namespace AICompanion.UI
         const string HelloPrompt = "Say hello in one short sentence.";
 
         [SerializeField] ChatSettings settings;
+        [SerializeField] float sideGap = ChatPanelPlacement.DefaultGap;
 
         ChatConversation _conversation;
         ChatExchange _exchange;
@@ -38,6 +39,10 @@ namespace AICompanion.UI
         Sprite _white;
         Texture2D _whiteTexture;
         Rect _guiRect;
+        Renderer[] _avatarRenderers = new Renderer[0];
+        Renderer[] _placeholderRenderers = new Renderer[0];
+        Vector3[] _boundsCorners = new Vector3[8];
+        int _measuredChildCount = -1;
         int _shownRevision = -1;
         bool _visible = true;
         bool _started;
@@ -326,16 +331,12 @@ namespace AICompanion.UI
             if (!_visible)
                 return;
 
-            var avatarX = Screen.width * 0.5f;
-            var camera = Camera.main;
-            if (camera != null)
-            {
-                var point = camera.WorldToScreenPoint(new Vector3(0f, 1.4f, 0f));
-                if (point.z > 0f)
-                    avatarX = point.x;
-            }
+            var gap = sideGap;
+            if (float.IsNaN(gap) || gap < 0f)
+                gap = 0f;
 
-            _guiRect = ChatPanelPlacement.Place(Screen.width, Screen.height, avatarX);
+            var avatar = MeasureAvatarBounds(Camera.main);
+            _guiRect = ChatPanelPlacement.Place(Screen.width, Screen.height, avatar, gap);
             if (_panelRect == null)
                 return;
 
@@ -344,6 +345,82 @@ namespace AICompanion.UI
             _panelRect.pivot = new Vector2(0f, 1f);
             _panelRect.anchoredPosition = new Vector2(_guiRect.x, -_guiRect.y);
             _panelRect.sizeDelta = new Vector2(_guiRect.width, _guiRect.height);
+        }
+
+        Rect MeasureAvatarBounds(Camera camera)
+        {
+            var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+            var max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+            var any = false;
+            if (camera != null)
+                any = IncludeAvatar(camera, Screen.height, ref min, ref max);
+
+            if (!any)
+            {
+                var x = Screen.width * 0.5f;
+                if (camera != null)
+                {
+                    var point = camera.WorldToScreenPoint(new Vector3(0f, 1f, 0f));
+                    if (point.z > 0f)
+                        x = point.x;
+                }
+
+                return new Rect(x - 70f, 0f, 140f, 10f);
+            }
+
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+
+        bool IncludeAvatar(Camera camera, float screenHeight, ref Vector2 min, ref Vector2 max)
+        {
+            if (_placeholderRenderers.Length == 0)
+            {
+                var placeholder = GameObject.Find("Placeholder Avatar");
+                if (placeholder != null)
+                    _placeholderRenderers = placeholder.GetComponentsInChildren<Renderer>(true);
+            }
+
+            if (_measuredChildCount != transform.childCount || MissingRenderer(_avatarRenderers))
+            {
+                _measuredChildCount = transform.childCount;
+                _avatarRenderers = GetComponentsInChildren<Renderer>(true);
+            }
+
+            var any = IncludeRenderers(_avatarRenderers, camera, screenHeight, ref min, ref max);
+            any |= IncludeRenderers(_placeholderRenderers, camera, screenHeight, ref min, ref max);
+            return any;
+        }
+
+        static bool MissingRenderer(Renderer[] renderers)
+        {
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                if (renderers[i] == null)
+                    return true;
+            }
+
+            return false;
+        }
+
+        bool IncludeRenderers(Renderer[] renderers, Camera camera, float screenHeight, ref Vector2 min, ref Vector2 max)
+        {
+            var any = false;
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                var renderer = renderers[i];
+                if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy)
+                    continue;
+
+                ChatPanelPlacement.WriteBoundsCorners(renderer.bounds, _boundsCorners);
+                for (var c = 0; c < _boundsCorners.Length; c++)
+                {
+                    var screen = camera.WorldToScreenPoint(_boundsCorners[c]);
+                    if (ChatPanelPlacement.TryIncludeScreenPoint(screenHeight, screen, ref min, ref max))
+                        any = true;
+                }
+            }
+
+            return any;
         }
 
         void RefreshTranscript(bool force)
