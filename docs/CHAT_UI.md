@@ -1,6 +1,6 @@
 # Chat panel
 
-The panel is the session transcript for the companion. It sits beside the avatar, below the face and below the top debug readout. It calls `IChatProvider` only through `ChatProviderRegistry` and `ChatSettings`. It does not know whether the provider is Grok or a local server.
+The panel is the session transcript for the companion. It sits to the left of the avatar, clear of her on-screen bounds, and below the top debug readout. The gap is `sideGap` on the Chat Panel component (40 pixels by default). If the left side of the window cannot hold the panel plus that gap, the panel moves to her right with the same gap. A centered model in the 480-wide window keeps the panel on the left and narrows it so the gap stays. It calls `IChatProvider` only through `ChatProviderRegistry` and `ChatSettings`. It does not know whether the provider is Grok or a local server.
 
 The full transcript stays on screen for the session. Each request sends the system prompt plus the earlier user and companion turns, dropping the oldest turns once there are more than 12 messages or about 4000 characters. System notes (errors, an empty reply, a saved key) stay on screen and are not sent back to the model.
 
@@ -34,7 +34,7 @@ The password row at the bottom writes the same per-user key file as **AI Compani
 1. Open the project in Unity 6000.6.6f1.
 2. Set a key with **AI Companion > Set xAI API Key**, or with the password row on the panel. Restart the editor first if you use the `XAI_API_KEY` environment variable.
 3. Open `Assets/_Project/Scenes/Main.unity` and enter Play mode. Click the Game view so it has keyboard focus.
-4. The panel starts open on the side away from the avatar (right side when she is centered). **F10** hides it. **F10** again shows it and focuses the field. Quit and Play again: the last open or closed state comes back.
+4. The panel starts open to the left of the model, with a clear gap between its right edge and her silhouette. It should not cover her face or body. **F10** hides it. **F10** again shows it and focuses the field. Quit and Play again: the last open or closed state comes back. To change the spacing, select **AppBootstrap** and edit **Chat Panel > Side Gap**.
 5. Type a short message and press **Enter**. The line appears under **You**. The reply grows under **Companion** as chunks arrive. The debug label shows `Talk on` during the reply and `Talk off` when it finishes. The fps readout should stay near 60 while the reply is streaming.
 6. Press **Esc** or **Stop** during a reply. The partial text stays, and a **Note** says `Request cancelled`.
 7. With the field focused, press **1**, **T**, **R**, **F7**, **F8**, and **F9**. The avatar, rotate reset, avatar source, and topmost flag should stay as they were. Click the empty area or press **Esc** to leave the field, then **1** and **T** work again.
@@ -48,6 +48,6 @@ A missing key, a rejected request, or a model the key cannot use shows as a **No
 
 1. Build and run `Builds/Windows/AICompanion.exe`.
 2. If the key is not already in the environment or the per-user file, press **F10** if the panel is hidden, type the key into the password row, and press **Save**. The field clears and a note says the key was saved on this PC.
-3. Click the panel or press **F10** so the window comes forward, then type and press **Enter**. The reply streams, and she talks for the duration of the reply.
+3. The panel is to her left, with empty space between the panel and her body. Click the panel or press **F10** so the window comes forward, then type and press **Enter**. The reply streams, and she talks for the duration of the reply.
 4. **Esc** or **Stop** cancels. **F10** hides the panel without ending the overlay. Empty pixels still click through to the desktop. Drag the window from her or from the top-left label, not from the panel.
 5. Leave the field, wait a few seconds with the pointer outside the window, and the frame rate drops toward 15. Click the field or send another message and it returns to about 60 for the typing or the stream.

@@ -240,16 +240,83 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void Placement_PutsThePanelOnTheOpenSideOfTheAvatar()
+        public void Placement_SitsLeftOfTheAvatarWithTheRequestedGap()
         {
-            var right = ChatPanelPlacement.Place(480f, 720f, 100f);
-            Assert.AreEqual(480f - ChatPanelPlacement.Width - ChatPanelPlacement.Margin, right.x);
-            Assert.AreEqual(720f - ChatPanelPlacement.Height - ChatPanelPlacement.Margin, right.y);
-            Assert.Greater(right.y, ChatPanelPlacement.TopLimit);
+            var avatar = new Rect(360f, 80f, 160f, 500f);
+            var gap = 40f;
+            var panel = ChatPanelPlacement.Place(800f, 720f, avatar, gap);
 
-            var left = ChatPanelPlacement.Place(480f, 720f, 400f);
-            Assert.AreEqual(ChatPanelPlacement.Margin, left.x);
-            Assert.AreEqual(right.y, left.y);
+            Assert.AreEqual(ChatPanelPlacement.Width, panel.width);
+            Assert.AreEqual(avatar.xMin - gap - panel.width, panel.x, 0.01f);
+            Assert.LessOrEqual(panel.xMax, avatar.xMin - gap + 0.01f);
+            Assert.GreaterOrEqual(panel.x, ChatPanelPlacement.Margin);
+            Assert.AreEqual(720f - ChatPanelPlacement.Height - ChatPanelPlacement.Margin, panel.y, 0.01f);
+            Assert.Greater(panel.y, ChatPanelPlacement.TopLimit);
+            Assert.IsFalse(panel.Overlaps(avatar));
+        }
+
+        [Test]
+        public void Placement_UsesTheRightSideWhenTheLeftGutterIsTooSmall()
+        {
+            var avatar = new Rect(16f, 40f, 184f, 600f);
+            var gap = ChatPanelPlacement.DefaultGap;
+            var panel = ChatPanelPlacement.Place(480f, 720f, avatar, gap);
+
+            Assert.GreaterOrEqual(panel.x, avatar.xMax + gap - 0.01f);
+            Assert.AreEqual(ChatPanelPlacement.Width, panel.width);
+            Assert.LessOrEqual(panel.xMax, 480f - ChatPanelPlacement.Margin + 0.01f);
+            Assert.IsFalse(panel.Overlaps(avatar));
+        }
+
+        [Test]
+        public void Placement_ShrinksOnTheLeftInsteadOfCoveringACenteredModel()
+        {
+            var avatar = new Rect(170f, 40f, 140f, 600f);
+            var gap = 40f;
+            var panel = ChatPanelPlacement.Place(480f, 720f, avatar, gap);
+
+            Assert.Less(panel.xMax, avatar.xMin);
+            Assert.AreEqual(gap, avatar.xMin - panel.xMax, 0.01f);
+            Assert.GreaterOrEqual(panel.x, ChatPanelPlacement.Margin - 0.01f);
+            Assert.Less(panel.width, ChatPanelPlacement.Width);
+            Assert.IsFalse(panel.Overlaps(avatar));
+        }
+
+        [Test]
+        public void Placement_DropsTheGapOnlyWhenTheGutterCannotHoldIt()
+        {
+            var avatar = new Rect(20f, 0f, 160f, 100f);
+            var panel = ChatPanelPlacement.Place(200f, 720f, avatar, 40f);
+
+            Assert.LessOrEqual(panel.xMax, avatar.xMin + 0.01f);
+            Assert.GreaterOrEqual(panel.x, ChatPanelPlacement.Margin - 0.01f);
+            Assert.IsFalse(panel.Overlaps(avatar));
+        }
+
+        [Test]
+        public void ScreenBounds_IgnorePointsBehindTheCamera()
+        {
+            var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+            var max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+
+            Assert.IsFalse(ChatPanelPlacement.TryIncludeScreenPoint(720f, new Vector3(10f, 10f, -1f), ref min, ref max));
+            Assert.IsTrue(ChatPanelPlacement.TryIncludeScreenPoint(720f, new Vector3(100f, 50f, 1f), ref min, ref max));
+            Assert.IsTrue(ChatPanelPlacement.TryIncludeScreenPoint(720f, new Vector3(180f, 400f, 2f), ref min, ref max));
+
+            Assert.AreEqual(100f, min.x, 0.01f);
+            Assert.AreEqual(180f, max.x, 0.01f);
+            Assert.AreEqual(720f - 400f, min.y, 0.01f);
+            Assert.AreEqual(720f - 50f, max.y, 0.01f);
+        }
+
+        [Test]
+        public void BoundsCorners_CoverTheBoxExtents()
+        {
+            var corners = new Vector3[8];
+            ChatPanelPlacement.WriteBoundsCorners(new Bounds(new Vector3(1f, 2f, 3f), new Vector3(2f, 4f, 6f)), corners);
+
+            Assert.AreEqual(new Vector3(0f, 0f, 0f), corners[0]);
+            Assert.AreEqual(new Vector3(2f, 4f, 6f), corners[7]);
         }
 
         [Test]
