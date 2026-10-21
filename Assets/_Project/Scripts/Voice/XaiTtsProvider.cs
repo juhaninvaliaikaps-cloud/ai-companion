@@ -64,7 +64,7 @@ namespace AICompanion.Voice
         {
             try
             {
-                return Read(await pending);
+                return TtsErrors.FromHttp(await pending);
             }
             catch (OperationCanceledException)
             {
