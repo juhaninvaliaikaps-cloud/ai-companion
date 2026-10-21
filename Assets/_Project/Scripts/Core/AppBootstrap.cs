@@ -14,7 +14,7 @@ namespace AICompanion.Core
             StartCompanionHooks();
         }
 
-        private void StartCompanionHooks()
+        public void StartCompanionHooks()
         {
             var behaviours = GetComponents<MonoBehaviour>();
             for (var i = 0; i < behaviours.Length; i++)

@@ -13,7 +13,9 @@ namespace AICompanion.Tests.EditMode
             try
             {
                 var startup = host.AddComponent<RecordingStartup>();
-                host.AddComponent<AppBootstrap>();
+                var bootstrap = host.AddComponent<AppBootstrap>();
+                startup.Calls = 0;
+                bootstrap.StartCompanionHooks();
                 Assert.AreEqual(1, startup.Calls);
             }
             finally
