@@ -115,7 +115,7 @@ namespace AICompanion.Core
     /// </summary>
     public sealed class AvatarAnimatorModel
     {
-        public const string DebugHint = "1-5 emotion   T talk";
+        public const string DebugHint = "1-5 emotion   T talk   F10 chat";
 
         public bool IsTalking { get; private set; }
 

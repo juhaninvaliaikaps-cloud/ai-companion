@@ -146,6 +146,8 @@ namespace AICompanion.Avatar
             var changed = false;
             for (var i = 0; i < DebugKeys.Length; i++)
             {
+                if (DebugInputGuard.IsBlocked(DebugKeys[i]))
+                    continue;
                 if (Input.GetKeyDown(DebugKeys[i]))
                     changed |= _model.TryApplyDebugKey(DebugKeys[i]);
             }

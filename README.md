@@ -117,7 +117,7 @@ Assets/_Project/
     Avatar/                humanoid load, blendshapes, descriptor        AICompanion.Avatar
     AnimationDirector/     cue to Animator mapping                       AICompanion.AnimationDirector
     Overlay/               transparent always-on-top window              AICompanion.Overlay
-    UI/                    chat and settings UI                          AICompanion.UI
+    UI/                    chat panel beside the avatar                 AICompanion.UI
   Models/                  other source meshes (Git LFS). Character FBX here is imported as Humanoid.
   Avatars/                 FBX humanoids, including the CC0 sample (Git LFS)
   StreamingAssets/Avatars/ CC0 VRM loaded at runtime (Git LFS)
@@ -135,13 +135,13 @@ Config/
   appsettings.example.json pointer only; the xAI key is not stored here
 ```
 
-`AICompanion.AI` references `Core`. `UI` references `Core` and `AI`. `Avatar` references `Core` and UniVRM's `VRM10` assembly. Voice, AnimationDirector, and Overlay each reference `Core` only, so chat and animation cannot form a cycle. `AnimationCue` lives in `Core` because both the provider layer and the director will use it.
+`AICompanion.AI` references `Core`. `UI` references `Core`, `AI`, and uGUI. `Avatar` references `Core` and UniVRM's `VRM10` assembly. Voice, AnimationDirector, and Overlay each reference `Core` only, so chat and animation cannot form a cycle. `AnimationCue` lives in `Core` because both the provider layer and the director will use it.
 
 Git LFS tracks binary assets (`.fbx`, `.vrm`, `.png`, `.wav`, audio, video, and similar). Scenes, prefabs, and `.asset` files stay as text. Run `git lfs install` before adding those binaries.
 
 ## What the skeleton contains
 
-- `IChatProvider.StreamChat` is the boundary for a cloud or local LLM. Grok is the first provider. Callers resolve the id on `ChatSettings` through `ChatProviderRegistry`. The API key stays outside the repo.
+- `IChatProvider.StreamChat` is the boundary for a cloud or local LLM. Grok is the first provider. Callers resolve the id on `ChatSettings` through `ChatProviderRegistry`. The API key stays outside the repo. The chat panel sends the session through that registry. **F10** shows it, **Enter** sends, and a reply streams into the transcript. See [docs/CHAT_UI.md](docs/CHAT_UI.md).
 - `AnimationCue` carries an `Emotion`, an intensity clamped to 0–1, and a gesture name.
 - `IAvatarAnimator` is the runtime hook for that cue. `SetTalking(bool)` and `SetEmotion(Emotion, intensity)` drive the shared humanoid controller and the face. The debug keys are 1–5 and T. On spawn the humanoid root yaws to face the overlay camera. Right-click a visible pixel, then drag, to add a yaw that is saved per avatar source.
 - `AppBootstrap` is the `MonoBehaviour` scene entry point. `Awake` logs once and starts `ICompanionStartup` components on the same object, including `OverlayWindow`.

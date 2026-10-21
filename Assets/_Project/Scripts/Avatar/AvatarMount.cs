@@ -52,7 +52,7 @@ namespace AICompanion.Avatar
 
         void Update()
         {
-            if (!_started || !Input.GetKeyDown(cycleKey))
+            if (!_started || DebugInputGuard.IsBlocked(cycleKey) || !Input.GetKeyDown(cycleKey))
                 return;
 
             Cycle();
