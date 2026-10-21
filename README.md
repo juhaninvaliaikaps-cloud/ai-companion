@@ -2,7 +2,7 @@
 
 Desktop companion for Windows. A 3D animated avatar sits in a transparent, always-on-top overlay, chats through a swappable AI provider (cloud APIs such as xAI Grok first, local models later), speaks and listens, and plays animations from cues the model returns.
 
-This repository is the Unity project skeleton. It compiles as an empty project. Chat, voice, the overlay, and avatar playback are later phases.
+This repository is the Unity project. Chat, voice, and avatar playback are later phases. The Windows overlay window is in [docs/OVERLAY.md](docs/OVERLAY.md).
 
 ## Unity version
 
@@ -23,7 +23,7 @@ Install that exact editor with Unity Hub. Add the **Windows Build Support (Mono)
 
 `.meta` files are already in the repository so script and folder GUIDs stay stable. If Unity rewrites a `.meta` on import, read the diff before committing it.
 
-There is no scene yet. Before the first player build, create one with **File > New Scene**, add an empty GameObject with the `AppBootstrap` component, and save it under `Assets/_Project/Scenes`. Then add that scene in **File > Build Profiles** (Unity 6) or **File > Build Settings**.
+`Assets/_Project/Scenes/Main.unity` is the scene in the build. It has `AppBootstrap`, the overlay window, a camera, a light, and a placeholder capsule. How to build and check the transparent window is in [docs/OVERLAY.md](docs/OVERLAY.md).
 
 ### Build a Windows player
 
@@ -33,7 +33,7 @@ There is no scene yet. Before the first player build, create one with **File > N
 4. Confirm the scene from `Assets/_Project/Scenes` is enabled.
 5. Choose **Build** and pick an output folder outside the repository (for example `Builds/Windows`). `Build/` and `Builds/` are gitignored.
 
-The player is an empty window until the overlay and avatar scenes exist. Run tests from **Window > General > Test Runner**, or follow [TESTING.md](TESTING.md). `AnimationCueTests.Constructor_ClampsIntensityAndKeepsFields` is the EditMode example. `AppBootstrapPlayModeTests.Awake_LogsReadyMessage` is the PlayMode example.
+Run tests from **Window > General > Test Runner**, or follow [TESTING.md](TESTING.md). `AnimationCueTests.Constructor_ClampsIntensityAndKeepsFields` is the EditMode example. `AppBootstrapPlayModeTests.Awake_LogsReadyMessage` is the PlayMode example. The Windows player is the overlay window described in [docs/OVERLAY.md](docs/OVERLAY.md).
 
 The same player can be queued from a terminal once the Unity CLI is connected. See [Unity CLI](#unity-cli). `build_windows_player` returns immediately and the Editor writes `Builds/Windows/AICompanion.exe` while you poll `build_status`. `Build/` and `Builds/` are gitignored.
 
@@ -75,7 +75,7 @@ URP is a later step, once the avatar scene exists:
 2. Use **Create > Rendering > URP Asset (with Universal Renderer)**.
 3. Assign that asset under **Project Settings > Graphics** and on each quality level under **Project Settings > Quality**.
 
-`preserveFramebufferAlpha` is already enabled in Player Settings so a later transparent overlay can keep the window alpha.
+`preserveFramebufferAlpha` is on, and **Use DXGI Flip Model Swapchain** is off, so the Windows player can keep framebuffer alpha. The rest of the overlay setup is in [docs/OVERLAY.md](docs/OVERLAY.md).
 
 ## Packages
 
@@ -161,7 +161,7 @@ Git LFS tracks binary assets (`.fbx`, `.vrm`, `.png`, `.wav`, audio, video, and 
 
 - `IChatProvider` in `AICompanion.AI` is the boundary for a cloud or local LLM. It has no network calls.
 - `AnimationCue` carries an `Emotion`, an intensity clamped to 0–1, and a gesture name.
-- `AppBootstrap` is the `MonoBehaviour` scene entry point. `Awake` logs once.
+- `AppBootstrap` is the `MonoBehaviour` scene entry point. `Awake` logs once and starts `ICompanionStartup` components on the same object, including `OverlayWindow`.
 
 ## Roadmap
 
@@ -206,7 +206,5 @@ Unity will create anything this skeleton does not check in:
 - `Library/`, `Temp/`, `Logs/`, `UserSettings/`
 - `Packages/packages-lock.json` (commit this after the first successful import)
 - IDE solution files
-- `ProjectSettings/QualitySettings.asset` (not included here; Unity writes the default quality levels on first open)
-- The first scene, which you save under `Assets/_Project/Scenes`
 
 Confirm in the Console that import finished with no compile errors, then run the EditMode test named above.

@@ -1,0 +1,143 @@
+using AICompanion.Overlay;
+using NUnit.Framework;
+using UnityEngine;
+
+namespace AICompanion.Tests.EditMode
+{
+    public class OverlayLogicTests
+    {
+        [Test]
+        public void ShouldClickThrough_WhenNothingIsUnderTheCursor()
+        {
+            Assert.IsTrue(ClickThroughDecision.ShouldClickThrough(false, false, false));
+        }
+
+        [Test]
+        public void ShouldClickThrough_IsFalseWhenAnySignalHits()
+        {
+            Assert.IsFalse(ClickThroughDecision.ShouldClickThrough(true, false, false));
+            Assert.IsFalse(ClickThroughDecision.ShouldClickThrough(false, true, false));
+            Assert.IsFalse(ClickThroughDecision.ShouldClickThrough(false, false, true));
+            Assert.IsFalse(ClickThroughDecision.ShouldClickThrough(true, true, true));
+        }
+
+        [Test]
+        public void ShouldClickThrough_NullQueryPassesClicksThrough()
+        {
+            Assert.IsTrue(ClickThroughDecision.ShouldClickThrough(null));
+        }
+
+        [Test]
+        public void ShouldClickThrough_ReadsTheQuery()
+        {
+            Assert.IsFalse(ClickThroughDecision.ShouldClickThrough(new FakeHit(true, false, false)));
+            Assert.IsTrue(ClickThroughDecision.ShouldClickThrough(new FakeHit(false, false, false)));
+        }
+
+        [Test]
+        public void IsOpaque_UsesAnInclusiveThreshold()
+        {
+            Assert.IsFalse(ClickThroughDecision.IsOpaque(0f));
+            Assert.IsFalse(ClickThroughDecision.IsOpaque(0.079f));
+            Assert.IsTrue(ClickThroughDecision.IsOpaque(0.08f));
+            Assert.IsTrue(ClickThroughDecision.IsOpaque(1f));
+            Assert.IsFalse(ClickThroughDecision.IsOpaque(0.2f, 0.5f));
+            Assert.IsTrue(ClickThroughDecision.IsOpaque(0.5f, 0.5f));
+        }
+
+        [Test]
+        public void FrameRate_StaysAt60UntilIdleThenDrops()
+        {
+            Assert.AreEqual(60, OverlayFrameRate.Choose(0f));
+            Assert.AreEqual(60, OverlayFrameRate.Choose(2.99f));
+            Assert.AreEqual(15, OverlayFrameRate.Choose(3f));
+            Assert.AreEqual(15, OverlayFrameRate.Choose(30f));
+        }
+
+        [Test]
+        public void WindowDrag_AddsTheCursorDeltaToTheWindowOrigin()
+        {
+            var drag = new WindowDrag(new Vector2Int(100, 200), new Vector2Int(5, 5));
+
+            Assert.AreEqual(new Vector2Int(110, 220), drag.PositionFor(new Vector2Int(15, 25)));
+            Assert.AreEqual(new Vector2Int(100, 200), drag.PositionFor(new Vector2Int(5, 5)));
+        }
+
+        [Test]
+        public void ToUnityScreen_FlipsYAndScalesToTheUnityBuffer()
+        {
+            var same = OverlayPointerMath.ToUnityScreen(10, 20, 100, 200, 100, 200);
+            Assert.AreEqual(10f, same.x);
+            Assert.AreEqual(180f, same.y);
+
+            var scaled = OverlayPointerMath.ToUnityScreen(10, 20, 100, 200, 200, 400);
+            Assert.AreEqual(20f, scaled.x);
+            Assert.AreEqual(360f, scaled.y);
+            Assert.AreEqual(Vector2.zero, OverlayPointerMath.ToUnityScreen(10, 20, 0, 200, 100, 200));
+        }
+
+        [Test]
+        public void IsInsideClient_RejectsTheFarEdges()
+        {
+            Assert.IsTrue(OverlayPointerMath.IsInsideClient(0, 0, 100, 50));
+            Assert.IsTrue(OverlayPointerMath.IsInsideClient(99, 49, 100, 50));
+            Assert.IsFalse(OverlayPointerMath.IsInsideClient(100, 0, 100, 50));
+            Assert.IsFalse(OverlayPointerMath.IsInsideClient(0, 50, 100, 50));
+            Assert.IsFalse(OverlayPointerMath.IsInsideClient(-1, 0, 100, 50));
+        }
+
+        [Test]
+        public void IsInsideTopLeftRect_MapsGuiSpaceOntoUnityScreenSpace()
+        {
+            var panel = new Rect(8f, 8f, 10f, 10f);
+
+            Assert.IsTrue(OverlayPointerMath.IsInsideTopLeftRect(panel, new Vector2(8f, 82f), 100f));
+            Assert.IsTrue(OverlayPointerMath.IsInsideTopLeftRect(panel, new Vector2(17.9f, 91.9f), 100f));
+            Assert.IsFalse(OverlayPointerMath.IsInsideTopLeftRect(panel, new Vector2(8f, 92f), 100f));
+            Assert.IsFalse(OverlayPointerMath.IsInsideTopLeftRect(panel, new Vector2(18f, 85f), 100f));
+            Assert.IsFalse(OverlayPointerMath.IsInsideTopLeftRect(panel, new Vector2(8f, 81.9f), 100f));
+        }
+
+        [Test]
+        public void ApplyTransparentCamera_ClearsToTransparentBlackWithoutHdrOrMsaa()
+        {
+            var host = new GameObject("overlay camera");
+            var camera = host.AddComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.Skybox;
+            camera.backgroundColor = Color.blue;
+            camera.allowHDR = true;
+            camera.allowMSAA = true;
+
+            try
+            {
+                OverlayWindow.ApplyTransparentCamera(camera);
+
+                Assert.AreEqual(CameraClearFlags.SolidColor, camera.clearFlags);
+                Assert.AreEqual(0f, camera.backgroundColor.r);
+                Assert.AreEqual(0f, camera.backgroundColor.g);
+                Assert.AreEqual(0f, camera.backgroundColor.b);
+                Assert.AreEqual(0f, camera.backgroundColor.a);
+                Assert.IsFalse(camera.allowHDR);
+                Assert.IsFalse(camera.allowMSAA);
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        sealed class FakeHit : IOverlayHitQuery
+        {
+            public FakeHit(bool overCollider, bool overUi, bool opaquePixel)
+            {
+                OverCollider = overCollider;
+                OverUi = overUi;
+                OpaquePixel = opaquePixel;
+            }
+
+            public bool OverCollider { get; }
+            public bool OverUi { get; }
+            public bool OpaquePixel { get; }
+        }
+    }
+}

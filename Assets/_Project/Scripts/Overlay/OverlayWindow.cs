@@ -1,0 +1,368 @@
+using System.Collections;
+using System.Collections.Generic;
+using AICompanion.Core;
+using UnityEngine;
+using UnityEngine.EventSystems;
+
+namespace AICompanion.Overlay
+{
+    /// <summary>
+    /// Borderless transparent window, topmost toggle, drag, and click-through.
+    /// Win32 runs only in the Windows player. In the editor this still clears the camera,
+    /// limits the frame rate, and updates the debug label.
+    /// </summary>
+    [DisallowMultipleComponent]
+    public sealed class OverlayWindow : MonoBehaviour, ICompanionStartup
+    {
+        const string TopmostOnLabel = "Topmost on   F8";
+        const string TopmostOffLabel = "Topmost off  F8";
+        static readonly Rect PanelRect = new Rect(8f, 8f, 168f, 48f);
+        static readonly Color AvatarTint = new Color(0.95f, 0.45f, 0.62f, 1f);
+
+        [SerializeField] Renderer placeholderAvatar;
+        [SerializeField] int windowWidth = 480;
+        [SerializeField] int windowHeight = 720;
+        [SerializeField] bool startTopmost = true;
+        [SerializeField] KeyCode topmostKey = KeyCode.F8;
+        [SerializeField] int activeFrameRate = OverlayFrameRate.Active;
+        [SerializeField] int idleFrameRate = OverlayFrameRate.Idle;
+        [SerializeField] float idleAfterSeconds = OverlayFrameRate.IdleAfterSeconds;
+        [SerializeField] float opaqueAlphaThreshold = ClickThroughDecision.DefaultOpaqueAlpha;
+
+        IWindowChrome _chrome;
+        Camera _camera;
+        bool _started;
+        bool _topmost;
+        bool _resolutionApplied;
+        bool _chromeApplied;
+        bool _placed;
+        bool _dragging;
+        bool _userMoved;
+        bool _leftWasHeld;
+        bool _clickThrough;
+        int _warmup;
+        float _idleFor;
+        int _appliedRate = -1;
+        WindowDrag _drag;
+        bool _samplePending;
+        bool _sampleRoutineRunning;
+        Vector2Int _pendingSample = new Vector2Int(-1, -1);
+        Vector2Int _lastSamplePixel = new Vector2Int(int.MinValue, int.MinValue);
+        float _lastAlpha;
+        bool _hasAlpha;
+        Texture2D _pixel;
+        WaitForEndOfFrame _endOfFrame;
+        MaterialPropertyBlock _tintBlock;
+        PointerEventData _pointer;
+        EventSystem _pointerSystem;
+        readonly List<RaycastResult> _uiHits = new List<RaycastResult>(4);
+        int _fpsFrames;
+        float _fpsTimer;
+        string _fpsText = "--";
+
+        public bool IsTopmost => _topmost;
+        public bool IsClickThrough => _clickThrough;
+
+        public void StartCompanion()
+        {
+            if (_started)
+                return;
+
+            _started = true;
+            _chrome = WindowChrome.Create();
+            _topmost = startTopmost;
+            _endOfFrame = new WaitForEndOfFrame();
+            _camera = Camera.main;
+            ApplyTransparentCamera(_camera);
+            TintAvatar();
+            Application.runInBackground = true;
+            QualitySettings.vSyncCount = 0;
+            ApplyFrameRate(activeFrameRate);
+            ApplyPlayerResolution();
+            EnsureChrome();
+        }
+
+        void Start()
+        {
+            StartCompanion();
+        }
+
+        void Update()
+        {
+            if (!_started)
+                return;
+
+            EnsureChrome();
+            bool inside = TryReadPointer(out var unityScreen, out var screenCursor);
+            bool overCollider = inside && IsOverCollider(unityScreen);
+            bool overPanel = inside && OverlayPointerMath.IsInsideTopLeftRect(PanelRect, unityScreen, Screen.height);
+            bool overUi = overPanel || (inside && IsOverUi(unityScreen));
+            bool opaque = inside && !overCollider && !overUi && _hasAlpha && ClickThroughDecision.IsOpaque(_lastAlpha, opaqueAlphaThreshold);
+            bool interactive = !ClickThroughDecision.ShouldClickThrough(overCollider, overUi, opaque);
+            bool leftHeld = LeftHeld();
+            bool leftDown = leftHeld && !_leftWasHeld;
+            _leftWasHeld = leftHeld;
+
+            if (!_dragging && leftDown && (overCollider || overPanel) && _chrome.TryGetWindowPosition(out var origin) && _chrome.TryGetScreenCursor(out var cursor))
+            {
+                _dragging = true;
+                _userMoved = true;
+                _drag = new WindowDrag(origin, cursor);
+            }
+
+            if (_dragging)
+            {
+                if (leftHeld && _chrome.TryGetScreenCursor(out screenCursor))
+                {
+                    _chrome.MoveWindow(_drag.PositionFor(screenCursor), _topmost);
+                    interactive = true;
+                }
+                else if (!leftHeld)
+                {
+                    _dragging = false;
+                }
+            }
+
+            _clickThrough = !interactive;
+            _chrome.SetClickThrough(_clickThrough);
+            QueueAlphaSample(inside, overCollider, overUi, unityScreen);
+
+            if (Input.GetKeyDown(topmostKey))
+                SetTopmost(!_topmost);
+
+            bool awake = inside || leftHeld || _dragging || Input.anyKey;
+            if (awake)
+                _idleFor = 0f;
+            else
+                _idleFor += Time.unscaledDeltaTime;
+
+            ApplyFrameRate(OverlayFrameRate.Choose(_idleFor, idleAfterSeconds, activeFrameRate, idleFrameRate));
+            AccumulateFps();
+
+            if (_warmup > 0 && _chrome.IsSupported)
+            {
+                _chrome.TryApplyTransparentPopup();
+                _chrome.SetTopmost(_topmost);
+                _chrome.SetClickThrough(_clickThrough);
+                _warmup--;
+                if (_warmup == 0 && !_userMoved)
+                    TryPlace(force: true);
+            }
+        }
+
+        void OnGUI()
+        {
+            if (!_started)
+                return;
+
+            GUI.Box(PanelRect, GUIContent.none);
+            GUI.Label(new Rect(12f, 10f, 156f, 18f), _topmost ? TopmostOnLabel : TopmostOffLabel);
+            GUI.Label(new Rect(12f, 28f, 156f, 18f), _fpsText);
+        }
+
+        void OnDestroy()
+        {
+            if (_pixel != null)
+                Destroy(_pixel);
+        }
+
+        public static void ApplyTransparentCamera(Camera camera)
+        {
+            if (camera == null)
+                return;
+
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0f, 0f, 0f, 0f);
+            camera.allowHDR = false;
+            camera.allowMSAA = false;
+        }
+
+        public void SetTopmost(bool topmost)
+        {
+            _topmost = topmost;
+            if (_chrome != null && _chrome.IsSupported)
+                _chrome.SetTopmost(topmost);
+        }
+
+        void ApplyPlayerResolution()
+        {
+            if (_resolutionApplied)
+                return;
+
+            _resolutionApplied = true;
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            Screen.fullScreenMode = FullScreenMode.Windowed;
+            Screen.SetResolution(windowWidth, windowHeight, FullScreenMode.Windowed);
+            _warmup = 30;
+#endif
+        }
+
+        void EnsureChrome()
+        {
+            if (_chrome == null || !_chrome.IsSupported || _chromeApplied)
+                return;
+
+            if (!_chrome.TryApplyTransparentPopup())
+                return;
+
+            _chromeApplied = true;
+            _warmup = 30;
+            _chrome.SetTopmost(_topmost);
+            TryPlace(force: false);
+        }
+
+        void TryPlace(bool force)
+        {
+            if ((_placed && !force) || !_chrome.TryGetMonitorSize(out var monitor))
+                return;
+
+            int x = monitor.x - windowWidth - 48;
+            int y = monitor.y - windowHeight - 96;
+            if (x < 0)
+                x = 0;
+            if (y < 0)
+                y = 0;
+
+            _chrome.MoveWindow(new Vector2Int(x, y), _topmost);
+            _placed = true;
+        }
+
+        bool TryReadPointer(out Vector2 unityScreen, out Vector2Int screenCursor)
+        {
+            if (_chrome != null && _chrome.IsSupported && _chrome.TryGetClientCursor(out var client, out var clientSize))
+            {
+                bool inside = OverlayPointerMath.IsInsideClient(client.x, client.y, clientSize.x, clientSize.y);
+                unityScreen = OverlayPointerMath.ToUnityScreen(client.x, client.y, clientSize.x, clientSize.y, Screen.width, Screen.height);
+                _chrome.TryGetScreenCursor(out screenCursor);
+                return inside;
+            }
+
+            var mouse = Input.mousePosition;
+            unityScreen = new Vector2(mouse.x, mouse.y);
+            screenCursor = new Vector2Int(Mathf.RoundToInt(mouse.x), Mathf.RoundToInt(Screen.height - mouse.y));
+            return mouse.x >= 0f && mouse.y >= 0f && mouse.x < Screen.width && mouse.y < Screen.height;
+        }
+
+        bool IsOverCollider(Vector2 unityScreen)
+        {
+            if (_camera == null)
+                return false;
+
+            var ray = _camera.ScreenPointToRay(unityScreen);
+            return Physics.Raycast(ray, out _, _camera.farClipPlane, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+        }
+
+        bool IsOverUi(Vector2 unityScreen)
+        {
+            var system = EventSystem.current;
+            if (system == null)
+                return false;
+
+            if (_pointer == null || _pointerSystem != system)
+            {
+                _pointerSystem = system;
+                _pointer = new PointerEventData(system);
+            }
+
+            _pointer.position = unityScreen;
+            _uiHits.Clear();
+            system.RaycastAll(_pointer, _uiHits);
+            return _uiHits.Count > 0;
+        }
+
+        bool LeftHeld()
+        {
+            if (_chrome != null && _chrome.IsSupported)
+                return _chrome.IsLeftButtonHeld();
+
+            return Input.GetMouseButton(0);
+        }
+
+        void QueueAlphaSample(bool inside, bool overCollider, bool overUi, Vector2 unityScreen)
+        {
+            if (!inside || overCollider || overUi)
+                return;
+
+            int x = Mathf.RoundToInt(unityScreen.x);
+            int y = Mathf.RoundToInt(unityScreen.y);
+            var pixel = new Vector2Int(x, y);
+            if (_hasAlpha && pixel == _lastSamplePixel)
+                return;
+
+            _pendingSample = pixel;
+            _samplePending = true;
+            if (!_sampleRoutineRunning)
+                StartCoroutine(SampleAlphaAtEndOfFrame());
+        }
+
+        IEnumerator SampleAlphaAtEndOfFrame()
+        {
+            _sampleRoutineRunning = true;
+            yield return _endOfFrame;
+            _sampleRoutineRunning = false;
+            if (!_samplePending)
+                yield break;
+
+            _samplePending = false;
+            var pixel = _pendingSample;
+            _lastSamplePixel = pixel;
+            if (pixel.x < 0 || pixel.y < 0 || pixel.x >= Screen.width || pixel.y >= Screen.height)
+            {
+                _lastAlpha = 0f;
+                _hasAlpha = true;
+                yield break;
+            }
+
+            if (_pixel == null)
+                _pixel = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+
+            _pixel.ReadPixels(new Rect(pixel.x, pixel.y, 1f, 1f), 0, 0, false);
+            var data = _pixel.GetRawTextureData<Color32>();
+            _lastAlpha = data.Length > 0 ? data[0].a / 255f : 0f;
+            _hasAlpha = true;
+        }
+
+        void ApplyFrameRate(int rate)
+        {
+            if (rate == _appliedRate)
+                return;
+
+            _appliedRate = rate;
+            Application.targetFrameRate = rate;
+        }
+
+        void AccumulateFps()
+        {
+            _fpsFrames++;
+            _fpsTimer += Time.unscaledDeltaTime;
+            if (_fpsTimer < 0.5f)
+                return;
+
+            int fps = Mathf.RoundToInt(_fpsFrames / _fpsTimer);
+            _fpsText = fps.ToString() + " fps";
+            _fpsFrames = 0;
+            _fpsTimer = 0f;
+        }
+
+        void TintAvatar()
+        {
+            if (placeholderAvatar == null)
+            {
+                var found = GameObject.Find("Placeholder Avatar");
+                if (found != null)
+                    placeholderAvatar = found.GetComponent<Renderer>();
+            }
+
+            if (placeholderAvatar == null)
+                return;
+
+            if (_tintBlock == null)
+                _tintBlock = new MaterialPropertyBlock();
+
+            placeholderAvatar.GetPropertyBlock(_tintBlock);
+            _tintBlock.SetColor("_Color", AvatarTint);
+            _tintBlock.SetColor("_BaseColor", AvatarTint);
+            placeholderAvatar.SetPropertyBlock(_tintBlock);
+        }
+    }
+}
