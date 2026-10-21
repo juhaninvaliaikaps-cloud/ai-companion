@@ -35,6 +35,35 @@ There is no scene yet. Before the first player build, create one with **File > N
 
 The player is an empty window until the overlay and avatar scenes exist. This environment does not have the Unity Editor, so the project was not opened and the example test was not executed here. Run it locally with **Window > General > Test Runner > EditMode > Run All**. `AnimationCueTests.Constructor_ClampsIntensityAndKeepsFields` should pass. The PlayMode assembly is in place and has no tests yet.
 
+The same player can be built from a terminal once the Unity CLI is connected. See [Unity CLI](#unity-cli). `build_windows_player` writes `Builds/Windows/AICompanion.exe`. `Build/` and `Builds/` are gitignored.
+
+## Unity CLI
+
+A local Cursor agent on Windows can drive the open Editor through the [Unity CLI](https://unity.com/blog/meet-the-unity-cli) and the experimental [Unity Pipeline](https://docs.unity3d.com/Packages/com.unity.pipeline@0.6/manual/index.html) package (`com.unity.pipeline` 0.6.0-exp.1). The server listens on localhost only. Leave the runtime server disabled; it is for development and QA players, and a release build should not include it.
+
+`Packages/manifest.json` already requests `0.6.0-exp.1`, the version in the 0.6 package manual. The documented installer is still `unity pipeline install`, which adds that package to the open project.
+
+1. Install the Unity CLI. In PowerShell:
+
+   ```powershell
+   $env:UNITY_CLI_CHANNEL='beta'; irm https://public-cdn.cloud.unity3d.com/hub/prod/cli/install.ps1 | iex
+   ```
+
+   Close that terminal and open a new one so `unity` is on `PATH`. The current install channel and the macOS/Linux script are in the [Unity CLI blog post](https://unity.com/blog/meet-the-unity-cli).
+2. Sign in with `unity auth login`.
+3. Open this project in Unity **6000.6.6f1** and wait until the Pipeline package has imported and scripts have compiled. The Editor has to be open before the next commands can talk to it.
+4. From the repository root, run `unity pipeline install` if Package Manager has not already resolved `com.unity.pipeline`. Then run `unity pipeline list` and confirm this project shows **Pipeline: Installed**.
+5. Run `unity command`. The list should include the project commands in `Assets/_Project/Editor/CliCommands`:
+   - `run_editmode_tests` — EditMode pass, fail, and skip counts, plus leaf failures.
+   - `get_compile_and_console_errors` — whether scripts failed to compile, and compiler or console errors seen since this domain loaded.
+   - `list_project_avatars_and_clips` — `.vrm` and `.fbx` files and animation clips under `Assets/_Project`.
+   - `build_windows_player` — Windows x64 development player under `Builds/Windows`. It returns without building when no scene is enabled.
+6. Run one with `unity command <name>`, for example `unity command run_editmode_tests`. For a one-off check, `unity command eval "return Application.version;"` runs C# in the open Editor. Eval is token-gated and stays on this machine.
+
+How an agent in this repo should call those commands is in `.cursor/rules/unity-cli.mdc`. If more than one Editor is open, pass `--project-path` with this repository's path.
+
+This environment has no Unity Editor, so the package was not downloaded and these commands were not executed. The asmdef references assembly `Unity.Pipeline`, which is the assembly name in Unity's CLI authoring notes for `[CliCommand]`. The 0.6 manual describes shipped commands as coming from an assembly such as `Unity.Pipeline.Editor`. If the Editor reports a missing assembly, point the asmdef at the assembly name the imported package shows. The Windows architecture value is stored with the setting name `Architecture`, which is the key `EditorUserBuildSettings` writes for `StandaloneWindows64`; that key is not a documented public constant. `BuildTarget.StandaloneWindows64`, `BuildOptions.Development`, and `OSArchitecture.x64` are the documented build APIs. Compiler and console entries from before the current domain load are not available from the public events this command subscribes to.
+
 ## Render pipeline
 
 The skeleton uses the **built-in render pipeline**. `GraphicsSettings` has no custom render pipeline asset, so the project opens without pipeline files that would have to match a specific Universal Render Pipeline (URP) package revision.
@@ -58,6 +87,7 @@ URP is a later step, once the avatar scene exists:
 | `com.unity.ugui` 2.6.0 | Unity UI, including TextMesh Pro. Core package shipped with Unity 6000.6. The old `com.unity.textmeshpro` package is not used. |
 | `com.unity.timeline` 6.6.0 | Core package on Unity 6000.6, renumbered from the 1.8 line. UniVRM depends on Timeline. |
 | `com.unity.mathematics` 1.3.3 | Required by UniVRM. Latest registry release; its package metadata allows Unity 2021.3 and newer. It is not a 6000.6 core package. |
+| `com.unity.pipeline` 0.6.0-exp.1 | Experimental Pipeline package. Lets the Unity CLI run Editor commands, including the project commands under `Assets/_Project/Editor/CliCommands`. |
 | `com.vrmc.gltf` and `com.vrmc.vrm` | UniVRM **VRM 1.0**, tag `v0.131.4`. That release includes the Unity 6.6 deprecation fix. |
 
 UniVRM is installed the way the project documents it: Git URLs in the manifest, not a copied `.unitypackage`.
@@ -113,6 +143,7 @@ Assets/_Project/
   Scenes/                  Unity scenes
   Settings/                  runtime settings assets (not API keys)
   Plugins/                   native or third-party plug-ins that are not UPM packages
+  Editor/CliCommands/        Unity CLI [CliCommand] methods               AICompanion.Editor.CliCommands
   Tests/
     EditMode/              editor tests, including AnimationCueTests
     PlayMode/              play-mode test assembly (no tests yet)
