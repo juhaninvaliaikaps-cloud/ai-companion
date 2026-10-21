@@ -4,7 +4,9 @@ Replies are spoken with one swappable text-to-speech backend. The first backend 
 
 ## What plays
 
-`VoiceSpeaker` on **AppBootstrap** watches the streaming reply. It splits the text into sentences and requests each one as soon as the sentence is finished, so a short line can start before the rest of the reply arrives. The request asks for raw PCM16 (`output_format.codec` `pcm`, 24000 Hz, mono). Unity still accepts a RIFF WAV (including a streaming header whose data size is 0 or `0xFFFFFFFF`), raw little-endian PCM16, or a JSON envelope with base64 `audio` and `content_type`. It turns that into an `AudioClip` and queues it on an `AudioSource`. The next clip starts when the current one ends.
+`VoiceSpeaker` on **AppBootstrap** watches the streaming reply. It splits the text into sentences and requests each one as soon as the sentence is finished, so a short line can start before the rest of the reply arrives. The request asks for raw PCM16 (`output_format.codec` `pcm`, 24000 Hz, mono). xAI answers that with `Content-Type: audio/pcm` and headerless little-endian PCM16. Unity also accepts `audio/L16`, `application/octet-stream`, a missing content type, a RIFF WAV (including a streaming header whose data size is 0 or `0xFFFFFFFF`), and a JSON envelope with base64 `audio` and `content_type`. It turns that into an `AudioClip` and queues it on an `AudioSource`. The next clip starts when the current one ends.
+
+Project Settings keeps Unity audio enabled. With audio disabled, `AudioClip.Create` returns an empty clip and nothing can be heard.
 
 A short, garbage, or unreadable body becomes a **Note**. The decoder does not throw. An earlier WAV parser threw `IndexOutOfRangeException` from the async synthesis path, and the Editor's Error Pause froze the Game view.
 
@@ -51,7 +53,7 @@ A voice failure becomes a **Note** in the chat panel. The wording matches the ch
 
 While a sentence is being requested or a clip is queued or playing, the overlay stays at the active frame rate. It returns to the idle rate only after speech is finished.
 
-The Console also logs three lines that contain no key and no reply text: `Voice: TTS request starting (N chars, pcm, 24000 Hz)` when a sentence is sent, `Voice: TTS response HTTP <status> <content-type> <byte count> bytes head <four bytes as hex and ASCII>` when the body arrives, and `Voice: playing clip <frames> frames <rate> Hz <channels> ch` when a clip starts.
+The Console also logs lines that contain no key and no reply text: `Voice: TTS request starting (N chars, pcm, 24000 Hz)` when a sentence is sent, `Voice: TTS response HTTP <status> <content-type> <byte count> bytes head <four bytes as hex and ASCII>` when the body arrives, and `Voice: playing clip <frames> frames <rate> Hz <channels> ch` when a clip starts. A body that is not played logs `Voice: rejected audio (<content-type>, <byte count> bytes): <reason>`.
 
 ## Swap the voice later
 

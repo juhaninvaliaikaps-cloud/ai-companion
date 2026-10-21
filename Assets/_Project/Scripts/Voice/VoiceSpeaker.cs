@@ -23,6 +23,7 @@ namespace AICompanion.Voice
         readonly SpeechTurn _turn = new SpeechTurn();
         readonly SpeechPlayback _playback = new SpeechPlayback();
         readonly Queue<AudioClip> _clips = new Queue<AudioClip>();
+        readonly Queue<DecodedClip> _decoded = new Queue<DecodedClip>();
         readonly HashSet<string> _noted = new HashSet<string>();
         AudioSource _source;
         AudioClip _current;
@@ -39,7 +40,7 @@ namespace AICompanion.Voice
 
         public bool IsMuted => _muted;
 
-        public bool IsSpeaking => _playback.ShouldTalk || _requestInFlight || _playback.QueuedCount > 0 || _clips.Count > 0;
+        public bool IsSpeaking => _playback.ShouldTalk || _requestInFlight || _playback.QueuedCount > 0 || _clips.Count > 0 || _decoded.Count > 0;
 
         public void StartCompanion()
         {
@@ -78,6 +79,7 @@ namespace AICompanion.Voice
                 if (Input.GetKeyDown(KeyCode.F6) && !DebugInputGuard.IsBlocked(KeyCode.F6))
                     SetMuted(!_muted);
 
+                PumpDecoded();
                 PumpPlayback();
                 PumpSynthesis();
                 ApplyTalking();
@@ -210,54 +212,119 @@ namespace AICompanion.Voice
         void PlayDecoded(TtsResult result)
         {
             var rate = TtsRequestJson.NormalizeSampleRate(voiceSettings != null ? voiceSettings.sampleRate : 24000);
-            if (!SpeechAudio.TryDecode(result.Audio, result.ContentType, rate, true, out var samples, out var channels, out var decodedRate)
+            if (!SpeechAudio.TryDecode(result.Audio, result.ContentType, rate, true, out var samples, out var channels, out var decodedRate, out var reason)
                 || samples == null
                 || channels <= 0
                 || samples.Length == 0
                 || samples.Length % channels != 0)
             {
-                Note(TtsErrors.Unplayable, "Voice error: " + TtsErrors.Unplayable);
+                if (string.IsNullOrEmpty(reason))
+                    reason = "decoded samples were empty";
+                Reject(result.ContentType, result.ByteCount, reason);
                 return;
             }
 
-            var frames = samples.Length / channels;
-            AudioClip clip = null;
+            _decoded.Enqueue(new DecodedClip
+            {
+                Samples = samples,
+                Channels = channels,
+                Rate = decodedRate,
+                ContentType = result.ContentType,
+                ByteCount = result.ByteCount
+            });
+        }
+
+        void PumpDecoded()
+        {
+            while (_decoded.Count > 0)
+            {
+                var decoded = _decoded.Dequeue();
+                if (!TryBuildClip(decoded, out var clip, out var reason))
+                {
+                    Reject(decoded.ContentType, decoded.ByteCount, reason);
+                    continue;
+                }
+
+                var frames = decoded.Samples.Length / decoded.Channels;
+                Debug.Log("Voice: playing clip " + frames.ToString() + " frames " + decoded.Rate.ToString() + " Hz " + decoded.Channels.ToString() + " ch");
+                EnqueueAudio(clip);
+            }
+        }
+
+        static bool TryBuildClip(DecodedClip decoded, out AudioClip clip, out string reason)
+        {
+            clip = null;
+            reason = "AudioClip.Create returned no clip";
+            if (decoded.Samples == null || decoded.Channels <= 0 || decoded.Rate <= 0)
+            {
+                reason = "decoded samples were empty";
+                return false;
+            }
+
+            var frames = decoded.Samples.Length / decoded.Channels;
+            if (frames <= 0)
+            {
+                reason = "decoded samples were empty";
+                return false;
+            }
+
             try
             {
-                clip = AudioClip.Create("tts", frames, channels, decodedRate, false);
-                if (clip == null || !clip.SetData(samples, 0))
+                clip = AudioClip.Create("tts", frames, decoded.Channels, decoded.Rate, false);
+                if (clip == null || clip.channels <= 0 || clip.samples <= 0)
                 {
                     DestroyClip(clip);
-                    Note(TtsErrors.Unplayable, "Voice error: " + TtsErrors.Unplayable);
-                    return;
+                    clip = null;
+                    reason = "AudioClip.Create returned an empty clip. Unity audio is off in Project Settings > Audio";
+                    return false;
+                }
+
+                if (!clip.SetData(decoded.Samples, 0))
+                {
+                    DestroyClip(clip);
+                    clip = null;
+                    reason = "AudioClip.SetData returned false (" + frames.ToString() + " frames, " + decoded.Rate.ToString() + " Hz, " + decoded.Channels.ToString() + " ch)";
+                    return false;
                 }
             }
             catch (Exception ex)
             {
                 DestroyClip(clip);
-                Note(TtsErrors.Unplayable, "Voice error: " + TtsErrors.Unplayable + ": " + ChatErrors.Scrub(ex.Message));
-                return;
+                clip = null;
+                reason = "AudioClip.Create failed: " + ChatErrors.Scrub(ex.Message);
+                return false;
             }
 
-            Debug.Log("Voice: playing clip " + frames.ToString() + " frames " + decodedRate.ToString() + " Hz " + channels.ToString() + " ch");
-            EnqueueAudio(clip);
-            ApplyTalking();
+            reason = string.Empty;
+            return true;
+        }
+
+        void Reject(string contentType, int byteCount, string reason)
+        {
+            Debug.Log("Voice: rejected audio (" + ContentTypeLabel(contentType) + ", " + byteCount.ToString() + " bytes): " + reason);
+            Note(TtsErrors.Unplayable, "Voice error: " + TtsErrors.Unplayable + ": " + reason);
         }
 
         static string ResponseLine(TtsResult result)
         {
-            var type = result.ContentType ?? string.Empty;
-            type = type.Replace('\r', ' ').Replace('\n', ' ').Trim();
-            if (type.Length == 0)
-                type = "none";
-            else if (type.Length > 80)
-                type = type.Substring(0, 80);
-
+            var type = ContentTypeLabel(result.ContentType);
             var head = string.IsNullOrEmpty(result.Head) ? "empty" : result.Head;
             return "Voice: TTS response HTTP " + result.StatusCode.ToString()
                 + " " + type
                 + " " + result.ByteCount.ToString()
                 + " bytes head " + head;
+        }
+
+        static string ContentTypeLabel(string contentType)
+        {
+            if (string.IsNullOrWhiteSpace(contentType))
+                return "none";
+            var type = contentType.Replace('\r', ' ').Replace('\n', ' ').Trim();
+            if (type.Length == 0)
+                return "none";
+            if (type.Length > 80)
+                type = type.Substring(0, 80);
+            return type;
         }
 
         TtsRequest BuildRequest(string sentence)
@@ -321,6 +388,7 @@ namespace AICompanion.Voice
 
         void SilencePlayback()
         {
+            _decoded.Clear();
             _playback.Stop();
             _playUntil = 0d;
             if (_source != null)
@@ -391,6 +459,15 @@ namespace AICompanion.Voice
             _source.loop = false;
             _source.spatialBlend = 0f;
             _source.dopplerLevel = 0f;
+        }
+
+        struct DecodedClip
+        {
+            public float[] Samples;
+            public int Channels;
+            public int Rate;
+            public string ContentType;
+            public int ByteCount;
         }
 
         static void DestroyClip(AudioClip clip)

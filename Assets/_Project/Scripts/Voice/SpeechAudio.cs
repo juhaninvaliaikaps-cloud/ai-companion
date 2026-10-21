@@ -13,18 +13,25 @@ namespace AICompanion.Voice
     {
         public static bool TryDecode(byte[] data, string contentType, int sampleRate, bool rawPcmAllowed, out float[] samples, out int channels, out int decodedRate)
         {
+            return TryDecode(data, contentType, sampleRate, rawPcmAllowed, out samples, out channels, out decodedRate, out _);
+        }
+
+        public static bool TryDecode(byte[] data, string contentType, int sampleRate, bool rawPcmAllowed, out float[] samples, out int channels, out int decodedRate, out string reason)
+        {
             samples = null;
             channels = 0;
             decodedRate = 0;
+            reason = "empty body";
             try
             {
-                return TryDecodeCore(data, contentType, sampleRate, rawPcmAllowed, 0, out samples, out channels, out decodedRate);
+                return TryDecodeCore(data, contentType, sampleRate, rawPcmAllowed, 0, out samples, out channels, out decodedRate, out reason);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 samples = null;
                 channels = 0;
                 decodedRate = 0;
+                reason = "decoder failed: " + ex.GetType().Name;
                 return false;
             }
         }
@@ -54,41 +61,77 @@ namespace AICompanion.Voice
             return hex.ToString();
         }
 
-        static bool TryDecodeCore(byte[] data, string contentType, int sampleRate, bool rawPcmAllowed, int depth, out float[] samples, out int channels, out int decodedRate)
+        static bool TryDecodeCore(byte[] data, string contentType, int sampleRate, bool rawPcmAllowed, int depth, out float[] samples, out int channels, out int decodedRate, out string reason)
         {
             samples = null;
             channels = 0;
             decodedRate = 0;
+            reason = "empty body";
             if (data == null || data.Length == 0)
                 return false;
 
+            // audio/pcm and audio/L16 are headerless PCM16 even when the first bytes look like whitespace or text.
+            if (Says(contentType, "pcm") || Says(contentType, "l16") || Says(contentType, "audio/raw"))
+                return TryPcm16Mono(data, sampleRate, out samples, out channels, out decodedRate, out reason);
+
             if (Says(contentType, "json") || StartsWithJsonObject(data))
             {
-                if (depth > 0 || !TryUnwrapJson(data, out var inner, out var innerType))
+                if (depth > 0)
+                {
+                    reason = "nested JSON envelope";
+                    return false;
+                }
+
+                if (!TryUnwrapJson(data, out var inner, out var innerType, out reason))
                     return false;
                 var nextType = string.IsNullOrEmpty(innerType) ? contentType : innerType;
-                return TryDecodeCore(inner, nextType, sampleRate, rawPcmAllowed, depth + 1, out samples, out channels, out decodedRate);
+                return TryDecodeCore(inner, nextType, sampleRate, rawPcmAllowed, depth + 1, out samples, out channels, out decodedRate, out reason);
             }
 
             if (IsRiff(data))
-                return WavPcm.TryDecode(data, sampleRate, out samples, out channels, out decodedRate);
+            {
+                if (WavPcm.TryDecode(data, sampleRate, out samples, out channels, out decodedRate))
+                {
+                    reason = string.Empty;
+                    return true;
+                }
+
+                reason = "RIFF WAV could not be read";
+                return false;
+            }
 
             if (Says(contentType, "mpeg") || Says(contentType, "mp3") || StartsWithId3(data))
+            {
+                reason = "MP3 is not played";
                 return false;
-            if (Says(contentType, "wav") || Says(contentType, "wave"))
-                return false;
-            if (Says(contentType, "mulaw") || Says(contentType, "alaw"))
-                return false;
-            if (!AllowsRawPcm(contentType, rawPcmAllowed))
-                return false;
+            }
 
-            return TryPcm16Mono(data, sampleRate, out samples, out channels, out decodedRate);
+            if (Says(contentType, "wav") || Says(contentType, "wave"))
+            {
+                reason = "content type says wav but the body is not a RIFF WAV";
+                return false;
+            }
+
+            if (Says(contentType, "mulaw") || Says(contentType, "alaw"))
+            {
+                reason = "mu-law and a-law are not played";
+                return false;
+            }
+
+            if (!AllowsRawPcm(contentType, rawPcmAllowed))
+            {
+                reason = "unrecognized content type " + TypeLabel(contentType);
+                return false;
+            }
+
+            return TryPcm16Mono(data, sampleRate, out samples, out channels, out decodedRate, out reason);
         }
 
-        static bool TryUnwrapJson(byte[] data, out byte[] audio, out string contentType)
+        static bool TryUnwrapJson(byte[] data, out byte[] audio, out string contentType, out string reason)
         {
             audio = null;
             contentType = null;
+            reason = "JSON envelope has no audio field";
             if (!TryJsonText(data, out var json))
                 return false;
             if (!JsonText.TryReadStringField(json, "audio", out var payload) || string.IsNullOrWhiteSpace(payload))
@@ -102,23 +145,40 @@ namespace AICompanion.Voice
             catch (FormatException)
             {
                 audio = null;
+                reason = "JSON audio is not valid base64";
                 return false;
             }
 
-            return audio != null && audio.Length > 0;
+            if (audio == null || audio.Length == 0)
+            {
+                reason = "JSON audio was empty";
+                return false;
+            }
+
+            reason = string.Empty;
+            return true;
         }
 
-        static bool TryPcm16Mono(byte[] data, int sampleRate, out float[] samples, out int channels, out int decodedRate)
+        static bool TryPcm16Mono(byte[] data, int sampleRate, out float[] samples, out int channels, out int decodedRate, out string reason)
         {
             samples = null;
             channels = 0;
             decodedRate = 0;
-            if (data == null || data.Length < 2 || (data.Length & 1) != 0)
+            reason = "empty body";
+            if (data == null || data.Length < 2)
                 return false;
+            if ((data.Length & 1) != 0)
+            {
+                reason = "PCM16 length is odd (" + data.Length.ToString() + " bytes)";
+                return false;
+            }
 
             var rate = TtsRequestJson.NormalizeSampleRate(sampleRate);
             if (rate < 1000)
+            {
+                reason = "sample rate is not supported";
                 return false;
+            }
 
             var count = data.Length / 2;
             samples = new float[count];
@@ -132,7 +192,18 @@ namespace AICompanion.Voice
 
             channels = 1;
             decodedRate = rate;
+            reason = string.Empty;
             return true;
+        }
+
+        static string TypeLabel(string contentType)
+        {
+            if (string.IsNullOrWhiteSpace(contentType))
+                return "missing";
+            var type = contentType.Trim().Replace('\r', ' ').Replace('\n', ' ');
+            if (type.Length > 80)
+                type = type.Substring(0, 80);
+            return type;
         }
 
         static bool AllowsRawPcm(string contentType, bool rawPcmAllowed)

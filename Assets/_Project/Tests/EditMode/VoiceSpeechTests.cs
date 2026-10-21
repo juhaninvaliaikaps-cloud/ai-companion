@@ -295,6 +295,26 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void SpeechAudio_DecodesThePcmBodyXaiReturned()
+        {
+            var body = new byte[60960];
+            body[0] = 0x0D;
+            body[1] = 0x00;
+            body[2] = 0x13;
+            body[3] = 0x00;
+
+            AssertPcm16(body, "audio/pcm");
+            AssertPcm16(body, "audio/L16; rate=24000");
+            AssertPcm16(body, "application/octet-stream");
+            AssertPcm16(body, null);
+            AssertPcm16(body, string.Empty);
+
+            Assert.IsFalse(SpeechAudio.TryDecode(Encoding.UTF8.GetBytes("garbage!!"), "text/plain", 24000, true, out _, out _, out _, out var reason));
+            StringAssert.Contains("text/plain", reason);
+            StringAssert.DoesNotContain("xai-", reason);
+        }
+
+        [Test]
         public void Errors_ScrubKeysAndStopTheQueueForAuthFailures()
         {
             var body = Encoding.UTF8.GetBytes("{\"error\":\"bad Bearer xai-abcdefghijklmnopqrstuvwxyz key\"}");
@@ -347,6 +367,17 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(ChatErrors.MissingApiKey, missing.UserMessage);
             Assert.IsTrue(missing.StopQueue);
             Assert.AreEqual(1, transport.Calls);
+        }
+
+        static void AssertPcm16(byte[] body, string contentType)
+        {
+            Assert.IsTrue(SpeechAudio.TryDecode(body, contentType, 24000, true, out var samples, out var channels, out var rate, out var reason), reason);
+            Assert.AreEqual(string.Empty, reason);
+            Assert.AreEqual(1, channels);
+            Assert.AreEqual(24000, rate);
+            Assert.AreEqual(body.Length / 2, samples.Length);
+            Assert.AreEqual(13f / 32768f, samples[0], 0.000001f);
+            Assert.AreEqual(19f / 32768f, samples[1], 0.000001f);
         }
 
         static void AssertDecodes(byte[] wav)
