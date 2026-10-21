@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using AICompanion.Core;
 using AICompanion.Voice;
 using NUnit.Framework;
@@ -212,6 +214,89 @@ namespace AICompanion.Tests.EditMode
             {
                 UnityEngine.Object.DestroyImmediate(settings);
             }
+        }
+
+        [Test]
+        public void NativeLoad_ListsEditorAndPlayerPluginFolders()
+        {
+            var assets = Path.Combine("/proj", "Assets");
+            var editor = WhisperNativeLoad.CandidateDirectories(assets);
+            CollectionAssert.Contains(editor, Path.Combine("/proj", "Packages", "com.whisper.unity", "Plugins", "Windows"));
+            CollectionAssert.Contains(editor, Path.Combine(assets, "Plugins", "x86_64"));
+
+            var data = Path.Combine("/proj", "AICompanion_Data");
+            var player = WhisperNativeLoad.CandidateDirectories(data);
+            CollectionAssert.Contains(player, Path.Combine(data, "Plugins", "x86_64"));
+            Assert.AreEqual(0, WhisperNativeLoad.CandidateDirectories(null).Length);
+        }
+
+        [Test]
+        public void NativeLoad_FindsLibwhisperInThePluginFolder()
+        {
+            var root = Path.Combine(Path.GetTempPath(), "whisper-load-" + Guid.NewGuid().ToString("N"));
+            var assets = Path.Combine(root, "Assets");
+            var plugins = Path.Combine(root, "Packages", "com.whisper.unity", "Plugins", "Windows");
+            Directory.CreateDirectory(plugins);
+            File.WriteAllText(Path.Combine(plugins, WhisperNativeLoad.LibraryFile), "not a real library");
+            try
+            {
+                Assert.AreEqual(Path.GetFullPath(plugins), WhisperNativeLoad.FindDirectory(assets));
+            }
+            finally
+            {
+                if (Directory.Exists(root))
+                    Directory.Delete(root, true);
+            }
+        }
+
+        [Test]
+        public void NativeLoad_FindsLibwhisperNextToThePlayer()
+        {
+            var root = Path.Combine(Path.GetTempPath(), "whisper-player-" + Guid.NewGuid().ToString("N"));
+            var data = Path.Combine(root, "AICompanion_Data");
+            var plugins = Path.Combine(data, "Plugins", "x86_64");
+            Directory.CreateDirectory(plugins);
+            File.WriteAllText(Path.Combine(plugins, WhisperNativeLoad.LibraryFile), "not a real library");
+            try
+            {
+                Assert.AreEqual(Path.GetFullPath(plugins), WhisperNativeLoad.FindDirectory(data));
+            }
+            finally
+            {
+                if (Directory.Exists(root))
+                    Directory.Delete(root, true);
+            }
+        }
+
+        [Test]
+        public void NativeLoad_FailureLineNamesTheTypeAndPluginPath()
+        {
+            var path = "C:/Game/Packages/com.whisper.unity/Plugins/Windows";
+            var line = WhisperNativeLoad.FailureLine(
+                "ggml-base.bin",
+                "DllNotFoundException",
+                "libwhisper assembly:<unknown assembly> type:<unknown type> member:(null)",
+                path,
+                null);
+
+            StringAssert.Contains("STT: transcribe failed DllNotFoundException ggml-base.bin", line);
+            StringAssert.Contains("libwhisper assembly:<unknown assembly> type:<unknown type> member:(null)", line);
+            StringAssert.Contains("path=" + path, line);
+            Assert.IsFalse(line.Contains("load="));
+
+            var same = WhisperNativeLoad.FailureLine("ggml-base.bin", "DllNotFoundException", "missing", path, path);
+            Assert.IsFalse(same.Contains("load="));
+
+            var noisy = WhisperNativeLoad.FailureLine(
+                "ggml-base.bin",
+                "DllNotFoundException",
+                "missing",
+                path,
+                new string('x', 600));
+            Assert.LessOrEqual(noisy.Length, 500);
+            StringAssert.Contains("DllNotFoundException", noisy);
+            StringAssert.Contains("path=" + path, noisy);
+            StringAssert.Contains("load=", noisy);
         }
     }
 }

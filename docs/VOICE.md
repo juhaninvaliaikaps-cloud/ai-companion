@@ -95,6 +95,8 @@ The mic button is a hold, not a toggle. Letting go, or sliding off the button, e
 
 The engine is [whisper.unity](https://github.com/Macoron/whisper.unity) 1.4.0 (whisper.cpp v1.7.5, commit `529a628`), embedded at `Packages/com.whisper.unity`. The binding, whisper.cpp, and the OpenAI Whisper weights are MIT, which is fine for this public repository. The copy in this repo adds a `UnityEngine.UI` reference and drops the JetBrains annotations so it compiles in Unity 6000.6. It includes the Windows and Linux CPU plugins and leaves out the Vulkan backend. The Windows plugins are enabled for the Windows editor and the Windows player, and they load on the first transcription, not at startup. The Linux plugins are for a Linux player only, so the Linux test editor does not load them. There is no Python service and no cloud speech-to-text call. Audio is not uploaded and is not written to a file.
 
+`ggml.dll` still imports `ggml_backend_vk_reg` from `ggml-vulkan.dll`. This repo ships a stub of that library that returns null, so the import resolves and Vulkan stays off. On Windows, Unity loads `libwhisper.dll` by a full path and does not search the plugin folder for the `ggml*.dll` files beside it. `WhisperNativeLoad` loads those siblings from the plugin folder before the first transcription. After you pull this change, quit the Unity Editor completely and open the project again so the new DLL is imported into a fresh process. Entering Play mode again in a process that already failed to load `libwhisper` keeps that failure. No Vulkan driver is required. If a later `STT:` line says `ggml-cpu.dll win32=126`, install the Microsoft Visual C++ 2015-2022 Redistributable (x64). The Editor install normally already includes it.
+
 `ISttProvider` is the seam. `WhisperSttProvider` is the first implementation. The chat panel only sees `IChatSubmitter` and `IPushToTalk`, so the UI assembly does not reference Whisper.
 
 The weight is **not** in git. The default is multilingual `ggml-base.bin` (about 148 MB), which covers Finnish and English. Do not download `ggml-base.en.bin`. That file is English only. `ggml-small.bin` (about 488 MB) is the higher-quality option and can miss the two-second target on CPU.
@@ -118,7 +120,7 @@ curl -L -o Assets/StreamingAssets/Whisper/ggml-base.bin https://huggingface.co/g
 
 `Assets/StreamingAssets/Whisper/*.bin` is gitignored. CI does not download a model. Edit Mode tests cover resampling, the hold state machine, and the hotkey rules without native code and without the weight.
 
-A missing model, no microphone, or a microphone the OS refused becomes a **Note**. Play mode keeps running. The Console lines are short and start with `STT:`. They include the device, rate, duration, model file name, language code, and seconds. They do not include the transcript or the audio.
+A missing model, no microphone, or a microphone the OS refused becomes a **Note**. Play mode keeps running. The Console lines are short and start with `STT:`. They include the device, rate, duration, model file name, language code, and seconds. A failed transcription also includes the exception type and `path=` the plugin folder. They do not include the transcript or the audio.
 
 ### Settings
 
@@ -137,7 +139,7 @@ A missing model, no microphone, or a microphone the OS refused becomes a **Note*
 
 ### Try it in the editor
 
-1. Open the project in Unity 6000.6.6f1 and let the Whisper package import.
+1. Check out `cursor/juh-12-whisper-stt-1850`. Pull with Git LFS so `Packages/com.whisper.unity/Plugins/Windows/ggml-vulkan.dll` is a real DLL of a few KB. Quit the Unity Editor completely, then open the project in Unity 6000.6.6f1 and let the Whisper package import.
 2. Run **AI Companion > Download Whisper Model (base)** and confirm `Assets/StreamingAssets/Whisper/ggml-base.bin` exists.
 3. Open `Assets/_Project/Scenes/Main.unity` and enter Play mode. Click the Game view so it has keyboard focus.
 4. Confirm **Speech Listener** is on **AppBootstrap** and **Stt Settings** is the asset above.
@@ -148,7 +150,7 @@ A missing model, no microphone, or a microphone the OS refused becomes a **Note*
 
 ### Try it in the Windows build
 
-1. Download the model in the Editor first, so `StreamingAssets/Whisper/ggml-base.bin` is present, then build and run `Builds/Windows/AICompanion.exe`. The Whisper plugin is inside the player. The model is copied from StreamingAssets.
+1. Download the model in the Editor first, so `StreamingAssets/Whisper/ggml-base.bin` is present, then rebuild and run `Builds/Windows/AICompanion.exe`. The Whisper plugins, including `ggml-vulkan.dll`, are copied into `AICompanion_Data/Plugins/x86_64`. The model is copied from StreamingAssets.
 2. If Windows asks, allow the microphone for the build.
 3. Click the window. Hold **V** or **Mic**, speak a short sentence, and release. The **You** line appears, and any current TTS stops when the hold starts.
 4. A missing model or a blocked microphone shows a **Note**. No audio file is written next to the exe. The player log's `STT:` lines stay free of the transcript.

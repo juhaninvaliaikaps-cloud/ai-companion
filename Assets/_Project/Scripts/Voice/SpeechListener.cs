@@ -204,7 +204,13 @@ namespace AICompanion.Voice
                     return;
 
                 _gate.FinishTranscription(HeldNow());
-                Debug.Log("STT: transcribe failed " + Short(ChatErrors.Scrub(ex.Message)));
+                var model = sttSettings != null ? sttSettings.ModelFileName : "model";
+                Debug.Log(WhisperNativeLoad.FailureLine(
+                    model,
+                    ex.GetType().Name,
+                    ex.Message,
+                    WhisperNativeLoad.PluginDirectory,
+                    WhisperNativeLoad.LoadDetail));
                 Note("Speech could not be transcribed.");
             }
         }

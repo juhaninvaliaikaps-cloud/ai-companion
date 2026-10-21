@@ -48,6 +48,14 @@ namespace AICompanion.Voice
                     if (info.Length < 1000000)
                         return SttResult.Fail(MissingModelMessage(_modelFile), "STT: model missing " + _modelFile);
 
+                    string loadDetail;
+                    if (!WhisperNativeLoad.TryPrepare(out loadDetail))
+                    {
+                        return SttResult.Fail(
+                            "The speech library could not be loaded.",
+                            WhisperNativeLoad.FailureLine(_modelFile, "DllNotFoundException", loadDetail, WhisperNativeLoad.PluginDirectory, null));
+                    }
+
                     var loadStarted = Time.realtimeSinceStartup;
                     var context = WhisperContextParams.GetDefaultParams();
                     context.UseGpu = false;
@@ -83,10 +91,9 @@ namespace AICompanion.Voice
             }
             catch (Exception ex)
             {
-                var detail = ChatErrors.Scrub(ex.Message);
-                if (detail.Length > 80)
-                    detail = detail.Substring(0, 80);
-                return SttResult.Fail("Speech could not be transcribed.", "STT: transcribe failed " + _modelFile + " " + detail);
+                return SttResult.Fail(
+                    "Speech could not be transcribed.",
+                    WhisperNativeLoad.FailureLine(_modelFile, ex.GetType().Name, ex.Message, WhisperNativeLoad.PluginDirectory, WhisperNativeLoad.LoadDetail));
             }
             finally
             {
