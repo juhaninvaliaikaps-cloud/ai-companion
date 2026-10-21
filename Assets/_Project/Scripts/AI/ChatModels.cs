@@ -15,7 +15,7 @@ namespace AICompanion.AI
         public const float Temperature = 0.7f;
         public const int MaxTokens = 512;
         public const float TimeoutSeconds = 120f;
-        public const string SystemPrompt = "You are a concise desktop companion. Reply in one or two sentences.";
+        public const string SystemPrompt = "You are a warm, friendly desktop companion sitting beside the user. Reply in one or two short, conversational sentences. Stay kind, light, and appropriate for any audience.";
     }
 
     public enum ChatRole

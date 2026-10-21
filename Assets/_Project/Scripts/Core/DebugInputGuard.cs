@@ -1,0 +1,46 @@
+using UnityEngine;
+
+namespace AICompanion.Core
+{
+    /// <summary>
+    /// While a text field has focus, debug keys must not fire. Letters such as
+    /// T and R, and the function keys, still report <c>GetKeyDown</c>.
+    /// </summary>
+    public static class DebugInputGuard
+    {
+        public static bool TextFieldFocused { get; private set; }
+
+        public static void SetTextFieldFocused(bool focused)
+        {
+            TextFieldFocused = focused;
+        }
+
+        public static bool IsBlocked(KeyCode key)
+        {
+            if (!TextFieldFocused)
+                return false;
+
+            switch (key)
+            {
+                case KeyCode.Alpha1:
+                case KeyCode.Alpha2:
+                case KeyCode.Alpha3:
+                case KeyCode.Alpha4:
+                case KeyCode.Alpha5:
+                case KeyCode.Keypad1:
+                case KeyCode.Keypad2:
+                case KeyCode.Keypad3:
+                case KeyCode.Keypad4:
+                case KeyCode.Keypad5:
+                case KeyCode.T:
+                case KeyCode.R:
+                case KeyCode.F7:
+                case KeyCode.F8:
+                case KeyCode.F9:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+    }
+}

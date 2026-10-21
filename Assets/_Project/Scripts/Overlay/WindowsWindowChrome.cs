@@ -173,6 +173,15 @@ namespace AICompanion.Overlay
             SetWindowPos(_hwnd, after, topLeft.x, topLeft.y, 0, 0, SwpNoSize | SwpNoActivate | SwpShowWindow);
         }
 
+        public void FocusForTyping()
+        {
+            if (!TryGetHwnd())
+                return;
+
+            SetForegroundWindow(_hwnd);
+            SetFocus(_hwnd);
+        }
+
         bool TryGetHwnd()
         {
             if (_hwndLocked)
@@ -261,6 +270,12 @@ namespace AICompanion.Overlay
 
         [DllImport("user32.dll")]
         static extern int GetSystemMetrics(int nIndex);
+
+        [DllImport("user32.dll")]
+        static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        static extern IntPtr SetFocus(IntPtr hWnd);
     }
 }
 #endif

@@ -146,6 +146,26 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void WindowDrag_DoesNotStartOnAnotherUiPanel()
+        {
+            Assert.IsFalse(WindowDragGate.ShouldStart(false, true, true, false));
+            Assert.IsFalse(WindowDragGate.ShouldStart(true, true, true, true));
+            Assert.IsTrue(WindowDragGate.ShouldStart(true, true, false, false));
+            Assert.IsTrue(WindowDragGate.ShouldStart(true, false, true, false));
+            Assert.IsFalse(WindowDragGate.ShouldStart(true, false, false, false));
+        }
+
+        [Test]
+        public void AvatarDoubleClick_RequiresAShortGap()
+        {
+            Assert.IsFalse(AvatarDoubleClick.IsSecond(-1f, 1f));
+            Assert.IsFalse(AvatarDoubleClick.IsSecond(0f, 0.02f));
+            Assert.IsTrue(AvatarDoubleClick.IsSecond(0f, 0.2f));
+            Assert.IsTrue(AvatarDoubleClick.IsSecond(0f, AvatarDoubleClick.MaxGapSeconds));
+            Assert.IsFalse(AvatarDoubleClick.IsSecond(0f, AvatarDoubleClick.MaxGapSeconds + 0.05f));
+        }
+
+        [Test]
         public void ApplyTransparentCamera_ClearsToTransparentBlackWithoutHdrOrMsaa()
         {
             var host = new GameObject("overlay camera");

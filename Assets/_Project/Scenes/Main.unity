@@ -452,9 +452,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1911444196}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d21707c2d23e7d3f70c10005de588983, type: 3}
+  m_Script: {fileID: 11500000, guid: c8a3bb8760b09a9e303512df0dbac52d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: AICompanion.AI::AICompanion.AI.ChatDebugHarness
+  m_EditorClassIdentifier: AICompanion.UI::AICompanion.UI.ChatPanel
   settings: {fileID: 11400000, guid: 7b04abe5e4bec49afdb9310a2acb7057, type: 2}
 --- !u!1 &2100000101
 GameObject:

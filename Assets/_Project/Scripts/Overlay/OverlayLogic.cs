@@ -135,6 +135,35 @@ namespace AICompanion.Overlay
         }
     }
 
+    /// <summary>
+    /// Left-drag moves the window from the avatar or the top debug handle.
+    /// Another UI panel, even when its pixels are opaque, is not a drag handle.
+    /// </summary>
+    public static class WindowDragGate
+    {
+        public static bool ShouldStart(bool leftPressed, bool onSilhouette, bool overDragHandle, bool overOtherUi)
+        {
+            if (!leftPressed || overOtherUi)
+                return false;
+
+            return onSilhouette || overDragHandle;
+        }
+    }
+
+    public static class AvatarDoubleClick
+    {
+        public const float MaxGapSeconds = 0.35f;
+
+        public static bool IsSecond(float previousTime, float now, float gapSeconds = MaxGapSeconds)
+        {
+            if (previousTime < 0f)
+                return false;
+
+            var delta = now - previousTime;
+            return delta > 0.02f && delta <= gapSeconds;
+        }
+    }
+
     public static class OverlayFrameRate
     {
         public const int Active = 60;

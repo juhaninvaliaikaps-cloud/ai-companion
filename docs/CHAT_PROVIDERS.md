@@ -36,20 +36,18 @@ The value is not written to the Console, to exception text, or to the chat reply
 ### In the Windows player
 
 1. Build and run `Builds/Windows/AICompanion.exe`.
-2. Either set `XAI_API_KEY` for that process before launch, or use the password field at the bottom of the window and press **Save key**. That writes the same per-user file.
-3. Focus the window and press **F9**.
+2. Either set `XAI_API_KEY` for that process before launch, or press **F10** and use the password field on the chat panel. **Save** writes the same per-user file and clears the field.
+3. Click the panel so the window is in front, then follow [CHAT_UI.md](CHAT_UI.md).
 
-## Try a reply before the chat UI exists
+## Try a reply
 
-The debug box sits at the bottom of the Game view and the player window. It is the same kind of always-on debug label as the top-left overlay readout.
+The chat panel is documented in [CHAT_UI.md](CHAT_UI.md). Short version:
 
 1. Open `Assets/_Project/Scenes/Main.unity` and enter Play mode, or run the Windows player.
-2. The prompt defaults to `Say hello in one short sentence.` Edit it if you want.
-3. Press **F9**. The reply streams into the box and into the Console (`Chat delta:` lines, then `Chat reply:`).
-4. **Esc** cancels the request that is in flight.
-5. A failure stays on the box. The Console gets a warning with the HTTP status and the provider's message (`Chat error: HTTP 403 from Grok: ...`). The box shows a shorter line, or a hint when the cause is clear: `Invalid API key`, `xAI account has no API credits or billing is not set up (console.x.ai > Billing)`, `Model grok-4.7 not available for this key; change ChatSettings.model`, `Rate limited, try again shortly`, `Couldn't reach Grok`, or `Grok took too long to answer`. The log never includes the API key.
-
-F7, F8, 1–5, T, and R are unchanged. Empty pixels around the avatar still click through. The chat box itself stays clickable.
+2. Press **F10** if the panel is hidden. Type a message and press **Enter**. **F9**, while the field is not focused, sends the draft or `Say hello in one short sentence.`
+3. The reply streams into the panel. The Console logs `Chat reply:` when it finishes. It does not log each chunk.
+4. **Esc** or **Stop** cancels the request that is in flight.
+5. A failure is a **Note** in the panel. The Console gets a warning with the HTTP status and the provider's message (`Chat error: HTTP 403 from Grok: ...`). The note shows a shorter line, or a hint when the cause is clear: `Invalid API key`, `xAI account has no API credits or billing is not set up (console.x.ai > Billing)`, `Model grok-4.7 not available for this key; change ChatSettings.model`, `Rate limited, try again shortly`, `Couldn't reach Grok`, or `Grok took too long to answer`. The log never includes the API key.
 
 ## Add a provider
 
@@ -57,8 +55,8 @@ F7, F8, 1–5, T, and R are unchanged. Empty pixels around the avatar still clic
 2. `Register` it in `ChatProviderFactory.Create`.
 3. Set `providerId` on `ChatSettings` to that id.
 
-`ChatDebugHarness` and later UI should keep calling `registry.TryGet(settings.providerId)`. They should not grow a switch.
+`ChatPanel` calls `registry.TryGet(settings.providerId)`. Later UI should keep doing that. It should not grow a switch.
 
 ## Tests
 
-`ChatProviderTests` feeds a fake transport. It does not open a socket and does not need `XAI_API_KEY`. CI stays green without a key.
+`ChatProviderTests` feeds a fake transport. It does not open a socket and does not need `XAI_API_KEY`. `ChatConversationTests` does the same for the transcript. CI stays green without a key.

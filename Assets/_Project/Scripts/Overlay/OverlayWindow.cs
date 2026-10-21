@@ -13,7 +13,7 @@ namespace AICompanion.Overlay
     /// the camera, limits the frame rate, and updates the debug label.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class OverlayWindow : MonoBehaviour, ICompanionStartup
+    public sealed class OverlayWindow : MonoBehaviour, ICompanionStartup, ITypingFocus
     {
         const string TopmostOnLabel = "Topmost on   F8";
         const string TopmostOffLabel = "Topmost off  F8";
@@ -77,6 +77,7 @@ namespace AICompanion.Overlay
         string _rotateText = AvatarRotateMode.OffLabel;
         bool _shownRotating;
         bool _rotateReady;
+        float _lastSilhouetteClick = -1f;
 
         public bool IsTopmost => _topmost;
         public bool IsClickThrough => _clickThrough;
@@ -114,7 +115,9 @@ namespace AICompanion.Overlay
             bool inside = TryReadPointer(out var unityScreen, out var screenCursor);
             bool overPanel = inside && OverlayPointerMath.IsInsideTopLeftRect(PanelRect, unityScreen, Screen.height);
             bool overDebug = inside && IsOverDebugPanel(unityScreen);
-            bool overUi = overPanel || overDebug || (inside && IsOverUi(unityScreen));
+            bool eventUi = inside && IsOverUi(unityScreen);
+            bool overOtherUi = overDebug || eventUi;
+            bool overUi = overPanel || overOtherUi;
             var pixel = new Vector2Int(Mathf.RoundToInt(unityScreen.x), Mathf.RoundToInt(unityScreen.y));
             bool outsideSlack = !_hasSample || !SilhouetteHit.WithinSlack(_sampledPixel, pixel, SilhouetteHit.SampleSlackPixels);
             bool onSilhouette = inside && _onSilhouette;
@@ -133,8 +136,25 @@ namespace AICompanion.Overlay
 
             bool toggle = AvatarRotateMode.ShouldToggle(rightDown, onSilhouette, overUi);
             _rotating = AvatarRotateMode.Next(_rotating, toggle, Input.GetKeyDown(KeyCode.Escape));
-            if (_turntable != null && AvatarRotateMode.ShouldReset(_rotating, Input.GetKeyDown(KeyCode.R), middleDown, onSilhouette, overUi))
+            bool resetKey = Input.GetKeyDown(KeyCode.R) && !DebugInputGuard.IsBlocked(KeyCode.R);
+            if (_turntable != null && AvatarRotateMode.ShouldReset(_rotating, resetKey, middleDown, onSilhouette, overUi))
                 _turntable.ResetYaw();
+
+            if (leftDown && overOtherUi)
+                FocusForTyping();
+
+            if (leftDown && onSilhouette && !overUi)
+            {
+                if (AvatarDoubleClick.IsSecond(_lastSilhouetteClick, Time.unscaledTime))
+                {
+                    _lastSilhouetteClick = -1f;
+                    NotifyAvatarDoubleClick();
+                }
+                else
+                {
+                    _lastSilhouetteClick = Time.unscaledTime;
+                }
+            }
 
             if (!_yawDrag && leftDown && AvatarRotateMode.ShouldRotateInsteadOfMovingWindow(_rotating, onSilhouette, overUi))
             {
@@ -159,7 +179,7 @@ namespace AICompanion.Overlay
                 }
             }
 
-            if (!_dragging && !_yawDrag && leftDown && (onSilhouette || overPanel) && _chrome.TryGetWindowPosition(out var origin) && _chrome.TryGetScreenCursor(out var cursor))
+            if (!_dragging && !_yawDrag && WindowDragGate.ShouldStart(leftDown, onSilhouette, overPanel, overOtherUi) && _chrome.TryGetWindowPosition(out var origin) && _chrome.TryGetScreenCursor(out var cursor))
             {
                 _dragging = true;
                 _userMoved = true;
@@ -181,10 +201,10 @@ namespace AICompanion.Overlay
             _chrome.SetClickThrough(_clickThrough);
             QueueAlphaSample(inside, outsideSlack, pixel);
 
-            if (Input.GetKeyDown(topmostKey))
+            if (Input.GetKeyDown(topmostKey) && !DebugInputGuard.IsBlocked(topmostKey))
                 SetTopmost(!_topmost);
 
-            bool awake = inside || leftHeld || rightHeld || middleHeld || _dragging || _yawDrag || Input.anyKey;
+            bool awake = inside || leftHeld || rightHeld || middleHeld || _dragging || _yawDrag || Input.anyKey || KeepAwake();
             if (awake)
                 _idleFor = 0f;
             else
@@ -235,6 +255,12 @@ namespace AICompanion.Overlay
             camera.backgroundColor = new Color(0f, 0f, 0f, 0f);
             camera.allowHDR = false;
             camera.allowMSAA = false;
+        }
+
+        public void FocusForTyping()
+        {
+            if (_chrome != null)
+                _chrome.FocusForTyping();
         }
 
         public void SetTopmost(bool topmost)
@@ -301,6 +327,34 @@ namespace AICompanion.Overlay
             unityScreen = new Vector2(mouse.x, mouse.y);
             screenCursor = new Vector2Int(Mathf.RoundToInt(mouse.x), Mathf.RoundToInt(Screen.height - mouse.y));
             return mouse.x >= 0f && mouse.y >= 0f && mouse.x < Screen.width && mouse.y < Screen.height;
+        }
+
+        bool KeepAwake()
+        {
+            if (_behaviours == null)
+                _behaviours = GetComponents<MonoBehaviour>();
+
+            for (var i = 0; i < _behaviours.Length; i++)
+            {
+                var wake = _behaviours[i] as IOverlayKeepAwake;
+                if (wake != null && wake.KeepFrameRateActive)
+                    return true;
+            }
+
+            return false;
+        }
+
+        void NotifyAvatarDoubleClick()
+        {
+            if (_behaviours == null)
+                _behaviours = GetComponents<MonoBehaviour>();
+
+            for (var i = 0; i < _behaviours.Length; i++)
+            {
+                var listener = _behaviours[i] as IAvatarDoubleClick;
+                if (listener != null)
+                    listener.OnAvatarDoubleClick();
+            }
         }
 
         bool IsOverDebugPanel(Vector2 unityScreen)

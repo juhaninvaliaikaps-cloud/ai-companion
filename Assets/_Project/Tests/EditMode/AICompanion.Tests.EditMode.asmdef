@@ -6,6 +6,7 @@
         "AICompanion.AI",
         "AICompanion.Avatar",
         "AICompanion.Overlay",
+        "AICompanion.UI",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

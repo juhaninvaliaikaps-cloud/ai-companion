@@ -16,6 +16,7 @@ namespace AICompanion.Overlay
         bool TryGetWindowPosition(out Vector2Int topLeft);
         bool TryGetMonitorSize(out Vector2Int size);
         void MoveWindow(Vector2Int topLeft, bool topmost);
+        void FocusForTyping();
     }
 
     public static class WindowChrome
@@ -76,6 +77,10 @@ namespace AICompanion.Overlay
         }
 
         public void MoveWindow(Vector2Int topLeft, bool topmost)
+        {
+        }
+
+        public void FocusForTyping()
         {
         }
     }

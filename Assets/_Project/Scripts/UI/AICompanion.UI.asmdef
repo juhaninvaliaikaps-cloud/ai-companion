@@ -3,7 +3,8 @@
     "rootNamespace": "AICompanion.UI",
     "references": [
         "AICompanion.Core",
-        "AICompanion.AI"
+        "AICompanion.AI",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
