@@ -150,7 +150,7 @@ namespace AICompanion.Voice
     /// The transcript itself is logged by the package at Log level, and that
     /// level is raised so the text is not written.
     /// </summary>
-    static class SttLogQuiet : IDisposable
+    sealed class SttLogQuiet : IDisposable
     {
         readonly ILogHandler _previous;
 
