@@ -1,6 +1,6 @@
 # Windows overlay
 
-The desktop window is a borderless, transparent, always-on-top player. The project uses **URP 17.5.0** with HDR and MSAA off so the framebuffer keeps alpha. `Main` contains `AppBootstrap`, `OverlayWindow`, `AvatarMount`, a camera, a light, and a pink capsule named **Placeholder Avatar**. `AvatarMount` replaces the capsule when a VRM, FBX, or local prefab loads. How to add a model is in [AVATARS.md](AVATARS.md).
+The desktop window is a borderless, transparent, always-on-top player. The project uses **URP 17.6.0** with HDR and MSAA off so the framebuffer keeps alpha. `Main` contains `AppBootstrap`, `OverlayWindow`, `AvatarMount`, a camera, a light, and a pink capsule named **Placeholder Avatar**. `AvatarMount` replaces the capsule when a VRM, FBX, or local prefab loads. How to add a model is in [AVATARS.md](AVATARS.md).
 
 Win32 calls are compiled only for the Windows player (`UNITY_STANDALONE_WIN && !UNITY_EDITOR`). The editor and the Linux CI test run still compile. EditMode covers the click-through decision, drag math, pointer mapping, frame-rate choice, camera clear, and the `AppBootstrap` startup hook. The transparent window itself is checked on Windows.
 

@@ -79,7 +79,7 @@ They are not Mixamo, VRoid Hub, or Asset Store models. The VRM is VRM 1.0. Both 
 
 ## Transparency
 
-The project uses **URP 17.5.0** (the Universal RP release for Unity 6000.6). The built-in pipeline cannot show Asuna's materials on Unity 6.
+The project uses **URP 17.6.0**, the Universal RP version bundled with Unity 6000.6.6f1. The built-in pipeline cannot show Asuna's materials on Unity 6.
 
 These settings keep the desktop visible around the model:
 

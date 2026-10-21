@@ -67,7 +67,7 @@ This environment has no Unity Editor, so the package was not downloaded and thes
 
 ## Render pipeline
 
-The project uses the **Universal Render Pipeline 17.5.0**, the URP release for Unity 6000.6. `Assets/_Project/Settings/UniversalRenderPipelineAsset.asset` is assigned in Graphics and on every quality level. HDR and MSAA are off so the transparent overlay keeps framebuffer alpha. How to load a VRM, an FBX, or the local Asuna prefab is in [docs/AVATARS.md](docs/AVATARS.md). The window itself is in [docs/OVERLAY.md](docs/OVERLAY.md).
+The project uses the **Universal Render Pipeline 17.6.0**, the URP version bundled with Unity 6000.6.6f1. `Assets/_Project/Settings/UniversalRenderPipelineAsset.asset` is assigned in Graphics and on every quality level. HDR and MSAA are off so the transparent overlay keeps framebuffer alpha. How to load a VRM, an FBX, or the local Asuna prefab is in [docs/AVATARS.md](docs/AVATARS.md). The window itself is in [docs/OVERLAY.md](docs/OVERLAY.md).
 
 ## Packages
 
@@ -81,7 +81,7 @@ The project uses the **Universal Render Pipeline 17.5.0**, the URP release for U
 | `com.unity.timeline` 6.6.0 | Core package on Unity 6000.6, renumbered from the 1.8 line. UniVRM depends on Timeline. |
 | `com.unity.mathematics` 1.3.3 | Required by UniVRM. Latest registry release; its package metadata allows Unity 2021.3 and newer. It is not a 6000.6 core package. |
 | `com.unity.pipeline` 0.6.0-exp.1 | Experimental Pipeline package. Lets the Unity CLI run Editor commands, including the project commands under `Assets/_Project/Editor/CliCommands`. |
-| `com.unity.render-pipelines.universal` 17.5.0 | URP for Unity 6000.6. Required for Asuna's materials and for UniVRM MToon on this editor. |
+| `com.unity.render-pipelines.universal` 17.6.0 | URP bundled with Unity 6000.6.6f1. Required for Asuna's materials and for UniVRM MToon on this editor. |
 | `com.vrmc.gltf`, `com.vrmc.vrm`, and `com.vrmc.univrm` | UniVRM **v0.131.4**. VRM 1.0 plus the VRM 0.x importer. That release includes the Unity 6.6 deprecation fix. |
 
 UniVRM is installed the way the project documents it: Git URLs in the manifest, not a copied `.unitypackage`.
