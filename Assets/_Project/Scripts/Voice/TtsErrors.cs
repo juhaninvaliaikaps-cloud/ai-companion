@@ -13,7 +13,7 @@ namespace AICompanion.Voice
             if (http == null)
                 return TtsResult.Fail(ChatErrors.Unreachable("the voice"));
             if (http.Cancelled)
-                return TtsResult.Quiet();
+                return TtsResult.Cancelled();
             if (!http.TimedOut && !http.NetworkFailed && http.StatusCode >= 200 && http.StatusCode < 300)
             {
                 if (http.Body == null || http.Body.Length == 0)

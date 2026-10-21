@@ -41,7 +41,7 @@ namespace AICompanion.Voice
             return new TtsResult(false, null, userMessage, logMessage, stopQueue, false);
         }
 
-        public static TtsResult Quiet()
+        public static TtsResult Cancelled()
         {
             return new TtsResult(false, null, string.Empty, string.Empty, false, true);
         }

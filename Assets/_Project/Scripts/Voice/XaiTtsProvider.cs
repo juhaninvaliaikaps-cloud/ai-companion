@@ -42,7 +42,7 @@ namespace AICompanion.Voice
             if (_transport == null)
                 return Task.FromResult(TtsResult.Fail(ChatErrors.Unreachable("the voice")));
             if (cancellationToken.IsCancellationRequested)
-                return Task.FromResult(TtsResult.Quiet());
+                return Task.FromResult(TtsResult.Cancelled());
 
             var json = TtsRequestJson.Write(request);
             Task<TtsHttpResult> pending;
@@ -68,7 +68,7 @@ namespace AICompanion.Voice
             }
             catch (OperationCanceledException)
             {
-                return TtsResult.Quiet();
+                return TtsResult.Cancelled();
             }
             catch (Exception ex)
             {
@@ -82,12 +82,12 @@ namespace AICompanion.Voice
             {
                 var inner = pending != null && pending.Exception != null ? pending.Exception.GetBaseException() : null;
                 if (inner is OperationCanceledException)
-                    return TtsResult.Quiet();
+                    return TtsResult.Cancelled();
                 return TransportFault(inner);
             }
 
             if (pending.IsCanceled)
-                return TtsResult.Quiet();
+                return TtsResult.Cancelled();
             return TtsErrors.FromHttp(pending.GetAwaiter().GetResult());
         }
 
