@@ -14,11 +14,14 @@ namespace AICompanion.Voice
                 return TtsResult.Fail(ChatErrors.Unreachable("the voice"));
             if (http.Cancelled)
                 return TtsResult.Cancelled();
+            var contentType = http.ContentType ?? string.Empty;
+            var byteCount = http.Body != null ? http.Body.Length : 0;
+            var head = SpeechAudio.DescribeHead(http.Body);
             if (!http.TimedOut && !http.NetworkFailed && http.StatusCode >= 200 && http.StatusCode < 300)
             {
                 if (http.Body == null || http.Body.Length == 0)
-                    return TtsResult.Fail(EmptyAudio);
-                return TtsResult.Success(http.Body);
+                    return TtsResult.Fail(EmptyAudio, null, false, http.StatusCode, contentType, byteCount, head);
+                return TtsResult.Success(http.Body, http.StatusCode, contentType);
             }
 
             var body = Decode(http.Body);
@@ -37,7 +40,7 @@ namespace AICompanion.Voice
                 || mapped.Error == ChatErrorKind.RateLimited
                 || http.StatusCode == 401
                 || http.StatusCode == 403;
-            return TtsResult.Fail(mapped.UserMessage, log, stop);
+            return TtsResult.Fail(mapped.UserMessage, log, stop, http.StatusCode, contentType, byteCount, head);
         }
 
         public static TtsResult MissingKey()

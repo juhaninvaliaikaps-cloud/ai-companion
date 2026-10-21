@@ -35,10 +35,11 @@ namespace AICompanion.Voice
         bool _alive = true;
         bool _talkingApplied;
         double _playUntil;
+        float _requestStartedAt;
 
         public bool IsMuted => _muted;
 
-        public bool IsSpeaking => _playback.ShouldTalk || _requestInFlight || _playback.QueuedCount > 0;
+        public bool IsSpeaking => _playback.ShouldTalk || _requestInFlight || _playback.QueuedCount > 0 || _clips.Count > 0;
 
         public void StartCompanion()
         {
@@ -72,12 +73,19 @@ namespace AICompanion.Voice
 
         void Update()
         {
-            if (Input.GetKeyDown(KeyCode.F6) && !DebugInputGuard.IsBlocked(KeyCode.F6))
-                SetMuted(!_muted);
+            try
+            {
+                if (Input.GetKeyDown(KeyCode.F6) && !DebugInputGuard.IsBlocked(KeyCode.F6))
+                    SetMuted(!_muted);
 
-            PumpPlayback();
-            PumpSynthesis();
-            ApplyTalking();
+                PumpPlayback();
+                PumpSynthesis();
+                ApplyTalking();
+            }
+            catch (Exception ex)
+            {
+                Note(TtsErrors.Unplayable, "Voice error: " + TtsErrors.Unplayable + ": " + ChatErrors.Scrub(ex.Message));
+            }
         }
 
         public void SetMuted(bool muted)
@@ -122,12 +130,26 @@ namespace AICompanion.Voice
 
         void PumpSynthesis()
         {
-            if (_requestInFlight || _provider == null || _muted)
+            if (_requestInFlight)
+            {
+                var limit = voiceSettings != null && voiceSettings.timeoutSeconds > 0f ? voiceSettings.timeoutSeconds : 20f;
+                if (Time.realtimeSinceStartup - _requestStartedAt > limit + 1f)
+                {
+                    var screen = ChatErrors.TimedOut("the voice");
+                    Note(screen, "Voice error: " + screen);
+                    InvalidateRequest();
+                }
+
+                return;
+            }
+
+            if (_provider == null || _muted)
                 return;
             if (!_turn.TryTake(out var generation, out var sentence))
                 return;
 
             _requestInFlight = true;
+            _requestStartedAt = Time.realtimeSinceStartup;
             _ttsCancel = new CancellationTokenSource();
             var serial = ++_requestSerial;
             RunSynthesis(BuildRequest(sentence), generation, serial, _ttsCancel.Token);
@@ -135,34 +157,60 @@ namespace AICompanion.Voice
 
         async void RunSynthesis(TtsRequest request, int generation, int serial, CancellationToken token)
         {
-            TtsResult result;
             try
             {
-                result = await _provider.Synthesize(request, token);
+                var chars = request != null && request.Text != null ? request.Text.Length : 0;
+                var askedRate = TtsRequestJson.NormalizeSampleRate(request != null ? request.SampleRate : 24000);
+                Debug.Log("Voice: TTS request starting (" + chars.ToString() + " chars, pcm, " + askedRate.ToString() + " Hz)");
+
+                TtsResult result;
+                try
+                {
+                    result = await _provider.Synthesize(request, token);
+                }
+                catch (Exception ex)
+                {
+                    var screen = ChatErrors.Unreachable("the voice");
+                    result = TtsResult.Fail(screen, "Voice error: " + screen + ": " + ChatErrors.Scrub(ex.Message));
+                }
+
+                if (!_alive)
+                    return;
+
+                if (!result.Quiet || result.StatusCode != 0 || result.ByteCount > 0)
+                    Debug.Log(ResponseLine(result));
+
+                if (serial != _requestSerial)
+                    return;
+
+                _requestInFlight = false;
+                if (_muted || !_turn.IsCurrent(generation) || result.Quiet)
+                    return;
+
+                if (!result.Ok)
+                {
+                    Note(result.UserMessage, result.LogMessage);
+                    if (result.StopQueue)
+                        _turn.Abandon();
+                    return;
+                }
+
+                PlayDecoded(result);
             }
             catch (Exception ex)
             {
-                var screen = ChatErrors.Unreachable("the voice");
-                result = TtsResult.Fail(screen, "Voice error: " + screen + ": " + ChatErrors.Scrub(ex.Message));
+                if (!_alive || serial != _requestSerial)
+                    return;
+
+                _requestInFlight = false;
+                Note(TtsErrors.Unplayable, "Voice error: " + TtsErrors.Unplayable + ": " + ChatErrors.Scrub(ex.Message));
             }
+        }
 
-            if (!_alive || serial != _requestSerial)
-                return;
-
-            _requestInFlight = false;
-            if (_muted || !_turn.IsCurrent(generation) || result.Quiet)
-                return;
-
-            if (!result.Ok)
-            {
-                Note(result.UserMessage, result.LogMessage);
-                if (result.StopQueue)
-                    _turn.Abandon();
-                return;
-            }
-
+        void PlayDecoded(TtsResult result)
+        {
             var rate = TtsRequestJson.NormalizeSampleRate(voiceSettings != null ? voiceSettings.sampleRate : 24000);
-            if (!WavPcm.TryDecode(result.Audio, rate, out var samples, out var channels, out var decodedRate)
+            if (!SpeechAudio.TryDecode(result.Audio, result.ContentType, rate, true, out var samples, out var channels, out var decodedRate)
                 || samples == null
                 || channels <= 0
                 || samples.Length == 0
@@ -173,16 +221,43 @@ namespace AICompanion.Voice
             }
 
             var frames = samples.Length / channels;
-            var clip = AudioClip.Create("tts", frames, channels, decodedRate, false);
-            if (clip == null || !clip.SetData(samples, 0))
+            AudioClip clip = null;
+            try
+            {
+                clip = AudioClip.Create("tts", frames, channels, decodedRate, false);
+                if (clip == null || !clip.SetData(samples, 0))
+                {
+                    DestroyClip(clip);
+                    Note(TtsErrors.Unplayable, "Voice error: " + TtsErrors.Unplayable);
+                    return;
+                }
+            }
+            catch (Exception ex)
             {
                 DestroyClip(clip);
-                Note(TtsErrors.Unplayable, "Voice error: " + TtsErrors.Unplayable);
+                Note(TtsErrors.Unplayable, "Voice error: " + TtsErrors.Unplayable + ": " + ChatErrors.Scrub(ex.Message));
                 return;
             }
 
+            Debug.Log("Voice: playing clip " + frames.ToString() + " frames " + decodedRate.ToString() + " Hz " + channels.ToString() + " ch");
             EnqueueAudio(clip);
             ApplyTalking();
+        }
+
+        static string ResponseLine(TtsResult result)
+        {
+            var type = result.ContentType ?? string.Empty;
+            type = type.Replace('\r', ' ').Replace('\n', ' ').Trim();
+            if (type.Length == 0)
+                type = "none";
+            else if (type.Length > 80)
+                type = type.Substring(0, 80);
+
+            var head = string.IsNullOrEmpty(result.Head) ? "empty" : result.Head;
+            return "Voice: TTS response HTTP " + result.StatusCode.ToString()
+                + " " + type
+                + " " + result.ByteCount.ToString()
+                + " bytes head " + head;
         }
 
         TtsRequest BuildRequest(string sentence)

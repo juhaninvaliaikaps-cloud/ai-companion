@@ -6,7 +6,7 @@ using AICompanion.AI;
 namespace AICompanion.Voice
 {
     /// <summary>
-    /// xAI REST text-to-speech. One WAV request per sentence.
+    /// xAI REST text-to-speech. One PCM request per sentence.
     /// The key is an Authorization header only. It is never written into the JSON.
     /// </summary>
     public sealed class XaiTtsProvider : ITtsProvider

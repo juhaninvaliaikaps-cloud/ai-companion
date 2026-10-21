@@ -20,8 +20,12 @@ namespace AICompanion.Voice
         public string LogMessage { get; }
         public bool StopQueue { get; }
         public bool Quiet { get; }
+        public int StatusCode { get; }
+        public string ContentType { get; }
+        public int ByteCount { get; }
+        public string Head { get; }
 
-        public TtsResult(bool ok, byte[] audio, string userMessage, string logMessage, bool stopQueue, bool quiet)
+        public TtsResult(bool ok, byte[] audio, string userMessage, string logMessage, bool stopQueue, bool quiet, int statusCode = 0, string contentType = null, int byteCount = 0, string head = null)
         {
             Ok = ok;
             Audio = audio;
@@ -29,16 +33,21 @@ namespace AICompanion.Voice
             LogMessage = logMessage ?? string.Empty;
             StopQueue = stopQueue;
             Quiet = quiet;
+            StatusCode = statusCode;
+            ContentType = contentType ?? string.Empty;
+            ByteCount = byteCount;
+            Head = head ?? string.Empty;
         }
 
-        public static TtsResult Success(byte[] audio)
+        public static TtsResult Success(byte[] audio, int statusCode = 200, string contentType = null)
         {
-            return new TtsResult(true, audio, string.Empty, string.Empty, false, false);
+            var bytes = audio ?? new byte[0];
+            return new TtsResult(true, bytes, string.Empty, string.Empty, false, false, statusCode, contentType, bytes.Length, SpeechAudio.DescribeHead(bytes));
         }
 
-        public static TtsResult Fail(string userMessage, string logMessage = null, bool stopQueue = false)
+        public static TtsResult Fail(string userMessage, string logMessage = null, bool stopQueue = false, int statusCode = 0, string contentType = null, int byteCount = 0, string head = null)
         {
-            return new TtsResult(false, null, userMessage, logMessage, stopQueue, false);
+            return new TtsResult(false, null, userMessage, logMessage, stopQueue, false, statusCode, contentType, byteCount, head);
         }
 
         public static TtsResult Cancelled()
@@ -51,19 +60,30 @@ namespace AICompanion.Voice
     {
         public int StatusCode;
         public byte[] Body;
+        public string ContentType;
         public string TransportDetail;
         public bool TimedOut;
         public bool Cancelled;
         public bool NetworkFailed;
 
-        public static TtsHttpResult Ok(int statusCode, byte[] body)
+        public static TtsHttpResult Ok(int statusCode, byte[] body, string contentType = null)
         {
-            return new TtsHttpResult { StatusCode = statusCode == 0 ? 200 : statusCode, Body = body ?? new byte[0] };
+            return new TtsHttpResult
+            {
+                StatusCode = statusCode == 0 ? 200 : statusCode,
+                Body = body ?? new byte[0],
+                ContentType = contentType ?? string.Empty
+            };
         }
 
-        public static TtsHttpResult Http(int statusCode, byte[] body)
+        public static TtsHttpResult Http(int statusCode, byte[] body, string contentType = null)
         {
-            return new TtsHttpResult { StatusCode = statusCode, Body = body ?? new byte[0] };
+            return new TtsHttpResult
+            {
+                StatusCode = statusCode,
+                Body = body ?? new byte[0],
+                ContentType = contentType ?? string.Empty
+            };
         }
 
         public static TtsHttpResult Timeout()

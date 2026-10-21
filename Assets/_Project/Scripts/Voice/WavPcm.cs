@@ -1,21 +1,43 @@
+using System;
+
 namespace AICompanion.Voice
 {
     /// <summary>
     /// Reads a PCM or float WAV into samples for <c>AudioClip.SetData</c>.
-    /// A body that is not a WAV is left unplayed.
+    /// Short, garbage, and oversized chunk headers return false and never throw.
+    /// A data chunk whose size is 0 or 0xFFFFFFFF (streaming WAV) runs to the end of the buffer.
+    /// LIST and other chunks are skipped, including the pad byte on an odd size.
     /// </summary>
     public static class WavPcm
     {
+        const int MaxChunks = 64;
+
         public static bool TryDecode(byte[] data, int fallbackSampleRate, out float[] samples, out int channels, out int sampleRate)
+        {
+            samples = null;
+            channels = 0;
+            sampleRate = 0;
+            try
+            {
+                return TryDecodeCore(data, fallbackSampleRate, out samples, out channels, out sampleRate);
+            }
+            catch (Exception)
+            {
+                samples = null;
+                channels = 0;
+                sampleRate = 0;
+                return false;
+            }
+        }
+
+        static bool TryDecodeCore(byte[] data, int fallbackSampleRate, out float[] samples, out int channels, out int sampleRate)
         {
             samples = null;
             channels = 0;
             sampleRate = 0;
             if (data == null || data.Length < 12)
                 return false;
-            if (!FourCc(data, 0, "RIFF"))
-                return false;
-            if (!FourCc(data, 8, "WAVE"))
+            if (!FourCc(data, 0, "RIFF") || !FourCc(data, 8, "WAVE"))
                 return false;
 
             var format = 0;
@@ -23,32 +45,56 @@ namespace AICompanion.Voice
             var dataOffset = -1;
             var dataLength = 0;
             var offset = 12;
-            while (offset + 8 <= data.Length)
+            for (var n = 0; n < MaxChunks; n++)
             {
-                var size = ReadInt(data, offset + 4);
-                if (size < 0 || offset + 8 + size > data.Length)
+                if (!InRange(data, offset, 8))
+                    break;
+                if (!TryReadUInt(data, offset + 4, out var declared))
                     break;
 
                 var start = offset + 8;
-                if (FourCc(data, offset, "fmt ") && size >= 16)
+                var remaining = data.Length - start;
+                var unknown = IsUnknownLength(start, declared);
+                var fits = !unknown && declared <= (uint)remaining;
+                if (FourCc(data, offset, "fmt "))
                 {
-                    format = ReadShort(data, start);
-                    channels = ReadShort(data, start + 2);
-                    sampleRate = ReadInt(data, start + 4);
-                    bits = ReadShort(data, start + 14);
+                    var read = fits && declared >= 16
+                        && TryReadShort(data, start, out format)
+                        && TryReadShort(data, start + 2, out channels)
+                        && TryReadInt(data, start + 4, out sampleRate)
+                        && TryReadShort(data, start + 14, out bits);
+                    if (!read && !fits)
+                        break;
                 }
                 else if (FourCc(data, offset, "data"))
                 {
                     dataOffset = start;
-                    dataLength = size;
+                    dataLength = fits ? (int)declared : remaining;
+                    break;
+                }
+                else if (!fits)
+                {
+                    break;
                 }
 
-                offset = start + size + (size & 1);
+                if (!TryAdvance(start, declared, fits, data.Length, out offset))
+                    break;
             }
 
             if (dataOffset < 0 || channels <= 0 || channels > 2 || sampleRate <= 0)
                 return false;
             if (fallbackSampleRate > 0 && sampleRate < 1000)
+                return false;
+            if (dataOffset > data.Length)
+                return false;
+            if (dataLength > data.Length - dataOffset)
+                dataLength = data.Length - dataOffset;
+
+            var bytesPerFrame = BytesPerFrame(format, bits, channels);
+            if (bytesPerFrame <= 0)
+                return false;
+            dataLength -= dataLength % bytesPerFrame;
+            if (dataLength <= 0)
                 return false;
 
             if (format == 1 && bits == 16)
@@ -60,20 +106,56 @@ namespace AICompanion.Voice
             return false;
         }
 
+        static int BytesPerFrame(int format, int bits, int channels)
+        {
+            if (channels <= 0)
+                return 0;
+            if (format == 1 && bits == 16)
+                return channels * 2;
+            if (format == 1 && bits == 8)
+                return channels;
+            if (format == 3 && bits == 32)
+                return channels * 4;
+            return 0;
+        }
+
+        static bool IsUnknownLength(int start, uint declared)
+        {
+            if (declared == 0u || declared == 0xFFFFFFFFu)
+                return true;
+            if (declared > int.MaxValue)
+                return true;
+            return (long)start + declared > int.MaxValue;
+        }
+
+        static bool TryAdvance(int start, uint declared, bool fits, int length, out int nextOffset)
+        {
+            nextOffset = start;
+            if (!fits)
+                return false;
+
+            var next = (long)start + declared;
+            if ((declared & 1u) != 0)
+                next++;
+            if (next <= start || next > length || next > int.MaxValue)
+                return false;
+            nextOffset = (int)next;
+            return nextOffset > start;
+        }
+
         static bool TryPcm16(byte[] data, int offset, int length, int channels, out float[] samples)
         {
             samples = null;
             var count = length / 2;
-            if (count <= 0 || count % channels != 0 || offset + count * 2 > data.Length)
+            if (count <= 0 || count % channels != 0 || !InRange(data, offset, count * 2))
                 return false;
 
             samples = new float[count];
             for (var i = 0; i < count; i++)
             {
-                var lo = data[offset + i * 2];
-                var hi = (sbyte)data[offset + i * 2 + 1];
-                var value = (short)(lo | (hi << 8));
-                samples[i] = value / 32768f;
+                if (!TryReadShort(data, offset + i * 2, out var value))
+                    return false;
+                samples[i] = (short)value / 32768f;
             }
 
             return true;
@@ -82,7 +164,7 @@ namespace AICompanion.Voice
         static bool TryPcm8(byte[] data, int offset, int length, int channels, out float[] samples)
         {
             samples = null;
-            if (length <= 0 || length % channels != 0 || offset + length > data.Length)
+            if (length <= 0 || length % channels != 0 || !InRange(data, offset, length))
                 return false;
 
             samples = new float[length];
@@ -95,13 +177,14 @@ namespace AICompanion.Voice
         {
             samples = null;
             var count = length / 4;
-            if (count <= 0 || count % channels != 0 || offset + count * 4 > data.Length)
+            if (count <= 0 || count % channels != 0 || !InRange(data, offset, count * 4))
                 return false;
 
             samples = new float[count];
             for (var i = 0; i < count; i++)
             {
-                var bits = ReadInt(data, offset + i * 4);
+                if (!TryReadInt(data, offset + i * 4, out var bits))
+                    return false;
                 samples[i] = IntBitsToFloat(bits);
             }
 
@@ -115,12 +198,12 @@ namespace AICompanion.Voice
             bytes[1] = (byte)(bits >> 8);
             bytes[2] = (byte)(bits >> 16);
             bytes[3] = (byte)(bits >> 24);
-            return System.BitConverter.ToSingle(bytes, 0);
+            return BitConverter.ToSingle(bytes, 0);
         }
 
         static bool FourCc(byte[] data, int offset, string token)
         {
-            if (offset < 0 || offset + 4 > data.Length)
+            if (data == null || token == null || token.Length != 4 || !InRange(data, offset, 4))
                 return false;
             for (var i = 0; i < 4; i++)
             {
@@ -131,17 +214,41 @@ namespace AICompanion.Voice
             return true;
         }
 
-        static int ReadShort(byte[] data, int offset)
+        static bool InRange(byte[] data, int offset, int count)
         {
-            return data[offset] | (data[offset + 1] << 8);
+            if (data == null || offset < 0 || count < 0)
+                return false;
+            return (long)offset + count <= data.Length;
         }
 
-        static int ReadInt(byte[] data, int offset)
+        static bool TryReadShort(byte[] data, int offset, out int value)
         {
-            return data[offset]
-                | (data[offset + 1] << 8)
-                | (data[offset + 2] << 16)
-                | (data[offset + 3] << 24);
+            value = 0;
+            if (!InRange(data, offset, 2))
+                return false;
+            value = data[offset] | (data[offset + 1] << 8);
+            return true;
+        }
+
+        static bool TryReadInt(byte[] data, int offset, out int value)
+        {
+            value = 0;
+            if (!TryReadUInt(data, offset, out var raw))
+                return false;
+            value = unchecked((int)raw);
+            return true;
+        }
+
+        static bool TryReadUInt(byte[] data, int offset, out uint value)
+        {
+            value = 0;
+            if (!InRange(data, offset, 4))
+                return false;
+            value = (uint)data[offset]
+                | ((uint)data[offset + 1] << 8)
+                | ((uint)data[offset + 2] << 16)
+                | ((uint)data[offset + 3] << 24);
+            return true;
         }
     }
 }

@@ -27,7 +27,7 @@ namespace AICompanion.Voice
             JsonText.AppendString(sb, language.Trim());
             sb.Append(",\"speed\":");
             sb.Append(speed.ToString("0.0##", CultureInfo.InvariantCulture));
-            sb.Append(",\"output_format\":{\"codec\":\"wav\",\"sample_rate\":");
+            sb.Append(",\"output_format\":{\"codec\":\"pcm\",\"sample_rate\":");
             sb.Append(rate.ToString(CultureInfo.InvariantCulture));
             sb.Append("}}");
             return sb.ToString();
