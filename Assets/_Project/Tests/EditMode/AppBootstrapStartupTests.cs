@@ -14,6 +14,7 @@ namespace AICompanion.Tests.EditMode
             {
                 var startup = host.AddComponent<RecordingStartup>();
                 var bootstrap = host.AddComponent<AppBootstrap>();
+                // EditMode does not run Awake. PlayMode does. Count only the explicit call.
                 startup.Calls = 0;
                 bootstrap.StartCompanionHooks();
                 Assert.AreEqual(1, startup.Calls);
