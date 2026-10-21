@@ -3,8 +3,8 @@ using UnityEngine;
 namespace AICompanion.Core
 {
     /// <summary>
-    /// While a text field has focus, debug keys must not fire. Letters such as
-    /// T and R, and the function keys, still report <c>GetKeyDown</c>.
+    /// While a text field has focus, debug keys must not fire. Letters, including
+    /// the push-to-talk key, and the function keys still report <c>GetKey</c>.
     /// </summary>
     public static class DebugInputGuard
     {
@@ -20,6 +20,9 @@ namespace AICompanion.Core
             if (!TextFieldFocused)
                 return false;
 
+            if (key >= KeyCode.A && key <= KeyCode.Z)
+                return true;
+
             switch (key)
             {
                 case KeyCode.Alpha1:
@@ -32,8 +35,6 @@ namespace AICompanion.Core
                 case KeyCode.Keypad3:
                 case KeyCode.Keypad4:
                 case KeyCode.Keypad5:
-                case KeyCode.T:
-                case KeyCode.R:
                 case KeyCode.F6:
                 case KeyCode.F7:
                 case KeyCode.F8:
