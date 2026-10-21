@@ -66,6 +66,7 @@ namespace AICompanion.Overlay
         int _fpsFrames;
         float _fpsTimer;
         string _fpsText = "--";
+        MonoBehaviour[] _behaviours;
         IAvatarAnimator _animator;
         IAvatarTurntable _turntable;
         string _emotionText = "";
@@ -112,7 +113,8 @@ namespace AICompanion.Overlay
             EnsureChrome();
             bool inside = TryReadPointer(out var unityScreen, out var screenCursor);
             bool overPanel = inside && OverlayPointerMath.IsInsideTopLeftRect(PanelRect, unityScreen, Screen.height);
-            bool overUi = overPanel || (inside && IsOverUi(unityScreen));
+            bool overDebug = inside && IsOverDebugPanel(unityScreen);
+            bool overUi = overPanel || overDebug || (inside && IsOverUi(unityScreen));
             var pixel = new Vector2Int(Mathf.RoundToInt(unityScreen.x), Mathf.RoundToInt(unityScreen.y));
             bool outsideSlack = !_hasSample || !SilhouetteHit.WithinSlack(_sampledPixel, pixel, SilhouetteHit.SampleSlackPixels);
             bool onSilhouette = inside && _onSilhouette;
@@ -299,6 +301,27 @@ namespace AICompanion.Overlay
             unityScreen = new Vector2(mouse.x, mouse.y);
             screenCursor = new Vector2Int(Mathf.RoundToInt(mouse.x), Mathf.RoundToInt(Screen.height - mouse.y));
             return mouse.x >= 0f && mouse.y >= 0f && mouse.x < Screen.width && mouse.y < Screen.height;
+        }
+
+        bool IsOverDebugPanel(Vector2 unityScreen)
+        {
+            if (_behaviours == null)
+                _behaviours = GetComponents<MonoBehaviour>();
+
+            for (var i = 0; i < _behaviours.Length; i++)
+            {
+                var panel = _behaviours[i] as IDebugPanel;
+                if (panel == null)
+                    continue;
+
+                var rect = panel.InteractiveRect;
+                if (rect.width <= 0f || rect.height <= 0f)
+                    continue;
+                if (OverlayPointerMath.IsInsideTopLeftRect(rect, unityScreen, Screen.height))
+                    return true;
+            }
+
+            return false;
         }
 
         bool IsOverUi(Vector2 unityScreen)

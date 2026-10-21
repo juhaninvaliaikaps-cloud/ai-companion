@@ -129,9 +129,11 @@ Desktop.ini
 /Assets/Free Test Character Asuna/
 /Assets/Free Test Character Asuna.meta
 
-# Local secrets. Copy Config/appsettings.example.json to Config/appsettings.json.
+# Local secrets. The xAI key lives outside the repo. See docs/CHAT_PROVIDERS.md.
 /Config/appsettings.json
 /Config/*.local.json
+secrets.json
+**/ProjectLeia/
 .env
 .env.*
 !.env.example
