@@ -1,0 +1,16 @@
+{
+    "name": "AICompanion.Voice",
+    "rootNamespace": "AICompanion.Voice",
+    "references": [
+        "AICompanion.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
