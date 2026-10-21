@@ -23,7 +23,7 @@ unity command run_tests --mode playmode
 
 Docker Hub has an image for this editor: `unityci/editor:ubuntu-6000.6.6f1-base-3` (also published as `6000.6.6f1-base-3`). The workflow pins that image with `customImage` and sets `unityVersion` to `6000.6.6f1`. v4 is the current major version. v4.4.0, which `@v4` points at, includes the Unity 6.6 shared-memory fix (`--shm-size=1025m`).
 
-Two jobs run, EditMode and PlayMode. Each restores a `Library` cache keyed by the editor version, the test mode, and the package manifest. Test results are uploaded as artifacts named `Test results (EditMode)` and `Test results (PlayMode)`. With `githubToken` set, GameCI also posts each run as a GitHub check. Code coverage is off. GameCI documents that coverage instrumentation has crashed PlayMode on Unity 6.
+Two jobs run, EditMode and PlayMode. Each restores a `Library` cache keyed by the editor version, the test mode, and the package manifest. Test results are uploaded as artifacts named `Test results (EditMode)` and `Test results (PlayMode)`. With `githubToken` set, GameCI also posts each run as a GitHub check. Code coverage is off via `GAME_CI_COVERAGE_ENABLED=false`. GameCI documents that coverage instrumentation has crashed PlayMode on Unity 6. Leave the action input `coverageEnabled` unset: `unity-test-runner` v4 forwards `false` as `--no-coverageEnabled`, and the GameCI CLI rejects that flag and exits before the editor starts.
 
 If `UNITY_LICENSE`, `UNITY_EMAIL`, or `UNITY_PASSWORD` is missing, the job prints a notice and succeeds without running Unity. That keeps the check from failing before the secrets exist. After the secrets are set, the next run executes the tests.
 
