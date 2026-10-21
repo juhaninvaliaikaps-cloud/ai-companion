@@ -32,6 +32,8 @@ namespace AICompanion.Overlay
         public const float DefaultBottomPadding = 0.08f;
         public const float DefaultMinZoomFraction = 0.30f;
         public const float ZoomNearFloor = 0.35f;
+        public const float SurfaceHeightFraction = 0.32f;
+        public const float SurfaceNearMargin = 0.25f;
 
         /// <summary>
         /// Place the camera so every point sits inside a padded frustum.
@@ -178,6 +180,97 @@ namespace AICompanion.Overlay
                 (point.y - camera.Y) / (depth * tanHalf));
         }
 
+        /// <summary>
+        /// How far in front of the camera the closest surface point must stay.
+        /// A 1.7 m body keeps about half a metre. A short body still clears the near plane.
+        /// </summary>
+        public static float SurfaceClearance(float bodyHeight, float nearClip)
+        {
+            if (float.IsNaN(bodyHeight) || bodyHeight < 0.01f)
+                bodyHeight = 0.01f;
+            if (float.IsNaN(nearClip) || nearClip < 0.01f)
+                nearClip = 0.01f;
+
+            float byHeight = bodyHeight * SurfaceHeightFraction;
+            float byNear = nearClip + SurfaceNearMargin;
+            return byHeight > byNear ? byHeight : byNear;
+        }
+
+        /// <summary>
+        /// Move an identity camera backward until every point is at least
+        /// <paramref name="minDepth"/> in front of it. A pose that already clears
+        /// the surface is returned unchanged.
+        /// </summary>
+        public static CameraPose KeepInFront(CameraPose pose, Vector3[] points, int count, float minDepth)
+        {
+            if (points == null || count <= 0)
+                return pose;
+            if (count > points.Length)
+                count = points.Length;
+            if (float.IsNaN(minDepth) || minDepth < 0.05f)
+                minDepth = 0.05f;
+
+            float closest = float.PositiveInfinity;
+            for (var i = 0; i < count; i++)
+            {
+                float depth = points[i].z - pose.Z;
+                if (depth < closest)
+                    closest = depth;
+            }
+
+            if (float.IsNaN(closest) || closest >= minDepth)
+                return pose;
+
+            return new CameraPose(pose.X, pose.Y, pose.Z - (minDepth - closest));
+        }
+
+        /// <summary>
+        /// Full-body pose for a model whose root was scaled by <paramref name="modelScale"/>
+        /// around <paramref name="pivot"/>. <paramref name="windowFactor"/> is the window
+        /// size divided by the 480×720 base. 1 frames the unscaled body, so the model
+        /// scale is what changes her size. A matching factor above 1 frames the scaled
+        /// body into the grown window.
+        /// </summary>
+        public static CameraPose FrameForAvatarScale(
+            Vector3[] worldPoints,
+            int count,
+            Vector3 pivot,
+            float modelScale,
+            float windowFactor,
+            float fovDegrees,
+            float aspect,
+            float nearClip,
+            Vector3[] unitBuffer)
+        {
+            if (worldPoints == null || count <= 0)
+                return Fit(null, 0, fovDegrees, aspect, nearClip);
+            if (count > worldPoints.Length)
+                count = worldPoints.Length;
+            if (modelScale < 0.0001f || float.IsNaN(modelScale))
+                modelScale = 0.0001f;
+            if (windowFactor < 0.0001f || float.IsNaN(windowFactor))
+                windowFactor = 1f;
+
+            float ratio = windowFactor / modelScale;
+            if (unitBuffer == null || unitBuffer.Length < count || Mathf.Abs(ratio - 1f) <= 0.0001f)
+                return Fit(worldPoints, count, fovDegrees, aspect, nearClip);
+
+            for (var i = 0; i < count; i++)
+                unitBuffer[i] = pivot + (worldPoints[i] - pivot) * ratio;
+
+            return Fit(unitBuffer, count, fovDegrees, aspect, nearClip);
+        }
+
+        /// <summary>
+        /// Foot height at scale 1, measured from a root pivot that is not on the ground.
+        /// </summary>
+        public static float UnitFootY(float rootY, float footY, float scale)
+        {
+            if (scale < 0.0001f || float.IsNaN(scale))
+                scale = 0.0001f;
+            return rootY + (footY - rootY) / scale;
+        }
+
         public static bool Contains(CameraPose camera, Vector3[] points, int count, float fovDegrees, float aspect, float nearClip, float ndcLimit = 0.98f)
         {
             if (points == null || count <= 0)
@@ -215,8 +308,9 @@ namespace AICompanion.Overlay
     }
 
     /// <summary>
-    /// Uniform window scale for the 480×720 overlay. The bottom-right corner stays
-    /// put, and the rect is kept inside the monitor work area.
+    /// Avatar size for the 480×720 overlay. The window stays at that base until she
+    /// would be clipped, then it grows. The bottom-right corner stays put, and the
+    /// rect is kept inside the monitor work area. Chat and labels stay at 1× pixels.
     /// </summary>
     public static class OverlayWindowSize
     {
@@ -235,6 +329,17 @@ namespace AICompanion.Overlay
         public static bool CursorCanAdjust(bool onSilhouette, bool overUi)
         {
             return onSilhouette && !overUi;
+        }
+
+        /// <summary>
+        /// Window size relative to 480×720. Shrinking her does not shrink the window.
+        /// Growing her past the base grows the window by the same factor.
+        /// </summary>
+        public static float WindowFactorFor(float avatarScale)
+        {
+            if (float.IsNaN(avatarScale) || float.IsInfinity(avatarScale) || avatarScale < 1f)
+                return 1f;
+            return avatarScale;
         }
 
         public static float ClampScale(float scale, int workWidth, int workHeight)

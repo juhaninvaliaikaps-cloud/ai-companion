@@ -200,6 +200,76 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void WindowFactor_StaysAtTheBaseUntilSheGrowsPastIt()
+        {
+            Assert.AreEqual(1f, OverlayWindowSize.WindowFactorFor(0.6f), 0.0001f);
+            Assert.AreEqual(1f, OverlayWindowSize.WindowFactorFor(1f), 0.0001f);
+            Assert.AreEqual(1.5f, OverlayWindowSize.WindowFactorFor(1.5f), 0.0001f);
+        }
+
+        [Test]
+        public void FrameForAvatarScale_ShowsTheModelScaleUntilTheWindowGrowsWithHer()
+        {
+            var unit = ForwardBody(0.45f);
+            var pivot = Vector3.zero;
+            var scaledDown = ScaleAbout(unit, pivot, 0.5f);
+            var scaledUp = ScaleAbout(unit, pivot, 2f);
+            var buffer = new Vector3[unit.Length];
+            var unitPose = AvatarFrameMath.Fit(unit, unit.Length, Fov, Aspect, Near);
+
+            var shrunk = AvatarFrameMath.FrameForAvatarScale(
+                scaledDown, scaledDown.Length, pivot, 0.5f, 1f, Fov, Aspect, Near, buffer);
+            AssertPose(unitPose, shrunk);
+
+            var editor = AvatarFrameMath.FrameForAvatarScale(
+                scaledUp, scaledUp.Length, pivot, 2f, 1f, Fov, Aspect, Near, buffer);
+            AssertPose(unitPose, editor);
+
+            var grown = AvatarFrameMath.FrameForAvatarScale(
+                scaledUp, scaledUp.Length, pivot, 2f, 2f, Fov, Aspect, Near, buffer);
+            var scaledPose = AvatarFrameMath.Fit(scaledUp, scaledUp.Length, Fov, Aspect, Near);
+            AssertPose(scaledPose, grown);
+            AssertInside(grown, scaledUp, 0.93f);
+        }
+
+        [Test]
+        public void UnitFootY_RecoversTheUnscaledSole()
+        {
+            Assert.AreEqual(0f, AvatarFrameMath.UnitFootY(1f, 0f, 1f), 0.0001f);
+            Assert.AreEqual(0f, AvatarFrameMath.UnitFootY(1f, -1f, 2f), 0.0001f);
+        }
+
+        [Test]
+        public void SurfaceClearance_UsesBodyHeightAndTheNearPlane()
+        {
+            Assert.AreEqual(1.68f * 0.32f, AvatarFrameMath.SurfaceClearance(1.68f, 0.05f), 0.0001f);
+            Assert.AreEqual(0.3f, AvatarFrameMath.SurfaceClearance(0.5f, 0.05f), 0.0001f);
+        }
+
+        [Test]
+        public void KeepInFront_BacksUpUntilTheClosestPointClearsTheSurface()
+        {
+            var points = ForwardBody(0.45f);
+            var close = new CameraPose(0f, 0.8f, -0.2f);
+            var held = AvatarFrameMath.KeepInFront(close, points, points.Length, 0.6f);
+
+            float closest = float.PositiveInfinity;
+            for (var i = 0; i < points.Length; i++)
+            {
+                float depth = points[i].z - held.Z;
+                if (depth < closest)
+                    closest = depth;
+            }
+
+            Assert.GreaterOrEqual(closest, 0.6f - 0.001f);
+            Assert.Less(held.Z, close.Z);
+
+            var far = new CameraPose(0f, 0.8f, -3f);
+            var same = AvatarFrameMath.KeepInFront(far, points, points.Length, 0.6f);
+            AssertPose(far, same);
+        }
+
+        [Test]
         public void CursorCanAdjust_MatchesTheSilhouetteHitAndIgnoresUi()
         {
             Assert.IsTrue(OverlayWindowSize.CursorCanAdjust(true, false));
@@ -222,6 +292,14 @@ namespace AICompanion.Tests.EditMode
                 new Vector3(handX, 1f, 0f),
                 new Vector3(-handX, 1f, 0f),
             };
+        }
+
+        static Vector3[] ScaleAbout(Vector3[] points, Vector3 pivot, float scale)
+        {
+            var scaled = new Vector3[points.Length];
+            for (var i = 0; i < points.Length; i++)
+                scaled[i] = pivot + (points[i] - pivot) * scale;
+            return scaled;
         }
 
         static Vector3[] Yaw(Vector3[] points, float degrees)

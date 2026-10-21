@@ -3,15 +3,18 @@ using System.Collections.Generic;
 using AICompanion.Core;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace AICompanion.Overlay
 {
     /// <summary>
     /// Borderless transparent window, topmost toggle, drag, and click-through.
     /// A point is on the avatar only when the framebuffer pixel under the cursor is
-    /// opaque. Scroll over that pixel zooms the camera. Ctrl+scroll resizes the
-    /// window. Win32 runs only in the Windows player. In the editor this still clears
-    /// the camera, limits the frame rate, frames the avatar, and updates the debug label.
+    /// opaque. Scroll over that pixel zooms the camera. Ctrl+scroll scales the avatar.
+    /// The window stays at 480×720 until she would be clipped, then the transparent
+    /// window grows. Chat and labels stay at their normal pixel size. Win32 runs only
+    /// in the Windows player. In the editor this still clears the camera, limits the
+    /// frame rate, frames the avatar, and updates the debug label.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class OverlayWindow : MonoBehaviour, ICompanionStartup, ITypingFocus, IDesktopWindow
@@ -110,6 +113,8 @@ namespace AICompanion.Overlay
             ApplyFrameRate(activeFrameRate);
             ApplyPlayerResolution();
             EnsureChrome();
+            PushAvatarScale();
+            LockUiPixels();
         }
 
         void Start()
@@ -307,7 +312,7 @@ namespace AICompanion.Overlay
 
             _resolutionApplied = true;
             _windowScale = OverlayWindowSize.ClampScale(_windowScale, 10000, 10000);
-            OverlayWindowSize.SizeFor(_windowScale, out windowWidth, out windowHeight);
+            OverlayWindowSize.SizeFor(WindowFactor(), out windowWidth, out windowHeight);
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             Screen.fullScreenMode = FullScreenMode.Windowed;
             Screen.SetResolution(windowWidth, windowHeight, FullScreenMode.Windowed);
@@ -371,6 +376,7 @@ namespace AICompanion.Overlay
 
             _frame.Attach(_camera);
             _frame.SetZoom(Mathf.Clamp01(PlayerPrefs.GetFloat(OverlayWindowSize.ZoomPrefKey, 0f)));
+            PushAvatarScale();
         }
 
         void ResetCameraZoom()
@@ -409,6 +415,38 @@ namespace AICompanion.Overlay
             _windowScale = OverlayWindowSize.NextScale(_windowScale, scrollY, workWidth, workHeight);
             PlayerPrefs.SetFloat(OverlayWindowSize.ScalePrefKey, _windowScale);
             ApplySizedWindow(true);
+            PushAvatarScale();
+            LockUiPixels();
+        }
+
+        float WindowFactor()
+        {
+            return OverlayWindowSize.ClampScale(OverlayWindowSize.WindowFactorFor(_windowScale), 10000, 10000);
+        }
+
+        void PushAvatarScale()
+        {
+            if (_frame == null)
+                return;
+
+            float factor = 1f;
+            if (_chrome != null && _chrome.IsSupported && windowHeight > 0)
+                factor = windowHeight / (float)OverlayWindowSize.BaseHeight;
+            _frame.SetModelScale(_windowScale, factor);
+        }
+
+        void LockUiPixels()
+        {
+            var scalers = FindObjectsByType<CanvasScaler>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (var i = 0; i < scalers.Length; i++)
+            {
+                var scaler = scalers[i];
+                if (scaler == null)
+                    continue;
+
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
+                scaler.scaleFactor = 1f;
+            }
         }
 
         void ApplySizedWindow(bool allowResize)
@@ -417,7 +455,8 @@ namespace AICompanion.Overlay
             int workWidth = haveWork ? workRight - workLeft : 10000;
             int workHeight = haveWork ? workBottom - workTop : 10000;
             _windowScale = OverlayWindowSize.ClampScale(_windowScale, workWidth, workHeight);
-            OverlayWindowSize.SizeFor(_windowScale, out var width, out var height);
+            float factor = OverlayWindowSize.ClampScale(OverlayWindowSize.WindowFactorFor(_windowScale), workWidth, workHeight);
+            OverlayWindowSize.SizeFor(factor, out var width, out var height);
             windowWidth = width;
             windowHeight = height;
             if (!haveWork || _chrome == null || !_chrome.IsSupported)
