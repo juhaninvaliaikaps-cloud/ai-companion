@@ -2,7 +2,8 @@
     "name": "AICompanion.Overlay",
     "rootNamespace": "AICompanion.Overlay",
     "references": [
-        "AICompanion.Core"
+        "AICompanion.Core",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
