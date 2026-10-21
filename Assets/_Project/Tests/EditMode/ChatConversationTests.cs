@@ -338,6 +338,82 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Placement_ClampsBoundsThatProjectPastTheRightEdge()
+        {
+            var avatar = new Rect(900f, 200f, 500f, 800f);
+            var panel = ChatPanelPlacement.Place(480f, 720f, avatar, 40f);
+
+            Assert.AreEqual(252f, panel.x, 0.01f);
+            Assert.AreEqual(ChatPanelPlacement.Width, panel.width, 0.01f);
+            Assert.GreaterOrEqual(panel.x, ChatPanelPlacement.Margin - 0.01f);
+            Assert.LessOrEqual(panel.xMax, 480f - ChatPanelPlacement.Margin + 0.01f);
+            Assert.GreaterOrEqual(panel.y, ChatPanelPlacement.Margin - 0.01f);
+            Assert.LessOrEqual(panel.yMax, 720f - ChatPanelPlacement.Margin + 0.01f);
+        }
+
+        [Test]
+        public void Placement_BottomRightWindowStaysAboveTheTaskbarAndLeftOfHer()
+        {
+            const int windowLeft = 1392;
+            const int windowTop = 264;
+            const int windowRight = 1872;
+            const int windowBottom = 1344;
+            var visible = ChatPanelPlacement.VisibleGui(
+                480f,
+                720f,
+                windowLeft,
+                windowTop,
+                windowRight,
+                windowBottom,
+                0,
+                0,
+                1920,
+                1032);
+
+            Assert.AreEqual(0f, visible.x, 0.01f);
+            Assert.AreEqual(0f, visible.y, 0.01f);
+            Assert.AreEqual(480f, visible.width, 0.01f);
+            Assert.AreEqual(512f, visible.height, 0.5f);
+
+            var anchor = visible.xMax - 40f;
+            var column = ChatPanelPlacement.Column(anchor, ChatPanelPlacement.BodyWidth, 480f, 720f);
+            var placed = ChatPanelPlacement.Place(480f, 720f, column, 40f);
+            var panel = ChatPanelPlacement.ClampInside(placed, visible);
+
+            Assert.LessOrEqual(panel.xMax, column.xMin + 0.01f);
+            Assert.GreaterOrEqual(panel.x, visible.x + ChatPanelPlacement.Margin - 0.01f);
+            Assert.LessOrEqual(panel.yMax, visible.yMax - ChatPanelPlacement.Margin + 0.01f);
+            Assert.AreEqual(164f, panel.y, 0.5f);
+            Assert.LessOrEqual(panel.yMax, 504.01f);
+            Assert.AreEqual(ChatPanelPlacement.Width, panel.width, 0.01f);
+        }
+
+        [Test]
+        public void SmoothAnchor_SnapsAtFirstSampleAndEasesAfter()
+        {
+            var snapped = ChatPanelPlacement.SmoothAnchor(0f, 400f, 0f, false, out var ready);
+            Assert.IsTrue(ready);
+            Assert.AreEqual(400f, snapped, 0.01f);
+
+            var held = ChatPanelPlacement.SmoothAnchor(12f, 80f, 0f, true, out ready);
+            Assert.AreEqual(80f, held, 0.01f);
+
+            var eased = ChatPanelPlacement.SmoothAnchor(400f, 0f, 0.001f, true, out ready);
+            Assert.Greater(eased, 390f);
+            Assert.Less(eased, 400f);
+        }
+
+        [Test]
+        public void VisibleGui_UsesTheFullScreenWhenTheWorkAreaMissesTheWindow()
+        {
+            var visible = ChatPanelPlacement.VisibleGui(480f, 720f, 0, 0, 480, 720, 800, 0, 900, 100);
+            Assert.AreEqual(0f, visible.x, 0.01f);
+            Assert.AreEqual(0f, visible.y, 0.01f);
+            Assert.AreEqual(480f, visible.width, 0.01f);
+            Assert.AreEqual(720f, visible.height, 0.01f);
+        }
+
+        [Test]
         public void DebugInputGuard_BlocksDebugKeysOnlyWhileATextFieldIsFocused()
         {
             Assert.IsFalse(DebugInputGuard.IsBlocked(KeyCode.T));

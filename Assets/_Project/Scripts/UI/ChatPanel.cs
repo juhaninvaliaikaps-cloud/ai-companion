@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Threading;
 using AICompanion.AI;
 using AICompanion.Core;
@@ -41,10 +42,24 @@ namespace AICompanion.UI
         Sprite _white;
         Texture2D _whiteTexture;
         Rect _guiRect;
-        Renderer[] _avatarRenderers = new Renderer[0];
-        Renderer[] _placeholderRenderers = new Renderer[0];
-        Vector3[] _boundsCorners = new Vector3[8];
-        int _measuredChildCount = -1;
+        Transform _placeholder;
+        IAvatarAnchor _anchor;
+        IDesktopWindow _desktop;
+        float _anchorX;
+        bool _anchorReady;
+        int _anchorSource = -1;
+        bool _placementLogged;
+        float _placementLogAt;
+        int _logX;
+        int _logY;
+        int _logW;
+        int _logH;
+        int _logScreenW;
+        int _logScreenH;
+        int _logVisibleX;
+        int _logVisibleY;
+        int _logVisibleW;
+        int _logVisibleH;
         int _shownRevision = -1;
         bool _visible = true;
         bool _started;
@@ -421,92 +436,173 @@ namespace AICompanion.UI
             if (float.IsNaN(gap) || gap < 0f)
                 gap = 0f;
 
-            var avatar = MeasureAvatarBounds(Camera.main);
-            _guiRect = ChatPanelPlacement.Place(Screen.width, Screen.height, avatar, gap);
+            var screenWidth = Screen.width;
+            var screenHeight = Screen.height;
+            var visible = VisibleRect(screenWidth, screenHeight);
+            var anchorX = ResolveAnchorX(screenWidth);
+            var column = ChatPanelPlacement.Column(anchorX, ChatPanelPlacement.BodyWidth, screenWidth, screenHeight);
+            var placed = ChatPanelPlacement.Place(screenWidth, screenHeight, column, gap);
+            _guiRect = ChatPanelPlacement.ClampInside(placed, visible);
+            LogPlacement(screenWidth, screenHeight, visible);
             if (_panelRect == null)
                 return;
 
             _panelRect.anchorMin = new Vector2(0f, 1f);
             _panelRect.anchorMax = new Vector2(0f, 1f);
             _panelRect.pivot = new Vector2(0f, 1f);
-            _panelRect.anchoredPosition = new Vector2(_guiRect.x, -_guiRect.y);
+            var canvasOrigin = Vector2.zero;
+            if (_canvas != null)
+            {
+                var pixel = _canvas.pixelRect;
+                if (pixel.width > 1f && pixel.height > 1f)
+                {
+                    var gui = ChatPanelPlacement.FromBottomLeft(pixel, screenHeight);
+                    canvasOrigin = new Vector2(gui.x, gui.y);
+                }
+            }
+
+            _panelRect.anchoredPosition = new Vector2(_guiRect.x - canvasOrigin.x, -(_guiRect.y - canvasOrigin.y));
             _panelRect.sizeDelta = new Vector2(_guiRect.width, _guiRect.height);
         }
 
-        Rect MeasureAvatarBounds(Camera camera)
+        Rect VisibleRect(float screenWidth, float screenHeight)
         {
-            var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
-            var max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
-            var any = false;
-            if (camera != null)
-                any = IncludeAvatar(camera, Screen.height, ref min, ref max);
-
-            if (!any)
+            var screen = new Rect(0f, 0f, screenWidth, screenHeight);
+            var visible = screen;
+            if (_canvas != null)
             {
-                var x = Screen.width * 0.5f;
-                if (camera != null)
+                var pixel = _canvas.pixelRect;
+                if (pixel.width > 1f && pixel.height > 1f)
+                    visible = ChatPanelPlacement.Intersect(visible, ChatPanelPlacement.FromBottomLeft(pixel, screenHeight));
+            }
+
+            var safe = Screen.safeArea;
+            if (safe.width > 1f && safe.height > 1f)
+                visible = ChatPanelPlacement.Intersect(visible, ChatPanelPlacement.FromBottomLeft(safe, screenHeight));
+
+            if (_desktop == null)
+                _desktop = GetComponent<IDesktopWindow>();
+            if (_desktop != null && _desktop.TryGetDesktopWindow(out var window))
+            {
+                var gui = ChatPanelPlacement.VisibleGui(
+                    screenWidth,
+                    screenHeight,
+                    window.Left,
+                    window.Top,
+                    window.Right,
+                    window.Bottom,
+                    window.WorkLeft,
+                    window.WorkTop,
+                    window.WorkRight,
+                    window.WorkBottom);
+                visible = ChatPanelPlacement.Intersect(visible, gui);
+            }
+
+            if (visible.width < 1f || visible.height < 1f)
+                return screen;
+            return visible;
+        }
+
+        float ResolveAnchorX(float screenWidth)
+        {
+            if (!TryReadAnchor(out var target, out var source))
+            {
+                if (_anchorReady)
+                    return _anchorX;
+
+                target = screenWidth * 0.5f;
+                source = 0;
+            }
+
+            if (source != _anchorSource)
+            {
+                _anchorReady = false;
+                _anchorSource = source;
+            }
+
+            _anchorX = ChatPanelPlacement.SmoothAnchor(_anchorX, target, Time.unscaledDeltaTime, _anchorReady, out _anchorReady);
+            return _anchorX;
+        }
+
+        bool TryReadAnchor(out float screenX, out int source)
+        {
+            screenX = 0f;
+            source = 0;
+            var camera = Camera.main;
+            if (camera == null)
+                return false;
+
+            if (_anchor == null)
+                _anchor = GetComponent<IAvatarAnchor>();
+            if (_anchor != null && _anchor.TryGetAnchor(out var world))
+            {
+                var point = camera.WorldToScreenPoint(world);
+                if (point.z > 0f)
                 {
-                    var point = camera.WorldToScreenPoint(new Vector3(0f, 1f, 0f));
-                    if (point.z > 0f)
-                        x = point.x;
-                }
-
-                return new Rect(x - 70f, 0f, 140f, 10f);
-            }
-
-            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
-        }
-
-        bool IncludeAvatar(Camera camera, float screenHeight, ref Vector2 min, ref Vector2 max)
-        {
-            if (_placeholderRenderers.Length == 0)
-            {
-                var placeholder = GameObject.Find("Placeholder Avatar");
-                if (placeholder != null)
-                    _placeholderRenderers = placeholder.GetComponentsInChildren<Renderer>(true);
-            }
-
-            if (_measuredChildCount != transform.childCount || MissingRenderer(_avatarRenderers))
-            {
-                _measuredChildCount = transform.childCount;
-                _avatarRenderers = GetComponentsInChildren<Renderer>(true);
-            }
-
-            var any = IncludeRenderers(_avatarRenderers, camera, screenHeight, ref min, ref max);
-            any |= IncludeRenderers(_placeholderRenderers, camera, screenHeight, ref min, ref max);
-            return any;
-        }
-
-        static bool MissingRenderer(Renderer[] renderers)
-        {
-            for (var i = 0; i < renderers.Length; i++)
-            {
-                if (renderers[i] == null)
+                    screenX = point.x;
+                    source = 1;
                     return true;
+                }
+            }
+
+            if (_placeholder == null)
+            {
+                var found = GameObject.Find("Placeholder Avatar");
+                if (found != null)
+                    _placeholder = found.transform;
+            }
+
+            if (_placeholder != null)
+            {
+                var point = camera.WorldToScreenPoint(_placeholder.position + Vector3.up);
+                if (point.z > 0f)
+                {
+                    screenX = point.x;
+                    source = 2;
+                    return true;
+                }
             }
 
             return false;
         }
 
-        bool IncludeRenderers(Renderer[] renderers, Camera camera, float screenHeight, ref Vector2 min, ref Vector2 max)
+        void LogPlacement(float screenWidth, float screenHeight, Rect visible)
         {
-            var any = false;
-            for (var i = 0; i < renderers.Length; i++)
-            {
-                var renderer = renderers[i];
-                if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy)
-                    continue;
+            var x = Mathf.RoundToInt(_guiRect.x);
+            var y = Mathf.RoundToInt(_guiRect.y);
+            var w = Mathf.RoundToInt(_guiRect.width);
+            var h = Mathf.RoundToInt(_guiRect.height);
+            var sw = Mathf.RoundToInt(screenWidth);
+            var sh = Mathf.RoundToInt(screenHeight);
+            var vx = Mathf.RoundToInt(visible.x);
+            var vy = Mathf.RoundToInt(visible.y);
+            var vw = Mathf.RoundToInt(visible.width);
+            var vh = Mathf.RoundToInt(visible.height);
+            var changed = !_placementLogged
+                || x != _logX || y != _logY || w != _logW || h != _logH
+                || sw != _logScreenW || sh != _logScreenH
+                || vx != _logVisibleX || vy != _logVisibleY || vw != _logVisibleW || vh != _logVisibleH;
+            if (!changed)
+                return;
+            if (_placementLogged && Time.unscaledTime - _placementLogAt < 1f)
+                return;
 
-                ChatPanelPlacement.WriteBoundsCorners(renderer.bounds, _boundsCorners);
-                for (var c = 0; c < _boundsCorners.Length; c++)
-                {
-                    var screen = camera.WorldToScreenPoint(_boundsCorners[c]);
-                    if (ChatPanelPlacement.TryIncludeScreenPoint(screenHeight, screen, ref min, ref max))
-                        any = true;
-                }
-            }
-
-            return any;
+            _placementLogged = true;
+            _placementLogAt = Time.unscaledTime;
+            _logX = x;
+            _logY = y;
+            _logW = w;
+            _logH = h;
+            _logScreenW = sw;
+            _logScreenH = sh;
+            _logVisibleX = vx;
+            _logVisibleY = vy;
+            _logVisibleW = vw;
+            _logVisibleH = vh;
+            Debug.Log(string.Format(
+                CultureInfo.InvariantCulture,
+                "ChatPanel: pos {0} {1} size {2}x{3} screen {4}x{5} visible {6} {7} {8}x{9}",
+                x, y, w, h, sw, sh, vx, vy, vw, vh));
         }
 
         void RefreshTranscript(bool force)

@@ -16,6 +16,7 @@ namespace AICompanion.Overlay
         const int GwlExStyle = -20;
         const int SmCxScreen = 0;
         const int SmCyScreen = 1;
+        const uint SpiGetWorkArea = 0x0030;
         const int VkLButton = 0x01;
         const int VkRButton = 0x02;
         const int VkMButton = 0x04;
@@ -164,6 +165,39 @@ namespace AICompanion.Overlay
             return size.x > 0 && size.y > 0;
         }
 
+        public bool TryGetWindowRect(out int left, out int top, out int right, out int bottom)
+        {
+            left = 0;
+            top = 0;
+            right = 0;
+            bottom = 0;
+            if (!TryGetHwnd() || !GetWindowRect(_hwnd, out var rect))
+                return false;
+
+            left = rect.left;
+            top = rect.top;
+            right = rect.right;
+            bottom = rect.bottom;
+            return right > left && bottom > top;
+        }
+
+        public bool TryGetWorkArea(out int left, out int top, out int right, out int bottom)
+        {
+            left = 0;
+            top = 0;
+            right = 0;
+            bottom = 0;
+            var rect = new WinRect();
+            if (!SystemParametersInfo(SpiGetWorkArea, 0, ref rect, 0))
+                return false;
+
+            left = rect.left;
+            top = rect.top;
+            right = rect.right;
+            bottom = rect.bottom;
+            return right > left && bottom > top;
+        }
+
         public void MoveWindow(Vector2Int topLeft, bool topmost)
         {
             if (!TryGetHwnd())
@@ -270,6 +304,9 @@ namespace AICompanion.Overlay
 
         [DllImport("user32.dll")]
         static extern int GetSystemMetrics(int nIndex);
+
+        [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW")]
+        static extern bool SystemParametersInfo(uint uiAction, uint uiParam, ref WinRect pvParam, uint fWinIni);
 
         [DllImport("user32.dll")]
         static extern bool SetForegroundWindow(IntPtr hWnd);
