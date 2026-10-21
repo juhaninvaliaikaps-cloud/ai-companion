@@ -274,7 +274,7 @@ namespace AICompanion.Avatar
         {
             var driver = GetComponent<AvatarAnimationController>();
             if (driver != null)
-                driver.Attach(_instance, _current);
+                driver.Attach(_instance, _current, _loaded);
         }
 
         int BeginLoad()

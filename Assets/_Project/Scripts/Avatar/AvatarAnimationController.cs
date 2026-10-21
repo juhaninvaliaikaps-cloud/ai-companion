@@ -6,13 +6,15 @@ using UnityEngine.Events;
 namespace AICompanion.Avatar
 {
     /// <summary>
-    /// Plays the shared humanoid controller and eases expression blendshapes.
+    /// Plays the shared humanoid controller, turns the model to face the camera,
+    /// and eases expression blendshapes.
     /// Animator update mode stays on Normal, so clips keep advancing when the
     /// overlay drops the player to 15 fps. They just step with a larger delta.
+    /// Root motion stays off, so that yaw is not overwritten by the clips.
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(1000)]
-    public sealed class AvatarAnimationController : MonoBehaviour, IAvatarAnimator
+    public sealed class AvatarAnimationController : MonoBehaviour, IAvatarAnimator, IAvatarTurntable
     {
         static readonly int TalkingHash = Animator.StringToHash(AvatarAnimatorParameters.Talking);
         static readonly int EmotionHash = Animator.StringToHash(AvatarAnimatorParameters.Emotion);
@@ -38,6 +40,9 @@ namespace AICompanion.Avatar
         readonly AvatarAnimatorModel _model = new AvatarAnimatorModel();
         ShapeBinding[] _bindings = NoBindings;
         Animator _animator;
+        Transform _root;
+        AvatarPreference _source = AvatarPreference.Auto;
+        float _extraYaw;
         bool _hasTalking;
         bool _hasEmotion;
         bool _hasIntensity;
@@ -72,9 +77,12 @@ namespace AICompanion.Avatar
             PushParameters();
         }
 
-        public void Attach(GameObject instance, AvatarDescriptor descriptor)
+        public void Attach(GameObject instance, AvatarDescriptor descriptor, AvatarPreference source)
         {
             _animator = null;
+            _root = null;
+            _source = source;
+            _extraYaw = AvatarYawKeys.Read(source);
             _hasTalking = false;
             _hasEmotion = false;
             _hasIntensity = false;
@@ -85,6 +93,35 @@ namespace AICompanion.Avatar
             BindAnimator(instance);
             _bindings = BindShapes(instance, descriptor);
             PushParameters();
+            if (_animator == null)
+                return;
+
+            _root = instance.transform;
+            FaceCamera(_root);
+        }
+
+        public void AddYawPixels(float deltaPixels)
+        {
+            var delta = AvatarFacing.DragDelta(deltaPixels);
+            if (_root != null && Mathf.Abs(delta) > 0f)
+                _root.Rotate(0f, delta, 0f, Space.World);
+
+            _extraYaw = AvatarFacing.ApplyDrag(_extraYaw, deltaPixels);
+            AvatarYawKeys.Write(_source, _extraYaw, false);
+        }
+
+        public void CommitYaw()
+        {
+            AvatarYawKeys.Write(_source, _extraYaw, true);
+        }
+
+        public void ResetYaw()
+        {
+            if (_root != null && Mathf.Abs(_extraYaw) > 0.0001f)
+                _root.Rotate(0f, -_extraYaw, 0f, Space.World);
+
+            _extraYaw = 0f;
+            AvatarYawKeys.Write(_source, 0f, true);
         }
 
         void OnEnable()
@@ -98,6 +135,7 @@ namespace AICompanion.Avatar
         {
             if (_beforeRender != null)
                 Application.onBeforeRender -= _beforeRender;
+            CommitYaw();
         }
 
         void Update()
@@ -147,6 +185,37 @@ namespace AICompanion.Avatar
 
             animator.runtimeAnimatorController = controller;
             CacheParameters(animator);
+        }
+
+        bool TryHumanoidForward(out Vector3 forward)
+        {
+            forward = Vector3.forward;
+            if (_animator == null || !_animator.isHuman)
+                return false;
+
+            var hips = _animator.GetBoneTransform(HumanBodyBones.Hips);
+            var spine = _animator.GetBoneTransform(HumanBodyBones.Spine);
+            var left = _animator.GetBoneTransform(HumanBodyBones.LeftUpperLeg);
+            var right = _animator.GetBoneTransform(HumanBodyBones.RightUpperLeg);
+            if (hips == null || spine == null || left == null || right == null)
+                return false;
+
+            return AvatarFacing.TryBodyForward(hips.position, spine.position, left.position, right.position, out forward);
+        }
+
+        void FaceCamera(Transform root)
+        {
+            var yaw = _extraYaw;
+            var camera = Camera.main;
+            if (camera != null)
+            {
+                if (!TryHumanoidForward(out var forward))
+                    forward = root.forward;
+                yaw += AvatarFacing.YawDegreesToward(forward, camera.transform.position - root.position);
+            }
+
+            if (Mathf.Abs(yaw) > 0.001f)
+                root.Rotate(0f, yaw, 0f, Space.World);
         }
 
         void CacheParameters(Animator animator)

@@ -86,6 +86,55 @@ namespace AICompanion.Overlay
         }
     }
 
+    /// <summary>
+    /// Right-click rotate mode. The click has to land on a visible pixel, the
+    /// same test click-through uses. A horizontal drag then yaws the avatar.
+    /// Left-drag still moves the window while this mode is off.
+    /// </summary>
+    public static class AvatarRotateMode
+    {
+        public const string OnLabel = "Rotate: on (right-click to finish)";
+        public const string OffLabel = "Rotate: off";
+
+        public static string Format(bool active)
+        {
+            return active ? OnLabel : OffLabel;
+        }
+
+        public static bool ShouldToggle(bool rightPressed, bool onSilhouette, bool overUi)
+        {
+            return rightPressed && onSilhouette && !overUi;
+        }
+
+        public static bool Next(bool active, bool toggle, bool escape)
+        {
+            if (escape)
+                return false;
+
+            if (toggle)
+                return !active;
+
+            return active;
+        }
+
+        /// <summary>
+        /// R resets only while the mode is on. Middle-click resets on a visible
+        /// pixel either way. The debug panel is not a reset target.
+        /// </summary>
+        public static bool ShouldReset(bool active, bool resetKeyPressed, bool middlePressed, bool onSilhouette, bool overUi)
+        {
+            if (middlePressed && onSilhouette && !overUi)
+                return true;
+
+            return active && resetKeyPressed;
+        }
+
+        public static bool ShouldRotateInsteadOfMovingWindow(bool active, bool onSilhouette, bool overUi)
+        {
+            return active && onSilhouette && !overUi;
+        }
+    }
+
     public static class OverlayFrameRate
     {
         public const int Active = 60;

@@ -149,7 +149,7 @@ Git LFS tracks binary assets (`.fbx`, `.vrm`, `.png`, `.wav`, audio, video, and 
 
 - `IChatProvider` in `AICompanion.AI` is the boundary for a cloud or local LLM. It has no network calls.
 - `AnimationCue` carries an `Emotion`, an intensity clamped to 0–1, and a gesture name.
-- `IAvatarAnimator` is the runtime hook for that cue. `SetTalking(bool)` and `SetEmotion(Emotion, intensity)` drive the shared humanoid controller and the face. The debug keys are 1–5 and T.
+- `IAvatarAnimator` is the runtime hook for that cue. `SetTalking(bool)` and `SetEmotion(Emotion, intensity)` drive the shared humanoid controller and the face. The debug keys are 1–5 and T. On spawn the humanoid root yaws to face the overlay camera. Right-click a visible pixel, then drag, to add a yaw that is saved per avatar source.
 - `AppBootstrap` is the `MonoBehaviour` scene entry point. `Awake` logs once and starts `ICompanionStartup` components on the same object, including `OverlayWindow`.
 
 ## Roadmap
