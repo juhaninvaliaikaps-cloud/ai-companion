@@ -104,13 +104,7 @@ The Player Settings file was first written for a Unity 6.3 editor. Unity 6000.6.
 
 ## Secrets
 
-API keys stay out of the repository and out of `Assets/`, so Unity cannot import them into a build.
-
-1. Copy `Config/appsettings.example.json` to `Config/appsettings.json`.
-2. Fill in the xAI API key locally.
-3. Leave `Config/appsettings.json` untracked. `.gitignore` already excludes it.
-
-The example file has empty strings only. Do not commit a filled-in copy.
+API keys stay out of the repository and out of `Assets/`, so Unity cannot import them into a build. The xAI key is an environment variable or a per-user file under `%APPDATA%/ProjectLeia`. The steps are in [docs/CHAT_PROVIDERS.md](docs/CHAT_PROVIDERS.md). Do not commit a key, a `.ulf`, or a filled `secrets.json`.
 
 ## Repository layout
 
@@ -118,7 +112,7 @@ The example file has empty strings only. Do not commit a filled-in copy.
 Assets/_Project/
   Scripts/
     Core/                  AppBootstrap, AnimationCue, Emotion          AICompanion.Core
-    AI/                    IChatProvider                                 AICompanion.AI
+    AI/                    IChatProvider, Grok streaming                 AICompanion.AI
     Voice/                 speech-to-text and text-to-speech             AICompanion.Voice
     Avatar/                humanoid load, blendshapes, descriptor        AICompanion.Avatar
     AnimationDirector/     cue to Animator mapping                       AICompanion.AnimationDirector
@@ -133,12 +127,12 @@ LocalAvatars/              gitignored. Asset Store models such as Asuna go here.
   Settings/                  runtime settings assets (not API keys)
   Plugins/                   native or third-party plug-ins that are not UPM packages
   Editor/CliCommands/        Unity CLI [CliCommand] methods               AICompanion.Editor.CliCommands
+  Editor/Chat/               xAI API key menu                             AICompanion.Editor.Chat
   Tests/
     EditMode/              editor tests, including AnimationCueTests
     PlayMode/              play-mode tests, including AppBootstrapPlayModeTests
 Config/
-  appsettings.example.json template for local provider keys
-  appsettings.json         gitignored local secrets
+  appsettings.example.json pointer only; the xAI key is not stored here
 ```
 
 `AICompanion.AI` references `Core`. `UI` references `Core` and `AI`. `Avatar` references `Core` and UniVRM's `VRM10` assembly. Voice, AnimationDirector, and Overlay each reference `Core` only, so chat and animation cannot form a cycle. `AnimationCue` lives in `Core` because both the provider layer and the director will use it.
@@ -147,7 +141,7 @@ Git LFS tracks binary assets (`.fbx`, `.vrm`, `.png`, `.wav`, audio, video, and 
 
 ## What the skeleton contains
 
-- `IChatProvider` in `AICompanion.AI` is the boundary for a cloud or local LLM. It has no network calls.
+- `IChatProvider.StreamChat` is the boundary for a cloud or local LLM. Grok is the first provider. Callers resolve the id on `ChatSettings` through `ChatProviderRegistry`. The API key stays outside the repo.
 - `AnimationCue` carries an `Emotion`, an intensity clamped to 0–1, and a gesture name.
 - `IAvatarAnimator` is the runtime hook for that cue. `SetTalking(bool)` and `SetEmotion(Emotion, intensity)` drive the shared humanoid controller and the face. The debug keys are 1–5 and T. On spawn the humanoid root yaws to face the overlay camera. Right-click a visible pixel, then drag, to add a yaw that is saved per avatar source.
 - `AppBootstrap` is the `MonoBehaviour` scene entry point. `Awake` logs once and starts `ICompanionStartup` components on the same object, including `OverlayWindow`.

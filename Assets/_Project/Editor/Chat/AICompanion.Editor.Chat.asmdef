@@ -1,0 +1,18 @@
+{
+    "name": "AICompanion.Editor.Chat",
+    "rootNamespace": "AICompanion.Editor.Chat",
+    "references": [
+        "AICompanion.AI"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
