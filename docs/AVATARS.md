@@ -15,7 +15,7 @@ The console logs one line when a model is ready, for example `Avatar ready: Comp
 
 ## Expression names
 
-`ExpressionPresetMap` maps blendshape names onto `Aa`, `Ih`, `Ou`, `Ee`, `Oh`, `Blink`, `Joy`, `Angry`, `Sorrow`, and `Fun`.
+`ExpressionPresetMap` maps blendshape names onto `Aa`, `Ih`, `Ou`, `Ee`, `Oh`, `Blink`, `Joy`, `Angry`, `Sorrow`, `Fun`, and `Surprised`.
 
 | Preset | Names it accepts |
 | --- | --- |
@@ -29,6 +29,7 @@ The console logs one line when a model is ready, for example `Avatar ready: Comp
 | Angry | `angry`, `Fcl_ALL_Angry`, `browDown*` |
 | Sorrow | `sorrow`, `sad`, `Fcl_ALL_Sorrow`, `mouthFrown*` |
 | Fun | `fun`, `relaxed`, `Fcl_ALL_Fun` |
+| Surprised | `surprised`, `browInnerUp`, `browOuterUp*`, `eyeWide*` |
 
 A VRM expression preset is also recorded when its clip points at a blendshape, even if that shape's name is custom. Names that do not match stay in the full list and are not forced into a preset. Asuna's 52 ARKit shapes (`jawOpen`, `eyeBlinkLeft`, `mouthFunnel`, and the rest) use this table.
 
@@ -66,7 +67,7 @@ An AI mesh with no skeleton will not map. This project does not auto-rig it. Run
 7. Enter Play mode. The capsule hides, Asuna is in the window, and the Console lists the ARKit shapes (`jawOpen` as `aa`, both `eyeBlink*` as `blink`, `mouthSmile*` as `joy`, and so on).
 8. Do not commit the Asuna folder, its `.meta` files, or a change that only stores the Asuna prefab GUID if you want other clones to stay on the CC0 sample. A committed missing prefab reference is treated as empty and the sample is used, so CI still runs.
 
-Asuna's animation FBX files are Humanoid clips. They are not wired to an Animator controller yet. Any Humanoid clip can retarget onto this avatar and onto the CC0 samples once a controller exists.
+Asuna's own animation FBX files stay on your machine. Do not commit them. The shared controller below retargets onto her Humanoid rig and onto the CC0 samples.
 
 ## Samples and licence
 
@@ -92,8 +93,30 @@ MToon 1.0 (UniVRM's URP shader) writes alpha 1 for opaque materials and the text
 
 If the built player is a solid rectangle, check **Support HDR** on `UniversalRenderPipelineAsset` is off and the camera's **Post Processing** is off, then rebuild.
 
+## Animator
+
+`AvatarAnimationController` on `AppBootstrap` plays one Animator Controller on the humanoid that is showing: the CC0 VRM, the CC0 FBX, or a local model such as Asuna. The capsule has no rig. The debug keys still change the label, and no body clip plays.
+
+The controller is `Assets/_Project/Animations/Companion.controller`.
+
+| State | When it plays |
+| --- | --- |
+| Idle | Default. Emotion parameter `0` (Neutral). Loops. |
+| Happy, Sad, Surprised, Thinking | Emotion parameter `1` to `4`. The crossfade is 0.3 seconds. |
+| Talk | Additive layer while the `Talking` bool is true, so an emotion keeps playing underneath. |
+
+`IAvatarAnimator.SetTalking(bool)` and `SetEmotion(Emotion, intensity)` write `Talking`, `Emotion`, and `EmotionIntensity` (0 to 1). Root motion is off. The Animator stays on Normal update mode, so the clips keep advancing while the overlay is throttled to 15 fps. The motion looks a little choppier at that rate.
+
+The clips are original Humanoid muscle curves, released under CC0. The licence file is `Assets/_Project/Animations/LICENSE.txt`. They are not Mixamo, not Quaternius, and not Asuna's Asset Store animations. To swap one later, replace the `.anim` or drop another Humanoid clip onto that state. Leave third-party clips whose licence does not allow redistribution out of this public repository. If a character stays on the bind pose after import, use **AI Companion > Rebuild Basic Animator** once. That writes the same curves through the Unity animation API.
+
+The face uses the expression map. Happy drives Joy (`mouthSmile*`). Sad drives Sorrow (`mouthFrown*`) and Angry (`browDown*`). Surprised drives `browInnerUp`, `browOuterUp*`, and `eyeWide*`, plus a little jaw. Thinking presses the mouth closed a bit. Talking adds a procedural jaw and viseme on Aa, Oh, and Ou. Real lip sync is JUH-13. Weights ease in over about 0.3 seconds. A model with no blendshapes keeps the body clips and skips the face.
+
+With the window focused, **1** is Neutral, **2** Happy, **3** Sad, **4** Surprised, **5** Thinking, and **T** toggles talking. The keypad numbers do the same. The debug label shows the emotion, the intensity, and whether talk is on. **F7** and **F8** are unchanged.
+
 ## What to check
 
 1. Play mode shows the CC0 VRM (or Asuna, if the local prefab is assigned) instead of the capsule. The Console has an `Avatar ready` line with `humanoid=True` and the mapped shapes.
 2. Press **F7**. The other sample appears. Press **F7** again to return. Clearing **Local Prefab** and both sample paths brings the capsule back.
 3. Build the Windows player (`unity command build_windows_player`, then poll `build_status`) and run `Builds/Windows/AICompanion.exe`. The desktop shows around the model. Drag her body, not the empty space beside it. Clicks in that empty space, close to the mesh as well as farther away, reach the window behind. **F8** still toggles topmost. **F7** still cycles avatars. The frame-rate label still drops to about 15 after the pointer leaves for about 3 seconds.
+4. With Asuna focused, Idle is already playing. Press **2**, **3**, **4**, **5**, then **1**. The body eases between those poses, and her face smiles, frowns and lowers the brows, raises the brows, then returns to neutral. Press **T**. The mouth moves and the emotion stays. Press **T** again to stop. Move the pointer off the window until the label says about 15 fps. She should still be moving, a bit choppier.
+5. Press **F7** until a CC0 sample is showing. The same controller and the same keys apply. Empty space around the mesh still clicks through. Drag, **F8**, and the frame-rate drop still work. If a model has no blendshapes, the body still plays and the Console stays clear.

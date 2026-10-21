@@ -358,6 +358,7 @@ GameObject:
   - component: {fileID: 1911444198}
   - component: {fileID: 1911444199}
   - component: {fileID: 1911444200}
+  - component: {fileID: 1911444201}
   m_Layer: 0
   m_Name: AppBootstrap
   m_TagString: Untagged
@@ -428,6 +429,19 @@ MonoBehaviour:
   selection: {fileID: 11400000, guid: 0a22ccfbccc60133385a0541ddad77f0, type: 2}
   placeholder: {fileID: 2100000101}
   cycleKey: 288
+--- !u!114 &1911444201
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1911444196}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd0fd09d0424329fa615213e33958610, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: AICompanion.Avatar::AICompanion.Avatar.AvatarAnimationController
+  controller: {fileID: 9100000, guid: bfa1f4473a8c267481c695735f79ac4f, type: 2}
 --- !u!1 &2100000101
 GameObject:
   m_ObjectHideFlags: 0

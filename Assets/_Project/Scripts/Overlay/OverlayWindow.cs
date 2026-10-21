@@ -17,7 +17,7 @@ namespace AICompanion.Overlay
     {
         const string TopmostOnLabel = "Topmost on   F8";
         const string TopmostOffLabel = "Topmost off  F8";
-        static readonly Rect PanelRect = new Rect(8f, 8f, 168f, 48f);
+        static readonly Rect PanelRect = new Rect(8f, 8f, 248f, 88f);
         static readonly Color AvatarTint = new Color(0.95f, 0.45f, 0.62f, 1f);
 
         [SerializeField] Renderer placeholderAvatar;
@@ -60,6 +60,12 @@ namespace AICompanion.Overlay
         int _fpsFrames;
         float _fpsTimer;
         string _fpsText = "--";
+        IAvatarAnimator _animator;
+        string _emotionText = "";
+        Emotion _shownEmotion;
+        float _shownIntensity = -1f;
+        bool _shownTalking;
+        bool _emotionReady;
 
         public bool IsTopmost => _topmost;
         public bool IsClickThrough => _clickThrough;
@@ -154,9 +160,12 @@ namespace AICompanion.Overlay
             if (!_started)
                 return;
 
+            RefreshEmotionLabel();
             GUI.Box(PanelRect, GUIContent.none);
-            GUI.Label(new Rect(12f, 10f, 156f, 18f), _topmost ? TopmostOnLabel : TopmostOffLabel);
-            GUI.Label(new Rect(12f, 28f, 156f, 18f), _fpsText);
+            GUI.Label(new Rect(12f, 10f, 232f, 18f), _topmost ? TopmostOnLabel : TopmostOffLabel);
+            GUI.Label(new Rect(12f, 28f, 232f, 18f), _fpsText);
+            GUI.Label(new Rect(12f, 46f, 232f, 18f), _emotionText);
+            GUI.Label(new Rect(12f, 64f, 232f, 18f), AvatarAnimatorModel.DebugHint);
         }
 
         void OnDestroy()
@@ -318,6 +327,30 @@ namespace AICompanion.Overlay
 
             _appliedRate = rate;
             Application.targetFrameRate = rate;
+        }
+
+        void RefreshEmotionLabel()
+        {
+            if (_animator == null)
+                _animator = GetComponent<IAvatarAnimator>();
+            if (_animator == null)
+            {
+                if (_emotionText.Length != 0)
+                    _emotionText = string.Empty;
+                return;
+            }
+
+            var emotion = _animator.Emotion;
+            var intensity = _animator.EmotionIntensity;
+            var talking = _animator.IsTalking;
+            if (_emotionReady && emotion == _shownEmotion && talking == _shownTalking && intensity == _shownIntensity)
+                return;
+
+            _emotionReady = true;
+            _shownEmotion = emotion;
+            _shownIntensity = intensity;
+            _shownTalking = talking;
+            _emotionText = AvatarAnimatorModel.FormatLabel(emotion, intensity, talking);
         }
 
         void AccumulateFps()

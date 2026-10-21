@@ -1,6 +1,6 @@
 # Testing
 
-EditMode and PlayMode tests live under `Assets/_Project/Tests`. The example EditMode test is `AnimationCueTests.Constructor_ClampsIntensityAndKeepsFields`. Overlay decision, drag, and frame-rate tests are in `OverlayLogicTests`. `AppBootstrapStartupTests` covers the startup hook. `AvatarDescriptorTests` covers blendshape preset mapping (VRM names and ARKit names) and humanoid bone validation. The example PlayMode test is `AppBootstrapPlayModeTests.Awake_LogsReadyMessage`. The transparent window and the imported model are checked by hand; see [docs/OVERLAY.md](docs/OVERLAY.md) and [docs/AVATARS.md](docs/AVATARS.md).
+EditMode and PlayMode tests live under `Assets/_Project/Tests`. The example EditMode test is `AnimationCueTests.Constructor_ClampsIntensityAndKeepsFields`. Overlay decision, drag, and frame-rate tests are in `OverlayLogicTests`. `AppBootstrapStartupTests` covers the startup hook. `AvatarDescriptorTests` covers blendshape preset mapping (VRM names and ARKit names) and humanoid bone validation. `AvatarAnimatorModelTests` and `EmotionFaceTests` cover emotion parameters, debug keys, face weights, and the clip crossfade. `AvatarAnimationPlayModeTests` checks that those calls survive a frame with no model loaded. The example PlayMode test is `AppBootstrapPlayModeTests.Awake_LogsReadyMessage`. The transparent window and the imported model are checked by hand; see [docs/OVERLAY.md](docs/OVERLAY.md) and [docs/AVATARS.md](docs/AVATARS.md).
 
 ## Run tests locally
 

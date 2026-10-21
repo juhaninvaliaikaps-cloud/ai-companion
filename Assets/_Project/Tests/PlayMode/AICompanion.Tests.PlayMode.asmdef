@@ -3,6 +3,7 @@
     "rootNamespace": "AICompanion.Tests.PlayMode",
     "references": [
         "AICompanion.Core",
+        "AICompanion.Avatar",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

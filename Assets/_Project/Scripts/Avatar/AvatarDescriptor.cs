@@ -110,6 +110,7 @@ namespace AICompanion.Avatar
             AppendPreset(builder, ExpressionPreset.Angry);
             AppendPreset(builder, ExpressionPreset.Sorrow);
             AppendPreset(builder, ExpressionPreset.Fun);
+            AppendPreset(builder, ExpressionPreset.Surprised);
             return builder.ToString();
         }
 
