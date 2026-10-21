@@ -6,16 +6,16 @@ This repository is the Unity project skeleton. It compiles as an empty project. 
 
 ## Unity version
 
-**Unity 6.3 LTS — 6000.3.26f1** (changeset `de8167e7440c`).
+**Unity 6000.6.6f1** (changeset `d20c9ac777da`). This is the build Unity Hub currently recommends. It is a supported Unity 6 update, not the 6.3 LTS line.
 
 Install that exact editor with Unity Hub. Add the **Windows Build Support (Mono)** module. IL2CPP can wait until a release build needs it.
 
-`ProjectSettings/ProjectVersion.txt` records the same version. Opening the project in another Unity 6 line (6.0, 6.4, 6.5, 6.6) will upgrade or refuse the project. Stay on 6000.3.26f1 unless you mean to upgrade.
+`ProjectSettings/ProjectVersion.txt` records the same version and changeset. Open the project with 6000.6.6f1. Another Unity 6 line will try to upgrade or downgrade the project.
 
 ## Open the project on Windows
 
 1. Install [Git for Windows](https://git-scm.com/download/win) and [Git LFS](https://git-lfs.com/). In a terminal, run `git lfs install` once per machine.
-2. Install Unity Hub and editor **6000.3.26f1** with Windows Build Support (Mono).
+2. Install Unity Hub and editor **6000.6.6f1** with Windows Build Support (Mono). Hub may already offer this as the recommended install.
 3. Clone the repository. Git LFS must be installed before the first pull that contains models or audio, otherwise those files stay as pointer text.
 4. In Unity Hub, choose **Add** (or **Open**) **project from disk** and select the cloned folder. That folder contains `Assets`, `Packages`, and `ProjectSettings`.
 5. Let the first import finish. Unity downloads packages, including UniVRM from GitHub, so `git` must be on `PATH` and the machine needs network access. The first import can take several minutes.
@@ -27,7 +27,7 @@ There is no scene yet. Before the first player build, create one with **File > N
 
 ### Build a Windows player
 
-1. Install Windows Build Support (Mono) for 6000.3.26f1.
+1. Install Windows Build Support (Mono) for 6000.6.6f1.
 2. Open **File > Build Profiles**.
 3. Choose **Windows** and architecture **x86_64**.
 4. Confirm the scene from `Assets/_Project/Scenes` is enabled.
@@ -53,12 +53,12 @@ URP is a later step, once the avatar scene exists:
 
 | Package | Role |
 | --- | --- |
-| `com.unity.test-framework` 1.6.0 | EditMode and PlayMode tests. This is a core package; 1.6.0 is the version Unity 6.3 writes into a project manifest. |
-| `com.unity.inputsystem` 1.20.1 | New Input System. Player Settings use **Both** (new Input System and the legacy Input Manager). |
-| `com.unity.ugui` 2.0.0 | Unity UI, including TextMesh Pro. Unity 6 does not use the old `com.unity.textmeshpro` package. |
-| `com.unity.timeline` 1.8.13 | Required by UniVRM. |
-| `com.unity.mathematics` 1.3.3 | Required by UniVRM. |
-| `com.vrmc.gltf` and `com.vrmc.vrm` | UniVRM **VRM 1.0**, from the official Git repository at tag `v0.131.4`. |
+| `com.unity.test-framework` 1.8.0 | EditMode and PlayMode tests. Core package. Unity 6000.6.0 moved this from 1.7.0 to 1.8.0, and the 6000.6.6f1 release notes do not list a later bump. |
+| `com.unity.inputsystem` 1.20.1 | New Input System. The Unity 6000.6 manual lists 1.20.1 as the released version for this editor. Player Settings use **Both** (new Input System and the legacy Input Manager). |
+| `com.unity.ugui` 2.6.0 | Unity UI, including TextMesh Pro. Core package shipped with Unity 6000.6. The old `com.unity.textmeshpro` package is not used. |
+| `com.unity.timeline` 6.6.0 | Core package on Unity 6000.6, renumbered from the 1.8 line. UniVRM depends on Timeline. |
+| `com.unity.mathematics` 1.3.3 | Required by UniVRM. Latest registry release; its package metadata allows Unity 2021.3 and newer. It is not a 6000.6 core package. |
+| `com.vrmc.gltf` and `com.vrmc.vrm` | UniVRM **VRM 1.0**, tag `v0.131.4`. That release includes the Unity 6.6 deprecation fix. |
 
 UniVRM is installed the way the project documents it: Git URLs in the manifest, not a copied `.unitypackage`.
 
@@ -77,7 +77,13 @@ https://github.com/vrm-c/UniVRM.git?path=/Packages/VRM#v0.131.4
 
 That package name is `com.vrmc.univrm`. Source and release notes: [github.com/vrm-c/UniVRM](https://github.com/vrm-c/UniVRM/releases/tag/v0.131.4).
 
-If Package Manager reports that `com.unity.test-framework@1.6.0` cannot be found, the installed editor's bundled Test Framework version differs. Set the manifest version to the one shown for Test Framework in **Window > Package Manager** and reopen the project. Do not pin an older registry version such as 1.4.x or 1.5.1; those are not the Unity 6.3 core package.
+Test Framework, uGUI, and Timeline are core packages on Unity 6000.6: the editor ships one version of each, and Package Manager will not substitute a different one. The pins above come from the Unity 6000.6.0 package update (`test-framework` 1.8.0, `ugui` 2.6.0, `timeline` 6.6.0) and the 6000.6 manual (`inputsystem` 1.20.1). The 6000.6.6f1 patch notes do not change those four. This repository was not opened in the editor, so the bundled versions were not read from that install's package manifest.
+
+If Package Manager says one of those versions cannot be found, set the manifest entry to the version shown for that package in **Window > Package Manager** and reopen the project. In particular, do not put Timeline back on `1.8.13`; Unity 6000.6 expects `6.6.0`.
+
+The other `com.unity.modules.*` entries stay at `1.0.0`, which is how Unity lists built-in modules. No 6000.6 note turned up that removes one of the modules in this manifest. `com.unity.mathematics` 1.3.3 was not re-verified against a 6000.6 editor install. UniVRM stays on `v0.131.4`, the current official tag, which calls out a Unity 6.6 fix.
+
+The Player Settings file was first written for a Unity 6.3 editor. Unity 6000.6.6f1 upgrades that YAML on the first open. Review the `ProjectSettings` diff before committing it.
 
 ## Secrets
 
