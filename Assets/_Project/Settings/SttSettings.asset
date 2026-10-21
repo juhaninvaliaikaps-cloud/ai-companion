@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 015811a80a9470312630396f3d906708, type: 3}
+  m_Name: SttSettings
+  m_EditorClassIdentifier: AICompanion.Voice::AICompanion.Voice.SttSettings
+  enabled: 1
+  pushToTalkKey: 118
+  language: auto
+  modelFile: ggml-base.bin
+  microphoneDevice: 
+  maxRecordSeconds: 30

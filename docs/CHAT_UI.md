@@ -16,9 +16,10 @@ The system prompt lives on `ChatSettings.systemPrompt`. The default is a short, 
 | **Stop** | While a reply is streaming, or while speech is still playing | Same cancel as Esc. The button reads **Send** when idle. |
 | **Mute** / **F6** | **F6** is ignored while a text field is focused | Mute or unmute speech. Saved in `PlayerPrefs` (`ai-companion.tts-muted`). See [VOICE.md](VOICE.md). |
 | **F9** | Panel field is not focused | Open the panel if it is hidden and send the draft. If the draft is empty, send `Say hello in one short sentence.` |
+| **V** / **Mic** | **V** is ignored while a text field is focused. **Mic** is a hold | Record speech, then send the transcript as a **You** line. See [VOICE.md](VOICE.md). |
 | Double-click | A visible avatar pixel, not on UI | Open the panel and focus the message field. |
 
-While the message field or the API-key field is focused, these debug keys do not fire: **1–5**, **T**, **R**, **F6**, **F7**, **F8**, **F9**. **F10** and **Esc** still work. **F7** still cycles the avatar, **F8** still toggles topmost, and **R** still resets yaw, once the field is not focused.
+While the message field or the API-key field is focused, letter keys **A–Z** (including **V**) and these debug keys do not fire: **1–5**, **T**, **R**, **F6**, **F7**, **F8**, **F9**. **F10** and **Esc** still work. **F7** still cycles the avatar, **F8** still toggles topmost, and **R** still resets yaw, once the field is not focused.
 
 Spoken replies are a separate step from the text stream. The talk animation follows the audio, not the moment text arrives. See [VOICE.md](VOICE.md).
 
