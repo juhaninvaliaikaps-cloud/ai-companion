@@ -60,14 +60,14 @@ namespace AICompanion.Avatar
 
         void OnDisable()
         {
-            if (OverlayHitBoundsRegistry.Current == this)
+            if (ReferenceEquals(OverlayHitBoundsRegistry.Current, this))
                 OverlayHitBoundsRegistry.Current = null;
         }
 
         void OnDestroy()
         {
             CancelLoad();
-            if (OverlayHitBoundsRegistry.Current == this)
+            if (ReferenceEquals(OverlayHitBoundsRegistry.Current, this))
                 OverlayHitBoundsRegistry.Current = null;
         }
 
@@ -232,7 +232,7 @@ namespace AICompanion.Avatar
                 if (generation != _generation || instance == null)
                 {
                     if (instance != null)
-                        DestroyObject(instance.gameObject);
+                        DestroyLoaded(instance.gameObject);
                     return;
                 }
 
@@ -293,7 +293,7 @@ namespace AICompanion.Avatar
             _current = null;
             _loaded = AvatarPreference.Auto;
             SetPlaceholderVisible(true);
-            if (OverlayHitBoundsRegistry.Current == this)
+            if (ReferenceEquals(OverlayHitBoundsRegistry.Current, this))
                 OverlayHitBoundsRegistry.Current = null;
         }
 
@@ -318,7 +318,7 @@ namespace AICompanion.Avatar
         void ClearInstance()
         {
             if (_instance != null)
-                DestroyObject(_instance);
+                DestroyLoaded(_instance);
             _instance = null;
         }
 
@@ -367,7 +367,7 @@ namespace AICompanion.Avatar
             return Path.Combine(Application.streamingAssetsPath, Path.Combine(parts));
         }
 
-        static void DestroyObject(UnityEngine.Object target)
+        static void DestroyLoaded(UnityEngine.Object target)
         {
             if (target == null)
                 return;
