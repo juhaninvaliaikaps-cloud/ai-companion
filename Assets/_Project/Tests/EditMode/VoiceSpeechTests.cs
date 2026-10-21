@@ -170,8 +170,8 @@ namespace AICompanion.Tests.EditMode
             }
             finally
             {
-                Object.DestroyImmediate(chat);
-                Object.DestroyImmediate(voice);
+                UnityEngine.Object.DestroyImmediate(chat);
+                UnityEngine.Object.DestroyImmediate(voice);
             }
         }
 
