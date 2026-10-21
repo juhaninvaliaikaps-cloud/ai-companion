@@ -14,7 +14,7 @@ namespace AICompanion.Avatar
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(1000)]
-    public sealed class AvatarAnimationController : MonoBehaviour, IAvatarAnimator, IAvatarTurntable
+    public sealed class AvatarAnimationController : MonoBehaviour, IAvatarAnimator, IAvatarTurntable, IAvatarAnchor
     {
         static readonly int TalkingHash = Animator.StringToHash(AvatarAnimatorParameters.Talking);
         static readonly int EmotionHash = Animator.StringToHash(AvatarAnimatorParameters.Emotion);
@@ -113,6 +113,18 @@ namespace AICompanion.Avatar
         public void CommitYaw()
         {
             AvatarYawKeys.Write(_source, _extraYaw, true);
+        }
+
+        public bool TryGetAnchor(out Vector3 worldPoint)
+        {
+            if (_root == null)
+            {
+                worldPoint = default;
+                return false;
+            }
+
+            worldPoint = _root.position + Vector3.up;
+            return true;
         }
 
         public void ResetYaw()

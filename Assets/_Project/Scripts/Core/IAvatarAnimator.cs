@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace AICompanion.Core
 {
     /// <summary>
@@ -15,5 +17,14 @@ namespace AICompanion.Core
         void SetTalking(bool talking);
 
         void SetEmotion(Emotion emotion, float intensity);
+    }
+
+    /// <summary>
+    /// A stable world point on the avatar, usually the root. Placement uses this
+    /// instead of skinned-mesh corners, which swing off screen when she turns.
+    /// </summary>
+    public interface IAvatarAnchor
+    {
+        bool TryGetAnchor(out Vector3 worldPoint);
     }
 }

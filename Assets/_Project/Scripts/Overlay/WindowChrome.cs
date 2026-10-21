@@ -15,6 +15,8 @@ namespace AICompanion.Overlay
         bool TryGetClientCursor(out Vector2Int clientPixels, out Vector2Int clientSize);
         bool TryGetWindowPosition(out Vector2Int topLeft);
         bool TryGetMonitorSize(out Vector2Int size);
+        bool TryGetWindowRect(out int left, out int top, out int right, out int bottom);
+        bool TryGetWorkArea(out int left, out int top, out int right, out int bottom);
         void MoveWindow(Vector2Int topLeft, bool topmost);
         void FocusForTyping();
     }
@@ -73,6 +75,24 @@ namespace AICompanion.Overlay
         public bool TryGetMonitorSize(out Vector2Int size)
         {
             size = default;
+            return false;
+        }
+
+        public bool TryGetWindowRect(out int left, out int top, out int right, out int bottom)
+        {
+            left = 0;
+            top = 0;
+            right = 0;
+            bottom = 0;
+            return false;
+        }
+
+        public bool TryGetWorkArea(out int left, out int top, out int right, out int bottom)
+        {
+            left = 0;
+            top = 0;
+            right = 0;
+            bottom = 0;
             return false;
         }
 

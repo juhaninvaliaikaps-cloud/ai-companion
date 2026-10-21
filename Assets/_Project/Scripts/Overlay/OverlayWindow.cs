@@ -13,7 +13,7 @@ namespace AICompanion.Overlay
     /// the camera, limits the frame rate, and updates the debug label.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class OverlayWindow : MonoBehaviour, ICompanionStartup, ITypingFocus
+    public sealed class OverlayWindow : MonoBehaviour, ICompanionStartup, ITypingFocus, IDesktopWindow
     {
         const string TopmostOnLabel = "Topmost on   F8";
         const string TopmostOffLabel = "Topmost off  F8";
@@ -295,6 +295,36 @@ namespace AICompanion.Overlay
             _warmup = 30;
             _chrome.SetTopmost(_topmost);
             TryPlace(force: false);
+        }
+
+        public bool TryGetDesktopWindow(out DesktopWindow window)
+        {
+            window = default;
+            if (_chrome == null || !_chrome.IsSupported)
+                return false;
+            if (!_chrome.TryGetWindowRect(out var left, out var top, out var right, out var bottom))
+                return false;
+
+            if (!_chrome.TryGetWorkArea(out var workLeft, out var workTop, out var workRight, out var workBottom))
+            {
+                workLeft = left;
+                workTop = top;
+                workRight = right;
+                workBottom = bottom;
+            }
+
+            window = new DesktopWindow
+            {
+                Left = left,
+                Top = top,
+                Right = right,
+                Bottom = bottom,
+                WorkLeft = workLeft,
+                WorkTop = workTop,
+                WorkRight = workRight,
+                WorkBottom = workBottom,
+            };
+            return true;
         }
 
         void TryPlace(bool force)
