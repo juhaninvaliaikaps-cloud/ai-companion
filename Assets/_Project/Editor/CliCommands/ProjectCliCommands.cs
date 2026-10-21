@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.Build;
-using UnityEditor.Build.Reporting;
 using UnityEditor.Compilation;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
@@ -115,26 +115,16 @@ namespace Unity.Pipeline.Commands
 
         [CliCommand(
             "build_windows_player",
-            "Build a Windows x64 development player to Builds/Windows. Requires an enabled scene.",
+            "Queue a Windows x64 development player at Builds/Windows/AICompanion.exe and return immediately. Poll build_status until status is completed.",
             Tags = new[] { "build" })]
         public static object BuildWindowsPlayer()
         {
-            var scenes = new List<string>();
-            var configured = EditorBuildSettings.scenes;
-            if (configured != null)
-            {
-                foreach (var scene in configured)
-                {
-                    if (scene.enabled && !string.IsNullOrEmpty(scene.path))
-                        scenes.Add(scene.path);
-                }
-            }
-
-            if (scenes.Count == 0)
+            var scenes = EnabledScenePaths();
+            if (scenes.Length == 0)
             {
                 return new
                 {
-                    built = false,
+                    status = "error",
                     outputPath = PlayerPath,
                     error = "No enabled scene in Editor Build Settings. Save a scene under Assets/_Project/Scenes and enable it, then run this command again."
                 };
@@ -145,9 +135,192 @@ namespace Unity.Pipeline.Commands
             // writes for StandaloneWindows64. It is not a documented constant.
             EditorUserBuildSettings.SetPlatformSettings(platformName, "Architecture", OSArchitecture.x64.ToString());
 
+            var pipelineBuild = FindPipelineBuildMethod();
+            if (pipelineBuild == null)
+            {
+                var queuedScenes = scenes;
+                EditorApplication.delayCall += () => RunDevelopmentPlayer(queuedScenes);
+                return new
+                {
+                    status = "queued",
+                    outputPath = PlayerPath,
+                    target = "StandaloneWindows64",
+                    poll = "build_status",
+                    message = "Queued on the next editor tick with EditorApplication.delayCall. The pipeline build command was not found, so build_status may stay idle while the player is written to the output path."
+                };
+            }
+
+            object pipeline;
+            try
+            {
+                pipeline = InvokePipelineBuild(pipelineBuild, scenes);
+            }
+            catch (TargetInvocationException ex)
+            {
+                var error = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+                return new { status = "error", outputPath = PlayerPath, error };
+            }
+
+            var status = ReadStatus(pipeline);
+            if (string.IsNullOrEmpty(status))
+                status = "queued";
+
+            var message = status == "busy"
+                ? "A player build is already running. Poll unity command build_status until status is completed."
+                : status == "error"
+                    ? "The pipeline build command did not queue a build."
+                    : "Build queued. Poll unity command build_status until status is completed.";
+
+            return new
+            {
+                status,
+                outputPath = PlayerPath,
+                target = "StandaloneWindows64",
+                poll = "build_status",
+                message,
+                pipeline
+            };
+        }
+
+        static string[] EnabledScenePaths()
+        {
+            var scenes = new List<string>();
+            var configured = EditorBuildSettings.scenes;
+            if (configured == null)
+                return new string[0];
+
+            foreach (var scene in configured)
+            {
+                if (scene.enabled && !string.IsNullOrEmpty(scene.path))
+                    scenes.Add(scene.path);
+            }
+
+            return scenes.ToArray();
+        }
+
+        // The 0.6 manual documents `build` (target, outputPath, options, confirm) as the async
+        // player build. It does not name a C# type. The 0.5 API surface is BuildCommand.Build.
+        // Locating the method by its [CliCommand("build")] name avoids a hard assembly reference.
+        static MethodInfo FindPipelineBuildMethod()
+        {
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                var assemblyName = assembly.GetName().Name;
+                if (assemblyName == null || assemblyName.IndexOf("Unity.Pipeline", StringComparison.Ordinal) < 0)
+                    continue;
+
+                Type[] types;
+                try
+                {
+                    types = assembly.GetTypes();
+                }
+                catch (ReflectionTypeLoadException ex)
+                {
+                    types = ex.Types;
+                }
+
+                if (types == null)
+                    continue;
+
+                foreach (var type in types)
+                {
+                    if (type == null)
+                        continue;
+
+                    MethodInfo[] methods;
+                    try
+                    {
+                        methods = type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+                    }
+                    catch (Exception)
+                    {
+                        continue;
+                    }
+
+                    foreach (var method in methods)
+                    {
+                        var attributes = method.GetCustomAttributes(typeof(CliCommandAttribute), false);
+                        if (attributes.Length == 0)
+                            continue;
+
+                        var command = (CliCommandAttribute)attributes[0];
+                        if (command.Name == "build")
+                            return method;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        static object InvokePipelineBuild(MethodInfo method, string[] scenes)
+        {
+            var parameters = method.GetParameters();
+            var args = new object[parameters.Length];
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                var parameter = parameters[i];
+                var name = parameter.Name ?? string.Empty;
+                if (name == "target")
+                    args[i] = "StandaloneWindows64";
+                else if (name == "outputPath")
+                    args[i] = PlayerPath;
+                else if (name == "options")
+                    args[i] = OptionsArgument(parameter.ParameterType);
+                else if (name == "scenes" && parameter.ParameterType == typeof(string[]))
+                    args[i] = scenes;
+                else if (name == "confirm")
+                    args[i] = true;
+                else if (name == "dryRun" || name == "dry_run")
+                    args[i] = false;
+                else if (parameter.HasDefaultValue)
+                    args[i] = parameter.DefaultValue;
+                else
+                    args[i] = parameter.ParameterType.IsValueType ? Activator.CreateInstance(parameter.ParameterType) : null;
+            }
+
+            return method.Invoke(null, args);
+        }
+
+        static object OptionsArgument(Type parameterType)
+        {
+            if (parameterType == typeof(string[]))
+                return new[] { "Development" };
+            if (parameterType == typeof(string))
+                return "Development";
+            return null;
+        }
+
+        static string ReadStatus(object pipeline)
+        {
+            if (pipeline == null)
+                return null;
+
+            var map = pipeline as System.Collections.IDictionary;
+            if (map != null && map.Contains("status"))
+            {
+                var value = map["status"];
+                return value as string ?? (value != null ? value.ToString() : null);
+            }
+
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            var type = pipeline.GetType();
+            var property = type.GetProperty("status", flags) ?? type.GetProperty("Status", flags);
+            if (property != null && property.PropertyType == typeof(string))
+                return property.GetValue(pipeline, null) as string;
+
+            var field = type.GetField("status", flags) ?? type.GetField("Status", flags);
+            if (field != null && field.FieldType == typeof(string))
+                return field.GetValue(pipeline) as string;
+
+            return null;
+        }
+
+        static void RunDevelopmentPlayer(string[] scenes)
+        {
             var options = new BuildPlayerOptions
             {
-                scenes = scenes.ToArray(),
+                scenes = scenes,
                 locationPathName = PlayerPath,
                 target = BuildTarget.StandaloneWindows64,
                 targetGroup = BuildTargetGroup.Standalone,
@@ -155,16 +328,7 @@ namespace Unity.Pipeline.Commands
             };
 
             var summary = BuildPipeline.BuildPlayer(options).summary;
-            return new
-            {
-                built = summary.result == BuildResult.Succeeded,
-                result = summary.result.ToString(),
-                totalErrors = summary.totalErrors,
-                totalWarnings = summary.totalWarnings,
-                totalSize = summary.totalSize,
-                outputPath = summary.outputPath,
-                architecture = EditorUserBuildSettings.GetPlatformSettings(platformName, "Architecture")
-            };
+            Debug.Log("AI Companion Windows player " + summary.result + " at " + summary.outputPath);
         }
 
         public sealed class ClipRecord

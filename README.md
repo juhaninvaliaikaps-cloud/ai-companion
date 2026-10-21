@@ -35,7 +35,7 @@ There is no scene yet. Before the first player build, create one with **File > N
 
 The player is an empty window until the overlay and avatar scenes exist. This environment does not have the Unity Editor, so the project was not opened and the example test was not executed here. Run it locally with **Window > General > Test Runner > EditMode > Run All**. `AnimationCueTests.Constructor_ClampsIntensityAndKeepsFields` should pass. The PlayMode assembly is in place and has no tests yet.
 
-The same player can be built from a terminal once the Unity CLI is connected. See [Unity CLI](#unity-cli). `build_windows_player` writes `Builds/Windows/AICompanion.exe`. `Build/` and `Builds/` are gitignored.
+The same player can be queued from a terminal once the Unity CLI is connected. See [Unity CLI](#unity-cli). `build_windows_player` returns immediately and the Editor writes `Builds/Windows/AICompanion.exe` while you poll `build_status`. `Build/` and `Builds/` are gitignored.
 
 ## Unity CLI
 
@@ -57,8 +57,9 @@ A local Cursor agent on Windows can drive the open Editor through the [Unity CLI
    - `run_editmode_tests` — EditMode pass, fail, and skip counts, plus leaf failures.
    - `get_compile_and_console_errors` — whether scripts failed to compile, and compiler or console errors seen since this domain loaded.
    - `list_project_avatars_and_clips` — `.vrm` and `.fbx` files and animation clips under `Assets/_Project`.
-   - `build_windows_player` — Windows x64 development player under `Builds/Windows`. It returns without building when no scene is enabled.
+   - `build_windows_player` — queues a Windows x64 development player at `Builds/Windows/AICompanion.exe` and returns immediately. Poll `build_status` until `status` is `completed`. It returns `error` when no scene is enabled.
 6. Run one with `unity command <name>`, for example `unity command run_editmode_tests`. For a one-off check, `unity command eval "return Application.version;"` runs C# in the open Editor. Eval is token-gated and stays on this machine.
+7. For the Windows player, run `unity command build_windows_player`, then poll `unity command build_status` until `status` is `completed`. The same build is `unity command build --target StandaloneWindows64 --outputPath Builds/Windows/AICompanion.exe --options Development --confirm true`. `--confirm true` is required or the pipeline refuses the build. `--options Development` is what makes it a development player; the 0.6 manual uses DetailedBuildReport when `options` is omitted. `build_windows_player` used to call `BuildPipeline.BuildPlayer` on the request thread, and the CLI timed out after 30 seconds even though the player was produced. The command now queues the pipeline `build` command and returns `queued`.
 
 How an agent in this repo should call those commands is in `.cursor/rules/unity-cli.mdc`. If more than one Editor is open, pass `--project-path` with this repository's path.
 
