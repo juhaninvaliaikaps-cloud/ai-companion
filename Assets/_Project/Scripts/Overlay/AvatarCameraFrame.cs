@@ -36,7 +36,7 @@ namespace AICompanion.Overlay
         Vector3 _pivot;
         bool _hasPose;
         CameraPose _shown = new CameraPose(0f, 1f, -3.2f);
-        int _sourceId;
+        ulong _sourceId;
         int _findCooldown;
         float _bodyCenterZ;
         bool _hasBody;
@@ -142,7 +142,7 @@ namespace AICompanion.Overlay
             _camera.transform.SetPositionAndRotation(_shown.Position, Quaternion.identity);
         }
 
-        bool TrySample(out int count, out int sourceId)
+        bool TrySample(out int count, out ulong sourceId)
         {
             count = 0;
             sourceId = 0;
@@ -158,7 +158,7 @@ namespace AICompanion.Overlay
             }
 
             var bestCount = 0;
-            var bestId = 0;
+            ulong bestId = 0;
             if (_animators != null)
             {
                 for (var i = 0; i < _animators.Length; i++)
@@ -172,7 +172,7 @@ namespace AICompanion.Overlay
                         continue;
 
                     bestCount = n;
-                    bestId = animator.GetInstanceID();
+                    bestId = EntityId.ToULong(animator.GetEntityId());
                     _humanoid = animator;
                     Array.Copy(_scratch, _points, n);
                 }
@@ -275,7 +275,7 @@ namespace AICompanion.Overlay
             return count + 1;
         }
 
-        static int SampleRenderers(Renderer[] renderers, Vector3[] points, out int sourceId)
+        static int SampleRenderers(Renderer[] renderers, Vector3[] points, out ulong sourceId)
         {
             sourceId = 0;
             var count = 0;
@@ -288,7 +288,7 @@ namespace AICompanion.Overlay
                 if (!UsableRenderer(renderer))
                     continue;
 
-                sourceId ^= renderer.GetInstanceID();
+                sourceId ^= EntityId.ToULong(renderer.GetEntityId());
                 var center = renderer.bounds.center;
                 var extents = renderer.bounds.extents;
                 for (var corner = 0; corner < 8; corner++)
