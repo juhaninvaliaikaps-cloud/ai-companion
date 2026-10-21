@@ -33,7 +33,7 @@ There is no scene yet. Before the first player build, create one with **File > N
 4. Confirm the scene from `Assets/_Project/Scenes` is enabled.
 5. Choose **Build** and pick an output folder outside the repository (for example `Builds/Windows`). `Build/` and `Builds/` are gitignored.
 
-The player is an empty window until the overlay and avatar scenes exist. This environment does not have the Unity Editor, so the project was not opened and the example test was not executed here. Run it locally with **Window > General > Test Runner > EditMode > Run All**. `AnimationCueTests.Constructor_ClampsIntensityAndKeepsFields` should pass. The PlayMode assembly is in place and has no tests yet.
+The player is an empty window until the overlay and avatar scenes exist. Run tests from **Window > General > Test Runner**, or follow [TESTING.md](TESTING.md). `AnimationCueTests.Constructor_ClampsIntensityAndKeepsFields` is the EditMode example. `AppBootstrapPlayModeTests.Awake_LogsReadyMessage` is the PlayMode example.
 
 The same player can be queued from a terminal once the Unity CLI is connected. See [Unity CLI](#unity-cli). `build_windows_player` returns immediately and the Editor writes `Builds/Windows/AICompanion.exe` while you poll `build_status`. `Build/` and `Builds/` are gitignored.
 
@@ -147,7 +147,7 @@ Assets/_Project/
   Editor/CliCommands/        Unity CLI [CliCommand] methods               AICompanion.Editor.CliCommands
   Tests/
     EditMode/              editor tests, including AnimationCueTests
-    PlayMode/              play-mode test assembly (no tests yet)
+    PlayMode/              play-mode tests, including AppBootstrapPlayModeTests
 Config/
   appsettings.example.json template for local provider keys
   appsettings.json         gitignored local secrets

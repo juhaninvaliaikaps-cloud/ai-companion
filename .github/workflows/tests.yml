@@ -1,0 +1,81 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+  checks: write
+  actions: write
+
+jobs:
+  unity-tests:
+    name: ${{ matrix.testMode }} tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        testMode:
+          - EditMode
+          - PlayMode
+    steps:
+      - name: Check Unity license secrets
+        id: license
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          missing=()
+          if [ -z "$UNITY_LICENSE" ]; then missing+=("UNITY_LICENSE"); fi
+          if [ -z "$UNITY_EMAIL" ]; then missing+=("UNITY_EMAIL"); fi
+          if [ -z "$UNITY_PASSWORD" ]; then missing+=("UNITY_PASSWORD"); fi
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Unity tests skipped::Missing GitHub Actions secrets: ${missing[*]}. Add UNITY_LICENSE, UNITY_EMAIL, and UNITY_PASSWORD. Steps are in TESTING.md. This job succeeds so the check is not red before those secrets exist."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.license.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache Library
+        if: steps.license.outputs.skip != 'true'
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-6000.6.6f1-${{ matrix.testMode }}-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectVersion.txt') }}
+          restore-keys: |
+            Library-6000.6.6f1-${{ matrix.testMode }}-
+            Library-6000.6.6f1-
+
+      - name: Run Unity tests
+        if: steps.license.outputs.skip != 'true'
+        id: tests
+        uses: game-ci/unity-test-runner@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: 6000.6.6f1
+          customImage: unityci/editor:ubuntu-6000.6.6f1-base-3
+          testMode: ${{ matrix.testMode }}
+          coverageEnabled: false
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          checkName: ${{ matrix.testMode }} tests
+
+      - name: Upload test results
+        if: always() && steps.license.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Test results (${{ matrix.testMode }})
+          path: ${{ steps.tests.outputs.artifactsPath }}
+          if-no-files-found: warn
