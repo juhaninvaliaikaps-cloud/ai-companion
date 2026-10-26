@@ -45,6 +45,6 @@ Rows without an id are skipped, so a half-filled draft cannot reach the model. T
 
 `Assets/_Project/Tests/EditMode/AnimationCatalogTests.cs` covers the prompt format, the id, gesture, and emotion lookups, and validation of duplicate ids and missing descriptions. One test loads the committed asset itself and checks ten entries, a valid catalog, resolved clips on the `idle` row, and the `wave` gesture lookup, so a broken asset fails the suite instead of failing at runtime.
 
-## Not in this ticket
+## Consumers
 
-The director that consumes these rows is JUH-15. Chat providers do not emit cues yet, so nothing calls the catalog at runtime today; the prompt list is ready for the provider and the lookups are ready for the director.
+`AnimationDirector` resolves cues through `TryGetByGesture`, and `ChatPanel` appends `BuildPromptList()` to the chat system prompt, so the catalog is live at runtime. See [ANIMATION_DIRECTOR.md](ANIMATION_DIRECTOR.md). The four gesture rows still have no Animator state or clip, so they currently resolve to their emotion.

@@ -361,6 +361,7 @@ GameObject:
   - component: {fileID: 1911444201}
   - component: {fileID: 1911444202}
   - component: {fileID: 1911444203}
+  - component: {fileID: 1911444204}
   m_Layer: 0
   m_Name: AppBootstrap
   m_TagString: Untagged
@@ -472,6 +473,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: AICompanion.Voice::AICompanion.Voice.VoiceSpeaker
   chatSettings: {fileID: 11400000, guid: 7b04abe5e4bec49afdb9310a2acb7057, type: 2}
   voiceSettings: {fileID: 11400000, guid: 2ad2c5b6ab6ec37aba5bc732b010d8fc, type: 2}
+--- !u!114 &1911444204
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1911444196}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5f60718293a4b5c6d7e8f9012345678, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: AICompanion.AnimationDirector::AICompanion.AnimationDirector.AnimationDirector
+  catalog: {fileID: 11400000, guid: 5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b, type: 2}
+  gestureCrossfadeSeconds: 0.3
 --- !u!1 &2100000101
 GameObject:
   m_ObjectHideFlags: 0

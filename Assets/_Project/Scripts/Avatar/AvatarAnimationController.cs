@@ -14,7 +14,7 @@ namespace AICompanion.Avatar
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(1000)]
-    public sealed class AvatarAnimationController : MonoBehaviour, IAvatarAnimator, IAvatarTurntable, IAvatarAnchor
+    public sealed class AvatarAnimationController : MonoBehaviour, IAvatarAnimator, IAvatarTurntable, IAvatarAnchor, IAnimationStatePlayer
     {
         static readonly int TalkingHash = Animator.StringToHash(AvatarAnimatorParameters.Talking);
         static readonly int EmotionHash = Animator.StringToHash(AvatarAnimatorParameters.Emotion);
@@ -75,6 +75,25 @@ namespace AICompanion.Avatar
         {
             _model.SetEmotion(emotion, intensity);
             PushParameters();
+        }
+
+        /// <summary>
+        /// Plays a named state on layer 0 when the attached controller has it. The
+        /// director uses this for gestures; an emotion-only cue stays on the parameter
+        /// path so the controller's own transitions keep working. Between gestures the
+        /// next parameter change or the next cue pulls the state machine back.
+        /// </summary>
+        public bool TryPlayState(string stateName, float crossfadeSeconds)
+        {
+            if (_animator == null || _animator.runtimeAnimatorController == null || string.IsNullOrWhiteSpace(stateName))
+                return false;
+
+            var hash = Animator.StringToHash(stateName);
+            if (!_animator.HasState(0, hash))
+                return false;
+
+            _animator.CrossFade(hash, Mathf.Max(0f, crossfadeSeconds), 0, 0f);
+            return true;
         }
 
         public void Attach(GameObject instance, AvatarDescriptor descriptor, AvatarPreference source)
