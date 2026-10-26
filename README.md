@@ -143,6 +143,7 @@ Git LFS tracks binary assets (`.fbx`, `.vrm`, `.png`, `.wav`, audio, video, and 
 
 - `IChatProvider.StreamChat` is the boundary for a cloud or local LLM. Grok is the first provider. Callers resolve the id on `ChatSettings` through `ChatProviderRegistry`. The API key stays outside the repo. The chat panel sends the session through that registry. **F10** shows it, **Enter** sends, and a reply streams into the transcript. See [docs/CHAT_UI.md](docs/CHAT_UI.md). Spoken replies go through `ITtsProvider`. The first voice is xAI's `eve`. **F6** mutes it. See [docs/VOICE.md](docs/VOICE.md).
 - `AnimationCue` carries an `Emotion`, an intensity clamped to 0–1, and a gesture name.
+- `AnimationClipCatalog` in `Assets/_Project/Settings/AnimationCatalog.asset` is the data-driven animation list: ten starter rows, lookups by id, gesture, and emotion, and a compact prompt list for the model. Adding an animation is an entry, not a code change. See [docs/ANIMATION_CATALOG.md](docs/ANIMATION_CATALOG.md). The director that consumes the catalog is JUH-15.
 - `IAvatarAnimator` is the runtime hook for that cue. `SetTalking(bool)` and `SetEmotion(Emotion, intensity)` drive the shared humanoid controller and the face. The debug keys are 1–5 and T. On spawn the humanoid root yaws to face the overlay camera. Right-click a visible pixel, then drag, to add a yaw that is saved per avatar source.
 - `AppBootstrap` is the `MonoBehaviour` scene entry point. `Awake` logs once and starts `ICompanionStartup` components on the same object, including `OverlayWindow`.
 

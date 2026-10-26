@@ -1,0 +1,125 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b7e5d3c1a2f4b6e8c0d2f4a6b8c0e1f, type: 3}
+  m_Name: AnimationCatalog
+  m_EditorClassIdentifier: AICompanion.AnimationDirector::AICompanion.AnimationDirector.AnimationClipCatalog
+  entries:
+  - id: idle
+    description: calm resting pose; the director returns here when nothing else plays
+    tags:
+    - mood
+    - idle
+    emotion: 0
+    intensity: 0.2
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+  - id: happy
+    description: bright, cheerful reaction to good news
+    tags:
+    - mood
+    - positive
+    emotion: 1
+    intensity: 0.8
+    gesture: 
+    animatorState: Happy
+    clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
+    durationSeconds: 2
+  - id: sad
+    description: downcast, sympathetic reaction
+    tags:
+    - mood
+    - negative
+    emotion: 2
+    intensity: 0.7
+    gesture: 
+    animatorState: Sad
+    clip: {fileID: 7400000, guid: 76130b703857e9ae665b1a99dc74df20, type: 2}
+    durationSeconds: 2
+  - id: surprised
+    description: short startled reaction
+    tags:
+    - mood
+    - reaction
+    emotion: 3
+    intensity: 0.9
+    gesture: 
+    animatorState: Surprised
+    clip: {fileID: 7400000, guid: 9498dbf0abc8e09fa6bd2cd0a916d890, type: 2}
+    durationSeconds: 1
+  - id: thinking
+    description: considering something with mild uncertainty
+    tags:
+    - mood
+    - thinking
+    emotion: 4
+    intensity: 0.6
+    gesture: 
+    animatorState: Thinking
+    clip: {fileID: 7400000, guid: 6105ee95016d6963d0148253f6e4286a, type: 2}
+    durationSeconds: 2
+  - id: talk
+    description: speaking loop while the reply audio plays
+    tags:
+    - speech
+    - loop
+    emotion: 0
+    intensity: 0.3
+    gesture: 
+    animatorState: Talk
+    clip: {fileID: 7400000, guid: b46e4968199732b4d6a7a3f6963f410c, type: 2}
+    durationSeconds: 1
+  - id: wave_hello
+    description: friendly hello wave
+    tags:
+    - greeting
+    - friendly
+    emotion: 1
+    intensity: 0.7
+    gesture: wave
+    animatorState: 
+    clip: {fileID: 0}
+    durationSeconds: 0
+  - id: nod_yes
+    description: agreeing nod
+    tags:
+    - agreement
+    - confirmation
+    emotion: 0
+    intensity: 0.4
+    gesture: nod
+    animatorState: 
+    clip: {fileID: 0}
+    durationSeconds: 0
+  - id: shrug
+    description: uncertain shrug with no strong feeling
+    tags:
+    - uncertain
+    - neutral
+    emotion: 0
+    intensity: 0.4
+    gesture: shrug
+    animatorState: 
+    clip: {fileID: 0}
+    durationSeconds: 0
+  - id: laugh
+    description: short laugh at something funny
+    tags:
+    - amused
+    - funny
+    emotion: 1
+    intensity: 0.9
+    gesture: laugh
+    animatorState: 
+    clip: {fileID: 0}
+    durationSeconds: 0
