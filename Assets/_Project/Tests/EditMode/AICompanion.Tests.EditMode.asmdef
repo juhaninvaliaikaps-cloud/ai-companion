@@ -3,6 +3,7 @@
     "rootNamespace": "AICompanion.Tests.EditMode",
     "references": [
         "AICompanion.Core",
+        "AICompanion.AnimationDirector",
         "AICompanion.AI",
         "AICompanion.Avatar",
         "AICompanion.Overlay",
