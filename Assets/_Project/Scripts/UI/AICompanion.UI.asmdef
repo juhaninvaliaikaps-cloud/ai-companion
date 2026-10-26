@@ -4,6 +4,7 @@
     "references": [
         "AICompanion.Core",
         "AICompanion.AI",
+        "AICompanion.AnimationDirector",
         "UnityEngine.UI"
     ],
     "includePlatforms": [],
