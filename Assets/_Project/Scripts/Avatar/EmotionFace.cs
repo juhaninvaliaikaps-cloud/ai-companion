@@ -155,8 +155,9 @@ namespace AICompanion.Avatar
         }
 
         /// <summary>
-        /// Fades emotion mouth channels toward the speech weights. Brows, blinks, and
-        /// smiles stay on the emotion pose.
+        /// Replaces emotion mouth channels with the speech weights. Speech does not add
+        /// on top of the emotion jaw. Brows, blinks, and smiles stay on the emotion pose.
+        /// An open jaw clears mouthClose so the lips are not sealed around it.
         /// </summary>
         public static FacePose OverrideMouth(FacePose pose, MouthWeights mouth, float ownership)
         {
@@ -164,14 +165,15 @@ namespace AICompanion.Avatar
             if (t <= 0f)
                 return pose;
 
-            var keep = 1f - t;
+            var aa = Lerp(pose.Aa, mouth.A, t);
+            var ih = Lerp(pose.Ih, mouth.I, t) * LipSyncMath.CloseSuppression(aa);
             return new FacePose
             {
-                Aa = pose.Aa * keep + mouth.A,
-                Ih = pose.Ih * keep + mouth.I,
-                Ou = pose.Ou * keep + mouth.U,
-                Ee = pose.Ee * keep + mouth.E,
-                Oh = pose.Oh * keep + mouth.O,
+                Aa = aa,
+                Ih = ih,
+                Ou = Lerp(pose.Ou, mouth.U, t),
+                Ee = Lerp(pose.Ee, mouth.E, t),
+                Oh = Lerp(pose.Oh, mouth.O, t),
                 Blink = pose.Blink,
                 Joy = pose.Joy,
                 Angry = pose.Angry,
@@ -245,6 +247,11 @@ namespace AICompanion.Avatar
             }
 
             return count;
+        }
+
+        static float Lerp(float from, float to, float t)
+        {
+            return from + (to - from) * t;
         }
 
         static float Move(float current, float target, float step)

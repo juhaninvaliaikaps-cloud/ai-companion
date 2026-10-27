@@ -48,30 +48,53 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void Advance_AttacksFastReleasesToRestAndHoldsTheViseme()
+        public void Compress_IsLinearBelowTheKneeAndSofterAbove()
+        {
+            var tuning = LipSyncTuning.Default;
+            Assert.AreEqual(0f, LipSyncMath.Sense(0.011f, tuning), 0.0001f);
+            Assert.AreEqual(0f, LipSyncMath.Sense(float.NaN, tuning), 0.0001f);
+            Assert.AreEqual(0.15f, LipSyncMath.Sense(0.05f, tuning), 0.0001f);
+
+            var linear = LipSyncTuning.Default;
+            linear.KneeRatio = 1f;
+            Assert.AreEqual(0.8f, LipSyncMath.Compress(0.8f, linear), 0.0001f);
+
+            var loud = LipSyncMath.Sense(0.5f, tuning);
+            Assert.AreEqual(0.675f, loud, 0.0001f);
+            Assert.Less(loud, 0.5f * tuning.Sensitivity);
+            Assert.Less(loud, 1f);
+            Assert.AreEqual(1f, LipSyncMath.Sense(10f, tuning), 0.0001f);
+            Assert.AreEqual(0f, LipSyncMath.Compress(float.NaN, tuning), 0.0001f);
+        }
+
+        [Test]
+        public void Advance_AttacksThenReleasesToRestAndHoldsTheViseme()
         {
             var tuning = LipSyncTuning.Default;
             var frame = new LipSyncFrame();
 
             frame = LipSyncMath.Advance(frame, 0.2f, MouthViseme.I, 0.01f, tuning);
-            Assert.AreEqual(0.5f, frame.Level, 0.0001f);
-            Assert.AreEqual(0.5f, frame.MouthOverride, 0.0001f);
-            Assert.AreEqual(0.5f, frame.Weights.I, 0.0001f);
-            Assert.AreEqual(0f, frame.Weights.A, 0.0001f);
+            Assert.AreEqual(0.1125f, frame.Level, 0.0001f);
+            Assert.Greater(frame.MouthOverride, 0.9f);
+            Assert.AreEqual(0f, frame.Weights.I, 0.0001f);
+            Assert.Greater(frame.Weights.A, 0f);
+            Assert.Less(frame.Weights.A, 0.1f);
             Assert.AreEqual(MouthViseme.I, frame.Viseme);
 
-            frame = LipSyncMath.Advance(frame, 0.2f, MouthViseme.I, 0.02f, tuning);
-            Assert.AreEqual(1f, frame.Level, 0.0001f);
-            Assert.AreEqual(1f, frame.Weights.I, 0.0001f);
+            frame = LipSyncMath.Advance(frame, 0.2f, MouthViseme.I, 1f, tuning);
+            Assert.AreEqual(0.45f, frame.Level, 0.0001f);
+            Assert.AreEqual(1f, frame.MouthOverride, 0.0001f);
+            Assert.AreEqual(0f, frame.Weights.I, 0.0001f);
+            Assert.LessOrEqual(frame.Weights.A, tuning.MaxJawOpen);
+            Assert.Greater(frame.Weights.A, 0.15f);
 
-            frame = LipSyncMath.Advance(frame, 0f, MouthViseme.Rest, 0.05f, tuning);
-            Assert.AreEqual(0.5f, frame.Level, 0.0001f);
+            frame = LipSyncMath.Advance(frame, 0f, MouthViseme.Rest, 0.08f, tuning);
+            Assert.AreEqual(0.225f, frame.Level, 0.001f);
             Assert.AreEqual(MouthViseme.I, frame.Viseme);
-            Assert.AreEqual(0.5f, frame.Weights.I, 0.0001f);
-            Assert.AreEqual(0f, frame.Weights.A, 0.0001f);
-            Assert.Greater(frame.MouthOverride, 0.4f);
+            Assert.AreEqual(0f, frame.Weights.I, 0.0001f);
+            Assert.Greater(frame.Weights.A, 0.05f);
 
-            for (var i = 0; i < 12; i++)
+            for (var i = 0; i < 20; i++)
                 frame = LipSyncMath.Advance(frame, 0f, MouthViseme.Rest, 0.1f, tuning);
 
             Assert.Less(frame.Level, 0.001f);
@@ -82,32 +105,107 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Advance_LoudSpeechStaysAModestJawAndDoesNotSealTheLips()
+        {
+            var tuning = LipSyncTuning.Default;
+            var visemes = new[] { MouthViseme.A, MouthViseme.I, MouthViseme.U, MouthViseme.E, MouthViseme.O };
+            for (var i = 0; i < visemes.Length; i++)
+            {
+                var frame = LipSyncMath.Advance(new LipSyncFrame(), 1f, visemes[i], 1f, tuning);
+                Assert.LessOrEqual(frame.Weights.A, tuning.MaxJawOpen + 0.0001f);
+                Assert.GreaterOrEqual(frame.Weights.A, 0.15f);
+                Assert.Less(frame.Weights.A, 0.5f);
+                Assert.AreEqual(0f, frame.Weights.I, 0.0001f);
+                Assert.LessOrEqual(frame.Weights.U, tuning.VowelAmount + 0.0001f);
+                Assert.LessOrEqual(frame.Weights.O, tuning.VowelAmount + 0.0001f);
+                Assert.LessOrEqual(frame.Weights.E, tuning.VowelAmount * LipSyncMath.StretchShare + 0.0001f);
+                if (frame.Weights.U > 0f)
+                    Assert.Less(frame.Weights.U, frame.Weights.A);
+                if (frame.Weights.O > 0f)
+                    Assert.Less(frame.Weights.O, frame.Weights.A);
+                if (frame.Weights.E > 0f)
+                    Assert.Less(frame.Weights.E, frame.Weights.A);
+            }
+
+            var open = LipSyncMath.Advance(new LipSyncFrame(), 0.5f, MouthViseme.A, 1f, tuning);
+            var narrow = LipSyncMath.Advance(new LipSyncFrame(), 0.5f, MouthViseme.I, 1f, tuning);
+            Assert.AreEqual(open.Weights.A * LipSyncMath.IJawScale, narrow.Weights.A, 0.0001f);
+            Assert.AreEqual(0f, narrow.Weights.I, 0.0001f);
+
+            var funnel = LipSyncMath.Advance(new LipSyncFrame(), 0.5f, MouthViseme.O, 1f, tuning);
+            var stretch = LipSyncMath.Advance(new LipSyncFrame(), 0.5f, MouthViseme.E, 1f, tuning);
+            Assert.AreEqual(tuning.VowelAmount, funnel.Weights.O, 0.0001f);
+            Assert.Less(funnel.Weights.O, funnel.Weights.A);
+            Assert.Less(stretch.Weights.E, funnel.Weights.O);
+            Assert.AreEqual(0f, funnel.Weights.E, 0.0001f);
+            Assert.AreEqual(0f, stretch.Weights.O, 0.0001f);
+
+            tuning.VowelAmount = 0f;
+            var jawOnly = LipSyncMath.Advance(new LipSyncFrame(), 0.5f, MouthViseme.O, 1f, tuning);
+            Assert.Greater(jawOnly.Weights.A, 0.15f);
+            Assert.AreEqual(0f, jawOnly.Weights.O, 0.0001f);
+            Assert.AreEqual(0f, jawOnly.Weights.U, 0.0001f);
+            Assert.AreEqual(0f, jawOnly.Weights.E, 0.0001f);
+        }
+
+        [Test]
+        public void Advance_OneFrameVisemeBlipDoesNotSwitchTheShape()
+        {
+            var tuning = LipSyncTuning.Default;
+            var frame = LipSyncMath.Advance(new LipSyncFrame(), 0.2f, MouthViseme.O, 1f, tuning);
+            var opened = frame.Weights.O;
+            Assert.Greater(opened, 0.1f);
+            Assert.AreEqual(MouthViseme.O, frame.Viseme);
+
+            frame = LipSyncMath.Advance(frame, 0.2f, MouthViseme.E, 0.016f, tuning);
+            Assert.AreEqual(MouthViseme.O, frame.Viseme);
+            Assert.AreEqual(0f, frame.Weights.E, 0.001f);
+            Assert.Greater(frame.Weights.O, opened * 0.5f);
+
+            var switched = false;
+            for (var i = 0; i < 8; i++)
+            {
+                frame = LipSyncMath.Advance(frame, 0.2f, MouthViseme.I, 0.016f, tuning);
+                if (frame.Viseme != MouthViseme.I)
+                    continue;
+                switched = true;
+                break;
+            }
+
+            Assert.IsTrue(switched);
+            Assert.AreEqual(0f, frame.Weights.I, 0.0001f);
+            Assert.Greater(frame.Weights.O, 0f);
+            Assert.Less(frame.Weights.O, opened);
+        }
+
+        [Test]
         public void Advance_ZeroDeltaDoesNotMoveAndStrengthZeroStaysShut()
         {
             var tuning = LipSyncTuning.Default;
             var held = LipSyncMath.Advance(new LipSyncFrame(), 0.2f, MouthViseme.A, 0f, tuning);
             Assert.AreEqual(0f, held.Level, 0.0001f);
+            Assert.AreEqual(0f, held.Weights.Opening, 0.0001f);
 
             tuning.Strength = 0f;
             var shut = LipSyncMath.Advance(new LipSyncFrame(), 0.2f, MouthViseme.E, 1f, tuning);
-            Assert.AreEqual(1f, shut.Level, 0.0001f);
+            Assert.AreEqual(0.45f, shut.Level, 0.0001f);
             Assert.AreEqual(0f, shut.MouthOverride, 0.0001f);
             Assert.AreEqual(0f, shut.Weights.Opening, 0.0001f);
         }
 
         [Test]
-        public void Sense_UsesSensitivityAndTheSilenceFloor()
+        public void JawPitch_UsesTheModestOpenAsFullTravel()
         {
             var tuning = LipSyncTuning.Default;
-            Assert.AreEqual(0f, LipSyncMath.Sense(0.011f, tuning), 0.0001f);
-            Assert.AreEqual(0f, LipSyncMath.Sense(float.NaN, tuning), 0.0001f);
-            Assert.AreEqual(0.4f, LipSyncMath.Sense(0.05f, tuning), 0.0001f);
-            Assert.AreEqual(1f, LipSyncMath.Sense(0.5f, tuning), 0.0001f);
+            var full = new MouthWeights { A = tuning.MaxJawOpen };
+            Assert.AreEqual(-12f, LipSyncMath.JawPitchDegrees(full, tuning, -12f), 0.0001f);
 
-            var open = LipSyncMath.Advance(new LipSyncFrame(), 0.05f, MouthViseme.O, 1f, tuning);
-            Assert.AreEqual(0.4f, open.Weights.O, 0.0001f);
-            Assert.AreEqual(0f, open.Weights.A, 0.0001f);
-            Assert.AreEqual(0.4f, open.MouthOverride, 0.0001f);
+            var half = new MouthWeights { A = tuning.MaxJawOpen * 0.5f };
+            Assert.AreEqual(-6f, LipSyncMath.JawPitchDegrees(half, tuning, -12f), 0.0001f);
+
+            var hot = new MouthWeights { A = 1f };
+            Assert.AreEqual(-12f, LipSyncMath.JawPitchDegrees(hot, tuning, -12f), 0.0001f);
+            Assert.AreEqual(0f, LipSyncMath.JawPitchDegrees(default, tuning, -12f), 0.0001f);
         }
 
         [Test]
@@ -188,30 +286,50 @@ namespace AICompanion.Tests.EditMode
             var line = LipSyncTargetSelection.FormatDiagnostic(LipSyncTargetKind.BlendShapes, "jawOpen, mouthClose");
             StringAssert.StartsWith("LipSync:", line);
             StringAssert.DoesNotContain("hello", line);
+
+            var tuned = LipSyncTuning.Default.AppendDiagnostic(line);
+            StringAssert.StartsWith("LipSync:", tuned);
+            StringAssert.Contains("strength 0.55", tuned);
+            StringAssert.Contains("sensitivity 3.00", tuned);
+            StringAssert.Contains("jaw 0.40", tuned);
+            StringAssert.Contains("vowel 0.20", tuned);
+            StringAssert.DoesNotContain("hello", tuned);
         }
 
         [Test]
         public void OverrideMouth_ReplacesOnlyMouthShapesAndProceduralTalkYields()
         {
             var surprised = EmotionFace.EmotionPose(Emotion.Surprised, 1f);
-            var speech = MouthWeights.For(MouthViseme.I, 0.8f);
+            var speech = new MouthWeights { A = 0.3f, O = 0.12f, I = 0.8f };
             var mixed = EmotionFace.OverrideMouth(surprised, speech, 0.8f);
 
             Assert.AreEqual(1f, mixed.Surprised, 0.0001f);
             Assert.AreEqual(0f, mixed.Joy, 0.0001f);
-            Assert.AreEqual(0.8f, mixed.Ih, 0.0001f);
-            Assert.AreEqual(surprised.Aa * 0.2f, mixed.Aa, 0.0001f);
-            Assert.AreEqual(surprised.Oh * 0.2f, mixed.Oh, 0.0001f);
+            Assert.AreEqual(0.33f, mixed.Aa, 0.0001f);
+            Assert.AreEqual(0f, mixed.Ih, 0.0001f);
+            Assert.AreEqual(0.156f, mixed.Oh, 0.0001f);
+            Assert.LessOrEqual(mixed.Aa, surprised.Aa);
+            Assert.LessOrEqual(mixed.Oh, surprised.Oh);
 
             var unchanged = EmotionFace.OverrideMouth(surprised, speech, 0f);
             Assert.AreEqual(surprised.Aa, unchanged.Aa, 0.0001f);
             Assert.AreEqual(0f, unchanged.Ih, 0.0001f);
 
+            var thinking = EmotionFace.EmotionPose(Emotion.Thinking, 1f);
+            var open = EmotionFace.OverrideMouth(thinking, new MouthWeights { A = 0.3f }, 0.5f);
+            Assert.AreEqual(0.15f, open.Aa, 0.0001f);
+            Assert.AreEqual(0f, open.Ih, 0.0001f);
+            Assert.AreEqual(thinking.Blink, open.Blink, 0.0001f);
+
+            var early = EmotionFace.OverrideMouth(thinking, new MouthWeights { A = 0.02f }, 0.2f);
+            Assert.AreEqual(0.004f, early.Aa, 0.0001f);
+            Assert.AreEqual(0.28f, early.Ih, 0.0001f);
+
             var happy = EmotionFace.EmotionPose(Emotion.Happy, 1f);
-            var talking = EmotionFace.OverrideMouth(happy, MouthWeights.For(MouthViseme.A, 1f), 1f);
+            var talking = EmotionFace.OverrideMouth(happy, new MouthWeights { A = 0.35f }, 1f);
             Assert.AreEqual(1f, talking.Joy, 0.0001f);
             Assert.AreEqual(happy.Fun, talking.Fun, 0.0001f);
-            Assert.AreEqual(1f, talking.Aa, 0.0001f);
+            Assert.AreEqual(0.35f, talking.Aa, 0.0001f);
             Assert.AreEqual(0f, talking.Ih, 0.0001f);
 
             Assert.AreEqual(1f, EmotionFace.ProceduralTalkScale(1f, 0f), 0.0001f);

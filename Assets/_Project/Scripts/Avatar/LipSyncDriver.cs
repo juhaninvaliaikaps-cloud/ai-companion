@@ -8,7 +8,7 @@ namespace AICompanion.Avatar
 {
     /// <summary>
     /// Samples the TTS <see cref="AudioSource"/> on this object and turns it into mouth weights.
-    /// One Console line, prefixed "LipSync:", names the target chosen for the loaded avatar.
+    /// One Console line, prefixed "LipSync:", names the target and the active tunables.
     /// Spoken text is never logged.
     /// VRM 1.0 uses expression SetWeight. A VRM 0.x proxy uses SetValues. Blendshapes
     /// are written by <see cref="AvatarAnimationController"/> so emotion brows and smiles stay put.
@@ -20,10 +20,21 @@ namespace AICompanion.Avatar
         const int SampleSize = 256;
         static readonly ShapeSlot[] NoShapes = new ShapeSlot[0];
 
-        [SerializeField, Range(0f, 1.5f)] float strength = LipSyncTuning.DefaultStrength;
-        [SerializeField, Range(0f, 32f)] float sensitivity = LipSyncTuning.DefaultSensitivity;
+        [Header("Level")]
+        [SerializeField, Range(0f, 1.5f), Tooltip("Overall mouth strength. Lower if speech still looks too wide.")]
+        float strength = LipSyncTuning.DefaultStrength;
+        [SerializeField, Range(0f, 16f), Tooltip("How loud a sample must be before the jaw moves. Raise if quiet speech barely opens.")]
+        float sensitivity = LipSyncTuning.DefaultSensitivity;
+        [Header("Shape")]
+        [SerializeField, Range(0f, 1f), Tooltip("Hard cap on jawOpen. Normal talk should stay well below 1.")]
+        float maxJawOpen = LipSyncTuning.DefaultMaxJawOpen;
+        [SerializeField, Range(0f, 1f), Tooltip("Cap for funnel and pucker. Stretch is a fraction of this. 0 leaves only the jaw.")]
+        float vowelAmount = LipSyncTuning.DefaultVowelAmount;
+        [Header("Smoothing")]
         [SerializeField, Range(0f, 0.2f)] float attackSeconds = LipSyncTuning.DefaultAttackSeconds;
         [SerializeField, Range(0f, 0.4f)] float releaseSeconds = LipSyncTuning.DefaultReleaseSeconds;
+        [SerializeField, Range(0f, 0.4f), Tooltip("How long a new vowel must last before the mouth shape follows it.")]
+        float visemeHoldSeconds = LipSyncTuning.DefaultVisemeHoldSeconds;
         [SerializeField, Range(0f, 0.2f)] float silenceThreshold = LipSyncTuning.DefaultSilenceThreshold;
         [SerializeField, Range(-30f, 30f)] float jawPitchDegrees = LipSyncTuning.DefaultJawPitchDegrees;
 
@@ -208,7 +219,13 @@ namespace AICompanion.Avatar
                 Sensitivity = sensitivity,
                 AttackSeconds = attackSeconds,
                 ReleaseSeconds = releaseSeconds,
-                SilenceThreshold = silenceThreshold
+                SilenceThreshold = silenceThreshold,
+                MaxJawOpen = maxJawOpen,
+                VowelAmount = vowelAmount,
+                VisemeHoldSeconds = visemeHoldSeconds,
+                KneeThreshold = LipSyncTuning.DefaultKneeThreshold,
+                KneeRatio = LipSyncTuning.DefaultKneeRatio,
+                KneeWidth = LipSyncTuning.DefaultKneeWidth
             }.Sanitized();
         }
 
@@ -295,7 +312,7 @@ namespace AICompanion.Avatar
             if (_jaw == null || !_hasJawBind)
                 return;
 
-            var pitch = jawPitchDegrees * weights.Opening;
+            var pitch = LipSyncMath.JawPitchDegrees(weights, CurrentTuning(), jawPitchDegrees);
             _jaw.localRotation = pitch == 0f
                 ? _jawBind
                 : _jawBind * Quaternion.Euler(pitch, 0f, 0f);
@@ -308,7 +325,10 @@ namespace AICompanion.Avatar
                 var renderer = _shapes[i].Renderer;
                 if (renderer == null)
                     continue;
-                renderer.SetBlendShapeWeight(_shapes[i].Index, Channel(_shapes[i].Preset, weights) * 100f);
+                var weight = Channel(_shapes[i].Preset, weights);
+                if (_shapes[i].Preset == ExpressionPreset.Ih && weights.A > LipSyncMath.CloseSuppressStart)
+                    weight = 0f;
+                renderer.SetBlendShapeWeight(_shapes[i].Index, weight * 100f);
             }
         }
 
@@ -479,10 +499,11 @@ namespace AICompanion.Avatar
 
         void LogChoice(string line)
         {
-            if (line == _logged)
+            var full = CurrentTuning().AppendDiagnostic(line);
+            if (full == _logged)
                 return;
-            _logged = line;
-            Debug.Log(line);
+            _logged = full;
+            Debug.Log(full);
         }
     }
 }
