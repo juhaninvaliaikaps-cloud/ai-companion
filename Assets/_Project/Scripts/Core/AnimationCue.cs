@@ -22,12 +22,12 @@ namespace AICompanion.Core
 
         public static float ClampIntensity(float intensity)
         {
-            if (intensity < MinIntensity)
+            if (float.IsNaN(intensity) || intensity < MinIntensity)
             {
                 return MinIntensity;
             }
 
-            if (intensity > MaxIntensity)
+            if (float.IsPositiveInfinity(intensity) || intensity > MaxIntensity)
             {
                 return MaxIntensity;
             }

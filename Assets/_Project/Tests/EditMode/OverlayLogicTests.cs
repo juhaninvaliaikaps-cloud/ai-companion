@@ -1,6 +1,9 @@
+using System.Reflection;
+using System.Text.RegularExpressions;
 using AICompanion.Overlay;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace AICompanion.Tests.EditMode
 {
@@ -190,6 +193,42 @@ namespace AICompanion.Tests.EditMode
             finally
             {
                 Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void LogCamera_StaysOffUntilEnabledAndIgnoresShownZoom()
+        {
+            var host = new GameObject("frame");
+            var cameraObject = new GameObject("frame camera");
+            try
+            {
+                var camera = cameraObject.AddComponent<Camera>();
+                var frame = host.AddComponent<AvatarCameraFrame>();
+                frame.Attach(camera);
+                var log = typeof(AvatarCameraFrame).GetMethod("LogCamera", BindingFlags.Instance | BindingFlags.NonPublic);
+                var shown = typeof(AvatarCameraFrame).GetField("_shownZoom", BindingFlags.Instance | BindingFlags.NonPublic);
+                var toggle = typeof(AvatarCameraFrame).GetField("logCamera", BindingFlags.Instance | BindingFlags.NonPublic);
+
+                Assert.IsFalse((bool)toggle.GetValue(frame));
+                log.Invoke(frame, new object[] { 4 });
+                shown.SetValue(frame, 0.85f);
+                log.Invoke(frame, new object[] { 4 });
+
+                toggle.SetValue(frame, true);
+                LogAssert.Expect(LogType.Log, new Regex("^Camera: zoom="));
+                log.Invoke(frame, new object[] { 4 });
+                shown.SetValue(frame, 0.15f);
+                log.Invoke(frame, new object[] { 4 });
+
+                LogAssert.Expect(LogType.Log, new Regex("^Camera: zoom="));
+                frame.SetZoom(0.4f);
+                log.Invoke(frame, new object[] { 4 });
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+                Object.DestroyImmediate(cameraObject);
             }
         }
 
