@@ -143,6 +143,44 @@ namespace AICompanion.Avatar
             };
         }
 
+        public static float ProceduralTalkScale(float talkAmount, float mouthOverride)
+        {
+            if (talkAmount < 0f)
+                talkAmount = 0f;
+            else if (talkAmount > 1f)
+                talkAmount = 1f;
+
+            var keep = 1f - Clamp01(mouthOverride);
+            return talkAmount * keep;
+        }
+
+        /// <summary>
+        /// Fades emotion mouth channels toward the speech weights. Brows, blinks, and
+        /// smiles stay on the emotion pose.
+        /// </summary>
+        public static FacePose OverrideMouth(FacePose pose, MouthWeights mouth, float ownership)
+        {
+            var t = Clamp01(ownership);
+            if (t <= 0f)
+                return pose;
+
+            var keep = 1f - t;
+            return new FacePose
+            {
+                Aa = pose.Aa * keep + mouth.A,
+                Ih = pose.Ih * keep + mouth.I,
+                Ou = pose.Ou * keep + mouth.U,
+                Ee = pose.Ee * keep + mouth.E,
+                Oh = pose.Oh * keep + mouth.O,
+                Blink = pose.Blink,
+                Joy = pose.Joy,
+                Angry = pose.Angry,
+                Sorrow = pose.Sorrow,
+                Fun = pose.Fun,
+                Surprised = pose.Surprised
+            };
+        }
+
         public static FacePose Combine(FacePose emotion, FacePose talk)
         {
             return new FacePose
