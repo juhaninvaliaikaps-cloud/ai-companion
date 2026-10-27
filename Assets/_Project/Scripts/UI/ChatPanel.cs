@@ -16,7 +16,7 @@ namespace AICompanion.UI
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(-200)]
-    public sealed class ChatPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IAvatarDoubleClick, ISpeechNotes, IChatSubmitter
+    public sealed class ChatPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IAvatarDoubleClick, ISpeechNotes, IChatSubmitter, IChatWindow
     {
         const string OpenPref = "ai-companion.chat-open";
         const string HelloPrompt = "Say hello in one short sentence.";
@@ -190,6 +190,11 @@ namespace AICompanion.UI
         }
 
         public void OnAvatarDoubleClick()
+        {
+            OpenChat();
+        }
+
+        public void OpenChat()
         {
             if (!_started)
                 StartCompanion();

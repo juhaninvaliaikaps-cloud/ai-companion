@@ -11,7 +11,8 @@ namespace AICompanion.Voice
     {
         None = 0,
         Started = 1,
-        Released = 2
+        Released = 2,
+        Cancelled = 3
     }
 
     /// <summary>
@@ -27,6 +28,23 @@ namespace AICompanion.Voice
 
         public PushToTalkSignal Tick(bool keyHeld, bool buttonHeld, bool keyBlocked)
         {
+            return Tick(keyHeld, buttonHeld, keyBlocked, false);
+        }
+
+        public PushToTalkSignal Tick(bool keyHeld, bool buttonHeld, bool keyBlocked, bool listeningBlocked)
+        {
+            if (listeningBlocked)
+            {
+                if (Phase == PushToTalkPhase.Idle)
+                {
+                    _armed = false;
+                    return PushToTalkSignal.None;
+                }
+
+                Abort();
+                return PushToTalkSignal.Cancelled;
+            }
+
             var held = buttonHeld || (keyHeld && !keyBlocked);
             if (Phase == PushToTalkPhase.Transcribing)
                 return PushToTalkSignal.None;

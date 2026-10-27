@@ -55,6 +55,8 @@ namespace AICompanion.Avatar
         FacePose _face;
         LipSyncDriver _lips;
         UnityAction _beforeRender;
+        ICompanionPause _pause;
+        bool _pauseSearched;
 
         struct ShapeBinding
         {
@@ -177,6 +179,8 @@ namespace AICompanion.Avatar
         {
             if (!Input.anyKeyDown)
                 return;
+            if (!CompanionPause.ReactionsAllowed(IsPaused()))
+                return;
 
             var changed = false;
             for (var i = 0; i < DebugKeys.Length; i++)
@@ -189,6 +193,17 @@ namespace AICompanion.Avatar
 
             if (changed)
                 PushParameters();
+        }
+
+        bool IsPaused()
+        {
+            if (!_pauseSearched)
+            {
+                _pauseSearched = true;
+                _pause = GetComponent<ICompanionPause>();
+            }
+
+            return _pause != null && _pause.IsPaused;
         }
 
         void LateUpdate()
