@@ -364,6 +364,7 @@ GameObject:
   - component: {fileID: 1911444204}
   - component: {fileID: 1911444205}
   - component: {fileID: 1911444206}
+  - component: {fileID: 1911444207}
   m_Layer: 0
   m_Name: AppBootstrap
   m_TagString: Untagged
@@ -523,6 +524,19 @@ MonoBehaviour:
   visemeHoldSeconds: 0.08
   silenceThreshold: 0.012
   jawPitchDegrees: -12
+--- !u!114 &1911444207
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1911444196}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ecf925378fa7b246f4b395d15276a498, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: AICompanion.Overlay::AICompanion.Overlay.CompanionTray
+  hideTaskbarButton: 1
 --- !u!1 &2100000101
 GameObject:
   m_ObjectHideFlags: 0

@@ -13,7 +13,7 @@ namespace AICompanion.Voice
     /// message cancel through <see cref="ISpeechOutput.Cancel"/>.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class VoiceSpeaker : MonoBehaviour, ICompanionStartup, ISpeechOutput
+    public sealed class VoiceSpeaker : MonoBehaviour, ICompanionStartup, ISpeechOutput, ISpeechSuppression
     {
         public const string MutePref = "ai-companion.tts-muted";
 
@@ -32,6 +32,7 @@ namespace AICompanion.Voice
         int _requestSerial;
         bool _requestInFlight;
         bool _muted;
+        bool _suppressed;
         bool _started;
         bool _alive = true;
         bool _talkingApplied;
@@ -108,7 +109,7 @@ namespace AICompanion.Voice
             SilencePlayback();
             InvalidateRequest();
             _noted.Clear();
-            _turn.Begin(SpeechPolicy.ShouldSpeak(chatSettings, voiceSettings, _muted));
+            _turn.Begin(SpeechPolicy.ShouldSpeak(chatSettings, voiceSettings, !CompanionPause.SpeechAllowed(_muted, _suppressed)));
             ApplyTalking();
         }
 
@@ -130,6 +131,21 @@ namespace AICompanion.Voice
             ApplyTalking();
         }
 
+        public void SetSuppressed(bool suppressed)
+        {
+            if (_suppressed == suppressed)
+                return;
+
+            _suppressed = suppressed;
+            if (CompanionPause.SpeechAllowed(_muted, _suppressed))
+                return;
+
+            _turn.Cancel();
+            SilencePlayback();
+            InvalidateRequest();
+            ApplyTalking();
+        }
+
         void PumpSynthesis()
         {
             if (_requestInFlight)
@@ -145,7 +161,7 @@ namespace AICompanion.Voice
                 return;
             }
 
-            if (_provider == null || _muted)
+            if (_provider == null || !CompanionPause.SpeechAllowed(_muted, _suppressed))
                 return;
             if (!_turn.TryTake(out var generation, out var sentence))
                 return;
@@ -186,7 +202,7 @@ namespace AICompanion.Voice
                     return;
 
                 _requestInFlight = false;
-                if (_muted || !_turn.IsCurrent(generation) || result.Quiet)
+                if (!CompanionPause.SpeechAllowed(_muted, _suppressed) || !_turn.IsCurrent(generation) || result.Quiet)
                     return;
 
                 if (!result.Ok)

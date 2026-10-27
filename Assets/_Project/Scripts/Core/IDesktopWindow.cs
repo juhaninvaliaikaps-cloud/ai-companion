@@ -24,4 +24,15 @@ namespace AICompanion.Core
     {
         bool TryGetDesktopWindow(out DesktopWindow window);
     }
+
+    /// <summary>
+    /// Show or hide the overlay window. The tray toggles this. The editor has no
+    /// Win32 window, so the flag still changes and the chrome call does nothing.
+    /// </summary>
+    public interface ICompanionVisibility
+    {
+        bool IsCompanionVisible { get; }
+
+        void SetCompanionVisible(bool visible);
+    }
 }

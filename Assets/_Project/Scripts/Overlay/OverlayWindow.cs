@@ -17,7 +17,7 @@ namespace AICompanion.Overlay
     /// frame rate, frames the avatar, and updates the debug label.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class OverlayWindow : MonoBehaviour, ICompanionStartup, ITypingFocus, IDesktopWindow
+    public sealed class OverlayWindow : MonoBehaviour, ICompanionStartup, ITypingFocus, IDesktopWindow, ICompanionVisibility
     {
         const string TopmostOnLabel = "Topmost on   F8";
         const string TopmostOffLabel = "Topmost off  F8";
@@ -90,9 +90,12 @@ namespace AICompanion.Overlay
         bool _shownRotating;
         bool _rotateReady;
         float _lastSilhouetteClick = -1f;
+        bool _companionVisible = true;
 
         public bool IsTopmost => _topmost;
         public bool IsClickThrough => _clickThrough;
+        public bool IsCompanionVisible => _companionVisible;
+        public IWindowChrome Chrome => _chrome;
 
         public void StartCompanion()
         {
@@ -257,6 +260,9 @@ namespace AICompanion.Overlay
                 ApplySizedWindow(false);
                 _repositionFrames--;
             }
+
+            if (!_companionVisible && _chrome != null && _chrome.IsHandleLocked)
+                _chrome.SetWindowVisible(false);
         }
 
         void OnGUI()
@@ -303,6 +309,17 @@ namespace AICompanion.Overlay
             _topmost = topmost;
             if (_chrome != null && _chrome.IsSupported)
                 _chrome.SetTopmost(topmost);
+        }
+
+        public void SetCompanionVisible(bool visible)
+        {
+            _companionVisible = visible;
+            if (_chrome == null)
+                return;
+
+            _chrome.SetWindowVisible(visible);
+            if (visible && _chrome.IsSupported)
+                _chrome.SetTopmost(_topmost);
         }
 
         void ApplyPlayerResolution()

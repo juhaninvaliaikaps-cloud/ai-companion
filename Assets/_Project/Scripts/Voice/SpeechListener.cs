@@ -23,6 +23,8 @@ namespace AICompanion.Voice
         bool _buttonHeld;
         bool _started;
         bool _alive = true;
+        bool _pauseSearched;
+        ICompanionPause _pause;
 
         public bool IsRecording => _gate.Phase == PushToTalkPhase.Recording;
 
@@ -84,7 +86,15 @@ namespace AICompanion.Voice
 
                 var key = sttSettings.PushToTalkKey;
                 var keyHeld = Input.GetKey(key);
-                var signal = _gate.Tick(keyHeld, _buttonHeld, DebugInputGuard.TextFieldFocused);
+                var listeningBlocked = !CompanionPause.ListeningAllowed(IsPaused());
+                var signal = _gate.Tick(keyHeld, _buttonHeld, DebugInputGuard.TextFieldFocused, listeningBlocked);
+                if (signal == PushToTalkSignal.Cancelled)
+                {
+                    _serial++;
+                    StopMic();
+                    Debug.Log("STT: paused");
+                    return;
+                }
                 if (_gate.Phase == PushToTalkPhase.Recording && _mic.Running)
                 {
                     var capped = _mic.Elapsed >= sttSettings.MaxRecordSeconds;
@@ -183,6 +193,13 @@ namespace AICompanion.Voice
                 if (!_alive || serial != _serial)
                     return;
 
+                if (IsPaused())
+                {
+                    if (_gate.Phase != PushToTalkPhase.Idle)
+                        _gate.Abort();
+                    return;
+                }
+
                 if (!string.IsNullOrEmpty(result.LogLine))
                     Debug.Log(result.LogLine);
 
@@ -213,6 +230,17 @@ namespace AICompanion.Voice
                     WhisperNativeLoad.LoadDetail));
                 Note("Speech could not be transcribed.");
             }
+        }
+
+        bool IsPaused()
+        {
+            if (!_pauseSearched)
+            {
+                _pauseSearched = true;
+                _pause = GetComponent<ICompanionPause>();
+            }
+
+            return _pause != null && _pause.IsPaused;
         }
 
         bool HeldNow()

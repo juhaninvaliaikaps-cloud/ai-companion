@@ -27,6 +27,7 @@ namespace AICompanion.Overlay
         const uint SwpNoActivate = 0x0010;
         const uint SwpFrameChanged = 0x0020;
         const uint SwpShowWindow = 0x0040;
+        const uint SwpHideWindow = 0x0080;
 
         const int WsVisible = 0x10000000;
         const int WsCaption = 0x00C00000;
@@ -36,6 +37,10 @@ namespace AICompanion.Overlay
         const int WsSysMenu = 0x00080000;
         const int WsExLayered = 0x00080000;
         const int WsExTransparent = 0x00000020;
+        const int WsExToolWindow = 0x00000080;
+        const int WsExAppWindow = 0x00040000;
+        const int SwHide = 0;
+        const int SwShow = 5;
 
         static readonly IntPtr HwndTopMost = new IntPtr(-1);
         static readonly IntPtr HwndNoTopMost = new IntPtr(-2);
@@ -47,6 +52,7 @@ namespace AICompanion.Overlay
         bool _hwndLocked;
         bool _hasClickThrough;
         bool _clickThrough;
+        bool _windowShown = true;
 
         public bool IsSupported => true;
 
@@ -79,7 +85,7 @@ namespace AICompanion.Overlay
                 return;
 
             var after = topmost ? HwndTopMost : HwndNoTopMost;
-            SetWindowPos(_hwnd, after, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpShowWindow);
+            SetWindowPos(_hwnd, after, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | ShownFlag());
         }
 
         public void SetClickThrough(bool clickThrough)
@@ -204,7 +210,7 @@ namespace AICompanion.Overlay
                 return;
 
             var after = topmost ? HwndTopMost : HwndNoTopMost;
-            SetWindowPos(_hwnd, after, topLeft.x, topLeft.y, 0, 0, SwpNoSize | SwpNoActivate | SwpShowWindow);
+            SetWindowPos(_hwnd, after, topLeft.x, topLeft.y, 0, 0, SwpNoSize | SwpNoActivate | ShownFlag());
         }
 
         public void PlaceWindow(Vector2Int topLeft, int width, int height, bool topmost)
@@ -218,7 +224,39 @@ namespace AICompanion.Overlay
                 height = 1;
 
             var after = topmost ? HwndTopMost : HwndNoTopMost;
-            SetWindowPos(_hwnd, after, topLeft.x, topLeft.y, width, height, SwpNoActivate | SwpShowWindow);
+            SetWindowPos(_hwnd, after, topLeft.x, topLeft.y, width, height, SwpNoActivate | ShownFlag());
+        }
+
+        public bool IsHandleLocked => _hwndLocked;
+
+        public void SetWindowVisible(bool visible)
+        {
+            _windowShown = visible;
+            if (!TryGetHwnd())
+                return;
+
+            ShowWindow(_hwnd, visible ? SwShow : SwHide);
+        }
+
+        public void SetTaskbarButtonVisible(bool visible)
+        {
+            if (!TryGetHwnd())
+                return;
+
+            int ex = GetWindowLong(_hwnd, GwlExStyle);
+            int next = visible
+                ? (ex & ~WsExToolWindow) | WsExAppWindow
+                : (ex | WsExToolWindow) & ~WsExAppWindow;
+            if (next == ex)
+                return;
+
+            SetWindowLong(_hwnd, GwlExStyle, next);
+            SetWindowPos(_hwnd, IntPtr.Zero, 0, 0, 0, 0, SwpFrameChanged | SwpNoMove | SwpNoSize | SwpNoZOrder | SwpNoActivate);
+        }
+
+        uint ShownFlag()
+        {
+            return _windowShown ? SwpShowWindow : SwpHideWindow;
         }
 
         public void FocusForTyping()
@@ -244,10 +282,13 @@ namespace AICompanion.Overlay
 
                 _process.Refresh();
                 var hwnd = _process.MainWindowHandle;
+                // A hidden window or a tool window is not MainWindowHandle. Keep the
+                // last HWND so the tray can show it again, and so hiding the taskbar
+                // button does not drop the handle before it locks.
                 if (hwnd == IntPtr.Zero)
                 {
-                    _hwnd = IntPtr.Zero;
-                    _stableFrames = 0;
+                    if (_hwnd != IntPtr.Zero && ++_stableFrames > 45)
+                        _hwndLocked = true;
                 }
                 else if (hwnd != _hwnd)
                 {
@@ -324,6 +365,9 @@ namespace AICompanion.Overlay
 
         [DllImport("user32.dll")]
         static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
         [DllImport("user32.dll")]
         static extern IntPtr SetFocus(IntPtr hWnd);

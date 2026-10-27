@@ -20,6 +20,16 @@ namespace AICompanion.Overlay
         void MoveWindow(Vector2Int topLeft, bool topmost);
         void PlaceWindow(Vector2Int topLeft, int width, int height, bool topmost);
         void FocusForTyping();
+
+        /// <summary>
+        /// True after the player HWND has stayed put long enough to cache.
+        /// A tool window is not <c>MainWindowHandle</c>, so the taskbar button
+        /// is hidden only after this is true.
+        /// </summary>
+        bool IsHandleLocked { get; }
+
+        void SetWindowVisible(bool visible);
+        void SetTaskbarButtonVisible(bool visible);
     }
 
     public static class WindowChrome
@@ -106,6 +116,16 @@ namespace AICompanion.Overlay
         }
 
         public void FocusForTyping()
+        {
+        }
+
+        public bool IsHandleLocked => false;
+
+        public void SetWindowVisible(bool visible)
+        {
+        }
+
+        public void SetTaskbarButtonVisible(bool visible)
         {
         }
     }

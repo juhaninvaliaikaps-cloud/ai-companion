@@ -12,7 +12,7 @@ namespace AICompanion.AnimationDirector
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(900)]
-    public sealed class AnimationDirector : MonoBehaviour
+    public sealed class AnimationDirector : MonoBehaviour, IReactionSuppression
     {
         [SerializeField] AnimationClipCatalog catalog;
         [SerializeField, Range(0f, 1f)] float gestureCrossfadeSeconds = AvatarAnimatorRules.TransitionSeconds;
@@ -20,6 +20,9 @@ namespace AICompanion.AnimationDirector
         AnimationDirectorModel _model;
         IAvatarAnimator _animator;
         IAnimationStatePlayer _states;
+        bool _suppressed;
+
+        public bool ReactionsSuppressed => _suppressed;
 
         public DirectorDecision LastDecision { get; private set; }
 
@@ -68,8 +71,26 @@ namespace AICompanion.AnimationDirector
             _model = catalog == null ? null : new AnimationDirectorModel(catalog);
         }
 
+        public void SetSuppressed(bool suppressed)
+        {
+            if (_animator == null && _states == null)
+                Resolve();
+            if (_suppressed == suppressed)
+                return;
+
+            _suppressed = suppressed;
+            if (CompanionPause.ReactionsAllowed(_suppressed) || _animator == null)
+                return;
+
+            _animator.SetEmotion(Emotion.Neutral, 1f);
+            _animator.SetTalking(false);
+        }
+
         public void Play(AnimationCue cue)
         {
+            if (!CompanionPause.ReactionsAllowed(_suppressed))
+                return;
+
             if (_model == null || !IsAlive(_animator) || !IsAlive(_states))
             {
                 Resolve();
