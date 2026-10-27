@@ -11,9 +11,12 @@ namespace AICompanion.Avatar
     /// Animator update mode stays on Normal, so clips keep advancing when the
     /// overlay drops the player to 15 fps. They just step with a larger delta.
     /// Root motion stays off, so that yaw is not overwritten by the clips.
+    /// Face weights run after UniVRM (execution order 11000) and after
+    /// <see cref="LipSyncDriver"/> (12000), so speech can replace mouth shapes
+    /// without clearing brows or smiles.
     /// </summary>
     [DisallowMultipleComponent]
-    [DefaultExecutionOrder(1000)]
+    [DefaultExecutionOrder(12100)]
     public sealed class AvatarAnimationController : MonoBehaviour, IAvatarAnimator, IAvatarTurntable, IAvatarAnchor, IAnimationStatePlayer
     {
         static readonly int TalkingHash = Animator.StringToHash(AvatarAnimatorParameters.Talking);
@@ -50,6 +53,7 @@ namespace AICompanion.Avatar
         float _talkAmount;
         float _talkTime;
         FacePose _face;
+        LipSyncDriver _lips;
         UnityAction _beforeRender;
 
         struct ShapeBinding
@@ -190,7 +194,7 @@ namespace AICompanion.Avatar
         void LateUpdate()
         {
             AdvanceFace(Time.deltaTime);
-            ApplyFace(_face);
+            ApplyFace(DisplayedFace());
         }
 
         void BindAnimator(GameObject instance)
@@ -316,6 +320,8 @@ namespace AICompanion.Avatar
 
                     if (!lookup.TryGetValue(shapeName, out var preset))
                         preset = ExpressionPresetMap.Classify(shapeName);
+                    if (preset == ExpressionPreset.None && LipSyncTargetSelection.TryClassifyMouth(shapeName, out var mouth))
+                        preset = mouth;
                     if (preset == ExpressionPreset.None)
                         continue;
 
@@ -336,6 +342,12 @@ namespace AICompanion.Avatar
             if (deltaTime < 0f)
                 deltaTime = 0f;
 
+            var lips = Lips();
+            var ownership = 0f;
+            var handsMouth = lips != null && LipSyncTargetSelection.DrivesSharedMouth(lips.TargetKind);
+            if (handsMouth)
+                ownership = lips.MouthOverride;
+
             var step = EmotionFace.BlendStep(deltaTime, EmotionFace.BlendSeconds);
             var targetAmount = _model.IsTalking ? 1f : 0f;
             _talkAmount += (targetAmount - _talkAmount) * step;
@@ -347,15 +359,34 @@ namespace AICompanion.Avatar
                     _talkTime %= 60f;
             }
 
+            var procedural = handsMouth
+                ? EmotionFace.ProceduralTalkScale(_talkAmount, ownership)
+                : _talkAmount;
             var target = EmotionFace.Combine(
                 EmotionFace.EmotionPose(_model.Emotion, _model.EmotionIntensity),
-                EmotionFace.TalkPose(_talkTime, _talkAmount));
+                EmotionFace.TalkPose(_talkTime, procedural));
             _face = EmotionFace.Approach(_face, target, deltaTime, EmotionFace.BlendSeconds);
         }
 
         void ApplyCurrentFace()
         {
-            ApplyFace(_face);
+            ApplyFace(DisplayedFace());
+        }
+
+        FacePose DisplayedFace()
+        {
+            var lips = Lips();
+            if (lips == null || !LipSyncTargetSelection.DrivesSharedMouth(lips.TargetKind))
+                return _face;
+
+            return EmotionFace.OverrideMouth(_face, lips.Weights, lips.MouthOverride);
+        }
+
+        LipSyncDriver Lips()
+        {
+            if (_lips == null)
+                _lips = GetComponent<LipSyncDriver>();
+            return _lips;
         }
 
         void ApplyFace(FacePose pose)

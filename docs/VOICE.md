@@ -14,6 +14,8 @@ A short, garbage, or unreadable body becomes a **Note**. The decoder does not th
 
 `IAvatarAnimator.SetTalking(true)` is on only while that audio is actually playing. It turns off when the queue finishes, when speech is cancelled, or when playback stops after an error. The text stream no longer holds the talk state open.
 
+The same `AudioSource` drives the mouth. `LipSyncDriver` samples the playing clip and maps loudness and a few frequency bands onto A, I, U, E, and O. The reply text is not logged. Which mouth was chosen is the `LipSync:` line described in [AVATARS.md](AVATARS.md).
+
 **F6** mutes and unmutes. The **Mute** button on the chat header does the same. The choice is stored in `PlayerPrefs` under `ai-companion.tts-muted` (`1` muted, `0` spoken). Mute stops the current audio and drops the queue. Unmute does not replay it. **F6** does nothing while the message field or the API-key field is focused.
 
 **Esc** stops speech as well as a streaming reply, and leaves the text field. **Stop** does the same while a reply is streaming or while audio is still playing. Sending a new message cancels whatever was still being spoken.

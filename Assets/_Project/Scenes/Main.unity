@@ -363,6 +363,7 @@ GameObject:
   - component: {fileID: 1911444203}
   - component: {fileID: 1911444204}
   - component: {fileID: 1911444205}
+  - component: {fileID: 1911444206}
   m_Layer: 0
   m_Name: AppBootstrap
   m_TagString: Untagged
@@ -501,6 +502,27 @@ MonoBehaviour:
   m_EditorClassIdentifier: AICompanion.AnimationDirector::AICompanion.AnimationDirector.AnimationDirector
   catalog: {fileID: 11400000, guid: 5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b, type: 2}
   gestureCrossfadeSeconds: 0.3
+--- !u!114 &1911444206
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1911444196}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f6a2c8e4b0340d5f7c9e1a3b5d6f802, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: AICompanion.Avatar::AICompanion.Avatar.LipSyncDriver
+  strength: 0.55
+  sensitivity: 3
+  maxJawOpen: 0.4
+  vowelAmount: 0.2
+  attackSeconds: 0.04
+  releaseSeconds: 0.16
+  visemeHoldSeconds: 0.08
+  silenceThreshold: 0.012
+  jawPitchDegrees: -12
 --- !u!1 &2100000101
 GameObject:
   m_ObjectHideFlags: 0
