@@ -6,6 +6,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;
+using Director = AICompanion.AnimationDirector.AnimationDirector;
 
 namespace AICompanion.Tests.EditMode
 {
@@ -221,7 +222,7 @@ namespace AICompanion.Tests.EditMode
             var host = new GameObject("director-prompt");
             try
             {
-                var director = host.AddComponent<AnimationDirector>();
+                var director = host.AddComponent<Director>();
                 AssignCatalog(director, NewCatalog(Entry("wave_hello", Emotion.Happy, 0.7f, "wave", string.Empty)));
 
                 var prompt = director.SystemPromptSuffix;
@@ -246,7 +247,7 @@ namespace AICompanion.Tests.EditMode
             var host = new GameObject("shipped-director");
             try
             {
-                var director = host.AddComponent<AnimationDirector>();
+                var director = host.AddComponent<Director>();
                 AssignCatalog(director, catalog);
 
                 var prompt = director.SystemPromptSuffix;
@@ -270,7 +271,7 @@ namespace AICompanion.Tests.EditMode
             try
             {
                 var avatar = host.AddComponent<RecordingAvatar>();
-                var director = host.AddComponent<AnimationDirector>();
+                var director = host.AddComponent<Director>();
                 AssignCatalog(director, NewCatalog());
                 LogAssert.Expect(LogType.Log, "AnimationDirector: emotion happy -> applied");
 
@@ -293,7 +294,7 @@ namespace AICompanion.Tests.EditMode
             try
             {
                 var avatar = host.AddComponent<RecordingAvatar>();
-                var director = host.AddComponent<AnimationDirector>();
+                var director = host.AddComponent<Director>();
                 AssignCatalog(director, NewCatalog(Entry("wave_hello", Emotion.Happy, 0.7f, "wave", string.Empty)));
                 LogAssert.Expect(LogType.Log, "AnimationDirector: cue wave -> no animator state, skipped");
 
@@ -317,7 +318,7 @@ namespace AICompanion.Tests.EditMode
             {
                 var avatar = host.AddComponent<RecordingAvatar>();
                 avatar.HasState = true;
-                var director = host.AddComponent<AnimationDirector>();
+                var director = host.AddComponent<Director>();
                 AssignCatalog(director, NewCatalog(Entry("wave_hello", Emotion.Happy, 0.7f, "wave", "Wave")));
                 LogAssert.Expect(LogType.Log, "AnimationDirector: cue wave -> played");
 
@@ -340,7 +341,7 @@ namespace AICompanion.Tests.EditMode
             try
             {
                 var avatar = host.AddComponent<RecordingAvatar>();
-                var director = host.AddComponent<AnimationDirector>();
+                var director = host.AddComponent<Director>();
                 AssignCatalog(director, NewCatalog());
                 LogAssert.Expect(LogType.Log, "AnimationDirector: no cue -> neutral");
 
@@ -368,9 +369,9 @@ namespace AICompanion.Tests.EditMode
             return new AnimationDirectorModel(NewCatalog(entries));
         }
 
-        static void AssignCatalog(AnimationDirector director, AnimationClipCatalog catalog)
+        static void AssignCatalog(Director director, AnimationClipCatalog catalog)
         {
-            typeof(AnimationDirector)
+            typeof(Director)
                 .GetField("catalog", BindingFlags.Instance | BindingFlags.NonPublic)
                 .SetValue(director, catalog);
         }
