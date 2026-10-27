@@ -20,7 +20,6 @@ namespace AICompanion.Overlay
         const float BoundsMargin = 0.5f;
         const float RendererExtentMin = 0.05f;
         const float RendererExtentMax = 4f;
-        const float LogInterval = 0.5f;
 
         static readonly HumanBodyBones[] SampleBones =
         {
@@ -64,8 +63,12 @@ namespace AICompanion.Overlay
         float _pendingFootY;
         bool _pendingHasFoot;
         int _rendererCooldown;
-        float _nextLogAt = -1f;
         int _logSignature = int.MinValue;
+
+        [SerializeField]
+        [Tooltip("Logs camera framing when the zoom target, scale, or renderer set changes. Off by default.")]
+        bool logCamera;
+
         readonly Vector3[] _points = new Vector3[256];
         readonly Vector3[] _scratch = new Vector3[256];
 
@@ -561,11 +564,18 @@ namespace AICompanion.Overlay
 
         void LogCamera(int pointCount)
         {
+            if (!logCamera || _camera == null)
+                return;
+
             var listed = _avatarRenderers != null ? _avatarRenderers : _renderers;
             int rendererCount = listed != null ? listed.Length : 0;
             int skinnedCount = 0;
-            int signature = rendererCount * 17 + Mathf.RoundToInt(_modelScale * 100f) * 13 + Mathf.RoundToInt(_shownZoom * 100f);
+            // Shown zoom, bounds, and isVisible change every frame while the camera eases.
+            // The signature uses the zoom target and the renderer set, so a smooth move logs once.
+            int signature = pointCount * 17 + rendererCount * 13 + Mathf.RoundToInt(_modelScale * 100f);
+            signature = signature * 31 + Mathf.RoundToInt(_targetZoom * 100f);
             signature ^= _camera.cullingMask;
+            signature = signature * 2 + (_camera.useOcclusionCulling ? 1 : 0);
             if (listed != null)
             {
                 for (var i = 0; i < listed.Length; i++)
@@ -580,11 +590,11 @@ namespace AICompanion.Overlay
                 }
             }
 
-            if (signature == _logSignature && Time.unscaledTime < _nextLogAt)
+            signature = signature * 31 + skinnedCount;
+            if (signature == _logSignature)
                 return;
 
             _logSignature = signature;
-            _nextLogAt = Time.unscaledTime + LogInterval;
             var text = new StringBuilder(256 + rendererCount * 96);
             text.Append("Camera: zoom=").Append(_shownZoom.ToString("0.00", CultureInfo.InvariantCulture));
             text.Append(" size=").Append(Mathf.RoundToInt(_modelScale * 100f)).Append('%');

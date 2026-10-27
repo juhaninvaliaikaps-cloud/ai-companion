@@ -38,7 +38,16 @@ The tag arrives at the end of a reply, but a partial `<animation` can arrive mid
 | Emotion cue with no gesture | `Emotion`: the cue's emotion and intensity |
 | No cue at all | `Neutral` |
 
-`AnimationDirector` (the MonoBehaviour) applies the decision through `IAvatarAnimator.SetEmotion` and, for `GestureState`, `IAnimationStatePlayer.TryPlayState`. The state player returns false when the current controller has no such state, so a stale catalog row degrades to an emotion instead of a broken cross-fade.
+`AnimationDirector` (the MonoBehaviour) applies the decision through `IAvatarAnimator.SetEmotion` and, for `GestureState`, `IAnimationStatePlayer.TryPlayState`. The state player returns false when the current controller has no such state, so a stale catalog row degrades to an emotion instead of a broken cross-fade. `SetEmotion` is what moves the face: `EmotionFace` writes the smile, frown, and brow blendshapes from that emotion. A gesture row with no Animator state still calls `SetEmotion`, so the row's emotion changes the face. An emotion cue such as `happy` does the same. `wave` does not need a clip for that.
+
+Each `Play` from a finished reply logs one line. The gesture token is the catalog id. The reply text is not logged.
+
+```text
+AnimationDirector: cue wave -> played
+AnimationDirector: cue wave -> no animator state, skipped
+AnimationDirector: emotion happy -> applied
+AnimationDirector: no cue -> neutral
+```
 
 `AvatarAnimationController` implements `IAnimationStatePlayer` with `Animator.HasState` + `CrossFade` on layer 0. Emotion-only cues stay on the parameter path so the controller's own transitions keep working.
 
@@ -50,7 +59,7 @@ The cue is applied when the reply finishes, which is when the tag has arrived. S
 
 ## Tests
 
-`AnimationCueParserTests`, `CueStreamFilterTests`, `AnimationDirectorTests`, and `CueTranscriptTests` cover the tag format, split chunks, a later `<`, text after a closed tag, catalog ids, and the sealed transcript. They run in EditMode and need no Animator.
+`AnimationCueParserTests`, `CueStreamFilterTests`, `AnimationDirectorTests`, and `CueTranscriptTests` cover the tag format, split chunks, a later `<`, text after a closed tag, catalog ids, the console line, and the sealed transcript. They run in EditMode and need no Animator. The system-prompt test checks that `SystemPromptSuffix` still contains `AnimationCueParser.Instruction` and the `<animation ... />` example.
 
 ## Limits
 

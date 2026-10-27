@@ -77,12 +77,14 @@ namespace AICompanion.AnimationDirector
 
             if (_model == null)
             {
+                Debug.Log(AnimationDirectorLog.MissingCatalog(cue));
                 return;
             }
 
             var decision = _model.Decide(cue);
-            Apply(decision);
+            var played = Apply(decision);
             LastDecision = decision;
+            Debug.Log(AnimationDirectorLog.Format(cue, decision, played));
         }
 
         public void PlayNeutral()
@@ -90,7 +92,7 @@ namespace AICompanion.AnimationDirector
             Play(AnimationCueParser.NeutralCue);
         }
 
-        void Apply(DirectorDecision decision)
+        bool Apply(DirectorDecision decision)
         {
             if (IsAlive(_animator))
             {
@@ -99,16 +101,17 @@ namespace AICompanion.AnimationDirector
 
             if (decision.Action != DirectorAction.GestureState || !IsAlive(_states) || decision.StateName.Length == 0)
             {
-                return;
+                return false;
             }
 
             try
             {
-                _states.TryPlayState(decision.StateName, gestureCrossfadeSeconds);
+                return _states.TryPlayState(decision.StateName, gestureCrossfadeSeconds);
             }
             catch (Exception)
             {
                 // A missing or swapped Animator must not fail the reply that carried the cue.
+                return false;
             }
         }
 
