@@ -11,31 +11,30 @@ permissions:
   checks: write
   actions: write
 
+# Unity Personal has one seat for CI. A second workflow must wait until this
+# one has returned it. Cancelling mid-run can skip that return.
+concurrency:
+  group: unity-personal-license
+  cancel-in-progress: false
+
 jobs:
   unity-tests:
-    name: ${{ matrix.testMode }} tests
+    name: EditMode and PlayMode tests
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        testMode:
-          - EditMode
-          - PlayMode
+    timeout-minutes: 60
     steps:
       - name: Check Unity license secrets
         id: license
         env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         run: |
           missing=()
-          if [ -z "$UNITY_LICENSE" ]; then missing+=("UNITY_LICENSE"); fi
           if [ -z "$UNITY_EMAIL" ]; then missing+=("UNITY_EMAIL"); fi
           if [ -z "$UNITY_PASSWORD" ]; then missing+=("UNITY_PASSWORD"); fi
           if [ ${#missing[@]} -gt 0 ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Unity tests skipped::Missing GitHub Actions secrets: ${missing[*]}. Add UNITY_LICENSE, UNITY_EMAIL, and UNITY_PASSWORD. Steps are in TESTING.md. This job succeeds so the check is not red before those secrets exist."
+            echo "::notice title=Unity tests skipped::Missing GitHub Actions secrets: ${missing[*]}. Add UNITY_EMAIL and UNITY_PASSWORD. Steps are in TESTING.md. This job succeeds so the check is not red before those secrets exist."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
@@ -51,35 +50,44 @@ jobs:
         uses: actions/cache@v4
         with:
           path: Library
-          key: Library-6000.6.6f1-${{ matrix.testMode }}-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectVersion.txt') }}
+          key: Library-6000.6.6f1-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectVersion.txt') }}
           restore-keys: |
-            Library-6000.6.6f1-${{ matrix.testMode }}-
             Library-6000.6.6f1-
 
       - name: Run Unity tests
         if: steps.license.outputs.skip != 'true'
         id: tests
-        uses: game-ci/unity-test-runner@v4
+        uses: game-ci/unity-test-runner@v4.4.0
         env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-          # unity-test-runner@v4 turns coverageEnabled: false into
+          # Unity 6 Personal on an ephemeral runner. game-ci/cli v0.1.63+
+          # (measured on 6000.6) activates from the account. A .ulf is bound
+          # to the machine that created it, so UNITY_LICENSE is not passed.
+          GAME_CI_UNITY_LICENSING_METHOD: personal
+          # unity-test-runner v4.4.0 turns coverageEnabled: false into
           # --no-coverageEnabled. game-ci CLI v0.1.72 sets negation-prefix
-          # off, treats that as an unknown argument, and exits 1 before
-          # Docker starts. GAME_CI_* is the CLI's own option override.
+          # off, treats that as an unknown argument, and exits before Docker
+          # starts. GAME_CI_* is the CLI's own option override.
           GAME_CI_COVERAGE_ENABLED: "false"
+          # Pins below avoid the unauthenticated "latest" lookup, which 403s
+          # when the runner IP is rate-limited. The token covers that lookup
+          # if the pin is removed.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           unityVersion: 6000.6.6f1
           customImage: unityci/editor:ubuntu-6000.6.6f1-base-3
-          testMode: ${{ matrix.testMode }}
+          # playmode, then editmode, in this container, after one activation.
+          # The action returns the Personal seat when the step ends.
+          testMode: all
+          cliVersion: v0.1.72
           githubToken: ${{ secrets.GITHUB_TOKEN }}
-          checkName: ${{ matrix.testMode }} tests
+          checkName: EditMode and PlayMode tests
 
       - name: Upload test results
         if: always() && steps.license.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: Test results (${{ matrix.testMode }})
+          name: Test results
           path: ${{ steps.tests.outputs.artifactsPath }}
           if-no-files-found: warn
