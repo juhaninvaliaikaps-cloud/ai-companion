@@ -1,19 +1,19 @@
+using System;
 using System.Text;
 
 namespace AICompanion.Core
 {
     /// <summary>
-    /// Hides a cue tag while a reply is still streaming. Text is released up to the
-    /// last character that could still turn out to be the start of a tag, so a
-    /// partially arrived <c>&lt;animation</c> never flashes in the transcript or
-    /// reaches speech. <see cref="Flush"/> releases the rest and parses the cue.
+    /// Hides cue tags while a reply is still streaming. A suffix that could still
+    /// grow into <c>&lt;animation</c> is held back, and a tag that has already
+    /// closed is removed even when more text follows it. Both the transcript and
+    /// speech receive only the released text. <see cref="Flush"/> releases the
+    /// rest and parses the cue.
     /// </summary>
     public sealed class CueStreamFilter
     {
-        static readonly string Marker = "<" + AnimationCueParser.TagName;
-
         readonly StringBuilder _raw = new StringBuilder();
-        int _emitted;
+        string _shown = string.Empty;
 
         public AnimationCue Cue { get; private set; }
 
@@ -36,15 +36,7 @@ namespace AICompanion.Core
                 _raw.Append(piece);
             }
 
-            var safe = SafeLength(_raw);
-            if (safe <= _emitted)
-            {
-                return string.Empty;
-            }
-
-            var delta = _raw.ToString(_emitted, safe - _emitted);
-            _emitted = safe;
-            return delta;
+            return TakeNew(AnimationCueParser.VisiblePrefix(_raw.ToString()));
         }
 
         public string Flush()
@@ -53,55 +45,27 @@ namespace AICompanion.Core
             Cue = result.Cue;
             Status = result.Status;
             Text = result.Text;
-
-            if (Text.Length <= _emitted)
-            {
-                _emitted = Text.Length;
-                return string.Empty;
-            }
-
-            var delta = Text.Substring(_emitted);
-            _emitted = Text.Length;
-            return delta;
+            return TakeNew(result.Text);
         }
 
-        static int SafeLength(StringBuilder raw)
+        string TakeNew(string visible)
         {
-            var length = raw.Length;
-            var index = raw.Length - 1;
-            while (index >= 0 && raw[index] != '<')
+            if (visible == null)
             {
-                index--;
+                visible = string.Empty;
             }
 
-            if (index < 0)
+            if (visible.StartsWith(_shown, StringComparison.Ordinal))
             {
-                return length;
+                var delta = visible.Substring(_shown.Length);
+                _shown = visible;
+                return delta;
             }
 
-            var remaining = length - index;
-            if (remaining >= Marker.Length)
-            {
-                for (var i = 0; i < Marker.Length; i++)
-                {
-                    if (char.ToLowerInvariant(raw[index + i]) != char.ToLowerInvariant(Marker[i]))
-                    {
-                        return length;
-                    }
-                }
-
-                return index;
-            }
-
-            for (var i = 0; i < remaining; i++)
-            {
-                if (char.ToLowerInvariant(raw[index + i]) != char.ToLowerInvariant(Marker[i]))
-                {
-                    return length;
-                }
-            }
-
-            return index;
+            // The parsed text trimmed a prefix that was already released, usually the
+            // space before a tag. Do not speak that prefix again.
+            _shown = visible;
+            return string.Empty;
         }
     }
 }
