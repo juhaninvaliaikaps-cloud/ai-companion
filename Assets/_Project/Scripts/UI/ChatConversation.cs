@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using AICompanion.AI;
+using AICompanion.Core;
 
 namespace AICompanion.UI
 {
@@ -275,6 +276,12 @@ namespace AICompanion.UI
 
         public Action<string> SpokenDelta;
 
+        /// <summary>The cue parsed from the last successful reply.</summary>
+        public AnimationCue LastCue { get; private set; }
+
+        CueStreamFilter _filter;
+        int _generation;
+
         public Task<ChatResult> Run(IChatProvider provider, string userText, string systemPrompt, float temperature, int maxTokens, CancellationToken token)
         {
             if (!_conversation.TryBeginSend(userText, systemPrompt, temperature, maxTokens, out var request))
@@ -295,6 +302,9 @@ namespace AICompanion.UI
             }
 
             var generation = _conversation.Generation;
+            _generation = generation;
+            _filter = new CueStreamFilter();
+            LastCue = AnimationCueParser.NeutralCue;
             if (Talking != null)
                 Talking(true);
 
@@ -303,16 +313,12 @@ namespace AICompanion.UI
             {
                 pending = provider.StreamChat(request, piece =>
                 {
-                    _conversation.PushDelta(generation, piece);
-                    if (SpokenDelta == null)
+                    var shown = _filter.Push(piece);
+                    if (shown.Length == 0)
                         return;
-                    try
-                    {
-                        SpokenDelta(piece);
-                    }
-                    catch (Exception)
-                    {
-                    }
+
+                    _conversation.PushDelta(generation, shown);
+                    Speak(shown);
                 }, token);
             }
             catch (Exception)
@@ -344,8 +350,7 @@ namespace AICompanion.UI
                     result = ChatResult.Fail(ChatErrorKind.Unreachable, ChatErrors.Unreachable("the chat provider"));
                 }
 
-                _conversation.Complete(result);
-                return result;
+                return Settle(result);
             }
             finally
             {
@@ -358,14 +363,49 @@ namespace AICompanion.UI
         {
             try
             {
-                var result = Read(pending);
-                _conversation.Complete(result);
-                return result;
+                return Settle(Read(pending));
             }
             finally
             {
                 if (Talking != null)
                     Talking(false);
+            }
+        }
+
+        /// <summary>
+        /// Releases the held-back tail, seals the visible text, and hands the cue to the
+        /// director. The reply stored in the transcript is the text without the tag.
+        /// </summary>
+        ChatResult Settle(ChatResult result)
+        {
+            if (_filter != null && result.Ok)
+            {
+                var tail = _filter.Flush();
+                if (tail.Length > 0)
+                {
+                    _conversation.PushDelta(_generation, tail);
+                    Speak(tail);
+                }
+
+                LastCue = _filter.Cue;
+                result = ChatResult.Success(_filter.Text);
+            }
+
+            _conversation.Complete(result);
+            return result;
+        }
+
+        void Speak(string piece)
+        {
+            if (SpokenDelta == null)
+                return;
+
+            try
+            {
+                SpokenDelta(piece);
+            }
+            catch (Exception)
+            {
             }
         }
 

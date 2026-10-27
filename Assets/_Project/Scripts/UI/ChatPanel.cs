@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Threading;
 using AICompanion.AI;
 using AICompanion.Core;
+using Director = AICompanion.AnimationDirector.AnimationDirector;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -255,6 +256,9 @@ namespace AICompanion.UI
             }
 
             var prompt = settings.systemPrompt;
+            var director = GetComponent<Director>();
+            if (director != null)
+                prompt += director.SystemPromptSuffix;
             var temperature = settings.temperature;
             var maxTokens = settings.maxTokens;
             Dispatch(provider, text, prompt, temperature, maxTokens, _cancel.Token);
@@ -266,6 +270,9 @@ namespace AICompanion.UI
             var result = await _exchange.Run(provider, text, prompt, temperature, maxTokens, token);
             if (!_alive)
                 return;
+
+            if (result.Ok)
+                ApplyCue();
 
             BindSpeech();
             if (_speech != null && _cancel != null && _cancel.Token.Equals(token))
@@ -349,6 +356,18 @@ namespace AICompanion.UI
             var animator = GetComponent<IAvatarAnimator>();
             if (animator != null)
                 animator.SetTalking(talking);
+        }
+
+        /// <summary>
+        /// Hands the cue parsed from the finished reply to the director. The tag itself
+        /// never reached the transcript or speech, so the avatar reacts to what was said
+        /// rather than to markup.
+        /// </summary>
+        void ApplyCue()
+        {
+            var director = GetComponent<Director>();
+            if (director != null)
+                director.Play(_exchange.LastCue);
         }
 
         public void ShowSpeechNote(string message)

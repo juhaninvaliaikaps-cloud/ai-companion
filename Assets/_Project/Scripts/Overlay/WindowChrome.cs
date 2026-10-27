@@ -18,6 +18,7 @@ namespace AICompanion.Overlay
         bool TryGetWindowRect(out int left, out int top, out int right, out int bottom);
         bool TryGetWorkArea(out int left, out int top, out int right, out int bottom);
         void MoveWindow(Vector2Int topLeft, bool topmost);
+        void PlaceWindow(Vector2Int topLeft, int width, int height, bool topmost);
         void FocusForTyping();
     }
 
@@ -97,6 +98,10 @@ namespace AICompanion.Overlay
         }
 
         public void MoveWindow(Vector2Int topLeft, bool topmost)
+        {
+        }
+
+        public void PlaceWindow(Vector2Int topLeft, int width, int height, bool topmost)
         {
         }
 
