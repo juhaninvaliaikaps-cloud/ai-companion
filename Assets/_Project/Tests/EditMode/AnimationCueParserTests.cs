@@ -85,5 +85,60 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(AnimationCueParser.DefaultIntensity, result.Cue.Intensity, 0.0001f);
             Assert.AreEqual(string.Empty, result.Cue.Gesture);
         }
+
+        [Test]
+        public void Parse_KeepsTextAfterAClosedTag()
+        {
+            var result = AnimationCueParser.Parse("Hello\n<animation emotion=\"happy\" intensity=\"0.8\" />\nthere");
+
+            Assert.AreEqual("Hello\nthere", result.Text);
+            Assert.AreEqual(CueParseStatus.Parsed, result.Status);
+            Assert.AreEqual(Emotion.Happy, result.Cue.Emotion);
+            Assert.AreEqual(0.8f, result.Cue.Intensity, 0.0001f);
+        }
+
+        [Test]
+        public void Parse_DoesNotTreatALongerWordAsACueTag()
+        {
+            var result = AnimationCueParser.Parse("See the <animations> list");
+
+            Assert.AreEqual("See the <animations> list", result.Text);
+            Assert.AreEqual(CueParseStatus.None, result.Status);
+        }
+
+        [Test]
+        public void Parse_ReadsSingleQuotedAttributes()
+        {
+            var result = AnimationCueParser.Parse("Ok.\n<animation emotion='sad' intensity='0.25' gesture='nod' />");
+
+            Assert.AreEqual("Ok.", result.Text);
+            Assert.AreEqual(CueParseStatus.Parsed, result.Status);
+            Assert.AreEqual(Emotion.Sad, result.Cue.Emotion);
+            Assert.AreEqual(0.25f, result.Cue.Intensity, 0.0001f);
+            Assert.AreEqual("nod", result.Cue.Gesture);
+        }
+
+        [Test]
+        public void Parse_NaNIntensity_IsInvalid()
+        {
+            var result = AnimationCueParser.Parse("Hi.\n<animation emotion=\"happy\" intensity=\"NaN\" />");
+
+            Assert.AreEqual("Hi.", result.Text);
+            Assert.AreEqual(CueParseStatus.Invalid, result.Status);
+            Assert.AreEqual(Emotion.Neutral, result.Cue.Emotion);
+            Assert.AreEqual(AnimationCueParser.NeutralIntensity, result.Cue.Intensity, 0.0001f);
+        }
+
+        [Test]
+        public void Parse_LastClosedTagWinsAndEarlierTagsAreStripped()
+        {
+            var result = AnimationCueParser.Parse(
+                "Hi <animation emotion=\"happy\" /> there <animation emotion=\"sad\" gesture=\"shrug\" />");
+
+            Assert.AreEqual("Hi there", result.Text);
+            Assert.AreEqual(CueParseStatus.Parsed, result.Status);
+            Assert.AreEqual(Emotion.Sad, result.Cue.Emotion);
+            Assert.AreEqual("shrug", result.Cue.Gesture);
+        }
     }
 }

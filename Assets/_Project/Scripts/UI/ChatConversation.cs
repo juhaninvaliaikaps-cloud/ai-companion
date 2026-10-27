@@ -40,6 +40,11 @@ namespace AICompanion.UI
                 Text = text;
         }
 
+        internal void SetText(string text)
+        {
+            Text = text ?? string.Empty;
+        }
+
         internal void Stop()
         {
             Streaming = false;
@@ -104,6 +109,29 @@ namespace AICompanion.UI
 
             line.Append(piece);
             Touch();
+        }
+
+        /// <summary>
+        /// Replaces the streaming assistant line. Used when the cue filter's final
+        /// text is the source of truth, so a tag that slipped into a delta cannot
+        /// stay in the transcript or the next request.
+        /// </summary>
+        public bool ReplaceStreamingAssistant(int generation, string text)
+        {
+            if (generation != Generation)
+                return false;
+
+            var line = StreamingAssistant();
+            if (line == null)
+                return false;
+
+            var clean = text ?? string.Empty;
+            if (line.Text == clean)
+                return true;
+
+            line.SetText(clean);
+            Touch();
+            return true;
         }
 
         public void Complete(ChatResult result)
@@ -281,6 +309,7 @@ namespace AICompanion.UI
 
         CueStreamFilter _filter;
         int _generation;
+        bool _sawPiece;
 
         public Task<ChatResult> Run(IChatProvider provider, string userText, string systemPrompt, float temperature, int maxTokens, CancellationToken token)
         {
@@ -304,6 +333,7 @@ namespace AICompanion.UI
             var generation = _conversation.Generation;
             _generation = generation;
             _filter = new CueStreamFilter();
+            _sawPiece = false;
             LastCue = AnimationCueParser.NeutralCue;
             if (Talking != null)
                 Talking(true);
@@ -313,6 +343,9 @@ namespace AICompanion.UI
             {
                 pending = provider.StreamChat(request, piece =>
                 {
+                    if (!string.IsNullOrEmpty(piece))
+                        _sawPiece = true;
+
                     var shown = _filter.Push(piece);
                     if (shown.Length == 0)
                         return;
@@ -375,20 +408,36 @@ namespace AICompanion.UI
         /// <summary>
         /// Releases the held-back tail, seals the visible text, and hands the cue to the
         /// director. The reply stored in the transcript is the text without the tag.
+        /// A failed reply still releases a held suffix that was not a tag, and does not
+        /// adopt a cue.
         /// </summary>
         ChatResult Settle(ChatResult result)
         {
-            if (_filter != null && result.Ok)
+            if (_filter != null)
             {
+                if (result.Ok && !_sawPiece && !string.IsNullOrEmpty(result.Text))
+                    _filter.Push(result.Text);
+
                 var tail = _filter.Flush();
                 if (tail.Length > 0)
-                {
                     _conversation.PushDelta(_generation, tail);
-                    Speak(tail);
-                }
 
-                LastCue = _filter.Cue;
-                result = ChatResult.Success(_filter.Text);
+                if (result.Ok)
+                {
+                    if (!_sawPiece)
+                    {
+                        if (_filter.Text.Length > 0)
+                            Speak(_filter.Text);
+                    }
+                    else if (tail.Length > 0)
+                    {
+                        Speak(tail);
+                    }
+
+                    LastCue = _filter.Cue;
+                    _conversation.ReplaceStreamingAssistant(_generation, _filter.Text);
+                    result = ChatResult.Success(_filter.Text);
+                }
             }
 
             _conversation.Complete(result);

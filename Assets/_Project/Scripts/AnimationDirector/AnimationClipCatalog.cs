@@ -42,8 +42,9 @@ namespace AICompanion.AnimationDirector
         }
 
         /// <summary>
-        /// True when the catalog has an entry for this gesture name. A cue with an
-        /// unknown gesture falls back to the emotion, so a miss here is not an error.
+        /// True when a row's gesture field matches. The director also tries
+        /// <see cref="TryGetById"/> first, because the prompt asks for catalog ids.
+        /// A miss on both is not an error; the director plays neutral.
         /// </summary>
         public bool TryGetByGesture(string gesture, out AnimationEntry entry)
         {
@@ -130,7 +131,14 @@ namespace AICompanion.AnimationDirector
         public bool Validate(out List<string> problems)
         {
             problems = new List<string>();
-            HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (entries == null)
+            {
+                problems.Add("Catalog has no entry list.");
+                return false;
+            }
+
+            HashSet<string> seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> seenGestures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             for (int i = 0; i < entries.Count; i++)
             {
@@ -146,7 +154,7 @@ namespace AICompanion.AnimationDirector
                 {
                     problems.Add("Entry " + i + " has no id.");
                 }
-                else if (!seen.Add(id))
+                else if (!seenIds.Add(id))
                 {
                     problems.Add("Duplicate id '" + id + "'.");
                 }
@@ -154,8 +162,18 @@ namespace AICompanion.AnimationDirector
                 {
                     problems.Add("Entry '" + id + "' has no description.");
                 }
+                else if (!AnimationCueParser.IsCueToken(id))
+                {
+                    problems.Add("Entry '" + id + "' has an id that cannot be written in a cue tag.");
+                }
 
-                if (entry.intensity < AnimationCue.MinIntensity || entry.intensity > AnimationCue.MaxIntensity)
+                if (HasLineBreak(entry.description))
+                {
+                    problems.Add("Entry '" + id + "' has a line break in its description.");
+                }
+
+                if (entry.intensity < AnimationCue.MinIntensity || entry.intensity > AnimationCue.MaxIntensity ||
+                    float.IsNaN(entry.intensity))
                 {
                     problems.Add("Entry '" + id + "' has intensity outside 0 to 1.");
                 }
@@ -164,9 +182,61 @@ namespace AICompanion.AnimationDirector
                 {
                     problems.Add("Entry '" + id + "' has a negative duration.");
                 }
+
+                if (entry.HasGesture)
+                {
+                    string gesture = entry.gesture.Trim();
+                    if (!AnimationCueParser.IsCueToken(gesture))
+                    {
+                        problems.Add("Entry '" + id + "' has a gesture that cannot be written in a cue tag.");
+                    }
+                    else if (!seenGestures.Add(gesture))
+                    {
+                        problems.Add("Duplicate gesture '" + gesture + "'.");
+                    }
+                }
+
+                if (entry.HasAnimatorState &&
+                    (entry.animatorState != entry.animatorState.Trim() || HasLineBreak(entry.animatorState)))
+                {
+                    problems.Add("Entry '" + id + "' has an animator state name with surrounding space or a line break.");
+                }
+
+                if (entry.tags != null)
+                {
+                    for (int t = 0; t < entry.tags.Length; t++)
+                    {
+                        if (HasLineBreak(entry.tags[t]))
+                        {
+                            problems.Add("Entry '" + id + "' has a line break in a tag.");
+                            break;
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                AnimationEntry entry = entries[i];
+                if (entry == null || !entry.HasGesture)
+                {
+                    continue;
+                }
+
+                string gesture = entry.gesture.Trim();
+                string id = entry.id == null ? string.Empty : entry.id.Trim();
+                if (seenIds.Contains(gesture) && !string.Equals(gesture, id, StringComparison.OrdinalIgnoreCase))
+                {
+                    problems.Add("Gesture '" + gesture + "' is another row's id, so an id lookup hides this gesture.");
+                }
             }
 
             return problems.Count == 0;
+        }
+
+        private static bool HasLineBreak(string value)
+        {
+            return value != null && (value.IndexOf('\n') >= 0 || value.IndexOf('\r') >= 0);
         }
 
         /// <summary>

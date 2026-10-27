@@ -22,7 +22,7 @@ A JSON file would need its own parser and a path lookup at runtime. The catalog 
 | `clip` | Optional direct reference, used for authoring and for the inspector. The director addresses states by name. |
 | `durationSeconds` | Planned length. `0` means the clip is not ready yet. |
 
-A row may have a gesture and no state, or a state and no gesture. Both are valid; the director falls back to the emotion when a gesture is unknown, and to idle when neither resolves.
+A row may have a gesture and no state, or a state and no gesture. Both are valid. The director matches a cue's gesture string to an id first and then to a gesture name. A known row without its own gesture state uses that row's emotion. An unknown gesture plays neutral, not the emotion written on the tag.
 
 ## Starter entries
 
@@ -43,7 +43,7 @@ Rows without an id are skipped, so a half-filled draft cannot reach the model. T
 
 ## Tests
 
-`Assets/_Project/Tests/EditMode/AnimationCatalogTests.cs` covers the prompt format, the id, gesture, and emotion lookups, and validation of duplicate ids and missing descriptions. One test loads the committed asset itself and checks ten entries, a valid catalog, resolved clips on the `idle` row, and the `wave` gesture lookup, so a broken asset fails the suite instead of failing at runtime.
+`Assets/_Project/Tests/EditMode/AnimationCatalogTests.cs` covers the prompt format, the id, gesture, and emotion lookups, and validation of duplicate ids, duplicate gestures, cue tokens, prompt line breaks, and a gesture that collides with another row's id. One test loads the committed asset itself and checks ten entries, a valid catalog, resolved clips on the `idle` row, the `wave` gesture lookup, and that every animator state name exists in `Companion.controller`.
 
 ## Consumers
 

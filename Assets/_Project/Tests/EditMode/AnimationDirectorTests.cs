@@ -83,6 +83,33 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Decide_CatalogId_ResolvesTheGestureRow()
+        {
+            var model = NewModel(Entry("wave_hello", Emotion.Happy, 0.7f, "wave", string.Empty));
+
+            var decision = model.Decide(new AnimationCue(Emotion.Sad, 0.2f, "wave_hello"));
+
+            Assert.AreEqual(DirectorAction.Emotion, decision.Action);
+            Assert.AreEqual(Emotion.Happy, decision.Emotion);
+            Assert.AreEqual(0.7f, decision.Intensity, 0.0001f);
+            Assert.AreEqual("wave_hello", decision.EntryId);
+        }
+
+        [Test]
+        public void Decide_EmotionId_StaysOnTheEmotionPath()
+        {
+            var model = NewModel(Entry("happy", Emotion.Happy, 0.8f, string.Empty, "Happy"));
+
+            var decision = model.Decide(new AnimationCue(Emotion.Neutral, 0.2f, "happy"));
+
+            Assert.AreEqual(DirectorAction.Emotion, decision.Action);
+            Assert.AreEqual(string.Empty, decision.StateName);
+            Assert.AreEqual(Emotion.Happy, decision.Emotion);
+            Assert.AreEqual(0.8f, decision.Intensity, 0.0001f);
+            Assert.AreEqual("happy", decision.EntryId);
+        }
+
+        [Test]
         public void Decide_WithoutCatalog_StillHandlesAnEmotion()
         {
             var model = new AnimationDirectorModel(null);

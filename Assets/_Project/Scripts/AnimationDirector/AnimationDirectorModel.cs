@@ -33,9 +33,9 @@ namespace AICompanion.AnimationDirector
 
     /// <summary>
     /// Turns a cue into a decision using the catalog. Pure logic, so tests do not need
-    /// an Animator. A gesture that the catalog knows and that has an Animator state
-    /// wins; a known gesture without a state falls back to its emotion; an unknown
-    /// gesture falls back to neutral.
+    /// an Animator. The gesture string is a catalog id or a gesture name. A gesture
+    /// row with an Animator state wins; any other known row uses its emotion, so
+    /// emotion states stay on the parameter path. An unknown gesture falls back to neutral.
     /// </summary>
     public sealed class AnimationDirectorModel
     {
@@ -55,11 +55,19 @@ namespace AICompanion.AnimationDirector
             if (gesture.Length > 0)
             {
                 AnimationEntry entry;
-                if (_catalog != null && _catalog.TryGetByGesture(gesture, out entry))
+                if (TryResolve(gesture, out entry))
                 {
-                    if (entry.HasAnimatorState)
+                    // Emotion rows name a base-layer state that AnyState already drives.
+                    // Cross-fading those fights that transition. Only a gesture row with
+                    // its own state takes the cross-fade path.
+                    if (entry.HasGesture && entry.HasAnimatorState)
                     {
-                        return new DirectorDecision(DirectorAction.GestureState, entry.animatorState, entry.emotion, entry.intensity, entry.id);
+                        return new DirectorDecision(
+                            DirectorAction.GestureState,
+                            entry.animatorState.Trim(),
+                            entry.emotion,
+                            entry.intensity,
+                            entry.id);
                     }
 
                     return new DirectorDecision(DirectorAction.Emotion, string.Empty, entry.emotion, entry.intensity, entry.id);
@@ -79,6 +87,22 @@ namespace AICompanion.AnimationDirector
         public static DirectorDecision Neutral()
         {
             return new DirectorDecision(DirectorAction.Neutral, AvatarAnimatorStates.Idle, Emotion.Neutral, NeutralIntensity, string.Empty);
+        }
+
+        bool TryResolve(string gesture, out AnimationEntry entry)
+        {
+            entry = null;
+            if (_catalog == null || gesture.Length == 0)
+            {
+                return false;
+            }
+
+            if (_catalog.TryGetById(gesture, out entry))
+            {
+                return true;
+            }
+
+            return _catalog.TryGetByGesture(gesture, out entry);
         }
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using AICompanion.Core;
 using UnityEngine;
 
@@ -60,14 +61,16 @@ namespace AICompanion.AnimationDirector
 
         public void Resolve()
         {
-            _animator = GetComponent<IAvatarAnimator>();
-            _states = GetComponent<IAnimationStatePlayer>();
+            var animator = GetComponent<IAvatarAnimator>();
+            var states = GetComponent<IAnimationStatePlayer>();
+            _animator = IsAlive(animator) ? animator : null;
+            _states = IsAlive(states) ? states : null;
             _model = catalog == null ? null : new AnimationDirectorModel(catalog);
         }
 
         public void Play(AnimationCue cue)
         {
-            if (_model == null)
+            if (_model == null || !IsAlive(_animator) || !IsAlive(_states))
             {
                 Resolve();
             }
@@ -89,15 +92,40 @@ namespace AICompanion.AnimationDirector
 
         void Apply(DirectorDecision decision)
         {
-            if (_animator != null)
+            if (IsAlive(_animator))
             {
                 _animator.SetEmotion(decision.Emotion, decision.Intensity);
             }
 
-            if (decision.Action == DirectorAction.GestureState && _states != null && decision.StateName.Length > 0)
+            if (decision.Action != DirectorAction.GestureState || !IsAlive(_states) || decision.StateName.Length == 0)
+            {
+                return;
+            }
+
+            try
             {
                 _states.TryPlayState(decision.StateName, gestureCrossfadeSeconds);
             }
+            catch (Exception)
+            {
+                // A missing or swapped Animator must not fail the reply that carried the cue.
+            }
+        }
+
+        static bool IsAlive(object target)
+        {
+            if (target == null)
+            {
+                return false;
+            }
+
+            var unityObject = target as UnityEngine.Object;
+            if (ReferenceEquals(unityObject, null))
+            {
+                return true;
+            }
+
+            return unityObject != null;
         }
     }
 }
