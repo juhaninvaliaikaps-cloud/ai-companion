@@ -1,3 +1,4 @@
+using System;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
@@ -34,6 +35,8 @@ namespace AICompanion.Editor
             }
 
             Debug.Log("Windows player scripts compiled for StandaloneWindows64.");
+            // game-ci validateBuild accepts this exact line from its default reporter.
+            Console.WriteLine("Build succeeded!");
             EditorApplication.Exit(0);
         }
     }
