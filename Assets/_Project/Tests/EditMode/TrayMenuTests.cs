@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using AICompanion.AnimationDirector;
 using AICompanion.Core;
 using AICompanion.Overlay;
 using AICompanion.Voice;
 using NUnit.Framework;
 using UnityEngine;
+using Director = AICompanion.AnimationDirector.AnimationDirector;
 
 namespace AICompanion.Tests.EditMode
 {
@@ -104,7 +104,7 @@ namespace AICompanion.Tests.EditMode
             try
             {
                 var animator = host.AddComponent<CountingAnimator>();
-                var director = host.AddComponent<AnimationDirector>();
+                var director = host.AddComponent<Director>();
                 director.Resolve();
                 director.SetSuppressed(true);
 
