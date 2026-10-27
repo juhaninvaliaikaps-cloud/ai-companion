@@ -128,6 +128,7 @@ LocalAvatars/              gitignored. Asset Store models such as Asuna go here.
   Plugins/                   native or third-party plug-ins that are not UPM packages
   Editor/CliCommands/        Unity CLI [CliCommand] methods               AICompanion.Editor.CliCommands
   Editor/Chat/               xAI API key menu                             AICompanion.Editor.Chat
+  Editor/Voice/              Whisper model download                       AICompanion.Editor.Voice
   Tests/
     EditMode/              editor tests, including AnimationCueTests
     PlayMode/              play-mode tests, including AppBootstrapPlayModeTests
@@ -135,13 +136,13 @@ Config/
   appsettings.example.json pointer only; the xAI key is not stored here
 ```
 
-`AICompanion.AI` references `Core`. `UI` references `Core`, `AI`, and uGUI. `Avatar` references `Core` and UniVRM's `VRM10` assembly. `AICompanion.Voice` references `Core`, `AI`, and the Unity web request module so speech can use the same xAI key lookup as chat. `UI` does not reference `Voice`. The panel reaches speech through `ISpeechOutput` and `ISpeechNotes` in `Core`. AnimationDirector and Overlay each reference `Core` only. `AnimationCue` lives in `Core` because both the provider layer and the director will use it.
+`AICompanion.AI` references `Core`. `UI` references `Core`, `AI`, and uGUI. `Avatar` references `Core` and UniVRM's `VRM10` assembly. `AICompanion.Voice` references `Core`, `AI`, the embedded `com.whisper.unity` package, and the Unity web request module so speech can use the same xAI key lookup as chat. `UI` does not reference `Voice`. The panel reaches speech through `ISpeechOutput`, `ISpeechNotes`, `IChatSubmitter`, and `IPushToTalk` in `Core`. AnimationDirector and Overlay each reference `Core` only. `AnimationCue` lives in `Core` because both the provider layer and the director will use it.
 
 Git LFS tracks binary assets (`.fbx`, `.vrm`, `.png`, `.wav`, audio, video, and similar). Scenes, prefabs, and `.asset` files stay as text. Run `git lfs install` before adding those binaries.
 
 ## What the skeleton contains
 
-- `IChatProvider.StreamChat` is the boundary for a cloud or local LLM. Grok is the first provider. Callers resolve the id on `ChatSettings` through `ChatProviderRegistry`. The API key stays outside the repo. The chat panel sends the session through that registry. **F10** shows it, **Enter** sends, and a reply streams into the transcript. See [docs/CHAT_UI.md](docs/CHAT_UI.md). Spoken replies go through `ITtsProvider`. The first voice is xAI's `eve`. **F6** mutes it. See [docs/VOICE.md](docs/VOICE.md).
+- `IChatProvider.StreamChat` is the boundary for a cloud or local LLM. Grok is the first provider. Callers resolve the id on `ChatSettings` through `ChatProviderRegistry`. The API key stays outside the repo. The chat panel sends the session through that registry. **F10** shows it, **Enter** sends, and a reply streams into the transcript. See [docs/CHAT_UI.md](docs/CHAT_UI.md). Spoken replies go through `ITtsProvider`. The first voice is xAI's `eve`. **F6** mutes it. Hold **V** or the **Mic** button for local Whisper speech-to-text. See [docs/VOICE.md](docs/VOICE.md).
 - `AnimationCue` carries an `Emotion`, an intensity clamped to 0–1, and a gesture name.
 - `AnimationClipCatalog` in `Assets/_Project/Settings/AnimationCatalog.asset` is the data-driven animation list: ten starter rows, lookups by id, gesture, and emotion, and a compact prompt list for the model. Adding an animation is an entry, not a code change. See [docs/ANIMATION_CATALOG.md](docs/ANIMATION_CATALOG.md).
 - `AnimationDirector` reads the cue the model appends to a reply, hides it from the transcript and speech, and maps it to an Animator state or an emotion through the catalog. See [docs/ANIMATION_DIRECTOR.md](docs/ANIMATION_DIRECTOR.md). The cue is `<animation emotion="happy" gesture="wave" />` on its own line at the end of the reply.

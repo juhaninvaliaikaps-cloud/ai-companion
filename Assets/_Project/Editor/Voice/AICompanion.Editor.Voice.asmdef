@@ -1,0 +1,16 @@
+{
+    "name": "AICompanion.Editor.Voice",
+    "rootNamespace": "AICompanion.Editor.Voice",
+    "references": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -129,6 +129,11 @@ Desktop.ini
 /Assets/Free Test Character Asuna/
 /Assets/Free Test Character Asuna.meta
 
+# Whisper weights. Download with AI Companion > Download Whisper Model. See docs/VOICE.md.
+/Assets/StreamingAssets/Whisper/*.bin
+/Assets/StreamingAssets/Whisper/*.bin.meta
+/Assets/StreamingAssets/Whisper/*.partial
+
 # Local secrets. The xAI key lives outside the repo. See docs/CHAT_PROVIDERS.md.
 /Config/appsettings.json
 /Config/*.local.json

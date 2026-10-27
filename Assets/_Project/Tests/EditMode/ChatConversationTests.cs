@@ -430,11 +430,14 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(DebugInputGuard.IsBlocked(KeyCode.F7));
             Assert.IsTrue(DebugInputGuard.IsBlocked(KeyCode.F8));
             Assert.IsTrue(DebugInputGuard.IsBlocked(KeyCode.F9));
+            Assert.IsTrue(DebugInputGuard.IsBlocked(KeyCode.V));
+            Assert.IsTrue(DebugInputGuard.IsBlocked(KeyCode.A));
             Assert.IsFalse(DebugInputGuard.IsBlocked(KeyCode.F10));
             Assert.IsFalse(DebugInputGuard.IsBlocked(KeyCode.Escape));
 
             DebugInputGuard.SetTextFieldFocused(false);
             Assert.IsFalse(DebugInputGuard.IsBlocked(KeyCode.F8));
+            Assert.IsFalse(DebugInputGuard.IsBlocked(KeyCode.V));
         }
 
         static void Finish(ChatConversation conversation, string user, string reply)

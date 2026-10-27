@@ -16,7 +16,7 @@ namespace AICompanion.UI
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(-200)]
-    public sealed class ChatPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IAvatarDoubleClick, ISpeechNotes
+    public sealed class ChatPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IAvatarDoubleClick, ISpeechNotes, IChatSubmitter
     {
         const string OpenPref = "ai-companion.chat-open";
         const string HelloPrompt = "Say hello in one short sentence.";
@@ -37,7 +37,11 @@ namespace AICompanion.UI
         Text _transcript;
         Text _actionLabel;
         Text _muteLabel;
+        Text _micLabel;
+        Image _micImage;
         ISpeechOutput _speech;
+        IPushToTalk _talk;
+        bool _wasRecording;
         InputField _input;
         InputField _keyInput;
         Sprite _white;
@@ -74,6 +78,9 @@ namespace AICompanion.UI
             {
                 if (_conversation != null && _conversation.IsBusy)
                     return true;
+                BindTalk();
+                if (_talk != null && (_talk.IsRecording || _talk.IsTranscribing))
+                    return true;
                 BindSpeech();
                 if (_speech != null && _speech.IsSpeaking)
                     return true;
@@ -109,6 +116,7 @@ namespace AICompanion.UI
         void OnDisable()
         {
             DebugInputGuard.SetTextFieldFocused(false);
+            SetMicHeld(false);
         }
 
         void OnDestroy()
@@ -173,6 +181,7 @@ namespace AICompanion.UI
             if (_actionLabel != null)
                 _actionLabel.text = busy || speaking ? "Stop" : "Send";
             RefreshMuteLabel();
+            RefreshMic();
             if (_input != null && _conversation != null)
                 _input.interactable = !busy;
 
@@ -209,6 +218,17 @@ namespace AICompanion.UI
                 _input.text = string.Empty;
                 _input.ActivateInputField();
             }
+        }
+
+        public bool SubmitUserText(string text)
+        {
+            if (!_alive)
+                return false;
+            if (!_started)
+                StartCompanion();
+            if (!_visible)
+                SetVisible(true, false);
+            return TrySend(text);
         }
 
         bool TrySend(string text)
@@ -389,6 +409,35 @@ namespace AICompanion.UI
 
             BindSpeech();
             _muteLabel.text = _speech != null && _speech.IsMuted ? "Muted" : "Mute";
+        }
+
+        void RefreshMic()
+        {
+            BindTalk();
+            var recording = _talk != null && _talk.IsRecording;
+            var waiting = _talk != null && _talk.IsTranscribing;
+            if (recording && !_wasRecording && !_visible)
+                SetVisible(true, false);
+            _wasRecording = recording;
+            if (_micLabel != null)
+                _micLabel.text = recording ? "Rec" : waiting ? "..." : "Mic";
+            if (_micImage != null)
+                _micImage.color = recording
+                    ? new Color(0.72f, 0.16f, 0.18f, 1f)
+                    : new Color(0.36f, 0.28f, 0.46f, 1f);
+        }
+
+        void BindTalk()
+        {
+            if (_talk == null)
+                _talk = GetComponent<IPushToTalk>();
+        }
+
+        void SetMicHeld(bool held)
+        {
+            BindTalk();
+            if (_talk != null)
+                _talk.SetButtonHeld(held);
         }
 
         void SetVisible(bool visible, bool focusInput)
@@ -750,13 +799,23 @@ namespace AICompanion.UI
             transcriptRect.anchoredPosition = Vector2.zero;
             transcriptRect.sizeDelta = new Vector2(-8f, 8f);
 
+            var mic = CreateHoldButton(_panel.transform, font, "Mic");
+            var micRect = mic.GetComponent<RectTransform>();
+            micRect.anchorMin = new Vector2(0f, 0f);
+            micRect.anchorMax = new Vector2(0f, 0f);
+            micRect.pivot = new Vector2(0f, 0f);
+            micRect.anchoredPosition = new Vector2(6f, 34f);
+            micRect.sizeDelta = new Vector2(44f, 26f);
+            _micImage = mic.GetComponent<Image>();
+            _micLabel = mic.GetComponentInChildren<Text>();
+
             _input = CreateField(_panel.transform, font, "Message", false);
             var inputRect = _input.GetComponent<RectTransform>();
             inputRect.anchorMin = new Vector2(0f, 0f);
             inputRect.anchorMax = new Vector2(1f, 0f);
             inputRect.pivot = new Vector2(0.5f, 0f);
-            inputRect.anchoredPosition = new Vector2(0f, 34f);
-            inputRect.sizeDelta = new Vector2(-12f, 26f);
+            inputRect.anchoredPosition = new Vector2(23f, 34f);
+            inputRect.sizeDelta = new Vector2(-58f, 26f);
             _input.onSubmit.AddListener(SubmitDraft);
 
             _keyInput = CreateField(_panel.transform, font, "API key", true);
@@ -813,6 +872,33 @@ namespace AICompanion.UI
             input.textComponent = text;
             input.placeholder = hint;
             return input;
+        }
+
+        GameObject CreateHoldButton(Transform parent, Font font, string label)
+        {
+            var buttonObject = new GameObject(label);
+            buttonObject.transform.SetParent(parent, false);
+            buttonObject.AddComponent<RectTransform>();
+            var image = buttonObject.AddComponent<Image>();
+            image.sprite = _white;
+            image.color = new Color(0.36f, 0.28f, 0.46f, 1f);
+            image.raycastTarget = true;
+            var trigger = buttonObject.AddComponent<EventTrigger>();
+            AddHold(trigger, EventTriggerType.PointerDown, true);
+            AddHold(trigger, EventTriggerType.PointerUp, false);
+            AddHold(trigger, EventTriggerType.PointerExit, false);
+            var text = CreateText(buttonObject.transform, font, 12, TextAnchor.MiddleCenter, label);
+            Stretch(text.rectTransform, 2f, 1f, 2f, 1f);
+            text.raycastTarget = false;
+            return buttonObject;
+        }
+
+        void AddHold(EventTrigger trigger, EventTriggerType type, bool held)
+        {
+            var entry = new EventTrigger.Entry();
+            entry.eventID = type;
+            entry.callback.AddListener(_ => SetMicHeld(held));
+            trigger.triggers.Add(entry);
         }
 
         Button CreateButton(Transform parent, Font font, string label, UnityEngine.Events.UnityAction onClick)
