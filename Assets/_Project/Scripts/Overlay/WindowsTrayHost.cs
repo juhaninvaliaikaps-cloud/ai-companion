@@ -2,8 +2,8 @@
 using System;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
-using Microsoft.Win32;
 
 namespace AICompanion.Overlay
 {
@@ -601,28 +601,56 @@ namespace AICompanion.Overlay
         static extern IntPtr CreateIconIndirect(ref IconInfo iconInfo);
     }
 
+    /// <summary>
+    /// HKCU Run key via advapi32. The player API profile is .NET Standard, which
+    /// does not include Microsoft.Win32.Registry.
+    /// </summary>
     public sealed class RegistryStartupRegistration : IStartupRegistration
     {
+        const int ErrorSuccess = 0;
+        const int ErrorFileNotFound = 2;
+        const int ErrorMoreData = 234;
+        const uint RegSz = 1;
+        const uint RegExpandSz = 2;
+        const uint KeyQueryValue = 0x0001;
+        const uint KeySetValue = 0x0002;
+        const uint RegOptionNonVolatile = 0;
+        const int MaxValueBytes = 65536;
+
+        static readonly IntPtr HkeyCurrentUser = new IntPtr(unchecked((int)0x80000001));
+
         public bool TryGetEnabled(string valueName, out bool enabled)
         {
             enabled = false;
             if (string.IsNullOrEmpty(valueName))
                 return false;
 
+            var key = IntPtr.Zero;
             try
             {
-                using (var key = Registry.CurrentUser.OpenSubKey(WindowsStartupEntry.RunSubKey, false))
-                {
-                    if (key == null)
-                        return true;
-                    var value = key.GetValue(valueName) as string;
-                    enabled = !string.IsNullOrWhiteSpace(value);
+                var opened = RegOpenKeyExW(HkeyCurrentUser, WindowsStartupEntry.RunSubKey, 0, KeyQueryValue, out key);
+                if (opened == ErrorFileNotFound)
                     return true;
-                }
+                if (opened != ErrorSuccess || key == IntPtr.Zero)
+                    return false;
             }
             catch (Exception)
             {
                 return false;
+            }
+
+            try
+            {
+                return TryReadString(key, valueName, out enabled);
+            }
+            catch (Exception)
+            {
+                enabled = false;
+                return false;
+            }
+            finally
+            {
+                RegCloseKey(key);
             }
         }
 
@@ -633,24 +661,127 @@ namespace AICompanion.Overlay
             if (enabled && string.IsNullOrWhiteSpace(command))
                 return false;
 
+            var key = IntPtr.Zero;
             try
             {
-                using (var key = Registry.CurrentUser.CreateSubKey(WindowsStartupEntry.RunSubKey, true))
-                {
-                    if (key == null)
-                        return false;
-                    if (enabled)
-                        key.SetValue(valueName, command, RegistryValueKind.String);
-                    else
-                        key.DeleteValue(valueName, false);
-                    return true;
-                }
+                uint disposition;
+                var created = RegCreateKeyExW(
+                    HkeyCurrentUser,
+                    WindowsStartupEntry.RunSubKey,
+                    0,
+                    null,
+                    RegOptionNonVolatile,
+                    KeySetValue,
+                    IntPtr.Zero,
+                    out key,
+                    out disposition);
+                if (created != ErrorSuccess || key == IntPtr.Zero)
+                    return false;
             }
             catch (Exception)
             {
                 return false;
             }
+
+            try
+            {
+                if (!enabled)
+                {
+                    var deleted = RegDeleteValueW(key, valueName);
+                    return deleted == ErrorSuccess || deleted == ErrorFileNotFound;
+                }
+
+                var bytes = Encoding.Unicode.GetBytes(command + "\0");
+                if (bytes.Length == 0 || bytes.Length > MaxValueBytes)
+                    return false;
+                return RegSetValueExW(key, valueName, 0, RegSz, bytes, (uint)bytes.Length) == ErrorSuccess;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+            finally
+            {
+                RegCloseKey(key);
+            }
         }
+
+        static bool TryReadString(IntPtr key, string valueName, out bool enabled)
+        {
+            enabled = false;
+            uint type;
+            uint size = 0;
+            var probed = RegQueryValueExW(key, valueName, IntPtr.Zero, out type, null, ref size);
+            if (probed == ErrorFileNotFound)
+                return true;
+            if (probed != ErrorSuccess && probed != ErrorMoreData)
+                return false;
+            if (size == 0)
+                return true;
+            if (size > MaxValueBytes)
+                return false;
+
+            var data = new byte[size];
+            var read = RegQueryValueExW(key, valueName, IntPtr.Zero, out type, data, ref size);
+            if (read == ErrorFileNotFound)
+                return true;
+            if (read != ErrorSuccess)
+                return false;
+            if (type != RegSz && type != RegExpandSz)
+                return true;
+
+            var count = (int)Math.Min(size, (uint)data.Length);
+            if ((count & 1) != 0)
+                count -= 1;
+            if (count <= 0)
+                return true;
+
+            var text = Encoding.Unicode.GetString(data, 0, count);
+            var end = text.IndexOf('\0');
+            if (end >= 0)
+                text = text.Substring(0, end);
+            enabled = !string.IsNullOrWhiteSpace(text);
+            return true;
+        }
+
+        [DllImport("advapi32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+        static extern int RegOpenKeyExW(IntPtr hKey, string subKey, uint options, uint samDesired, out IntPtr result);
+
+        [DllImport("advapi32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+        static extern int RegCreateKeyExW(
+            IntPtr hKey,
+            string subKey,
+            uint reserved,
+            string className,
+            uint options,
+            uint samDesired,
+            IntPtr securityAttributes,
+            out IntPtr result,
+            out uint disposition);
+
+        [DllImport("advapi32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+        static extern int RegQueryValueExW(
+            IntPtr hKey,
+            string valueName,
+            IntPtr reserved,
+            out uint type,
+            byte[] data,
+            ref uint dataBytes);
+
+        [DllImport("advapi32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+        static extern int RegSetValueExW(
+            IntPtr hKey,
+            string valueName,
+            int reserved,
+            uint type,
+            byte[] data,
+            uint dataBytes);
+
+        [DllImport("advapi32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+        static extern int RegDeleteValueW(IntPtr hKey, string valueName);
+
+        [DllImport("advapi32.dll", ExactSpelling = true)]
+        static extern int RegCloseKey(IntPtr hKey);
     }
 }
 #endif

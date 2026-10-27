@@ -91,3 +91,65 @@ jobs:
           name: Test results
           path: ${{ steps.tests.outputs.artifactsPath }}
           if-no-files-found: warn
+
+  # Starts only after unity-tests finishes, so the two jobs never hold the
+  # Personal seat at the same time. EditMode on the Linux editor defines
+  # UNITY_EDITOR and does not compile UNITY_STANDALONE_WIN && !UNITY_EDITOR.
+  windows-player-compile:
+    name: Windows player script compile
+    needs: unity-tests
+    if: always() && needs.unity-tests.result != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check Unity license secrets
+        id: license
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          missing=()
+          if [ -z "$UNITY_EMAIL" ]; then missing+=("UNITY_EMAIL"); fi
+          if [ -z "$UNITY_PASSWORD" ]; then missing+=("UNITY_PASSWORD"); fi
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Windows player compile skipped::Missing GitHub Actions secrets: ${missing[*]}. Add UNITY_EMAIL and UNITY_PASSWORD. Steps are in TESTING.md. This job succeeds so the check is not red before those secrets exist."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.license.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache Library
+        if: steps.license.outputs.skip != 'true'
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-6000.6.6f1-windows-mono-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectVersion.txt') }}
+          restore-keys: |
+            Library-6000.6.6f1-windows-mono-
+
+      - name: Compile StandaloneWindows64 scripts
+        if: steps.license.outputs.skip != 'true'
+        uses: game-ci/unity-builder@v6.0.0
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          # Same Personal activation as the test job. A .ulf is not passed.
+          # Credentials stay in the environment; the CLI does not take them as arguments.
+          GAME_CI_UNITY_LICENSING_METHOD: personal
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          targetPlatform: StandaloneWindows64
+          unityVersion: 6000.6.6f1
+          customImage: unityci/editor:ubuntu-6000.6.6f1-windows-mono-3
+          cliVersion: v0.1.72
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          versioning: None
+          buildName: WindowsPlayerCompile
+          buildsPath: build/windows-player-compile
+          buildMethod: AICompanion.Editor.WindowsPlayerScriptCheck.VerifyStandaloneWindows64
