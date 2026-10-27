@@ -4,6 +4,7 @@
     "references": [
         "AICompanion.Core",
         "AICompanion.AI",
+        "com.whisper.unity",
         "UnityEngine.UnityWebRequestModule"
     ],
     "includePlatforms": [],

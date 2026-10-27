@@ -275,6 +275,11 @@ namespace AICompanion.Avatar
             var driver = GetComponent<AvatarAnimationController>();
             if (driver != null)
                 driver.Attach(_instance, _current, _loaded);
+
+            var lips = GetComponent<LipSyncDriver>();
+            if (lips == null)
+                lips = gameObject.AddComponent<LipSyncDriver>();
+            lips.Bind(_instance);
         }
 
         int BeginLoad()

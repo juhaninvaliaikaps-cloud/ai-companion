@@ -143,6 +143,46 @@ namespace AICompanion.Avatar
             };
         }
 
+        public static float ProceduralTalkScale(float talkAmount, float mouthOverride)
+        {
+            if (talkAmount < 0f)
+                talkAmount = 0f;
+            else if (talkAmount > 1f)
+                talkAmount = 1f;
+
+            var keep = 1f - Clamp01(mouthOverride);
+            return talkAmount * keep;
+        }
+
+        /// <summary>
+        /// Replaces emotion mouth channels with the speech weights. Speech does not add
+        /// on top of the emotion jaw. Brows, blinks, and smiles stay on the emotion pose.
+        /// An open jaw clears mouthClose so the lips are not sealed around it.
+        /// </summary>
+        public static FacePose OverrideMouth(FacePose pose, MouthWeights mouth, float ownership)
+        {
+            var t = Clamp01(ownership);
+            if (t <= 0f)
+                return pose;
+
+            var aa = Lerp(pose.Aa, mouth.A, t);
+            var ih = Lerp(pose.Ih, mouth.I, t) * LipSyncMath.CloseSuppression(aa);
+            return new FacePose
+            {
+                Aa = aa,
+                Ih = ih,
+                Ou = Lerp(pose.Ou, mouth.U, t),
+                Ee = Lerp(pose.Ee, mouth.E, t),
+                Oh = Lerp(pose.Oh, mouth.O, t),
+                Blink = pose.Blink,
+                Joy = pose.Joy,
+                Angry = pose.Angry,
+                Sorrow = pose.Sorrow,
+                Fun = pose.Fun,
+                Surprised = pose.Surprised
+            };
+        }
+
         public static FacePose Combine(FacePose emotion, FacePose talk)
         {
             return new FacePose
@@ -207,6 +247,11 @@ namespace AICompanion.Avatar
             }
 
             return count;
+        }
+
+        static float Lerp(float from, float to, float t)
+        {
+            return from + (to - from) * t;
         }
 
         static float Move(float current, float target, float step)

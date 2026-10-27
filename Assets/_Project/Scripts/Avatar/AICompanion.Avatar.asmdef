@@ -4,6 +4,7 @@
     "references": [
         "AICompanion.Core",
         "VRM10",
+        "VRM",
         "UniGLTF",
         "UniGLTF.Utils"
     ],
