@@ -29,6 +29,12 @@ namespace AICompanion.Avatar
 
         public AvatarDescriptor Current => _current;
 
+        /// <summary>The spawned model, or null while nothing is showing.</summary>
+        public GameObject Instance => _instance;
+
+        /// <summary>The local selection asset, including the per-avatar ground fine-tune.</summary>
+        public AvatarSelection Selection => selection;
+
         public AvatarPreference LoadedPreference => _loaded;
 
         public event Action<AvatarPreference> PreferenceChanged;

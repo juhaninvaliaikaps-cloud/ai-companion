@@ -34,6 +34,13 @@ namespace AICompanion.Overlay
             get { return _model; }
         }
 
+        /// <summary>Distance from the window bottom to her soles, from FootGrounding.</summary>
+        public void SetFootOffset(float pixels)
+        {
+            if (_model != null)
+                _model.SetFootOffset(pixels);
+        }
+
         void Awake()
         {
             _window = GetComponent<OverlayWindow>();
@@ -131,6 +138,8 @@ namespace AICompanion.Overlay
                     continue;
                 if (hosts[i].GetComponent<DesktopPresence>() == null)
                     hosts[i].gameObject.AddComponent<DesktopPresence>();
+                if (hosts[i].GetComponent<FootGrounding>() == null)
+                    hosts[i].gameObject.AddComponent<FootGrounding>();
             }
         }
     }

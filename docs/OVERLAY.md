@@ -95,3 +95,11 @@ The overlay window follows the monitor work area: the top of the taskbar is the 
 The walk and fall poses come from the animator parameters Walking and Falling. The shared controller on this branch declares neither; the gesture layer and the Walk clip land with JUH-65 (PR #18). Until that merges she slides along the ground without a walk cycle, and the parameters are ignored because AvatarAnimationController only writes a parameter the controller declares.
 
 Not in this change: turning the body to face the walk direction, a fall or dangle clip, picking her up while dragged, and the settings toggle. Facing needs the Walk clip and a yaw offset that does not fight the saved per-avatar yaw from JUH-60, so it is a separate step.
+
+### Feet on the ground line
+
+Gravity moves the window, but the window edge is not her soles. FootGrounding projects the lowest of the four Humanoid foot bones (LeftFoot, RightFoot, LeftToes, RightToes) through the overlay camera, subtracts a small sole offset, and falls back to the lowest skinned-mesh bound when the rig has no foot bones. The result is a pixel offset from the window bottom, and DesktopPresenceModel adds it to the ground line so the soles, not the window edge, land on the taskbar.
+
+The offset is measured every 0.15 s and smoothed with a half-life of 0.35 s, so breathing and idle sway cannot bob her. The lower of the two feet wins, so a walk cycle does not lift her. AvatarSelection.groundOffsetPx is a per-avatar fine-tune for a model whose bones sit off the sole; it is local to the machine, like the rest of that asset.
+
+Contact shadow and two-bone foot IK are deliberately not in this change.

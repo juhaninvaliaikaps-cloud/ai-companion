@@ -105,6 +105,7 @@ namespace AICompanion.Overlay
         float _verticalVelocity;
         float _timer;
         int _direction = 1;
+        float _footOffsetPx;
 
         public DesktopPresenceModel(
             int windowWidth,
@@ -154,10 +155,40 @@ namespace AICompanion.Overlay
             get { return _area; }
         }
 
-        /// <summary>Top-left Y of a window that sits on the work area bottom.</summary>
+        /// <summary>
+        /// Top-left Y of a window whose soles sit on the work area bottom. The foot
+        /// offset moves the window down by that many pixels, so the transparent part
+        /// under the taskbar line is empty and click-through.
+        /// </summary>
         public int GroundY
         {
-            get { return _area.Bottom - _windowHeight; }
+            get { return _area.Bottom - _windowHeight + (int)Math.Round(Math.Min(_footOffsetPx, Math.Max(0, _windowHeight - 1))); }
+        }
+
+        public int WindowHeight
+        {
+            get { return _windowHeight; }
+        }
+
+        public float FootOffsetPx
+        {
+            get { return _footOffsetPx; }
+        }
+
+        /// <summary>
+        /// Distance from the window bottom to her soles. Changing it while she stands or
+        /// walks moves the window so the feet stay on the line instead of jumping.
+        /// </summary>
+        public void SetFootOffset(float pixels)
+        {
+            var max = _windowHeight <= 1 ? 0f : _windowHeight - 1f;
+            var clamped = Math.Min(Math.Max(pixels, 0f), max);
+            if (Math.Abs(clamped - _footOffsetPx) < 0.5f)
+                return;
+
+            _footOffsetPx = clamped;
+            if (State != PresenceState.Falling)
+                _y = GroundY;
         }
 
         public void SetWindowSize(int width, int height)
