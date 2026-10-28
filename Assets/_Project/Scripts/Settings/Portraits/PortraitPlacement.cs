@@ -14,6 +14,9 @@ namespace AICompanion.Settings
         public const float Margin = 8f;
         public const float Border = 4f;
 
+        /// <summary>Movement smaller than this never moves the frame, so a pose cannot make it jitter.</summary>
+        public const float DeadZone = 24f;
+
         public static readonly Rect DebugLabel = new Rect(8f, 8f, 360f, 108f);
 
         public static float InnerWidth
@@ -26,7 +29,7 @@ namespace AICompanion.Settings
             get { return Height - Border * 2f; }
         }
 
-        public static Rect Beside(Vector2 head, float screenWidth, float screenHeight, Rect avoidA, Rect avoidB)
+        public static Rect Beside(Vector2 head, float screenWidth, float screenHeight, Rect avoidA, Rect avoidB, bool? preferLeft = null)
         {
             if (float.IsNaN(head.x) || float.IsNaN(head.y))
                 head = new Vector2(screenWidth * 0.62f, screenHeight * 0.34f);
@@ -40,14 +43,27 @@ namespace AICompanion.Settings
             var left = Clamp(new Rect(head.x - Width - Gap, y, Width, Height), screenWidth, screenHeight);
             var rightBlocked = Overlaps(right, avoidA) || Overlaps(right, avoidB);
             var leftBlocked = Overlaps(left, avoidA) || Overlaps(left, avoidB);
-            if (!rightBlocked && (leftBlocked || head.x <= screenWidth * 0.5f))
-                return right;
-            if (!leftBlocked && (rightBlocked || head.x > screenWidth * 0.5f))
-                return left;
-            if (!rightBlocked)
-                return right;
-            if (!leftBlocked)
-                return left;
+
+            // The side used to come from the midpoint on every frame, so walking across
+            // the middle flipped the frame left and right. Keep the remembered side unless
+            // the head is clearly past the middle on the other side or that side is blocked.
+            const float flipMargin = 64f;
+            var midpoint = screenWidth * 0.5f;
+            var wantLeft = preferLeft ?? head.x > midpoint;
+            if (wantLeft && head.x < midpoint - flipMargin)
+                wantLeft = false;
+            else if (!wantLeft && head.x > midpoint + flipMargin)
+                wantLeft = true;
+
+            var preferred = wantLeft ? left : right;
+            var preferredBlocked = wantLeft ? leftBlocked : rightBlocked;
+            var other = wantLeft ? right : left;
+            var otherBlocked = wantLeft ? rightBlocked : leftBlocked;
+
+            if (!preferredBlocked)
+                return preferred;
+            if (!otherBlocked)
+                return other;
 
             var corner = Clamp(new Rect(screenWidth - Width - Margin, DebugLabel.yMax + Margin, Width, Height), screenWidth, screenHeight);
             if (!Overlaps(corner, avoidA) && !Overlaps(corner, avoidB))
@@ -55,15 +71,20 @@ namespace AICompanion.Settings
             return right;
         }
 
-        public static Rect Smooth(Rect current, Rect target, float deltaSeconds, bool initialized)
+        public static Rect Smooth(Rect current, Rect target, float deltaSeconds, bool initialized, float deadZone = 0f)
         {
             if (!initialized || deltaSeconds <= 0f || float.IsNaN(deltaSeconds))
                 return target;
 
+            var dx = target.x - current.x;
+            var dy = target.y - current.y;
+            if (Mathf.Abs(dx) <= deadZone && Mathf.Abs(dy) <= deadZone)
+                return new Rect(current.x, current.y, target.width, target.height);
+
             var blend = 1f - (float)System.Math.Exp(-10.0 * deltaSeconds);
             return new Rect(
-                current.x + (target.x - current.x) * blend,
-                current.y + (target.y - current.y) * blend,
+                current.x + dx * blend,
+                current.y + dy * blend,
                 target.width,
                 target.height);
         }
