@@ -38,8 +38,31 @@ namespace AICompanion.Avatar
             KeyCode.Keypad3,
             KeyCode.Keypad4,
             KeyCode.Keypad5,
-            KeyCode.T
+            KeyCode.T,
+            KeyCode.F9
         };
+
+        /// <summary>
+        /// F9 cycles the portrait expressions so the stills and the transitions can be
+        /// checked without a model reply. "neutral" clears the hint.
+        /// </summary>
+        static readonly string[] DebugExpressions =
+        {
+            "concerned",
+            "embarrassed",
+            "shy",
+            "flustered",
+            "embarrassed_worried",
+            "angry",
+            "teasing",
+            "excited",
+            "loving",
+            "sleepy",
+            "happy",
+            "neutral"
+        };
+
+        int _expressionCursor = -1;
 
         [SerializeField] RuntimeAnimatorController controller;
         [SerializeField] AvatarSelection selection;
@@ -273,6 +296,17 @@ namespace AICompanion.Avatar
 
             if (changed)
                 PushParameters();
+
+            if (Input.GetKeyDown(KeyCode.F9) && !DebugInputGuard.IsBlocked(KeyCode.F9))
+                CycleExpression();
+        }
+
+        void CycleExpression()
+        {
+            _expressionCursor = (_expressionCursor + 1) % DebugExpressions.Length;
+            var name = DebugExpressions[_expressionCursor];
+            ExpressionName = name == "neutral" ? string.Empty : name;
+            Debug.Log("Expression preview: " + name);
         }
 
         bool IsPaused()
