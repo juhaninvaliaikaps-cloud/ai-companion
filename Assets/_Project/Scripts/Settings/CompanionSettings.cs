@@ -36,6 +36,7 @@ namespace AICompanion.Settings
         public string LocalBaseUrl = ChatDefaults.LocalBaseUrl;
         public float TimeoutSeconds = ChatDefaults.TimeoutSeconds;
         public string AvatarSource = AvatarSourceNames.Auto;
+        public bool CursorLookAt = true;
         public bool TtsEnabled = true;
         public string VoiceId = "eve";
         public string TtsLanguage = "en";
@@ -295,6 +296,8 @@ namespace AICompanion.Settings
             if (TryString(json, "avatarSource", out text))
                 settings.AvatarSource = text;
             bool flag;
+            if (TryBool(json, "cursorLookAt", out flag))
+                settings.CursorLookAt = flag;
             if (TryBool(json, "ttsEnabled", out flag))
                 settings.TtsEnabled = flag;
             if (TryString(json, "voiceId", out text))
@@ -354,6 +357,7 @@ namespace AICompanion.Settings
             String(sb, "localBaseUrl", source.LocalBaseUrl);
             Number(sb, "timeoutSeconds", source.TimeoutSeconds, false);
             String(sb, "avatarSource", source.AvatarSource);
+            Bool(sb, "cursorLookAt", source.CursorLookAt);
             Bool(sb, "ttsEnabled", source.TtsEnabled);
             String(sb, "voiceId", source.VoiceId);
             String(sb, "ttsLanguage", source.TtsLanguage);
