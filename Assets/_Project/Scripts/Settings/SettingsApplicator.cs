@@ -98,6 +98,15 @@ namespace AICompanion.Settings
             chat.localModel = settings.LocalModel;
             chat.localBaseUrl = settings.LocalBaseUrl;
             chat.timeoutSeconds = settings.TimeoutSeconds;
+            ApplyPersona(chat, settings);
+        }
+
+        public static void ApplyPersona(AICompanion.AI.ChatSettings chat, CompanionSettings settings)
+        {
+            if (chat == null || settings == null)
+                return;
+
+            chat.systemPrompt = CompanionPersona.Build(settings.CompanionName, settings.Relationship);
         }
 
         static KeyCode ParseKey(string name)

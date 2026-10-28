@@ -54,6 +54,8 @@ namespace AICompanion.Settings
         public bool Paused;
         public bool ChatHistory;
         public bool PrivateMode;
+        public string CompanionName = string.Empty;
+        public string Relationship = RelationshipStyles.Friend;
 
         public static CompanionSettings CreateDefault()
         {
@@ -92,6 +94,8 @@ namespace AICompanion.Settings
                 IdleFrameRate = 1;
             if (IdleFrameRate > OverlayFrameRate.Active)
                 IdleFrameRate = OverlayFrameRate.Active;
+            CompanionName = CompanionPersona.SanitizeName(CompanionName);
+            Relationship = RelationshipStyles.Normalize(Relationship);
         }
 
         static string CleanToken(string value, string fallback, int max)
@@ -326,6 +330,10 @@ namespace AICompanion.Settings
                 settings.ChatHistory = flag;
             if (TryBool(json, "privateMode", out flag))
                 settings.PrivateMode = flag;
+            if (TryString(json, "companionName", out text))
+                settings.CompanionName = text;
+            if (TryString(json, "relationship", out text))
+                settings.Relationship = text;
             settings.Normalize();
             return settings;
         }
@@ -361,6 +369,8 @@ namespace AICompanion.Settings
             Bool(sb, "paused", source.Paused);
             Bool(sb, "chatHistory", source.ChatHistory);
             Bool(sb, "privateMode", source.PrivateMode);
+            String(sb, "companionName", source.CompanionName);
+            String(sb, "relationship", source.Relationship);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;

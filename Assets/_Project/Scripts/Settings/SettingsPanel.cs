@@ -69,6 +69,12 @@ namespace AICompanion.Settings
         bool _rebuild;
         bool _confirmClear;
         bool _probeBusy;
+        bool _setupGate;
+        bool _wizardClaimed;
+
+        public event Action SetupReplayRequested;
+
+        public CompanionSettings CurrentSettings => _settings;
 
         public bool PrivateMode => _settings != null && _settings.PrivateMode;
 
@@ -102,7 +108,12 @@ namespace AICompanion.Settings
                 _applying = false;
             }
 
-            SaveSettings();
+            _setupGate = SetupWizardGate.ShouldPresentOnLaunch(
+                exists,
+                SetupWizardGate.HasSavedApiKey(),
+                Environment.GetCommandLineArgs());
+            if (!_setupGate)
+                SaveSettings();
             var chat = GetComponent<ChatPanel>();
             _historyRevision = chat != null ? chat.TranscriptRevision : 0;
             BuildChrome();
@@ -183,6 +194,12 @@ namespace AICompanion.Settings
 
         void LateUpdate()
         {
+            if (_setupGate && !_wizardClaimed)
+            {
+                _setupGate = false;
+                SaveSettings();
+            }
+
             if (!_rebuild || !_open)
                 return;
             _rebuild = false;
@@ -190,8 +207,41 @@ namespace AICompanion.Settings
             RefreshTabs();
         }
 
+        public bool ClaimSetupGate()
+        {
+            if (!_setupGate || _wizardClaimed)
+                return false;
+            _wizardClaimed = true;
+            return true;
+        }
+
+        public void HoldSetupSave()
+        {
+            _setupGate = true;
+            _wizardClaimed = true;
+        }
+
+        public void PreviewSetup()
+        {
+            if (!_started)
+                StartCompanion();
+            ApplyLive();
+        }
+
+        public void CommitSetup()
+        {
+            if (!_started)
+                StartCompanion();
+            _setupGate = false;
+            _wizardClaimed = true;
+            ApplyLive();
+        }
+
         public void Open()
         {
+            if (WizardIsOpen())
+                return;
+
             if (!_started)
                 StartCompanion();
 
@@ -352,7 +402,7 @@ namespace AICompanion.Settings
 
         void SaveSettings()
         {
-            if (_settings == null)
+            if (_setupGate || _settings == null)
                 return;
 
             var path = SettingsLocations.SettingsFile(Folder());
@@ -795,6 +845,18 @@ namespace AICompanion.Settings
                 _confirmClear = true;
                 _rebuild = true;
             });
+            AddButton("Run setup again", () =>
+            {
+                if (SetupReplayRequested != null)
+                    SetupReplayRequested();
+            });
+            Note("Opens the first-run setup again in this window. Skip on a step uses that step's default. Finish saves. Transparency, topmost, and click-through stay as they are.");
+        }
+
+        bool WizardIsOpen()
+        {
+            var wizard = GetComponent<SetupWizard>();
+            return wizard != null && wizard.IsOpen;
         }
 
         void AddSourceButton(string label, string source)
@@ -942,17 +1004,7 @@ namespace AICompanion.Settings
 
         static bool FileHasKey()
         {
-            try
-            {
-                string ignored;
-                var found = ApiKeyFile.TryReadKey(ApiKeyFile.PreferredPath(), SecretProtector.Create(), out ignored);
-                ignored = null;
-                return found;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
+            return SetupWizardGate.HasSavedApiKey();
         }
 
         static bool EnvOverrides()
@@ -1264,9 +1316,13 @@ namespace AICompanion.Settings
             var hosts = UnityEngine.Object.FindObjectsByType<AppBootstrap>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             for (var i = 0; i < hosts.Length; i++)
             {
-                if (hosts[i] == null || hosts[i].GetComponent<SettingsPanel>() != null)
+                if (hosts[i] == null)
                     continue;
-                hosts[i].gameObject.AddComponent<SettingsPanel>();
+                var host = hosts[i].gameObject;
+                if (host.GetComponent<SettingsPanel>() == null)
+                    host.AddComponent<SettingsPanel>();
+                if (host.GetComponent<SetupWizard>() == null)
+                    host.AddComponent<SetupWizard>();
             }
         }
     }
