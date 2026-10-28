@@ -32,6 +32,12 @@ namespace AICompanion.Settings
         public int Version = CurrentVersion;
         public string ProviderId = ChatDefaults.GrokId;
         public string Model = ChatDefaults.Model;
+
+        /// <summary>
+        /// OpenAI-compatible endpoint for the cloud provider. ChatDefaults.BaseUrl (xAI) is
+        /// the default; point it at DeepSeek, OpenRouter, Groq or any other compatible API.
+        /// </summary>
+        public string BaseUrl = ChatDefaults.BaseUrl;
         public string LocalModel = ChatDefaults.LocalModel;
         public string LocalBaseUrl = ChatDefaults.LocalBaseUrl;
         public float TimeoutSeconds = ChatDefaults.TimeoutSeconds;
@@ -71,7 +77,9 @@ namespace AICompanion.Settings
                 ? ChatDefaults.LocalId
                 : ChatDefaults.GrokId;
             Model = CleanToken(Model, ChatDefaults.Model, 80);
-            LocalModel = CleanToken(LocalModel, ChatDefaults.LocalModel, 80);
+            Model = CleanToken(Model, ChatDefaults.Model, 80);
+        BaseUrl = CleanUrl(BaseUrl, ChatDefaults.BaseUrl);
+        LocalModel = CleanToken(LocalModel, ChatDefaults.LocalModel, 80);
             LocalBaseUrl = CleanUrl(LocalBaseUrl, ChatDefaults.LocalBaseUrl);
             if (float.IsNaN(TimeoutSeconds) || float.IsInfinity(TimeoutSeconds) || TimeoutSeconds < 1f || TimeoutSeconds > 300f)
                 TimeoutSeconds = ChatDefaults.TimeoutSeconds;
@@ -286,6 +294,8 @@ namespace AICompanion.Settings
                 settings.ProviderId = text;
             if (TryString(json, "model", out text))
                 settings.Model = text;
+            if (TryString(json, "baseUrl", out text))
+                settings.BaseUrl = text;
             if (TryString(json, "localModel", out text))
                 settings.LocalModel = text;
             if (TryString(json, "localBaseUrl", out text))
@@ -353,6 +363,7 @@ namespace AICompanion.Settings
             Number(sb, "version", source.Version, true);
             String(sb, "providerId", source.ProviderId);
             String(sb, "model", source.Model);
+            String(sb, "baseUrl", source.BaseUrl);
             String(sb, "localModel", source.LocalModel);
             String(sb, "localBaseUrl", source.LocalBaseUrl);
             Number(sb, "timeoutSeconds", source.TimeoutSeconds, false);

@@ -671,6 +671,11 @@ namespace AICompanion.Settings
                 _settings.Model = value;
                 ApplyLive();
             });
+            AddField("Base URL", _settings.BaseUrl, false, value =>
+            {
+                _settings.BaseUrl = value;
+            });
+            Note("OpenAI-compatible endpoint for the cloud provider. Default is xAI; use DeepSeek, OpenRouter, Groq or another compatible API.");
             AddField("Local model", _settings.LocalModel, false, value =>
             {
                 _settings.LocalModel = value;
