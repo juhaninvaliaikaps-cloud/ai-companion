@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace AICompanion.Avatar
@@ -8,6 +9,20 @@ namespace AICompanion.Avatar
         LocalPrefab = 1,
         VrmSample = 2,
         FbxSample = 3
+    }
+
+    /// <summary>
+    /// Replaces one clip of the shared controller with a clip that stays on this
+    /// machine, matched by the base clip name. Used for local assets such as Asuna,
+    /// whose animations cannot be committed to the repository.
+    /// </summary>
+    [Serializable]
+    public sealed class AnimationClipOverride
+    {
+        [Tooltip("Base clip to replace, for example Walk or Idle.")]
+        public string clipName;
+
+        public AnimationClip clip;
     }
 
     /// <summary>
@@ -25,5 +40,8 @@ namespace AICompanion.Avatar
 
         /// <summary>Fine-tune in pixels for a model whose foot bones sit off the sole (default 0).</summary>
         public float groundOffsetPx;
+
+        /// <summary>Local clip replacements, matched by base clip name. Default empty.</summary>
+        public AnimationClipOverride[] animationOverrides = Array.Empty<AnimationClipOverride>();
     }
 }

@@ -61,9 +61,9 @@ namespace AICompanion.Editor.AnimationDirector
         }
 
         /// <summary>
-        /// The starter set: one row per Animator state the project ships today, plus
-        /// four gesture rows that wait for their clips. Gesture rows have no
-        /// animatorState or clip yet, so a lookup on them only yields prompt text.
+        /// The starter set: one row per Animator state the project ships. The four
+        /// gestures, the walk loop, and the turn all carry a state and a clip, so a cue
+        /// that names one of them plays the animation instead of falling back.
         /// </summary>
         public static List<AnimationEntry> StarterEntries()
         {
@@ -75,10 +75,12 @@ namespace AICompanion.Editor.AnimationDirector
                 Entry("surprised", "short startled reaction", Emotion.Surprised, 0.9f, string.Empty, "Surprised", "Surprised", 1f, "mood", "reaction"),
                 Entry("thinking", "considering something with mild uncertainty", Emotion.Thinking, 0.6f, string.Empty, "Thinking", "Thinking", 2f, "mood", "thinking"),
                 Entry("talk", "speaking loop while the reply audio plays", Emotion.Neutral, 0.3f, string.Empty, "Talk", "Talk", 1f, "speech", "loop"),
-                Entry("wave_hello", "friendly hello wave", Emotion.Happy, 0.7f, "wave", string.Empty, string.Empty, 0f, "greeting", "friendly"),
-                Entry("nod_yes", "agreeing nod", Emotion.Neutral, 0.4f, "nod", string.Empty, string.Empty, 0f, "agreement", "confirmation"),
-                Entry("shrug", "uncertain shrug with no strong feeling", Emotion.Neutral, 0.4f, "shrug", string.Empty, string.Empty, 0f, "uncertain", "neutral"),
-                Entry("laugh", "short laugh at something funny", Emotion.Happy, 0.9f, "laugh", string.Empty, string.Empty, 0f, "amused", "funny"),
+                Entry("wave_hello", "friendly hello wave", Emotion.Happy, 0.7f, "wave", "Wave", "Wave", 1.4f, "greeting", "friendly"),
+                Entry("nod_yes", "agreeing nod", Emotion.Neutral, 0.4f, "nod", "Nod", "Nod", 1f, "agreement", "confirmation"),
+                Entry("shrug", "uncertain shrug with no strong feeling", Emotion.Neutral, 0.4f, "shrug", "Shrug", "Shrug", 1.3f, "uncertain", "neutral"),
+                Entry("laugh", "short laugh at something funny", Emotion.Happy, 0.9f, "laugh", "Laugh", "Laugh", 1.4f, "amused", "funny"),
+                Entry("walk", "walking loop on the spot", Emotion.Neutral, 0.5f, "walk", "Walk", "Walk", 1f, "locomotion", "loop"),
+                Entry("turn_around", "turn around in place to look behind", Emotion.Neutral, 0.5f, "turn", "Turn180", "Turn180", 0.9f, "turn", "orientation"),
             };
         }
 

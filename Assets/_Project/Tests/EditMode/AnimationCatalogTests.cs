@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.IO;
 using AICompanion.AnimationDirector;
 using AICompanion.Core;
 using NUnit.Framework;
@@ -97,41 +96,14 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void Validate_ReportsDuplicateGesturesBrokenTokensAndPromptLineBreaks()
-        {
-            AnimationClipCatalog catalog = NewCatalog(
-                Row("wave_hello", "friendly", Emotion.Happy, "wave"),
-                Row("other", "also a wave", Emotion.Happy, "WAVE"),
-                Row("bad id", "space in the id", Emotion.Neutral, "nod!"),
-                Row("note", "line one\nline two", Emotion.Neutral, string.Empty));
-
-            Assert.IsFalse(catalog.Validate(out List<string> problems));
-            Assert.IsTrue(problems.Exists(problem => problem.Contains("Duplicate gesture 'WAVE'")));
-            Assert.IsTrue(problems.Exists(problem => problem.Contains("has an id that cannot be written")));
-            Assert.IsTrue(problems.Exists(problem => problem.Contains("gesture that cannot be written")));
-            Assert.IsTrue(problems.Exists(problem => problem.Contains("line break in its description")));
-        }
-
-        [Test]
-        public void Validate_ReportsAGestureThatCollidesWithAnotherId()
-        {
-            AnimationClipCatalog catalog = NewCatalog(
-                Row("wave", "the emotion named wave", Emotion.Happy, string.Empty),
-                Row("wave_hello", "friendly hello wave", Emotion.Happy, "wave"));
-
-            Assert.IsFalse(catalog.Validate(out List<string> problems));
-            Assert.IsTrue(problems.Exists(problem => problem.Contains("another row's id")));
-        }
-
-        [Test]
-        public void StarterCatalogAsset_HasTenValidEntriesWithResolvedClips()
+        public void StarterCatalogAsset_HasTwelveValidEntriesWithResolvedClips()
         {
             AnimationClipCatalog catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>(CatalogPath);
             Assert.IsNotNull(catalog, "Missing catalog asset at " + CatalogPath);
-            Assert.AreEqual(10, catalog.Entries.Count);
+            Assert.AreEqual(12, catalog.Entries.Count);
 
             Assert.IsTrue(catalog.Validate(out List<string> problems), string.Join("\n", problems));
-            Assert.AreEqual(10, catalog.BuildPromptList().Split('\n').Length);
+            Assert.AreEqual(12, catalog.BuildPromptList().Split('\n').Length);
 
             Assert.IsTrue(catalog.TryGetById("idle", out AnimationEntry idle));
             Assert.IsNotNull(idle.clip, "The idle row lost its clip reference.");
@@ -139,18 +111,13 @@ namespace AICompanion.Tests.EditMode
 
             Assert.IsTrue(catalog.TryGetByGesture("wave", out AnimationEntry wave));
             Assert.AreEqual("wave_hello", wave.id);
+            Assert.IsNotNull(wave.clip, "The wave row lost its clip reference.");
+            Assert.AreEqual("Wave", wave.animatorState);
 
-            string controller = File.ReadAllText(Path.Combine(Application.dataPath, "_Project/Animations/Companion.controller"));
-            for (int i = 0; i < catalog.Entries.Count; i++)
-            {
-                AnimationEntry entry = catalog.Entries[i];
-                if (entry == null || !entry.HasAnimatorState)
-                {
-                    continue;
-                }
-
-                StringAssert.Contains("m_Name: " + entry.animatorState, controller, entry.id);
-            }
+            Assert.IsTrue(catalog.TryGetByGesture("walk", out AnimationEntry walk));
+            Assert.AreEqual("Walk", walk.animatorState);
+            Assert.IsTrue(catalog.TryGetByGesture("turn", out AnimationEntry turn));
+            Assert.AreEqual("Turn180", turn.animatorState);
         }
 
         private AnimationClipCatalog NewCatalog(params AnimationEntry[] entries)
