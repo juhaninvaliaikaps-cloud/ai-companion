@@ -18,7 +18,7 @@ namespace AICompanion.Avatar
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(12100)]
-    public sealed class AvatarAnimationController : MonoBehaviour, IAvatarAnimator, IAvatarTurntable, IAvatarAnchor, IAnimationStatePlayer, IAvatarLocomotion
+    public sealed class AvatarAnimationController : MonoBehaviour, IAvatarAnimator, IAvatarTurntable, IAvatarAnchor, IAnimationStatePlayer, IAvatarLocomotion, IExpressionHint
     {
         static readonly int TalkingHash = Animator.StringToHash(AvatarAnimatorParameters.Talking);
         static readonly int EmotionHash = Animator.StringToHash(AvatarAnimatorParameters.Emotion);
@@ -38,8 +38,31 @@ namespace AICompanion.Avatar
             KeyCode.Keypad3,
             KeyCode.Keypad4,
             KeyCode.Keypad5,
-            KeyCode.T
+            KeyCode.T,
+            KeyCode.F9
         };
+
+        /// <summary>
+        /// F9 cycles the portrait expressions so the stills and the transitions can be
+        /// checked without a model reply. "neutral" clears the hint.
+        /// </summary>
+        static readonly string[] DebugExpressions =
+        {
+            "concerned",
+            "embarrassed",
+            "shy",
+            "flustered",
+            "embarrassed_worried",
+            "angry",
+            "teasing",
+            "excited",
+            "loving",
+            "sleepy",
+            "happy",
+            "neutral"
+        };
+
+        int _expressionCursor = -1;
 
         [SerializeField] RuntimeAnimatorController controller;
         [SerializeField] AvatarSelection selection;
@@ -140,6 +163,15 @@ namespace AICompanion.Avatar
                 StartTurn();
 
             return true;
+        }
+
+        string _expressionName = string.Empty;
+
+        /// <summary>Portrait expression name named by the animation director, empty when none.</summary>
+        public string ExpressionName
+        {
+            get { return _expressionName; }
+            set { _expressionName = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant(); }
         }
 
         void StartTurn()
@@ -264,6 +296,17 @@ namespace AICompanion.Avatar
 
             if (changed)
                 PushParameters();
+
+            if (Input.GetKeyDown(KeyCode.F9) && !DebugInputGuard.IsBlocked(KeyCode.F9))
+                CycleExpression();
+        }
+
+        void CycleExpression()
+        {
+            _expressionCursor = (_expressionCursor + 1) % DebugExpressions.Length;
+            var name = DebugExpressions[_expressionCursor];
+            ExpressionName = name == "neutral" ? string.Empty : name;
+            Debug.Log("Expression preview: " + name);
         }
 
         bool IsPaused()

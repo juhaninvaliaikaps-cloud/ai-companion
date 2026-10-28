@@ -21,6 +21,34 @@ namespace AICompanion.Settings
     }
 
     /// <summary>
+    /// Keeps the mood she was in while she speaks. A reply without a cue resolves to
+    /// neutral, which used to flip a blushing face to the neutral talking frame the moment
+    /// she started talking. The hold clears when the neutral idle arrives outside speech.
+    /// </summary>
+    public static class PortraitHold
+    {
+        public static string Resolve(string emotion, ref string held, bool speaking)
+        {
+            var neutral = string.IsNullOrEmpty(emotion)
+                || string.Equals(emotion, "neutral", System.StringComparison.OrdinalIgnoreCase);
+
+            if (!neutral)
+            {
+                held = emotion;
+                return emotion;
+            }
+
+            if (speaking && !string.IsNullOrEmpty(held))
+                return held;
+
+            if (!speaking)
+                held = string.Empty;
+
+            return "neutral";
+        }
+    }
+
+    /// <summary>
     /// File stems for the local portraits. The images themselves stay out of the repo.
     /// </summary>
     public static class PortraitStems
