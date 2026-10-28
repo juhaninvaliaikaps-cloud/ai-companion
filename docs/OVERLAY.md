@@ -92,9 +92,9 @@ The overlay window follows the monitor work area: the top of the taskbar is the 
 - Walking and falling raise the overlay to the active frame rate through IOverlayKeepAwake; once she is idle on the ground it drops back to the idle rate.
 - The motion is screen-space arithmetic in DesktopPresenceModel with no Rigidbody, so any avatar works and nothing depends on root motion.
 
-The walk and fall poses come from the animator parameters Walking and Falling. The shared controller on this branch declares neither; the gesture layer and the Walk clip land with JUH-65 (PR #18). Until that merges she slides along the ground without a walk cycle, and the parameters are ignored because AvatarAnimationController only writes a parameter the controller declares.
+The walk and fall poses come from the animator parameters Walking and Falling, both declared by `Companion.controller`. Walking plays the looping Walk state on the gesture layer. Falling plays the looping Fall state on the same layer, so the drop reads as a fall rather than a slide, and the body hands back to the base layer when she lands.
 
-Not in this change: turning the body to face the walk direction, a fall or dangle clip, picking her up while dragged, and the settings toggle. Facing needs the Walk clip and a yaw offset that does not fight the saved per-avatar yaw from JUH-60, so it is a separate step.
+Not in this change: turning the body to face the walk direction, picking her up while dragged, and the settings toggle. Facing needs the Walk clip and a yaw offset that does not fight the saved per-avatar yaw from JUH-60, so it is a separate step.
 
 ### Feet on the ground line
 

@@ -29,7 +29,8 @@ namespace AICompanion.Editor.Avatars
             "Shrug",
             "Laugh",
             "Walk",
-            "Turn180"
+            "Turn180",
+            "Fall"
         };
 
         /// <summary>Clips that loop. Gestures and the turn play once.</summary>
@@ -41,7 +42,8 @@ namespace AICompanion.Editor.Avatars
             "Sad",
             "Surprised",
             "Thinking",
-            "Walk"
+            "Walk",
+            "Fall"
         };
 
         [MenuItem("AI Companion/Rebuild Basic Animator")]
@@ -237,6 +239,8 @@ namespace AICompanion.Editor.Avatars
                 controller.AddParameter(AvatarAnimatorStates.Turn180, AnimatorControllerParameterType.Trigger);
             if (!parameters.Contains("Walking"))
                 controller.AddParameter("Walking", AnimatorControllerParameterType.Bool);
+            if (!parameters.Contains(AvatarAnimatorParameters.Falling))
+                controller.AddParameter(AvatarAnimatorParameters.Falling, AnimatorControllerParameterType.Bool);
 
             var layers = controller.layers;
             if (layers.Length <= AvatarAnimatorLayers.Gestures)
@@ -252,7 +256,15 @@ namespace AICompanion.Editor.Avatars
 
             var machine = controller.layers[AvatarAnimatorLayers.Gestures].stateMachine;
             if (machine.states != null && machine.states.Length > 1)
+            {
+                if (!HasState(machine, AvatarAnimatorStates.Fall))
+                {
+                    AddFallState(machine, byName);
+                    EditorUtility.SetDirty(controller);
+                }
+
                 return;
+            }
 
             var empty = machine.AddState(AvatarAnimatorStates.Empty);
             empty.writeDefaultValues = false;
@@ -310,7 +322,56 @@ namespace AICompanion.Editor.Avatars
             fromTurn.duration = 0.2f;
             fromTurn.canTransitionToSelf = false;
 
+            AddFallState(machine, byName);
+
             EditorUtility.SetDirty(controller);
+        }
+
+        static bool HasState(AnimatorStateMachine machine, string name)
+        {
+            var states = machine != null ? machine.states : null;
+            if (states == null)
+                return false;
+
+            for (var i = 0; i < states.Length; i++)
+            {
+                var state = states[i].state;
+                if (state != null && state.name == name)
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// The drop from DesktopPresence sets the Falling bool. The clip loops while she
+        /// is in the air and the pointer returns to Empty when she lands.
+        /// </summary>
+        static void AddFallState(AnimatorStateMachine machine, System.Collections.Generic.Dictionary<string, AnimationClip> byName)
+        {
+            var empty = machine != null ? machine.defaultState : null;
+            if (empty == null || byName == null || !byName.ContainsKey("Fall"))
+                return;
+            if (HasState(machine, AvatarAnimatorStates.Fall))
+                return;
+
+            var fall = machine.AddState(AvatarAnimatorStates.Fall);
+            fall.motion = byName["Fall"];
+            fall.writeDefaultValues = false;
+
+            var toFall = empty.AddTransition(fall);
+            toFall.AddCondition(AnimatorConditionMode.If, 0f, AvatarAnimatorParameters.Falling);
+            toFall.hasExitTime = false;
+            toFall.hasFixedDuration = true;
+            toFall.duration = 0.12f;
+            toFall.canTransitionToSelf = false;
+
+            var fromFall = fall.AddTransition(empty);
+            fromFall.AddCondition(AnimatorConditionMode.IfNot, 0f, AvatarAnimatorParameters.Falling);
+            fromFall.hasExitTime = false;
+            fromFall.hasFixedDuration = true;
+            fromFall.duration = 0.2f;
+            fromFall.canTransitionToSelf = false;
         }
 
         static void CreateController(AnimationClip[] clips)

@@ -16,7 +16,8 @@ namespace AICompanion.Avatar
             "Shrug",
             "Laugh",
             "Walk",
-            "Turn180"
+            "Turn180",
+            "Fall"
         };
 
         public static bool IsGestureState(string stateName)

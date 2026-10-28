@@ -65,6 +65,6 @@ The cue is applied when the reply finishes, which is when the tag has arrived. S
 
 - The gesture clips are procedural muscle curves, not motion capture: stylised, no finger articulation, and the walk is on the spot because root motion stays off.
 - `walk` and `turn_around` have catalog rows, but nothing emits them from chat yet. The cue carries one gesture and the model chooses it, so asking to walk depends on prompt wording.
-- Gestures live on layer 2, an override layer with `writeDefaultValues` off, so the base layer emotion transitions cannot interrupt them.
+- Gestures live on layer 2, an override layer with `writeDefaultValues` off, so the base layer emotion transitions cannot interrupt them. The same layer carries Walk and Fall, driven by the `Walking` and `Falling` bools, and `GestureActivity` fades the procedural sway while either is active.
 - The cue is one tag for the whole reply. Per-sentence cues would need a different streaming contract.
 - `speech` and the cue are independent: a muted or failed utterance still changes the face, because the cue arrives with the text rather than with the audio.
