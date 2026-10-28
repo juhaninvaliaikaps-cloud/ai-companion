@@ -42,6 +42,25 @@ namespace AICompanion.Core
                     return Idle;
             }
         }
+
+        /// <summary>
+        /// Integer written to <c>Companion.controller</c>. That controller only
+        /// transitions on 0 through 4. Face-only emotions stay on Idle so the
+        /// body is not left in the previous clip. The face still uses <paramref name="emotion"/>.
+        /// </summary>
+        public static int BodyParameter(Emotion emotion)
+        {
+            switch (emotion)
+            {
+                case Emotion.Happy:
+                case Emotion.Sad:
+                case Emotion.Surprised:
+                case Emotion.Thinking:
+                    return (int)emotion;
+                default:
+                    return (int)Emotion.Neutral;
+            }
+        }
     }
 
     /// <summary>

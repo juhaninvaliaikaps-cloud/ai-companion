@@ -53,7 +53,9 @@ namespace AICompanion.AnimationDirector
                 return "\n\nAnimations you can use. Name the gesture id in the cue tag.\n"
                     + list
                     + "\n"
-                    + AnimationCueParser.Instruction;
+                    + AnimationCueParser.Instruction
+                    + "\n"
+                    + EmotionNames.CatalogLine;
             }
         }
 

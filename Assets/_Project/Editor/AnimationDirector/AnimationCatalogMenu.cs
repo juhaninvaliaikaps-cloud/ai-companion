@@ -7,7 +7,7 @@ using UnityEngine;
 namespace AICompanion.Editor.AnimationDirector
 {
     /// <summary>
-    /// Writes the starter catalog asset and prints its prompt list. The ten starter
+    /// Writes the starter catalog asset and prints its prompt list. The starter
     /// rows are defined here as well as in the committed asset, so the asset can be
     /// rebuilt after an accidental delete or a hand edit.
     /// </summary>
@@ -61,9 +61,10 @@ namespace AICompanion.Editor.AnimationDirector
         }
 
         /// <summary>
-        /// The starter set: one row per Animator state the project ships today, plus
-        /// four gesture rows that wait for their clips. Gesture rows have no
-        /// animatorState or clip yet, so a lookup on them only yields prompt text.
+        /// The starter set: one row per Animator state the project ships today, four
+        /// gesture rows that wait for their clips, and four face-only emotions.
+        /// Gesture and face rows have no animatorState or clip, so a lookup on
+        /// them only yields an emotion and prompt text.
         /// </summary>
         public static List<AnimationEntry> StarterEntries()
         {
@@ -79,6 +80,10 @@ namespace AICompanion.Editor.AnimationDirector
                 Entry("nod_yes", "agreeing nod", Emotion.Neutral, 0.4f, "nod", string.Empty, string.Empty, 0f, "agreement", "confirmation"),
                 Entry("shrug", "uncertain shrug with no strong feeling", Emotion.Neutral, 0.4f, "shrug", string.Empty, string.Empty, 0f, "uncertain", "neutral"),
                 Entry("laugh", "short laugh at something funny", Emotion.Happy, 0.9f, "laugh", string.Empty, string.Empty, 0f, "amused", "funny"),
+                Entry("embarrassed", "strong blush, eyes lowered, small tense mouth", Emotion.Embarrassed, 0.9f, string.Empty, string.Empty, string.Empty, 0f, "mood", "blush"),
+                Entry("shy", "light blush, lowered eyes, small smile", Emotion.Shy, 0.55f, string.Empty, string.Empty, string.Empty, 0f, "mood", "blush"),
+                Entry("flustered", "strong blush with an open mouth", Emotion.Flustered, 0.9f, string.Empty, string.Empty, string.Empty, 0f, "mood", "blush"),
+                Entry("concerned", "worried, inner brows raised, little blush", Emotion.Concerned, 0.7f, string.Empty, string.Empty, string.Empty, 0f, "mood", "worried"),
             };
         }
 

@@ -26,9 +26,9 @@ A row may have a gesture and no state, or a state and no gesture. Both are valid
 
 ## Starter entries
 
-Ten rows ship with the project: six for the Animator states the controller already has (`idle`, `happy`, `sad`, `surprised`, `thinking`, `talk`) and four gestures that wait for their clips (`wave_hello`, `nod_yes`, `shrug`, `laugh`). The four gesture rows have an empty `animatorState` and a null `clip`; they exist so the model can already ask for them, and so the director has ids to resolve once the clips arrive.
+Fourteen rows ship with the project: six for the Animator states the controller already has (`idle`, `happy`, `sad`, `surprised`, `thinking`, `talk`), four gestures that wait for their clips (`wave_hello`, `nod_yes`, `shrug`, `laugh`), and four face-only emotions (`embarrassed`, `shy`, `flustered`, `concerned`). The gesture rows and the face-only rows have an empty `animatorState` and a null `clip`. The face weights for those emotions live in [EXPRESSIONS.md](EXPRESSIONS.md), not in a new controller state.
 
-**AI Companion > Animation Catalog > Rebuild Starter Catalog** rewrites the asset from `AnimationCatalogMenu.StarterEntries()`, which is where the ten rows are defined in code. Use it after an accidental delete. It also reloads clips from `Assets/_Project/Animations`, so a renamed clip shows up as a null reference on the row instead of a silent mismatch.
+**AI Companion > Animation Catalog > Rebuild Starter Catalog** rewrites the asset from `AnimationCatalogMenu.StarterEntries()`, which is where the starter rows are defined in code. Use it after an accidental delete. It also reloads clips from `Assets/_Project/Animations`, so a renamed clip shows up as a null reference on the row instead of a silent mismatch.
 
 ## Prompt export
 

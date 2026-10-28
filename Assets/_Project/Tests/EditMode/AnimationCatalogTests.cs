@@ -124,14 +124,18 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void StarterCatalogAsset_HasTenValidEntriesWithResolvedClips()
+        public void StarterCatalogAsset_HasTheStarterEntriesWithResolvedClips()
         {
             AnimationClipCatalog catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>(CatalogPath);
             Assert.IsNotNull(catalog, "Missing catalog asset at " + CatalogPath);
-            Assert.AreEqual(10, catalog.Entries.Count);
+            Assert.AreEqual(14, catalog.Entries.Count);
 
             Assert.IsTrue(catalog.Validate(out List<string> problems), string.Join("\n", problems));
-            Assert.AreEqual(10, catalog.BuildPromptList().Split('\n').Length);
+            Assert.AreEqual(14, catalog.BuildPromptList().Split('\n').Length);
+
+            Assert.IsTrue(catalog.TryGetByEmotion(Emotion.Embarrassed, out AnimationEntry embarrassed));
+            Assert.IsFalse(embarrassed.HasAnimatorState);
+            Assert.IsFalse(embarrassed.HasGesture);
 
             Assert.IsTrue(catalog.TryGetById("idle", out AnimationEntry idle));
             Assert.IsNotNull(idle.clip, "The idle row lost its clip reference.");

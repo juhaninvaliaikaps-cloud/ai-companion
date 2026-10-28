@@ -15,21 +15,27 @@ The console logs one line when a model is ready, for example `Avatar ready: Comp
 
 ## Expression names
 
-`ExpressionPresetMap` maps blendshape names onto `Aa`, `Ih`, `Ou`, `Ee`, `Oh`, `Blink`, `Joy`, `Angry`, `Sorrow`, `Fun`, and `Surprised`.
+`ExpressionPresetMap` maps blendshape names onto `Aa`, `Ih`, `Ou`, `Ee`, `Oh`, `Blink`, `Joy`, `Angry`, `Sorrow`, `Fun`, `Surprised`, and the finer face channels in [EXPRESSIONS.md](EXPRESSIONS.md). Daz-style names such as `eCTRLMouthSmile` and `eCTRLBlush` use the same table.
 
 | Preset | Names it accepts |
 | --- | --- |
-| Aa | `aa`, `a`, `Fcl_MTH_A`, `jawOpen` |
+| Aa | `aa`, `a`, `Fcl_MTH_A`, `jawOpen`, `eCTRLMouthOpen` |
 | Ih | `ih`, `i`, `Fcl_MTH_I`, `mouthClose` |
 | Ou | `ou`, `u`, `Fcl_MTH_U`, `mouthPucker` |
 | Ee | `ee`, `e`, `Fcl_MTH_E`, `mouthStretch*` |
 | Oh | `oh`, `o`, `Fcl_MTH_O`, `mouthFunnel` |
-| Blink | `blink`, `EyeClose`, `Fcl_EYE_Close`, `eyeBlinkLeft`, `eyeBlinkRight` |
-| Joy | `joy`, `happy`, `Fcl_ALL_Joy`, `mouthSmile*` |
+| Blink | `blink`, `EyeClose`, `Fcl_EYE_Close`, `eyeBlinkLeft`, `eyeBlinkRight`, `eCTRLEyesClosedL` |
+| Joy | `joy`, `happy`, `Fcl_ALL_Joy`, `mouthSmile*`, `eCTRLMouthSmile` |
 | Angry | `angry`, `Fcl_ALL_Angry`, `browDown*` |
 | Sorrow | `sorrow`, `sad`, `Fcl_ALL_Sorrow`, `mouthFrown*` |
 | Fun | `fun`, `relaxed`, `Fcl_ALL_Fun` |
-| Surprised | `surprised`, `browInnerUp`, `browOuterUp*`, `eyeWide*` |
+| Surprised | `surprised`, `Fcl_ALL_Surprised` |
+| EyeSquint | `eyeSquint*`, `eCTRLEyeSquintL` |
+| BrowInnerUp | `browInnerUp`, `eCTRLBrowsInnerUp` |
+| BrowOuterUp | `browOuterUp*` |
+| EyeWide | `eyeWide*` |
+| EyeLookDown | `eyeLookDown*`, `eCTRLEyeLookDown` |
+| Blush | `blush`, `cheekBlush`, `eCTRLBlush` |
 
 A VRM expression preset is also recorded when its clip points at a blendshape, even if that shape's name is custom. Names that do not match stay in the full list and are not forced into a preset. Asuna's 52 ARKit shapes (`jawOpen`, `eyeBlinkLeft`, `mouthFunnel`, and the rest) use this table.
 
@@ -113,7 +119,7 @@ Right-click a visible pixel to turn on rotate mode. The label reads `Rotate: on 
 
 The clips are original Humanoid muscle curves, released under CC0. The licence file is `Assets/_Project/Animations/LICENSE.txt`. They are not Mixamo, not Quaternius, and not Asuna's Asset Store animations. To swap one later, replace the `.anim` or drop another Humanoid clip onto that state. Leave third-party clips whose licence does not allow redistribution out of this public repository. If a character stays on the bind pose after import, use **AI Companion > Rebuild Basic Animator** once. That writes the same curves through the Unity animation API.
 
-The face uses the expression map. Happy drives Joy (`mouthSmile*`). Sad drives Sorrow (`mouthFrown*`) and Angry (`browDown*`). Surprised drives `browInnerUp`, `browOuterUp*`, and `eyeWide*`, plus a little jaw. Thinking presses the mouth closed a bit and squints slightly. While TTS audio is playing, lip sync replaces the mouth shapes (jaw, and a small vowel accent). It does not add them on top of the emotion mouth, and it does not drive `mouthClose` while the jaw is open. Smiles, frowns, and brows stay on the emotion. A procedural blink uses the same blink shapes and does not write the mouth. Pressing **T** with no audio still plays the old procedural jaw. Weights for emotions ease in over about 0.3 seconds. The blink itself is quicker than that. The mouth itself follows the audio with a short attack and a slightly slower release. A model with no blendshapes and no jaw bone keeps the body clips and skips the face.
+The face uses the expression map and the weights in [EXPRESSIONS.md](EXPRESSIONS.md). Happy drives a smile and smile-eyes, and opens the mouth as the intensity goes up. Sad drives a frown and lowered brows. Surprised raises inner and outer brows and widens the eyes, plus a little jaw. Thinking presses the mouth closed a bit and squints slightly. Embarrassed, shy, flustered, and concerned are face-only and leave the body on Idle. While TTS audio is playing, lip sync replaces the mouth shapes (jaw, and a small vowel accent). It does not add them on top of the emotion mouth, and it does not drive `mouthClose` while the jaw is open. Smiles, frowns, brows, and blush stay on the emotion. A procedural blink uses the same blink shapes and does not write the mouth. Pressing **T** with no audio still plays the old procedural jaw. Weights for emotions ease in over about 0.3 seconds. The blink itself is quicker than that. The mouth itself follows the audio with a short attack and a slightly slower release. A model with no blendshapes and no jaw bone keeps the body clips and skips the face.
 
 Between clips, `ProceduralLife` adds a slow breath, a crossfaded idle sway, and optional cursor look-at. The controller and the clip names stay as they are. Details and the Settings toggle are in [PROCEDURAL_LIFE.md](PROCEDURAL_LIFE.md).
 

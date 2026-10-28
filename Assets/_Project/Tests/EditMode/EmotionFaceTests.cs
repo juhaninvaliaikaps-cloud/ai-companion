@@ -31,9 +31,9 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(ExpressionPreset.Joy, ExpressionPresetMap.Classify("mouthSmileLeft"));
             Assert.AreEqual(ExpressionPreset.Sorrow, ExpressionPresetMap.Classify("mouthFrownRight"));
             Assert.AreEqual(ExpressionPreset.Angry, ExpressionPresetMap.Classify("browDownLeft"));
-            Assert.AreEqual(ExpressionPreset.Surprised, ExpressionPresetMap.Classify("browInnerUp"));
-            Assert.AreEqual(ExpressionPreset.Surprised, ExpressionPresetMap.Classify("browOuterUpRight"));
-            Assert.AreEqual(ExpressionPreset.Surprised, ExpressionPresetMap.Classify("eyeWideLeft"));
+            Assert.AreEqual(ExpressionPreset.BrowInnerUp, ExpressionPresetMap.Classify("browInnerUp"));
+            Assert.AreEqual(ExpressionPreset.BrowOuterUp, ExpressionPresetMap.Classify("browOuterUpRight"));
+            Assert.AreEqual(ExpressionPreset.EyeWide, ExpressionPresetMap.Classify("eyeWideLeft"));
             Assert.AreEqual(ExpressionPreset.Surprised, ExpressionPresetMap.Classify("surprised"));
             Assert.AreEqual(ExpressionPreset.Aa, ExpressionPresetMap.Classify("jawOpen"));
         }

@@ -5,7 +5,9 @@ namespace AICompanion.Avatar
 {
     /// <summary>
     /// Maps blendshape names onto <see cref="ExpressionPreset"/>.
-    /// Accepts VRM 1.0 presets, VRM 0.x / VRoid names, and the 52 ARKit names.
+    /// Accepts VRM 1.0 presets, VRM 0.x / VRoid names, the 52 ARKit names, and
+    /// Daz-style names such as <c>eCTRLEyeSquintL</c>. A name that matches nothing
+    /// is <see cref="ExpressionPreset.None"/> and is left alone.
     /// </summary>
     public static class ExpressionPresetMap
     {
@@ -27,7 +29,20 @@ namespace AICompanion.Avatar
                     return preset;
             }
 
-            if (normalized.StartsWith("jawopen", StringComparison.Ordinal))
+            if (Contains(normalized, "eyesquint") || Contains(normalized, "eyesmile"))
+                return ExpressionPreset.EyeSquint;
+            if (Contains(normalized, "browinnerup") || Contains(normalized, "browsinnerup"))
+                return ExpressionPreset.BrowInnerUp;
+            if (Contains(normalized, "browouterup") || Contains(normalized, "browsouterup"))
+                return ExpressionPreset.BrowOuterUp;
+            if (Contains(normalized, "eyewide") || Contains(normalized, "eyeswide"))
+                return ExpressionPreset.EyeWide;
+            if (Contains(normalized, "eyelookdown") || Contains(normalized, "eyesdown") || Contains(normalized, "eyedown"))
+                return ExpressionPreset.EyeLookDown;
+            if (Contains(normalized, "blush"))
+                return ExpressionPreset.Blush;
+
+            if (normalized.StartsWith("jawopen", StringComparison.Ordinal) || Contains(normalized, "jawopen") || Contains(normalized, "mouthopen"))
                 return ExpressionPreset.Aa;
             if (normalized.StartsWith("mouthfunnel", StringComparison.Ordinal))
                 return ExpressionPreset.Oh;
@@ -37,22 +52,26 @@ namespace AICompanion.Avatar
                 return ExpressionPreset.Ih;
             if (normalized.StartsWith("mouthstretch", StringComparison.Ordinal))
                 return ExpressionPreset.Ee;
-            if (normalized.StartsWith("eyeblink", StringComparison.Ordinal) || normalized.StartsWith("blink", StringComparison.Ordinal))
+            if (normalized.StartsWith("eyeblink", StringComparison.Ordinal) || normalized.StartsWith("blink", StringComparison.Ordinal)
+                || Contains(normalized, "eyeblink") || Contains(normalized, "eyeclose") || Contains(normalized, "eyesclosed"))
                 return ExpressionPreset.Blink;
-            if (normalized.StartsWith("eyeclose", StringComparison.Ordinal) || normalized.StartsWith("eyesclose", StringComparison.Ordinal))
-                return ExpressionPreset.Blink;
-            if (normalized.StartsWith("mouthsmile", StringComparison.Ordinal))
+            if (normalized.StartsWith("mouthsmile", StringComparison.Ordinal) || Contains(normalized, "mouthsmile"))
                 return ExpressionPreset.Joy;
-            if (normalized.StartsWith("browdown", StringComparison.Ordinal))
+            if (normalized.StartsWith("browdown", StringComparison.Ordinal) || Contains(normalized, "browdown") || Contains(normalized, "browsdown"))
                 return ExpressionPreset.Angry;
-            if (normalized.StartsWith("mouthfrown", StringComparison.Ordinal))
+            if (normalized.StartsWith("mouthfrown", StringComparison.Ordinal) || Contains(normalized, "mouthfrown"))
                 return ExpressionPreset.Sorrow;
-            if (normalized.StartsWith("browinnerup", StringComparison.Ordinal)
-                || normalized.StartsWith("browouterup", StringComparison.Ordinal)
-                || normalized.StartsWith("eyewide", StringComparison.Ordinal))
+            if (Contains(normalized, "surprise"))
                 return ExpressionPreset.Surprised;
+            if (Contains(normalized, "smile"))
+                return ExpressionPreset.Joy;
 
             return ExpressionPreset.None;
+        }
+
+        static bool Contains(string normalized, string token)
+        {
+            return normalized.IndexOf(token, StringComparison.Ordinal) >= 0;
         }
 
         public static IReadOnlyDictionary<ExpressionPreset, IReadOnlyList<string>> Map(IEnumerable<string> blendShapeNames)
@@ -141,7 +160,13 @@ namespace AICompanion.Avatar
             Add(map, ExpressionPreset.Angry, "angry", "fclallangry", "browdownleft", "browdownright", "browdown");
             Add(map, ExpressionPreset.Sorrow, "sorrow", "sad", "fclallsorrow", "mouthfrownleft", "mouthfrownright", "mouthfrown");
             Add(map, ExpressionPreset.Fun, "fun", "relaxed", "fclallfun");
-            Add(map, ExpressionPreset.Surprised, "surprised", "surprise", "fclallsurprised", "browinnerup", "browouterup", "browouterupleft", "browouterupright", "eyewide", "eyewideleft", "eyewideright");
+            Add(map, ExpressionPreset.Surprised, "surprised", "surprise", "fclallsurprised");
+            Add(map, ExpressionPreset.EyeSquint, "eyesquint", "eyesquintleft", "eyesquintright", "eyesmile", "eyesmileleft", "eyesmileright");
+            Add(map, ExpressionPreset.BrowInnerUp, "browinnerup", "browinnerupleft", "browinnerupright");
+            Add(map, ExpressionPreset.BrowOuterUp, "browouterup", "browouterupleft", "browouterupright");
+            Add(map, ExpressionPreset.EyeWide, "eyewide", "eyewideleft", "eyewideright");
+            Add(map, ExpressionPreset.EyeLookDown, "eyelookdown", "eyelookdownleft", "eyelookdownright", "eyesdown", "eyedown");
+            Add(map, ExpressionPreset.Blush, "blush", "cheekblush", "faceblush", "tere", "照れ");
             return map;
         }
 
