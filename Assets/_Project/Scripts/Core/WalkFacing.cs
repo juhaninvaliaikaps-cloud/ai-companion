@@ -6,7 +6,7 @@ namespace AICompanion.Core
     /// </summary>
     public static class WalkFacing
     {
-        public const float TurnDegrees = 65f;
+        public const float TurnDegrees = 78f;
 
         /// <summary>
         /// The extra yaw to apply while walking, relative to whatever yaw the turntable
@@ -28,7 +28,11 @@ namespace AICompanion.Core
                 direction = -1f;
             if (direction > 1f)
                 direction = 1f;
-            return direction * TurnDegrees;
+
+            // The model forward axis points the other way than the travel sign, so a walk
+            // to the right needs a negative yaw around Y. Flipping it here keeps the sign
+            // in one place instead of every caller.
+            return -direction * TurnDegrees;
         }
     }
 }

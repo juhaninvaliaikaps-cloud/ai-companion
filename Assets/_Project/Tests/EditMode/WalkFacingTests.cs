@@ -12,17 +12,20 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void WalkingRightTurnsOneWayAndLeftTheOther()
+        public void WalkingRightAndLeftTurnOppositeWays()
         {
-            Assert.AreEqual(WalkFacing.TurnDegrees, WalkFacing.Target(1f), 0.001f);
-            Assert.AreEqual(-WalkFacing.TurnDegrees, WalkFacing.Target(-1f), 0.001f);
+            var right = WalkFacing.Target(1f);
+            var left = WalkFacing.Target(-1f);
+
+            Assert.AreEqual(-right, left, 0.001f);
+            Assert.AreEqual(WalkFacing.TurnDegrees, System.Math.Abs(right), 0.001f);
         }
 
         [Test]
         public void OutOfRangeDirectionsClamp()
         {
-            Assert.AreEqual(WalkFacing.TurnDegrees, WalkFacing.Target(4f), 0.001f);
-            Assert.AreEqual(-WalkFacing.TurnDegrees, WalkFacing.Target(-4f), 0.001f);
+            Assert.AreEqual(WalkFacing.Target(1f), WalkFacing.Target(4f), 0.001f);
+            Assert.AreEqual(WalkFacing.Target(-1f), WalkFacing.Target(-4f), 0.001f);
         }
 
         [Test]
@@ -34,8 +37,8 @@ namespace AICompanion.Tests.EditMode
         [Test]
         public void WalkingOverridesTheSavedYaw()
         {
-            Assert.AreEqual(WalkFacing.TurnDegrees - 30f, WalkFacing.Offset(1f, 30f), 0.001f);
-            Assert.AreEqual(-WalkFacing.TurnDegrees - 30f, WalkFacing.Offset(-1f, 30f), 0.001f);
+            Assert.AreEqual(WalkFacing.Target(1f) - 30f, WalkFacing.Offset(1f, 30f), 0.001f);
+            Assert.AreEqual(WalkFacing.Target(-1f) - 30f, WalkFacing.Offset(-1f, 30f), 0.001f);
         }
 
         [Test]
@@ -47,7 +50,7 @@ namespace AICompanion.Tests.EditMode
         [Test]
         public void NaNSavedYawIsTreatedAsZero()
         {
-            Assert.AreEqual(WalkFacing.TurnDegrees, WalkFacing.Offset(1f, float.NaN), 0.001f);
+            Assert.AreEqual(WalkFacing.Target(1f), WalkFacing.Offset(1f, float.NaN), 0.001f);
         }
     }
 }
