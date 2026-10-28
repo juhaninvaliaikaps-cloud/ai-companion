@@ -17,11 +17,13 @@ namespace AICompanion.Avatar
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(12100)]
-    public sealed class AvatarAnimationController : MonoBehaviour, IAvatarAnimator, IAvatarTurntable, IAvatarAnchor, IAnimationStatePlayer
+    public sealed class AvatarAnimationController : MonoBehaviour, IAvatarAnimator, IAvatarTurntable, IAvatarAnchor, IAnimationStatePlayer, IAvatarLocomotion
     {
         static readonly int TalkingHash = Animator.StringToHash(AvatarAnimatorParameters.Talking);
         static readonly int EmotionHash = Animator.StringToHash(AvatarAnimatorParameters.Emotion);
         static readonly int IntensityHash = Animator.StringToHash(AvatarAnimatorParameters.EmotionIntensity);
+        static readonly int WalkingHash = Animator.StringToHash(AvatarAnimatorParameters.Walking);
+        static readonly int FallingHash = Animator.StringToHash(AvatarAnimatorParameters.Falling);
         static readonly ShapeBinding[] NoBindings = new ShapeBinding[0];
         static readonly KeyCode[] DebugKeys =
         {
@@ -49,6 +51,8 @@ namespace AICompanion.Avatar
         bool _hasTalking;
         bool _hasEmotion;
         bool _hasIntensity;
+        bool _hasWalking;
+        bool _hasFalling;
         bool _warnedMissingController;
         float _talkAmount;
         float _talkTime;
@@ -82,6 +86,20 @@ namespace AICompanion.Avatar
         {
             _model.SetEmotion(emotion, intensity);
             PushParameters();
+        }
+
+        /// <summary>Drives the Walk state on the gesture layer while she moves along the desktop.</summary>
+        public void SetWalking(bool walking)
+        {
+            if (_animator != null && _hasWalking)
+                _animator.SetBool(WalkingHash, walking);
+        }
+
+        /// <summary>Drives the fall pose while she drops to the taskbar.</summary>
+        public void SetFalling(bool falling)
+        {
+            if (_animator != null && _hasFalling)
+                _animator.SetBool(FallingHash, falling);
         }
 
         /// <summary>
@@ -125,6 +143,8 @@ namespace AICompanion.Avatar
             _hasTalking = false;
             _hasEmotion = false;
             _hasIntensity = false;
+            _hasWalking = false;
+            _hasFalling = false;
             _bindings = NoBindings;
             _proceduralBlink = 0f;
             if (instance == null)
@@ -297,6 +317,10 @@ namespace AICompanion.Avatar
                     _hasEmotion = true;
                 else if (parameter.name == AvatarAnimatorParameters.EmotionIntensity && parameter.type == AnimatorControllerParameterType.Float)
                     _hasIntensity = true;
+                else if (parameter.name == AvatarAnimatorParameters.Walking && parameter.type == AnimatorControllerParameterType.Bool)
+                    _hasWalking = true;
+                else if (parameter.name == AvatarAnimatorParameters.Falling && parameter.type == AnimatorControllerParameterType.Bool)
+                    _hasFalling = true;
             }
         }
 

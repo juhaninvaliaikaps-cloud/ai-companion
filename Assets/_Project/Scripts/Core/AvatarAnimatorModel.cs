@@ -11,6 +11,8 @@ namespace AICompanion.Core
         public const string Talking = "Talking";
         public const string Emotion = "Emotion";
         public const string EmotionIntensity = "EmotionIntensity";
+        public const string Walking = "Walking";
+        public const string Falling = "Falling";
     }
 
     /// <summary>

@@ -81,3 +81,16 @@ The taskbar button is hidden after the player HWND has been stable for a short t
 11. **First-run setup.** On a Windows account with no `%APPDATA%\ProjectLeia\settings.json` and no `%APPDATA%\ProjectLeia\secrets.json`, the player shows a five-step setup in this same window before the companion is left on her own. There is no second window and no main menu. The title says **Backseat Catgirl**. Welcome names what goes to xAI (Grok chat and xAI text-to-speech) and what stays local (Ollama private mode; that content is not sent to cloud TTS, the voice agent, or Uthana). AI accepts a masked xAI key, tests the connection, or skip continues on the local model. The key is written only to `secrets.json` under that AppData folder. It is not in `settings.json`, the player folder, or the log, and the field is empty after a save. Avatar lists Auto, Local prefab, VRM sample, and FBX sample. Personality saves a name and friend or girlfriend. Controls lists the tray icon, drag, rotate mode, and the same keys as Settings, Controls. Back, Next, and Skip work. Skip uses that step's default. Done writes `settings.json` and closes the wizard. Relaunch does not show it. An account that already had `settings.json` or a saved key before this build does not show it either. To show it again, launch `Builds\Windows\BackseatCatgirl.exe --setup`, or open Settings, Privacy, **Run setup again**. Deleting only `settings.json` is not enough while `secrets.json` still holds a key. Opening and closing the wizard does not change transparency, topmost, or the click-through mode. Empty pixels outside the wizard still click through.
 
 Transparency, topmost, drag, and click-through are properties of the Windows player. Play mode in the editor shows the capsule and the label, and F8 flips the label there.
+
+## Desktop gravity and walking
+
+The overlay window follows the monitor work area: the top of the taskbar is the ground, and a work-area change (taskbar moved, monitor switched) is re-read every frame through IWindowChrome.TryGetWorkArea.
+
+- Dragging pauses the motion. When the button is released the window stays where the pointer left it, then falls from there to the ground with a short acceleration and no bounce.
+- While idle on the ground she pauses for a few seconds, walks left or right for a few seconds, stops, and repeats. Edges clamp: at the left or right work-area edge she stops instead of leaving the screen.
+- Walking and falling raise the overlay to the active frame rate through IOverlayKeepAwake; once she is idle on the ground it drops back to the idle rate.
+- The motion is screen-space arithmetic in DesktopPresenceModel with no Rigidbody, so any avatar works and nothing depends on root motion.
+
+The walk and fall poses come from the animator parameters Walking and Falling. The shared controller on this branch declares neither; the gesture layer and the Walk clip land with JUH-65 (PR #18). Until that merges she slides along the ground without a walk cycle, and the parameters are ignored because AvatarAnimationController only writes a parameter the controller declares.
+
+Not in this change: turning the body to face the walk direction, a fall or dangle clip, picking her up while dragged, and the settings toggle. Facing needs the Walk clip and a yaw offset that does not fight the saved per-avatar yaw from JUH-60, so it is a separate step.
