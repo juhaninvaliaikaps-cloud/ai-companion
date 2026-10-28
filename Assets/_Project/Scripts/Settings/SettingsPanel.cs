@@ -712,6 +712,7 @@ namespace AICompanion.Settings
             AddSourceButton("Local prefab", AvatarSourceNames.Local);
             AddSourceButton("VRM sample", AvatarSourceNames.Vrm);
             AddSourceButton("FBX sample", AvatarSourceNames.Fbx);
+            BuildPortraitToggle();
             AddButton("Reset rotation", () =>
             {
                 var mount = GetComponent<AvatarMount>();
