@@ -53,7 +53,6 @@ namespace AICompanion.Core
                 case KeyCode.F7:
                 case KeyCode.F8:
                 case KeyCode.F9:
-                case KeyCode.F10:
                 case KeyCode.F12:
                     return true;
                 default:
