@@ -139,7 +139,7 @@ namespace AICompanion.Avatar
             if (_root == null)
                 return;
 
-            var target = WalkFacing.Target(_walkDirection);
+            var target = WalkFacing.Offset(_walkDirection, _extraYaw);
             if (delta > 0f)
             {
                 var blend = 1f - Mathf.Pow(0.5f, delta / 0.22f);
