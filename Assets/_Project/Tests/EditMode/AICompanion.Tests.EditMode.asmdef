@@ -5,6 +5,7 @@
         "AICompanion.Core",
         "AICompanion.AnimationDirector",
         "AICompanion.AI",
+        "AICompanion.Memory",
         "AICompanion.Avatar",
         "AICompanion.Overlay",
         "AICompanion.UI",
