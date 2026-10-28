@@ -22,5 +22,8 @@ namespace AICompanion.Avatar
         public GameObject localPrefab;
         public string streamingVrmRelativePath = "Avatars/CompanionSample.vrm";
         public string fbxResourcePath = "Avatars/CompanionSample";
+
+        /// <summary>Fine-tune in pixels for a model whose foot bones sit off the sole (default 0).</summary>
+        public float groundOffsetPx;
     }
 }

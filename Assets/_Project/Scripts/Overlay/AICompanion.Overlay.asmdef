@@ -3,6 +3,7 @@
     "rootNamespace": "AICompanion.Overlay",
     "references": [
         "AICompanion.Core",
+        "AICompanion.Avatar",
         "UnityEngine.UI"
     ],
     "includePlatforms": [],
