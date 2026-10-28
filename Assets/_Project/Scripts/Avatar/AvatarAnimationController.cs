@@ -73,6 +73,9 @@ namespace AICompanion.Avatar
         Transform _root;
         AvatarPreference _source = AvatarPreference.Auto;
         float _extraYaw;
+        float _walkDirection;
+        float _walkYaw;
+        float _walkYawApplied;
         bool _hasTalking;
         bool _hasEmotion;
         bool _hasIntensity;
@@ -119,6 +122,43 @@ namespace AICompanion.Avatar
         {
             if (_animator != null && _hasWalking)
                 _animator.SetBool(WalkingHash, walking);
+        }
+
+        public void SetWalkingDirection(float direction)
+        {
+            _walkDirection = float.IsNaN(direction) ? 0f : Mathf.Clamp(direction, -1f, 1f);
+        }
+
+        /// <summary>
+        /// Turns the root toward the walk direction on top of the saved per-avatar yaw, so
+        /// the turntable value survives. The applied offset is tracked so it can be removed
+        /// when she stops or the yaw is reset.
+        /// </summary>
+        void UpdateWalkFacing(float delta)
+        {
+            if (_root == null)
+                return;
+
+            var target = WalkFacing.Offset(_walkDirection, _extraYaw);
+            if (delta > 0f)
+            {
+                var blend = 1f - Mathf.Pow(0.5f, delta / 0.22f);
+                _walkYaw += (target - _walkYaw) * blend;
+            }
+            else
+            {
+                _walkYaw = target;
+            }
+
+            var step = _walkYaw - _walkYawApplied;
+            if (Mathf.Abs(step) < 0.01f)
+            {
+                _walkYawApplied = _walkYaw;
+                return;
+            }
+
+            _root.Rotate(0f, step, 0f, Space.World);
+            _walkYawApplied = _walkYaw;
         }
 
         /// <summary>Drives the fall pose while she drops to the taskbar.</summary>
@@ -257,10 +297,17 @@ namespace AICompanion.Avatar
 
         public void ResetYaw()
         {
-            if (_root != null && Mathf.Abs(_extraYaw) > 0.0001f)
-                _root.Rotate(0f, -_extraYaw, 0f, Space.World);
+            if (_root != null)
+            {
+                var total = _extraYaw + _walkYawApplied;
+                if (Mathf.Abs(total) > 0.0001f)
+                    _root.Rotate(0f, -total, 0f, Space.World);
+            }
 
             _extraYaw = 0f;
+            _walkYaw = 0f;
+            _walkYawApplied = 0f;
+            _walkDirection = 0f;
             AvatarYawKeys.Write(_source, 0f, true);
         }
 
@@ -322,6 +369,7 @@ namespace AICompanion.Avatar
 
         void LateUpdate()
         {
+            UpdateWalkFacing(Time.deltaTime);
             UpdateGestureLayerWeight();
             AdvanceFace(Time.deltaTime);
             ApplyFace(DisplayedFace());

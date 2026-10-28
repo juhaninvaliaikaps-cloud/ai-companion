@@ -22,6 +22,7 @@ namespace AICompanion.Overlay
         bool _wasDragging;
         bool _walkingSent;
         bool _fallingSent;
+        float _walkDirectionSent = float.NaN;
         bool _unsupportedLogged;
 
         public bool KeepFrameRateActive
@@ -83,7 +84,7 @@ namespace AICompanion.Overlay
             {
                 _model.PlaceAt(left, top);
                 _wasDragging = true;
-                ApplyLocomotion(false, false);
+                ApplyLocomotion(false, false, true);
                 return;
             }
 
@@ -98,10 +99,10 @@ namespace AICompanion.Overlay
             if (frame.Moved)
                 chrome.MoveWindow(new Vector2Int(frame.X, frame.Y), _window.IsTopmost);
 
-            ApplyLocomotion(frame.Walking, frame.Falling);
+            ApplyLocomotion(frame.Walking, frame.Falling, frame.FacingRight);
         }
 
-        void ApplyLocomotion(bool walking, bool falling)
+        void ApplyLocomotion(bool walking, bool falling, bool facingRight)
         {
             if (_locomotion == null)
                 _locomotion = GetComponent<IAvatarLocomotion>();
@@ -118,6 +119,13 @@ namespace AICompanion.Overlay
             {
                 _fallingSent = falling;
                 _locomotion.SetFalling(falling);
+            }
+
+            var direction = walking ? (facingRight ? 1f : -1f) : 0f;
+            if (!Mathf.Approximately(direction, _walkDirectionSent))
+            {
+                _walkDirectionSent = direction;
+                _locomotion.SetWalkingDirection(direction);
             }
         }
     }
