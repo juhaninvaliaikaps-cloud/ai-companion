@@ -359,6 +359,7 @@ GameObject:
   - component: {fileID: 1911444199}
   - component: {fileID: 1911444200}
   - component: {fileID: 1911444201}
+  - component: {fileID: 1911444208}
   - component: {fileID: 1911444202}
   - component: {fileID: 1911444203}
   - component: {fileID: 1911444204}
@@ -448,6 +449,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: AICompanion.Avatar::AICompanion.Avatar.AvatarAnimationController
   controller: {fileID: 9100000, guid: bfa1f4473a8c267481c695735f79ac4f, type: 2}
+--- !u!114 &1911444208
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1911444196}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c4e8a2b6d1f34c9e8a7b5d3f0e2c1946, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: AICompanion.Avatar::AICompanion.Avatar.ProceduralLife
 --- !u!114 &1911444202
 MonoBehaviour:
   m_ObjectHideFlags: 0

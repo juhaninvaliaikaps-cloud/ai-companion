@@ -39,6 +39,8 @@ namespace AICompanion.Avatar
                 return ExpressionPreset.Ee;
             if (normalized.StartsWith("eyeblink", StringComparison.Ordinal) || normalized.StartsWith("blink", StringComparison.Ordinal))
                 return ExpressionPreset.Blink;
+            if (normalized.StartsWith("eyeclose", StringComparison.Ordinal) || normalized.StartsWith("eyesclose", StringComparison.Ordinal))
+                return ExpressionPreset.Blink;
             if (normalized.StartsWith("mouthsmile", StringComparison.Ordinal))
                 return ExpressionPreset.Joy;
             if (normalized.StartsWith("browdown", StringComparison.Ordinal))
@@ -134,7 +136,7 @@ namespace AICompanion.Avatar
             Add(map, ExpressionPreset.Ou, "ou", "u", "vrmou", "fclmthu", "mouthpucker");
             Add(map, ExpressionPreset.Ee, "ee", "e", "vrmee", "fclmthe");
             Add(map, ExpressionPreset.Oh, "oh", "o", "vrmoh", "fclmtho", "mouthfunnel");
-            Add(map, ExpressionPreset.Blink, "blink", "blinkleft", "blinkright", "eyeblinkleft", "eyeblinkright", "fcleyeclose", "fcleyeclosel", "fcleyecloser");
+            Add(map, ExpressionPreset.Blink, "blink", "blinkleft", "blinkright", "eyeblinkleft", "eyeblinkright", "eyeclose", "eyeclosed", "eyesclosed", "fcleyeclose", "fcleyeclosel", "fcleyecloser");
             Add(map, ExpressionPreset.Joy, "joy", "happy", "fclalljoy", "mouthsmileleft", "mouthsmileright", "mouthsmile");
             Add(map, ExpressionPreset.Angry, "angry", "fclallangry", "browdownleft", "browdownright", "browdown");
             Add(map, ExpressionPreset.Sorrow, "sorrow", "sad", "fclallsorrow", "mouthfrownleft", "mouthfrownright", "mouthfrown");

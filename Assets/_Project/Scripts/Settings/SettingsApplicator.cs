@@ -79,6 +79,10 @@ namespace AICompanion.Settings
                 }
             }
 
+            var life = host.GetComponent<ProceduralLife>();
+            if (life != null)
+                life.CursorLookEnabled = settings.CursorLookAt;
+
             var mount = host.GetComponent<AvatarMount>();
             if (mount != null)
             {

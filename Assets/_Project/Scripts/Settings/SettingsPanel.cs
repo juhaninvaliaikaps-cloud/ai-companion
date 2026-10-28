@@ -670,6 +670,8 @@ namespace AICompanion.Settings
                 SetStatus("Rotation reset.");
             });
             Note("Reset faces the current avatar toward the camera. It applies immediately.");
+            AddToggle("Look at cursor", _settings.CursorLookAt, value => _settings.CursorLookAt = value);
+            Note("Eyes and head follow the desktop cursor. They ease back when it is still or far away.");
         }
 
         void BuildVoice()

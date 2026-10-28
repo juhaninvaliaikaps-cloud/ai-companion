@@ -24,7 +24,7 @@ The console logs one line when a model is ready, for example `Avatar ready: Comp
 | Ou | `ou`, `u`, `Fcl_MTH_U`, `mouthPucker` |
 | Ee | `ee`, `e`, `Fcl_MTH_E`, `mouthStretch*` |
 | Oh | `oh`, `o`, `Fcl_MTH_O`, `mouthFunnel` |
-| Blink | `blink`, `Fcl_EYE_Close`, `eyeBlinkLeft`, `eyeBlinkRight` |
+| Blink | `blink`, `EyeClose`, `Fcl_EYE_Close`, `eyeBlinkLeft`, `eyeBlinkRight` |
 | Joy | `joy`, `happy`, `Fcl_ALL_Joy`, `mouthSmile*` |
 | Angry | `angry`, `Fcl_ALL_Angry`, `browDown*` |
 | Sorrow | `sorrow`, `sad`, `Fcl_ALL_Sorrow`, `mouthFrown*` |
@@ -113,7 +113,9 @@ Right-click a visible pixel to turn on rotate mode. The label reads `Rotate: on 
 
 The clips are original Humanoid muscle curves, released under CC0. The licence file is `Assets/_Project/Animations/LICENSE.txt`. They are not Mixamo, not Quaternius, and not Asuna's Asset Store animations. To swap one later, replace the `.anim` or drop another Humanoid clip onto that state. Leave third-party clips whose licence does not allow redistribution out of this public repository. If a character stays on the bind pose after import, use **AI Companion > Rebuild Basic Animator** once. That writes the same curves through the Unity animation API.
 
-The face uses the expression map. Happy drives Joy (`mouthSmile*`). Sad drives Sorrow (`mouthFrown*`) and Angry (`browDown*`). Surprised drives `browInnerUp`, `browOuterUp*`, and `eyeWide*`, plus a little jaw. Thinking presses the mouth closed a bit. While TTS audio is playing, lip sync replaces the mouth shapes (jaw, and a small vowel accent). It does not add them on top of the emotion mouth, and it does not drive `mouthClose` while the jaw is open. Smiles, frowns, and brows stay on the emotion. Pressing **T** with no audio still plays the old procedural jaw. Weights for emotions ease in over about 0.3 seconds. The mouth itself follows the audio with a short attack and a slightly slower release. A model with no blendshapes and no jaw bone keeps the body clips and skips the face.
+The face uses the expression map. Happy drives Joy (`mouthSmile*`). Sad drives Sorrow (`mouthFrown*`) and Angry (`browDown*`). Surprised drives `browInnerUp`, `browOuterUp*`, and `eyeWide*`, plus a little jaw. Thinking presses the mouth closed a bit and squints slightly. While TTS audio is playing, lip sync replaces the mouth shapes (jaw, and a small vowel accent). It does not add them on top of the emotion mouth, and it does not drive `mouthClose` while the jaw is open. Smiles, frowns, and brows stay on the emotion. A procedural blink uses the same blink shapes and does not write the mouth. Pressing **T** with no audio still plays the old procedural jaw. Weights for emotions ease in over about 0.3 seconds. The blink itself is quicker than that. The mouth itself follows the audio with a short attack and a slightly slower release. A model with no blendshapes and no jaw bone keeps the body clips and skips the face.
+
+Between clips, `ProceduralLife` adds a slow breath, a crossfaded idle sway, and optional cursor look-at. The controller and the clip names stay as they are. Details and the Settings toggle are in [PROCEDURAL_LIFE.md](PROCEDURAL_LIFE.md).
 
 ## Lip sync
 

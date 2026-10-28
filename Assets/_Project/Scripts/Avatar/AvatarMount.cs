@@ -311,6 +311,11 @@ namespace AICompanion.Avatar
             if (lips == null)
                 lips = gameObject.AddComponent<LipSyncDriver>();
             lips.Bind(_instance);
+
+            var life = GetComponent<ProceduralLife>();
+            if (life == null)
+                life = gameObject.AddComponent<ProceduralLife>();
+            life.Bind(_instance, _current);
         }
 
         int BeginLoad()

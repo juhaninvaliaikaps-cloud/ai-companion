@@ -34,6 +34,7 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(SttSettings.DefaultModelFile, settings.WhisperModel);
             Assert.AreEqual(OverlayClickThroughPolicy.SilhouetteName, settings.ClickThrough);
             Assert.IsTrue(settings.AlwaysOnTop);
+            Assert.IsTrue(settings.CursorLookAt);
             Assert.AreEqual(ChatDefaults.GrokId, OutboundPrivacy.ChatProviderId(settings.PrivateMode, settings.ProviderId));
         }
 
@@ -60,6 +61,7 @@ namespace AICompanion.Tests.EditMode
             settings.ChatHistory = true;
             settings.PrivateMode = true;
             settings.AlwaysOnTop = false;
+            settings.CursorLookAt = false;
 
             var json = CompanionSettingsJson.Write(settings);
             Assert.IsFalse(CompanionSettingsSecrets.ContainsForbiddenSecretField(json));
@@ -82,6 +84,7 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(loaded.ChatHistory);
             Assert.IsTrue(loaded.PrivateMode);
             Assert.IsFalse(loaded.AlwaysOnTop);
+            Assert.IsFalse(loaded.CursorLookAt);
             Assert.AreEqual("vrm", loaded.AvatarSource);
             Assert.AreEqual(45f, loaded.TimeoutSeconds, 0.001f);
             Assert.AreEqual(ChatDefaults.LocalId, OutboundPrivacy.ChatProviderId(loaded.PrivateMode, ChatDefaults.GrokId));
