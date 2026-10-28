@@ -63,6 +63,8 @@ The cue is applied when the reply finishes, which is when the tag has arrived. S
 
 ## Limits
 
-- No gesture row has an Animator state or clip yet, so today every gesture resolves to its emotion. The `GestureState` path is exercised by tests with a synthetic row. A cross-fade on the base layer fights the emotion AnyState transitions; see [ANIMATION_REVIEW.md](ANIMATION_REVIEW.md).
+- The gesture clips are procedural muscle curves, not motion capture: stylised, no finger articulation, and the walk is on the spot because root motion stays off.
+- `walk` and `turn_around` have catalog rows, but nothing emits them from chat yet. The cue carries one gesture and the model chooses it, so asking to walk depends on prompt wording.
+- Gestures live on layer 2, an override layer with `writeDefaultValues` off, so the base layer emotion transitions cannot interrupt them.
 - The cue is one tag for the whole reply. Per-sentence cues would need a different streaming contract.
 - `speech` and the cue are independent: a muted or failed utterance still changes the face, because the cue arrives with the text rather than with the audio.
