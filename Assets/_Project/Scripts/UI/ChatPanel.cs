@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Threading;
 using AICompanion.AI;
 using AICompanion.Core;
+using AICompanion.Memory;
 using Director = AICompanion.AnimationDirector.AnimationDirector;
 using UnityEngine;
 using UnityEngine.EventSystems;
