@@ -53,6 +53,7 @@ namespace AICompanion.UI
         IDesktopWindow _desktop;
         float _anchorX;
         bool _anchorReady;
+        bool? _panelOnLeft;
         int _anchorSource = -1;
         bool _placementLogged;
         float _placementLogAt;
@@ -599,8 +600,9 @@ namespace AICompanion.UI
             var visible = VisibleRect(screenWidth, screenHeight);
             var anchorX = ResolveAnchorX(screenWidth);
             var column = ChatPanelPlacement.Column(anchorX, ChatPanelPlacement.BodyWidth, screenWidth, screenHeight);
-            var placed = ChatPanelPlacement.Place(screenWidth, screenHeight, column, gap);
+            var placed = ChatPanelPlacement.Place(screenWidth, screenHeight, column, gap, _panelOnLeft);
             _guiRect = ChatPanelPlacement.ClampInside(placed, visible);
+            _panelOnLeft = _guiRect.x + _guiRect.width * 0.5f < anchorX;
             LogPlacement(screenWidth, screenHeight, visible);
             if (_panelRect == null)
                 return;
@@ -678,7 +680,14 @@ namespace AICompanion.UI
                 _anchorSource = source;
             }
 
-            _anchorX = ChatPanelPlacement.SmoothAnchor(_anchorX, target, Time.unscaledDeltaTime, _anchorReady, out _anchorReady);
+            _anchorX = ChatPanelPlacement.SmoothAnchor(
+                _anchorX,
+                target,
+                Time.unscaledDeltaTime,
+                _anchorReady,
+                out _anchorReady,
+                deadZone: 24f,
+                maxSpeed: 420f);
             return _anchorX;
         }
 
