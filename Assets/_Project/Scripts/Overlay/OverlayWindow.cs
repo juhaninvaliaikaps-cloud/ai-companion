@@ -17,7 +17,7 @@ namespace AICompanion.Overlay
     /// frame rate, frames the avatar, and updates the debug label.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class OverlayWindow : MonoBehaviour, ICompanionStartup, ITypingFocus, IDesktopWindow, ICompanionVisibility
+    public sealed class OverlayWindow : MonoBehaviour, ICompanionStartup, ITypingFocus, IDesktopWindow, ICompanionVisibility, IScreenCursor
     {
         const string TopmostOnLabel = "Topmost on   F8";
         const string TopmostOffLabel = "Topmost off  F8";
@@ -575,6 +575,23 @@ namespace AICompanion.Overlay
             _anchorRight = right;
             _anchorBottom = bottom;
             _hasAnchor = true;
+        }
+
+        public bool TryGetUnityScreenCursor(out float x, out float y)
+        {
+            if (_chrome != null && _chrome.IsSupported && _chrome.TryGetClientCursor(out var client, out var clientSize)
+                && clientSize.x > 0 && clientSize.y > 0)
+            {
+                var unity = OverlayPointerMath.ToUnityScreen(client.x, client.y, clientSize.x, clientSize.y, Screen.width, Screen.height);
+                x = unity.x;
+                y = unity.y;
+                return true;
+            }
+
+            var mouse = Input.mousePosition;
+            x = mouse.x;
+            y = mouse.y;
+            return true;
         }
 
         bool TryReadPointer(out Vector2 unityScreen, out Vector2Int screenCursor)

@@ -52,6 +52,7 @@ namespace AICompanion.Avatar
         bool _warnedMissingController;
         float _talkAmount;
         float _talkTime;
+        float _proceduralBlink;
         FacePose _face;
         LipSyncDriver _lips;
         UnityAction _beforeRender;
@@ -84,6 +85,19 @@ namespace AICompanion.Avatar
         }
 
         /// <summary>
+        /// Eye blink from <see cref="ProceduralLife"/>. Combined at display time so the
+        /// 0.3s emotion ease does not smear the close, and so lip sync keeps the mouth.
+        /// </summary>
+        public void SetProceduralBlink(float weight)
+        {
+            if (float.IsNaN(weight) || weight < 0f)
+                weight = 0f;
+            else if (weight > 1f)
+                weight = 1f;
+            _proceduralBlink = weight;
+        }
+
+        /// <summary>
         /// Plays a named state on layer 0 when the attached controller has it. The
         /// director uses this for gestures; an emotion-only cue stays on the parameter
         /// path so the controller's own transitions keep working. Between gestures the
@@ -112,6 +126,7 @@ namespace AICompanion.Avatar
             _hasEmotion = false;
             _hasIntensity = false;
             _bindings = NoBindings;
+            _proceduralBlink = 0f;
             if (instance == null)
                 return;
 
@@ -391,10 +406,10 @@ namespace AICompanion.Avatar
         FacePose DisplayedFace()
         {
             var lips = Lips();
-            if (lips == null || !LipSyncTargetSelection.DrivesSharedMouth(lips.TargetKind))
-                return _face;
-
-            return EmotionFace.OverrideMouth(_face, lips.Weights, lips.MouthOverride);
+            var pose = lips == null || !LipSyncTargetSelection.DrivesSharedMouth(lips.TargetKind)
+                ? _face
+                : EmotionFace.OverrideMouth(_face, lips.Weights, lips.MouthOverride);
+            return EmotionFace.ApplyProceduralBlink(pose, _proceduralBlink);
         }
 
         LipSyncDriver Lips()

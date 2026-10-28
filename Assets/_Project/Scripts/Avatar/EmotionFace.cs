@@ -183,6 +183,23 @@ namespace AICompanion.Avatar
             };
         }
 
+        /// <summary>
+        /// A procedural blink closes the eyes without pulling the emotion squint back
+        /// open, and without writing mouth, brow, or smile channels.
+        /// </summary>
+        public static FacePose ApplyProceduralBlink(FacePose pose, float blink)
+        {
+            if (float.IsNaN(blink) || blink < pose.Blink)
+                blink = pose.Blink;
+            if (blink < 0f)
+                blink = 0f;
+            else if (blink > 1f)
+                blink = 1f;
+
+            pose.Blink = blink;
+            return pose;
+        }
+
         public static FacePose Combine(FacePose emotion, FacePose talk)
         {
             return new FacePose
