@@ -10,6 +10,7 @@
         "AICompanion.Avatar",
         "AICompanion.Memory",
         "UnityEngine.UI",
+        "UnityEngine.ImageConversionModule",
         "UnityEngine.UnityWebRequestModule"
     ],
     "includePlatforms": [],
