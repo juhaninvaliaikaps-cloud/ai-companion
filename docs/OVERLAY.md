@@ -82,3 +82,16 @@ The taskbar button is hidden after the player HWND has been stable for a short t
 12. **Expression portrait.** Settings → Avatar → **Show expression portrait** is off until you turn it on. With it on and no `%APPDATA%\ProjectLeia\portraits` folder, the frame stays hidden and the Console logs one warning. Drop the PNGs in that folder (see [PORTRAITS.md](PORTRAITS.md)). A rounded picture sits beside her head, swaps with the emotion keys, blinks when the set has blink frames, and opens the mouth while she talks. A 448×504 still and a 320×360 frame both fit without stretching. Click the empty window around the frame. The click still reaches the desktop. Quit and relaunch. The switch is still on, and `settings.json` has `"showExpressionPortrait": true`.
 
 Transparency, topmost, drag, and click-through are properties of the Windows player. Play mode in the editor shows the capsule and the label, and F8 flips the label there.
+
+## Desktop gravity and walking
+
+The overlay window follows the monitor work area: the top of the taskbar is the ground, and a work-area change (taskbar moved, monitor switched) is re-read every frame through IWindowChrome.TryGetWorkArea.
+
+- Dragging pauses the motion. When the button is released the window stays where the pointer left it, then falls from there to the ground with a short acceleration and no bounce.
+- While idle on the ground she pauses for a few seconds, walks left or right for a few seconds, stops, and repeats. Edges clamp: at the left or right work-area edge she stops instead of leaving the screen.
+- Walking and falling raise the overlay to the active frame rate through IOverlayKeepAwake; once she is idle on the ground it drops back to the idle rate.
+- The motion is screen-space arithmetic in DesktopPresenceModel with no Rigidbody, so any avatar works and nothing depends on root motion.
+
+The walk and fall poses come from the animator parameters Walking and Falling. The shared controller on this branch declares neither; the gesture layer and the Walk clip land with JUH-65 (PR #18). Until that merges she slides along the ground without a walk cycle, and the parameters are ignored because AvatarAnimationController only writes a parameter the controller declares.
+
+Not in this change: turning the body to face the walk direction, a fall or dangle clip, picking her up while dragged, and the settings toggle. Facing needs the Walk clip and a yaw offset that does not fight the saved per-avatar yaw from JUH-60, so it is a separate step.
