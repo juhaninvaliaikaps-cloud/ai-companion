@@ -94,6 +94,12 @@ namespace AICompanion.Editor.AnimationDirector
             PortraitEntry("excited", "excited and delighted", Emotion.Happy, 0.9f, "Happy", "Happy", 2f, "excited", "joy", "hype"),
             PortraitEntry("loving", "warm, affectionate and loving", Emotion.Happy, 0.8f, "Happy", "Happy", 2f, "loving", "affection", "warm"),
             PortraitEntry("sleepy", "sleepy and tired", Emotion.Neutral, 0.3f, "Idle", "Idle", 2f, "sleepy", "late", "tired"),
+
+            // Reactions that round the catalog out to the 25 rows JUH-22 asks for. They reuse
+            // the existing clips; finer clips can replace them without a code change.
+            PriorityRow(Entry("wave_bye", "friendly goodbye wave", Emotion.Happy, 0.7f, "wave_bye", "Wave", "Wave", 1.4f, "greeting", "goodbye"), 1),
+            Entry("nod_no", "shaking the head no", Emotion.Neutral, 0.4f, "nod_no", "Nod", "Nod", 1f, "disagreement", "no"),
+            Entry("sigh", "a quiet sigh", Emotion.Sad, 0.5f, string.Empty, "Sad", "Sad", 2f, "sigh", "tired"),
             };
         }
 
@@ -114,6 +120,13 @@ namespace AICompanion.Editor.AnimationDirector
         {
             var entry = Entry(id, description, emotion, intensity, string.Empty, animatorState, clipName, durationSeconds, tags);
             entry.portrait = portrait;
+            return entry;
+        }
+
+        private static AnimationEntry PriorityRow(AnimationEntry entry, int priority)
+        {
+            if (entry != null)
+                entry.priority = priority;
             return entry;
         }
 

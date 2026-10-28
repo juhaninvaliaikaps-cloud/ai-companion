@@ -25,6 +25,7 @@ MonoBehaviour:
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
+    priority: 0
   - id: happy
     description: bright, cheerful reaction to good news
     tags:
@@ -37,6 +38,7 @@ MonoBehaviour:
     animatorState: Happy
     clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
     durationSeconds: 2
+    priority: 0
   - id: sad
     description: downcast, sympathetic reaction
     tags:
@@ -49,6 +51,7 @@ MonoBehaviour:
     animatorState: Sad
     clip: {fileID: 7400000, guid: 76130b703857e9ae665b1a99dc74df20, type: 2}
     durationSeconds: 2
+    priority: 0
   - id: surprised
     description: short startled reaction
     tags:
@@ -61,6 +64,7 @@ MonoBehaviour:
     animatorState: Surprised
     clip: {fileID: 7400000, guid: 9498dbf0abc8e09fa6bd2cd0a916d890, type: 2}
     durationSeconds: 1
+    priority: 0
   - id: thinking
     description: considering something with mild uncertainty
     tags:
@@ -73,6 +77,7 @@ MonoBehaviour:
     animatorState: Thinking
     clip: {fileID: 7400000, guid: 6105ee95016d6963d0148253f6e4286a, type: 2}
     durationSeconds: 2
+    priority: 0
   - id: talk
     description: speaking loop while the reply audio plays
     tags:
@@ -85,6 +90,7 @@ MonoBehaviour:
     animatorState: Talk
     clip: {fileID: 7400000, guid: b46e4968199732b4d6a7a3f6963f410c, type: 2}
     durationSeconds: 1
+    priority: 0
   - id: wave_hello
     description: friendly hello wave
     tags:
@@ -97,6 +103,7 @@ MonoBehaviour:
     animatorState: Wave
     clip: {fileID: 7400000, guid: 9ea8170a60d2b1b44877d8311ea8b5dd, type: 2}
     durationSeconds: 1.4
+    priority: 0
   - id: nod_yes
     description: agreeing nod
     tags:
@@ -109,6 +116,7 @@ MonoBehaviour:
     animatorState: Nod
     clip: {fileID: 7400000, guid: 7a82aeb89b15f4d4ea9c5e3d0c2b08fa, type: 2}
     durationSeconds: 1
+    priority: 0
   - id: shrug
     description: uncertain shrug with no strong feeling
     tags:
@@ -121,6 +129,7 @@ MonoBehaviour:
     animatorState: Shrug
     clip: {fileID: 7400000, guid: a17f2c85ffe8596478988cc8777cf672, type: 2}
     durationSeconds: 1.3
+    priority: 0
   - id: laugh
     description: short laugh at something funny
     tags:
@@ -133,6 +142,7 @@ MonoBehaviour:
     animatorState: Laugh
     clip: {fileID: 7400000, guid: cbb75233dfc1463428d54216ae542886, type: 2}
     durationSeconds: 1.4
+    priority: 0
   - id: walk
     description: walking loop on the spot
     tags:
@@ -145,6 +155,7 @@ MonoBehaviour:
     animatorState: Walk
     clip: {fileID: 7400000, guid: b4869355e6c1ac1488b71041a13984df, type: 2}
     durationSeconds: 1
+    priority: 0
   - id: turn_around
     description: turn around in place to look behind
     tags:
@@ -157,6 +168,7 @@ MonoBehaviour:
     animatorState: Turn180
     clip: {fileID: 7400000, guid: 65600ade8e3454e469fec84e305bd4e6, type: 2}
     durationSeconds: 0.9
+    priority: 0
   - id: concerned
     description: worried about you or about something you said
     tags:
@@ -169,6 +181,7 @@ MonoBehaviour:
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
+    priority: 0
   - id: embarrassed
     description: flustered and embarrassed by a compliment
     tags:
@@ -181,6 +194,7 @@ MonoBehaviour:
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
+    priority: 0
   - id: shy
     description: shy and looking away
     tags:
@@ -193,6 +207,7 @@ MonoBehaviour:
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
+    priority: 0
   - id: flustered
     description: flustered, blushing, lost for words
     tags:
@@ -205,6 +220,7 @@ MonoBehaviour:
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
+    priority: 0
   - id: embarrassed_worried
     description: embarrassed and worried at the same time
     tags:
@@ -217,6 +233,7 @@ MonoBehaviour:
     animatorState: Sad
     clip: {fileID: 7400000, guid: 76130b703857e9ae665b1a99dc74df20, type: 2}
     durationSeconds: 2
+    priority: 0
   - id: pouty
     description: playfully pouting about something
     tags:
@@ -229,6 +246,7 @@ MonoBehaviour:
     animatorState: Sad
     clip: {fileID: 7400000, guid: 76130b703857e9ae665b1a99dc74df20, type: 2}
     durationSeconds: 2
+    priority: 0
   - id: teasing
     description: smug, teasing, knowing smile
     tags:
@@ -241,6 +259,7 @@ MonoBehaviour:
     animatorState: Happy
     clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
     durationSeconds: 2
+    priority: 0
   - id: excited
     description: excited and delighted
     tags:
@@ -253,6 +272,7 @@ MonoBehaviour:
     animatorState: Happy
     clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
     durationSeconds: 2
+    priority: 0
   - id: loving
     description: warm, affectionate and loving
     tags:
@@ -265,6 +285,7 @@ MonoBehaviour:
     animatorState: Happy
     clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
     durationSeconds: 2
+    priority: 0
   - id: sleepy
     description: sleepy and tired
     tags:
@@ -277,3 +298,43 @@ MonoBehaviour:
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
+    priority: 0
+  - id: wave_bye
+    description: friendly goodbye wave
+    tags:
+    - greeting
+    - goodbye
+    emotion: 1
+    intensity: 0.7
+    portrait: 
+    gesture: wave_bye
+    animatorState: Wave
+    clip: {fileID: 7400000, guid: 9ea8170a60d2b1b44877d8311ea8b5dd, type: 2}
+    durationSeconds: 1.4
+    priority: 1
+  - id: nod_no
+    description: shaking the head no
+    tags:
+    - disagreement
+    - no
+    emotion: 0
+    intensity: 0.4
+    portrait: 
+    gesture: nod_no
+    animatorState: Nod
+    clip: {fileID: 7400000, guid: 7a82aeb89b15f4d4ea9c5e3d0c2b08fa, type: 2}
+    durationSeconds: 1
+    priority: 0
+  - id: sigh
+    description: a quiet sigh
+    tags:
+    - sigh
+    - tired
+    emotion: 2
+    intensity: 0.5
+    portrait: 
+    gesture: 
+    animatorState: Sad
+    clip: {fileID: 7400000, guid: 76130b703857e9ae665b1a99dc74df20, type: 2}
+    durationSeconds: 2
+    priority: 0

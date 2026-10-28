@@ -24,6 +24,8 @@ namespace AICompanion.AnimationDirector
 
         public bool ReactionsSuppressed => _suppressed;
 
+        readonly DirectorRulebook _rules = new DirectorRulebook();
+
         public DirectorDecision LastDecision { get; private set; }
 
         public AnimationClipCatalog Catalog
@@ -103,6 +105,14 @@ namespace AICompanion.AnimationDirector
             }
 
             var decision = _model.Decide(cue);
+            var verdict = _rules.Allow(decision, Time.unscaledTime);
+            if (verdict != RuleVerdict.Allow)
+            {
+                LastDecision = decision;
+                Debug.Log(AnimationDirectorLog.Skipped(cue, verdict == RuleVerdict.Busy));
+                return;
+            }
+
             var played = Apply(decision);
             LastDecision = decision;
             Debug.Log(AnimationDirectorLog.Format(cue, decision, played));

@@ -42,6 +42,36 @@ namespace AICompanion.AnimationDirector
         }
 
         /// <summary>
+        /// Last resort lookup: a row whose tags contain the token. Keeps a slightly wrong
+        /// cue close to the right family instead of falling back to neutral.
+        /// </summary>
+        public bool TryGetByTag(string tag, out AnimationEntry entry)
+        {
+            if (!string.IsNullOrWhiteSpace(tag))
+            {
+                string trimmed = tag.Trim();
+                for (int i = 0; i < entries.Count; i++)
+                {
+                    AnimationEntry candidate = entries[i];
+                    if (candidate == null || candidate.tags == null)
+                        continue;
+
+                    for (int t = 0; t < candidate.tags.Length; t++)
+                    {
+                        if (string.Equals(candidate.tags[t], trimmed, StringComparison.OrdinalIgnoreCase))
+                        {
+                            entry = candidate;
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            entry = null;
+            return false;
+        }
+
+        /// <summary>
         /// True when a row's gesture field matches. The director also tries
         /// <see cref="TryGetById"/> first, because the prompt asks for catalog ids.
         /// A miss on both is not an error; the director plays neutral.

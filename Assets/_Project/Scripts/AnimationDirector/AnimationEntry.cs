@@ -29,6 +29,12 @@ namespace AICompanion.AnimationDirector
         public AnimationClip clip;
         public float durationSeconds;
 
+        /// <summary>
+        /// 0 for ordinary reactions, higher when the row should be allowed to interrupt a
+        /// gesture that is still playing.
+        /// </summary>
+        public int priority;
+
         public bool HasGesture
         {
             get { return !string.IsNullOrWhiteSpace(gesture); }
