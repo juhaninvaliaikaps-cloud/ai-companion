@@ -23,10 +23,31 @@ namespace AICompanion.Avatar
         AvatarDescriptor _current;
         CancellationTokenSource _cancel;
         AvatarPreference _loaded = AvatarPreference.Auto;
+        AvatarPreference _shownRequest = AvatarPreference.Auto;
         int _generation;
         bool _started;
 
         public AvatarDescriptor Current => _current;
+
+        public AvatarPreference LoadedPreference => _loaded;
+
+        public event Action<AvatarPreference> PreferenceChanged;
+
+        public void Select(AvatarPreference preference)
+        {
+            if (!_started)
+                StartCompanion();
+            if (_shownRequest == preference)
+                return;
+            Show(preference);
+        }
+
+        public void ResetRotation()
+        {
+            var turn = GetComponent<IAvatarTurntable>();
+            if (turn != null)
+                turn.ResetYaw();
+        }
 
         public void StartCompanion()
         {
@@ -125,6 +146,7 @@ namespace AICompanion.Avatar
 
         void Show(AvatarPreference preference)
         {
+            _shownRequest = preference;
             if (preference == AvatarPreference.Auto)
                 preference = ResolveAuto();
 
@@ -258,6 +280,7 @@ namespace AICompanion.Avatar
                 Debug.LogError(report.Message);
 
             Debug.Log("Avatar ready: " + descriptor.Summary());
+            PublishPreference();
         }
 
         void ShowCapsule()
@@ -268,6 +291,14 @@ namespace AICompanion.Avatar
             _loaded = AvatarPreference.Auto;
             SetPlaceholderVisible(true);
             NotifyAnimator();
+            PublishPreference();
+        }
+
+        void PublishPreference()
+        {
+            var handler = PreferenceChanged;
+            if (handler != null)
+                handler(_loaded);
         }
 
         void NotifyAnimator()

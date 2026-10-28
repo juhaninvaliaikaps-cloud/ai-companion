@@ -42,21 +42,33 @@ namespace AICompanion.Voice
             }
         }
 
-        public string ModelFileName
+        public string ModelFileName => SanitizeModelFile(modelFile);
+
+        public static string SanitizeModelFile(string modelFile)
         {
-            get
-            {
-                var name = string.IsNullOrWhiteSpace(modelFile) ? DefaultModelFile : modelFile.Trim();
-                name = name.Replace('\\', '/');
-                var slash = name.LastIndexOf('/');
-                if (slash >= 0)
-                    name = name.Substring(slash + 1);
-                if (name.Length == 0 || name.IndexOf("..", StringComparison.Ordinal) >= 0)
-                    return DefaultModelFile;
-                if (!name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase))
-                    return DefaultModelFile;
-                return name;
-            }
+            var name = string.IsNullOrWhiteSpace(modelFile) ? DefaultModelFile : modelFile.Trim();
+            name = name.Replace('\\', '/');
+            var slash = name.LastIndexOf('/');
+            if (slash >= 0)
+                name = name.Substring(slash + 1);
+            if (name.Length == 0 || name.IndexOf("..", StringComparison.Ordinal) >= 0)
+                return DefaultModelFile;
+            if (!name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase))
+                return DefaultModelFile;
+            return name;
+        }
+
+        public SttSettings RuntimeCopy()
+        {
+            var copy = CreateInstance<SttSettings>();
+            copy.hideFlags = HideFlags.HideAndDontSave;
+            copy.enabled = enabled;
+            copy.pushToTalkKey = pushToTalkKey;
+            copy.language = language;
+            copy.modelFile = modelFile;
+            copy.microphoneDevice = microphoneDevice;
+            copy.maxRecordSeconds = maxRecordSeconds;
+            return copy;
         }
 
         public int MaxRecordSeconds
@@ -92,6 +104,7 @@ namespace AICompanion.Voice
                 case KeyCode.F8:
                 case KeyCode.F9:
                 case KeyCode.F10:
+                case KeyCode.F12:
                 case KeyCode.Escape:
                     return true;
                 default:

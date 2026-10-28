@@ -51,6 +51,8 @@ When `ChatSettings.providerId` is `local` (the Ollama path, including adult or p
 
 Turn on **Allow Cloud Tts For Local Replies** on the voice asset only if those replies should leave the machine. The default is off. Grok and any other non-local provider may be spoken when the voice asset is enabled and mute is off.
 
+**Private mode** in Settings forces the local Ollama path. While it is on, cloud TTS, the voice agent, and Uthana stay blocked even if cloud TTS for local replies is allowed. The default is off, so the public Grok path is unchanged.
+
 ## Errors
 
 A voice failure becomes a **Note** in the chat panel. The wording matches the chat errors (`Invalid API key`, the billing hint, `Rate limited, try again shortly`, `Couldn't reach the voice`, and the timeout line). The Console line is prefixed `Voice error:` and is scrubbed of bearer tokens and `xai-` keys. Text chat keeps working. A missing key, an invalid key, HTTP 401, HTTP 403, or HTTP 429 stops the rest of that reply so the app does not keep calling the API. Other failures skip that sentence and try the next one. The same note is shown once per reply. A hung request is aborted after the voice timeout. Nothing in this path blocks the main thread, and an exception in synthesis or playback is caught so Play mode keeps running.

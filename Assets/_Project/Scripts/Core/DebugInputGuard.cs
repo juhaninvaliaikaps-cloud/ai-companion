@@ -8,11 +8,25 @@ namespace AICompanion.Core
     /// </summary>
     public static class DebugInputGuard
     {
-        public static bool TextFieldFocused { get; private set; }
+        static int _claims;
+        static bool _legacy;
+
+        public static bool TextFieldFocused => _legacy || _claims > 0;
 
         public static void SetTextFieldFocused(bool focused)
         {
-            TextFieldFocused = focused;
+            _legacy = focused;
+        }
+
+        public static void ClaimTextField()
+        {
+            _claims++;
+        }
+
+        public static void ReleaseTextField()
+        {
+            if (_claims > 0)
+                _claims--;
         }
 
         public static bool IsBlocked(KeyCode key)
@@ -39,6 +53,8 @@ namespace AICompanion.Core
                 case KeyCode.F7:
                 case KeyCode.F8:
                 case KeyCode.F9:
+                case KeyCode.F10:
+                case KeyCode.F12:
                     return true;
                 default:
                     return false;

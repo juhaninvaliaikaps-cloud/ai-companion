@@ -70,7 +70,7 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void Menu_SettingsHookIsAStubUntilAWindowExists()
+        public void Menu_SettingsRaisesTheOpenHook()
         {
             var menu = new TrayMenuState();
             var calls = 0;
@@ -80,8 +80,7 @@ namespace AICompanion.Tests.EditMode
             menu.RaiseSettings();
 
             Assert.AreEqual(1, calls);
-            StringAssert.Contains("JUH-55", TrayMenuState.SettingsStubMessage);
-            StringAssert.Contains("stub", TrayMenuState.SettingsStubMessage);
+            Assert.IsFalse(menu.Apply(TrayCommand.OpenSettings).PauseChanged);
         }
 
         [Test]

@@ -72,6 +72,50 @@ namespace AICompanion.UI
 
         public Rect InteractiveRect => _visible ? _guiRect : new Rect(0f, 0f, 0f, 0f);
 
+        public ChatSettings RuntimeChat
+        {
+            get
+            {
+                if (!_started)
+                    StartCompanion();
+                return settings;
+            }
+        }
+
+        public int TranscriptRevision => _conversation != null ? _conversation.Revision : 0;
+
+        public bool TranscriptBusy => _conversation != null && _conversation.IsBusy;
+
+        public void ClearTranscript()
+        {
+            if (!_started)
+                StartCompanion();
+            if (_conversation != null && _conversation.IsBusy)
+                CancelReply();
+            if (_conversation == null)
+                return;
+            _conversation.ClearTranscript();
+            RefreshTranscript(true);
+        }
+
+        public void LoadTranscript(string json)
+        {
+            if (!_started)
+                StartCompanion();
+            if (_conversation == null)
+                return;
+            _conversation.ClearTranscript();
+            ChatHistoryCodec.ReadInto(json, _conversation);
+            RefreshTranscript(true);
+        }
+
+        public string ExportTranscript()
+        {
+            if (_conversation == null)
+                return ChatHistoryCodec.Write(null);
+            return ChatHistoryCodec.Write(_conversation.Lines);
+        }
+
         public bool KeepFrameRateActive
         {
             get
@@ -96,8 +140,7 @@ namespace AICompanion.UI
                 return;
 
             _started = true;
-            if (settings == null)
-                settings = ScriptableObject.CreateInstance<ChatSettings>();
+            settings = settings != null ? settings.RuntimeCopy() : ScriptableObject.CreateInstance<ChatSettings>();
 
             _conversation = new ChatConversation();
             _exchange = new ChatExchange(_conversation);

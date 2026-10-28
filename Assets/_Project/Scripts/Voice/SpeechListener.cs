@@ -24,11 +24,27 @@ namespace AICompanion.Voice
         bool _started;
         bool _alive = true;
         bool _pauseSearched;
+        bool _reloadModel;
         ICompanionPause _pause;
 
         public bool IsRecording => _gate.Phase == PushToTalkPhase.Recording;
 
         public bool IsTranscribing => _gate.Phase == PushToTalkPhase.Transcribing;
+
+        public SttSettings RuntimeStt
+        {
+            get
+            {
+                if (!_started)
+                    StartCompanion();
+                return sttSettings;
+            }
+        }
+
+        public void ApplyRecognitionSettings()
+        {
+            _reloadModel = true;
+        }
 
         public void SetButtonHeld(bool held)
         {
@@ -41,8 +57,7 @@ namespace AICompanion.Voice
                 return;
 
             _started = true;
-            if (sttSettings == null)
-                sttSettings = ScriptableObject.CreateInstance<SttSettings>();
+            sttSettings = sttSettings != null ? sttSettings.RuntimeCopy() : ScriptableObject.CreateInstance<SttSettings>();
         }
 
         void Start()
@@ -71,6 +86,12 @@ namespace AICompanion.Voice
             {
                 if (!_started || sttSettings == null)
                     return;
+
+                if (_reloadModel && _gate.Phase == PushToTalkPhase.Idle)
+                {
+                    _provider = null;
+                    _reloadModel = false;
+                }
 
                 if (!sttSettings.enabled)
                 {

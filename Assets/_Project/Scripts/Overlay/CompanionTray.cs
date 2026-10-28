@@ -20,6 +20,12 @@ namespace AICompanion.Overlay
 
         IStartupRegistration _startup;
         OverlayWindow _window;
+
+        public event Action TrayStateChanged;
+
+        public TrayMenuState Menu => _menu;
+
+        public bool HideTaskbarButton => _hideTaskbar;
         string _executable = string.Empty;
         bool _hideTaskbar = true;
         bool _started;
@@ -38,7 +44,6 @@ namespace AICompanion.Overlay
                 return;
 
             _started = true;
-            _menu.SettingsRequested += OnSettingsStub;
             _hideTaskbar = TrayPreferences.ResolveHideTaskbar(
                 hideTaskbarButton,
                 PlayerPrefs.HasKey(TrayPreferences.HideTaskbarKey),
@@ -80,7 +85,6 @@ namespace AICompanion.Overlay
         {
             if (_started)
                 Application.quitting -= OnQuitting;
-            _menu.SettingsRequested -= OnSettingsStub;
             RemoveTray();
         }
 
@@ -98,6 +102,36 @@ namespace AICompanion.Overlay
             PlayerPrefs.SetInt(TrayPreferences.PauseKey, paused ? 1 : 0);
             PlayerPrefs.Save();
             ApplyPause();
+            RaiseTrayState();
+        }
+
+        public void ShowCompanion()
+        {
+            if (!_started)
+                StartCompanion();
+            if (_menu.CompanionVisible)
+                return;
+
+            _menu.CompanionVisible = true;
+            PushVisibility();
+        }
+
+        /// <summary>
+        /// Saves the startup preference on the tray checkmark. The Windows player
+        /// writes HKCU. The Editor keeps the checkmark so it stays in sync with
+        /// settings and lets the player apply the Run key later.
+        /// </summary>
+        public bool TrySetStartWithWindows(bool enabled)
+        {
+            if (!_started)
+                StartCompanion();
+
+            _menu.StartWithWindows = enabled;
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            ApplyStartup();
+#endif
+            RaiseTrayState();
+            return _menu.StartWithWindows == enabled;
         }
 
         /// <summary>
@@ -110,6 +144,7 @@ namespace AICompanion.Overlay
             hideTaskbarButton = hide;
             PlayerPrefs.SetInt(TrayPreferences.HideTaskbarKey, hide ? 1 : 0);
             PlayerPrefs.Save();
+            RaiseTrayState();
         }
 
         void DrainCommands()
@@ -132,10 +167,14 @@ namespace AICompanion.Overlay
                 PlayerPrefs.SetInt(TrayPreferences.PauseKey, _menu.Paused ? 1 : 0);
                 PlayerPrefs.Save();
                 ApplyPause();
+                RaiseTrayState();
             }
 
             if (result.StartupChanged)
+            {
                 ApplyStartup();
+                RaiseTrayState();
+            }
             if (result.OpenChat)
                 OpenChat();
             if (result.OpenSettings)
@@ -194,9 +233,11 @@ namespace AICompanion.Overlay
             Application.Quit();
         }
 
-        void OnSettingsStub()
+        void RaiseTrayState()
         {
-            Debug.Log(TrayMenuState.SettingsStubMessage);
+            var handler = TrayStateChanged;
+            if (handler != null)
+                handler();
         }
 
         void OnQuitting()

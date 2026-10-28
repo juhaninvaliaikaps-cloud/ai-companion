@@ -12,6 +12,17 @@ namespace AICompanion.Voice
     {
         public static bool ShouldSpeak(ChatSettings chat, VoiceSettings voice, bool muted)
         {
+            return ShouldSpeak(chat, voice, muted, false);
+        }
+
+        /// <summary>
+        /// Private mode never sends reply text to cloud TTS, even when the voice
+        /// asset would allow cloud speech for a local model.
+        /// </summary>
+        public static bool ShouldSpeak(ChatSettings chat, VoiceSettings voice, bool muted, bool privateMode)
+        {
+            if (privateMode || !OutboundPrivacy.AllowsCloudTts(privateMode))
+                return false;
             if (voice == null || !voice.enabled || muted)
                 return false;
 
