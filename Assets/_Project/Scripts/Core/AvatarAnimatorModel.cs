@@ -47,6 +47,7 @@ namespace AICompanion.Core
         public const string Laugh = "Laugh";
         public const string Walk = "Walk";
         public const string Turn180 = "Turn180";
+        public const string Fall = "Fall";
 
         public static string ForEmotion(Emotion emotion)
         {

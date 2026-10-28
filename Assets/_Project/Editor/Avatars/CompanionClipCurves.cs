@@ -150,6 +150,21 @@ namespace AICompanion.Editor.Avatars
                     CompanionAnimatorBaker.Curve(clip, "Spine Front-Back", 1f, 0.01f, 0.02f, 2f, 0f);
                     CompanionAnimatorBaker.Curve(clip, "Head Turn Left-Right", 1f, 0f, 0.02f, 1f, 0f);
                     break;
+                case "Fall":
+                    // Arms up and out, knees tucked, spine arched back, with a small flutter
+                    // so the pose reads as motion while she is in the air.
+                    CompanionAnimatorBaker.Curve(clip, "Left Arm Down-Up", 0.9f, 0.75f, 0.08f, 2f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Arm Down-Up", 0.9f, 0.75f, 0.08f, 2f, 3.14159f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Arm Front-Back", 0.9f, 0.25f, 0.06f, 2f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Arm Front-Back", 0.9f, 0.25f, 0.06f, 2f, 3.14159f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Lower Leg Stretch", 0.9f, 0.55f, 0.1f, 2f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Lower Leg Stretch", 0.9f, 0.45f, 0.1f, 2f, 3.14159f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Upper Leg Front-Back", 0.9f, 0.3f, 0.08f, 2f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Upper Leg Front-Back", 0.9f, 0.2f, 0.08f, 2f, 3.14159f);
+                    CompanionAnimatorBaker.Curve(clip, "Spine Front-Back", 0.9f, -0.15f, 0.04f, 1f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Head Front-Back", 0.9f, -0.2f, 0.05f, 1f, 0f);
+                    break;
+
                 case "Turn180":
                     // The rotation itself is done on the root by AvatarAnimationController.
                     // The clip only shifts the weight so the spin reads as a turn, not a skate.
