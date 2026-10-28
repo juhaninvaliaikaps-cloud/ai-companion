@@ -145,7 +145,7 @@ namespace AICompanion.UI
             _conversation = new ChatConversation();
             _exchange = new ChatExchange(_conversation);
             _exchange.SpokenDelta = ForwardSpeech;
-            _registry = ChatProviderFactory.Create(settings, new EnvironmentApiKeySource(), new UnityChatTransport(this));
+            _registry = ChatProviderFactory.Create(settings, new EnvironmentApiKeySource(), new UnityChatTransport(this), MemoryRuntime.Decorator);
             _visible = PlayerPrefs.GetInt(OpenPref, 1) != 0;
             BuildUi();
             SetVisible(_visible, false);
