@@ -114,7 +114,7 @@ namespace AICompanion.Settings
                 return;
             }
 
-            var emotion = AnimatorAlive() ? PortraitNames.For(_animator.Emotion) : "neutral";
+            var emotion = AnimatorAlive() ? ExpressionName() : "neutral";
             var amplitude = 0f;
             var hasAmplitude = MouthAlive();
             if (hasAmplitude)
@@ -435,6 +435,19 @@ namespace AICompanion.Settings
             rect.anchoredPosition = new Vector2(
                 fitted.x + fitted.width * 0.5f - PortraitPlacement.InnerWidth * 0.5f,
                 PortraitPlacement.InnerHeight * 0.5f - (fitted.y + fitted.height * 0.5f));
+        }
+
+        /// <summary>
+        /// The director can name an expression the Emotion enum cannot, such as embarrassed
+        /// or teasing. Fall back to the emotion name when it does not.
+        /// </summary>
+        string ExpressionName()
+        {
+            var hint = _animator as IExpressionHint;
+            if (hint != null && !string.IsNullOrEmpty(hint.ExpressionName))
+                return hint.ExpressionName;
+
+            return PortraitNames.For(_animator.Emotion);
         }
 
         void Place(float delta)

@@ -118,6 +118,8 @@ namespace AICompanion.AnimationDirector
             if (IsAlive(_animator))
             {
                 _animator.SetEmotion(decision.Emotion, decision.Intensity);
+                if (_animator is IExpressionHint hint)
+                    hint.ExpressionName = decision.Portrait;
             }
 
             if (decision.Action != DirectorAction.GestureState || !IsAlive(_states) || decision.StateName.Length == 0)

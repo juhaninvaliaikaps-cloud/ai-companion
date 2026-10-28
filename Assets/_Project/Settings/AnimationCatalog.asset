@@ -20,6 +20,7 @@ MonoBehaviour:
     - idle
     emotion: 0
     intensity: 0.2
+    portrait: 
     gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
@@ -31,6 +32,7 @@ MonoBehaviour:
     - positive
     emotion: 1
     intensity: 0.8
+    portrait: 
     gesture: 
     animatorState: Happy
     clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
@@ -42,6 +44,7 @@ MonoBehaviour:
     - negative
     emotion: 2
     intensity: 0.7
+    portrait: 
     gesture: 
     animatorState: Sad
     clip: {fileID: 7400000, guid: 76130b703857e9ae665b1a99dc74df20, type: 2}
@@ -53,6 +56,7 @@ MonoBehaviour:
     - reaction
     emotion: 3
     intensity: 0.9
+    portrait: 
     gesture: 
     animatorState: Surprised
     clip: {fileID: 7400000, guid: 9498dbf0abc8e09fa6bd2cd0a916d890, type: 2}
@@ -64,6 +68,7 @@ MonoBehaviour:
     - thinking
     emotion: 4
     intensity: 0.6
+    portrait: 
     gesture: 
     animatorState: Thinking
     clip: {fileID: 7400000, guid: 6105ee95016d6963d0148253f6e4286a, type: 2}
@@ -75,6 +80,7 @@ MonoBehaviour:
     - loop
     emotion: 0
     intensity: 0.3
+    portrait: 
     gesture: 
     animatorState: Talk
     clip: {fileID: 7400000, guid: b46e4968199732b4d6a7a3f6963f410c, type: 2}
@@ -86,6 +92,7 @@ MonoBehaviour:
     - friendly
     emotion: 1
     intensity: 0.7
+    portrait: 
     gesture: wave
     animatorState: Wave
     clip: {fileID: 7400000, guid: 9ea8170a60d2b1b44877d8311ea8b5dd, type: 2}
@@ -97,6 +104,7 @@ MonoBehaviour:
     - confirmation
     emotion: 0
     intensity: 0.4
+    portrait: 
     gesture: nod
     animatorState: Nod
     clip: {fileID: 7400000, guid: 7a82aeb89b15f4d4ea9c5e3d0c2b08fa, type: 2}
@@ -108,6 +116,7 @@ MonoBehaviour:
     - neutral
     emotion: 0
     intensity: 0.4
+    portrait: 
     gesture: shrug
     animatorState: Shrug
     clip: {fileID: 7400000, guid: a17f2c85ffe8596478988cc8777cf672, type: 2}
@@ -119,6 +128,7 @@ MonoBehaviour:
     - funny
     emotion: 1
     intensity: 0.9
+    portrait: 
     gesture: laugh
     animatorState: Laugh
     clip: {fileID: 7400000, guid: cbb75233dfc1463428d54216ae542886, type: 2}
@@ -130,6 +140,7 @@ MonoBehaviour:
     - loop
     emotion: 0
     intensity: 0.5
+    portrait: 
     gesture: walk
     animatorState: Walk
     clip: {fileID: 7400000, guid: b4869355e6c1ac1488b71041a13984df, type: 2}
@@ -141,7 +152,128 @@ MonoBehaviour:
     - orientation
     emotion: 0
     intensity: 0.5
+    portrait: 
     gesture: turn
     animatorState: Turn180
     clip: {fileID: 7400000, guid: 65600ade8e3454e469fec84e305bd4e6, type: 2}
     durationSeconds: 0.9
+  - id: concerned
+    description: worried about you or about something you said
+    tags:
+    - care
+    - worried
+    emotion: 0
+    intensity: 0.5
+    portrait: concerned
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+  - id: embarrassed
+    description: flustered and embarrassed by a compliment
+    tags:
+    - shy
+    - compliment
+    emotion: 0
+    intensity: 0.6
+    portrait: embarrassed
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+  - id: shy
+    description: shy and looking away
+    tags:
+    - quiet
+    - soft
+    emotion: 0
+    intensity: 0.5
+    portrait: shy
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+  - id: flustered
+    description: flustered, blushing, lost for words
+    tags:
+    - blush
+    - tease
+    emotion: 0
+    intensity: 0.7
+    portrait: flustered
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+  - id: embarrassed_worried
+    description: embarrassed and worried at the same time
+    tags:
+    - mixed
+    - care
+    emotion: 2
+    intensity: 0.5
+    portrait: embarrassed_worried
+    gesture: 
+    animatorState: Sad
+    clip: {fileID: 7400000, guid: 76130b703857e9ae665b1a99dc74df20, type: 2}
+    durationSeconds: 2
+  - id: pouty
+    description: playfully pouting about something
+    tags:
+    - pout
+    - playful
+    emotion: 2
+    intensity: 0.45
+    portrait: angry
+    gesture: 
+    animatorState: Sad
+    clip: {fileID: 7400000, guid: 76130b703857e9ae665b1a99dc74df20, type: 2}
+    durationSeconds: 2
+  - id: teasing
+    description: smug, teasing, knowing smile
+    tags:
+    - flirt
+    - smug
+    emotion: 1
+    intensity: 0.6
+    portrait: teasing
+    gesture: 
+    animatorState: Happy
+    clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
+    durationSeconds: 2
+  - id: excited
+    description: excited and delighted
+    tags:
+    - joy
+    - hype
+    emotion: 1
+    intensity: 0.9
+    portrait: excited
+    gesture: 
+    animatorState: Happy
+    clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
+    durationSeconds: 2
+  - id: loving
+    description: warm, affectionate and loving
+    tags:
+    - affection
+    - warm
+    emotion: 1
+    intensity: 0.8
+    portrait: loving
+    gesture: 
+    animatorState: Happy
+    clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
+    durationSeconds: 2
+  - id: sleepy
+    description: sleepy and tired
+    tags:
+    - late
+    - tired
+    emotion: 0
+    intensity: 0.3
+    portrait: sleepy
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2

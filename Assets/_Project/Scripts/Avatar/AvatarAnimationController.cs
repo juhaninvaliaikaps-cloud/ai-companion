@@ -18,7 +18,7 @@ namespace AICompanion.Avatar
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(12100)]
-    public sealed class AvatarAnimationController : MonoBehaviour, IAvatarAnimator, IAvatarTurntable, IAvatarAnchor, IAnimationStatePlayer, IAvatarLocomotion
+    public sealed class AvatarAnimationController : MonoBehaviour, IAvatarAnimator, IAvatarTurntable, IAvatarAnchor, IAnimationStatePlayer, IAvatarLocomotion, IExpressionHint
     {
         static readonly int TalkingHash = Animator.StringToHash(AvatarAnimatorParameters.Talking);
         static readonly int EmotionHash = Animator.StringToHash(AvatarAnimatorParameters.Emotion);
@@ -140,6 +140,15 @@ namespace AICompanion.Avatar
                 StartTurn();
 
             return true;
+        }
+
+        string _expressionName = string.Empty;
+
+        /// <summary>Portrait expression name named by the animation director, empty when none.</summary>
+        public string ExpressionName
+        {
+            get { return _expressionName; }
+            set { _expressionName = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant(); }
         }
 
         void StartTurn()
