@@ -43,18 +43,16 @@ Callers pass the last user message as the query. This is deliberately simple: em
 `MemoryChatProvider` wraps every provider the factory registers (`ChatProviderFactory.Create(..., decorator)`) and only touches `ChatRequest.SystemPrompt`:
 
 ```text
-<existing system prompt, including the animation catalog>
-
-Your continuing persona:
-- Name: Leia
-- Mood: curious
+<existing system prompt: the setup wizard persona plus the animation catalog>
 
 What you remember from earlier sessions:
 - Likes coffee with oat milk
 - Has a dog named Pixel
 ```
 
-Messages, model, temperature, and token limit are copied unchanged. When nothing matches and no persona is set, the original request instance is returned untouched.
+Messages, model, temperature, and token limit are copied unchanged. When nothing matches, the original request instance is returned untouched.
+
+The persona text itself comes from the first-run wizard (`SettingsApplicator.ApplyPersona` builds it from `CompanionSettings`). `MemoryRuntime` therefore passes no persona into the decorator: the two layers would otherwise restate the same name and mood. `MemoryChatProvider` still accepts a `PersonalityStore` for callers that have no wizard prompt, which is what the persona test exercises.
 
 ## Private mode
 

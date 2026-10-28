@@ -187,7 +187,11 @@ namespace AICompanion.Memory
 
                 _store = MemoryStore.CreateDefault();
                 _personality = PersonalityStore.CreateDefault();
-                _decorator = new MemoryChatDecorator(_store, _personality);
+
+                // The persona wording in the prompt belongs to the setup wizard
+                // (SettingsApplicator.ApplyPersona). Only the remembered facts are
+                // appended here, so the two do not restate the same lines.
+                _decorator = new MemoryChatDecorator(_store);
             }
         }
     }
