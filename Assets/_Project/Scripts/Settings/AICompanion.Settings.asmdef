@@ -8,6 +8,7 @@
         "AICompanion.UI",
         "AICompanion.Voice",
         "AICompanion.Avatar",
+        "AICompanion.Memory",
         "UnityEngine.UI",
         "UnityEngine.UnityWebRequestModule"
     ],

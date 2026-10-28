@@ -26,7 +26,7 @@ namespace AICompanion.Settings
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(100)]
-    public sealed class SettingsPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IPrivacyMode
+    public sealed partial class SettingsPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IPrivacyMode
     {
         enum Tab
         {
@@ -851,6 +851,7 @@ namespace AICompanion.Settings
                     SetupReplayRequested();
             });
             Note("Opens the first-run setup again in this window. Skip on a step uses that step's default. Finish saves. Transparency, topmost, and click-through stay as they are.");
+            BuildMemorySection();
         }
 
         bool WizardIsOpen()
