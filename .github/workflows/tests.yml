@@ -124,15 +124,9 @@ jobs:
         with:
           lfs: true
 
-      - name: Cache Library
-        if: steps.license.outputs.skip != 'true'
-        uses: actions/cache@v4
-        with:
-          path: Library
-          key: Library-6000.6.6f1-windows-mono-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectVersion.txt') }}
-          restore-keys: |
-            Library-6000.6.6f1-windows-mono-
-
+      # A restored Library killed this editor with SIGKILL 137 during the first
+      # domain reload on the 16 GB runner. The same job completed on main when
+      # Library was cold, so this step does not restore that cache.
       - name: Compile StandaloneWindows64 scripts
         if: steps.license.outputs.skip != 'true'
         uses: game-ci/unity-builder@v6.0.0
