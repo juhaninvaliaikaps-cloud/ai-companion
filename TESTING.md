@@ -31,6 +31,10 @@ If `UNITY_EMAIL` or `UNITY_PASSWORD` is missing, the job prints a notice and suc
 
 The repository's Actions workflow permissions must allow creating checks. In the GitHub repo, open **Settings > Actions > General > Workflow permissions** and choose **Read and write permissions**. The workflow also requests `checks: write` for the token it uses.
 
+## Windows player
+
+Build `Builds\Windows\BackseatCatgirl.exe`. The standalone log is `%USERPROFILE%\AppData\LocalLow\AI Companion\Backseat Catgirl\Player.log`. The Editor log is still the Unity Editor log. It does not move with `productName`.
+
 ## What to test
 
 Unit tests cover logic: the animation director, provider routing, commentary pacing, and other pure behavior. `AnimationCue` is the current example.

@@ -35,7 +35,7 @@ The value is not written to the Console, to exception text, or to the chat reply
 
 ### In the Windows player
 
-1. Build and run `Builds/Windows/AICompanion.exe`.
+1. Build and run `Builds/Windows/BackseatCatgirl.exe`.
 2. Either set `XAI_API_KEY` for that process before launch, or press **F10** and use the password field on the chat panel. **Save** writes the same per-user file and clears the field.
 3. Click the panel so the window is in front, then follow [CHAT_UI.md](CHAT_UI.md).
 

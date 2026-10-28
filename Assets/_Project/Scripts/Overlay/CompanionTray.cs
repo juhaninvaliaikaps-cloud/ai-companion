@@ -50,6 +50,7 @@ namespace AICompanion.Overlay
                 PlayerPrefs.GetInt(TrayPreferences.HideTaskbarKey, 0));
             _menu.Paused = PlayerPrefs.GetInt(TrayPreferences.PauseKey, 0) != 0;
             _startup = CreateStartup();
+            StartupRename.Migrate(_startup, WindowsStartupEntry.PreviousValueName, WindowsStartupEntry.ValueName);
             bool enabled;
             if (_startup.TryGetEnabled(WindowsStartupEntry.ValueName, out enabled))
                 _menu.StartWithWindows = enabled;

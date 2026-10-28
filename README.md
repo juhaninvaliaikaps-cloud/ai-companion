@@ -1,6 +1,10 @@
-# AI Companion
+# Backseat Catgirl
 
 Desktop companion for Windows. A 3D animated avatar sits in a transparent, always-on-top overlay, chats through a swappable AI provider (cloud APIs such as xAI Grok first, local models later), speaks and listens, and plays animations from cues the model returns.
+
+The working name is **Backseat Catgirl** (`productName`). `companyName` stays **AI Companion**. The repository and the C# namespaces stay `AICompanion`. Secrets and settings stay in `%APPDATA%\ProjectLeia\`.
+
+The Windows player log is `%USERPROFILE%\AppData\LocalLow\AI Companion\Backseat Catgirl\Player.log`. A build from before the rename wrote that log under `LocalLow\AI Companion\AI Companion`. The suggested player path is `Builds\Windows\BackseatCatgirl.exe`.
 
 This repository is the Unity project. Chat, voice, and avatar playback are later phases. The Windows overlay window is in [docs/OVERLAY.md](docs/OVERLAY.md).
 
@@ -35,7 +39,7 @@ Install that exact editor with Unity Hub. Add the **Windows Build Support (Mono)
 
 Run tests from **Window > General > Test Runner**, or follow [TESTING.md](TESTING.md). `AnimationCueTests.Constructor_ClampsIntensityAndKeepsFields` is the EditMode example. `AppBootstrapPlayModeTests.Awake_LogsReadyMessage` is the PlayMode example. The Windows player is the overlay window described in [docs/OVERLAY.md](docs/OVERLAY.md).
 
-The same player can be queued from a terminal once the Unity CLI is connected. See [Unity CLI](#unity-cli). `build_windows_player` returns immediately and the Editor writes `Builds/Windows/AICompanion.exe` while you poll `build_status`. `Build/` and `Builds/` are gitignored.
+The same player can be queued from a terminal once the Unity CLI is connected. See [Unity CLI](#unity-cli). `build_windows_player` returns immediately and the Editor writes `Builds/Windows/BackseatCatgirl.exe` while you poll `build_status`. `Build/` and `Builds/` are gitignored.
 
 ## Unity CLI
 
@@ -57,9 +61,9 @@ A local Cursor agent on Windows can drive the open Editor through the [Unity CLI
    - `run_editmode_tests` — EditMode pass, fail, and skip counts, plus leaf failures.
    - `get_compile_and_console_errors` — whether scripts failed to compile, and compiler or console errors seen since this domain loaded.
    - `list_project_avatars_and_clips` — `.vrm` and `.fbx` files and animation clips under `Assets/_Project`.
-   - `build_windows_player` — queues a Windows x64 development player at `Builds/Windows/AICompanion.exe` and returns immediately. Poll `build_status` until `status` is `completed`. It returns `error` when no scene is enabled.
+   - `build_windows_player` — queues a Windows x64 development player at `Builds/Windows/BackseatCatgirl.exe` and returns immediately. Poll `build_status` until `status` is `completed`. It returns `error` when no scene is enabled.
 6. Run one with `unity command <name>`, for example `unity command run_editmode_tests`. For a one-off check, `unity command eval "return Application.version;"` runs C# in the open Editor. Eval is token-gated and stays on this machine.
-7. For the Windows player, run `unity command build_windows_player`, then poll `unity command build_status` until `status` is `completed`. The same build is `unity command build --target StandaloneWindows64 --outputPath Builds/Windows/AICompanion.exe --options Development --confirm true`. `--confirm true` is required or the pipeline refuses the build. `--options Development` is what makes it a development player; the 0.6 manual uses DetailedBuildReport when `options` is omitted. `build_windows_player` used to call `BuildPipeline.BuildPlayer` on the request thread, and the CLI timed out after 30 seconds even though the player was produced. The command now queues the pipeline `build` command and returns `queued`.
+7. For the Windows player, run `unity command build_windows_player`, then poll `unity command build_status` until `status` is `completed`. The same build is `unity command build --target StandaloneWindows64 --outputPath Builds/Windows/BackseatCatgirl.exe --options Development --confirm true`. `--confirm true` is required or the pipeline refuses the build. `--options Development` is what makes it a development player; the 0.6 manual uses DetailedBuildReport when `options` is omitted. `build_windows_player` used to call `BuildPipeline.BuildPlayer` on the request thread, and the CLI timed out after 30 seconds even though the player was produced. The command now queues the pipeline `build` command and returns `queued`.
 
 How an agent in this repo should call those commands is in `.cursor/rules/unity-cli.mdc`. If more than one Editor is open, pass `--project-path` with this repository's path.
 

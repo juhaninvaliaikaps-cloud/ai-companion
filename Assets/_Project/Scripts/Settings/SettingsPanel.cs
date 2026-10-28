@@ -482,7 +482,7 @@ namespace AICompanion.Settings
             image.color = new Color(0.10f, 0.09f, 0.14f, 0.96f);
             image.raycastTarget = true;
 
-            var title = CreateText(panel.transform, _font, 16, TextAnchor.MiddleLeft, "Settings");
+            var title = CreateText(panel.transform, _font, 16, TextAnchor.MiddleLeft, AppName.Display);
             title.rectTransform.anchorMin = new Vector2(0f, 1f);
             title.rectTransform.anchorMax = new Vector2(1f, 1f);
             title.rectTransform.pivot = new Vector2(0f, 1f);

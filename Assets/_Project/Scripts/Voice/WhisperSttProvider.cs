@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using AICompanion.AI;
+using AICompanion.Core;
 using UnityEngine;
 using Whisper;
 using Whisper.Utils;
@@ -104,7 +105,7 @@ namespace AICompanion.Voice
         public static string MissingModelMessage(string modelFile)
         {
             var name = string.IsNullOrWhiteSpace(modelFile) ? SttSettings.DefaultModelFile : modelFile;
-            return "The speech model is missing (" + name + "). Use AI Companion > Download Whisper Model (base).";
+            return "The speech model is missing (" + name + "). It is not included with " + AppName.Display + ".";
         }
 
         static string FailLine(string modelFile, float elapsed, bool loaded, float loadSeconds)

@@ -13,7 +13,7 @@ PlayerSettings:
   useOnDemandResources: 0
   accelerometerFrequency: 60
   companyName: AI Companion
-  productName: AI Companion
+  productName: Backseat Catgirl
   defaultCursor: {fileID: 0}
   cursorHotspot: {x: 0, y: 0}
   m_SplashScreenBackgroundColor: {r: 1, g: 1, b: 1, a: 1}
@@ -884,7 +884,7 @@ PlayerSettings:
   metroCertificateSubject: 
   metroCertificateIssuer: 
   metroCertificateNotAfter: 0000000000000000
-  metroApplicationDescription: AI Companion
+  metroApplicationDescription: Backseat Catgirl
   wsaImages: {}
   metroTileShortName: 
   metroTileShowName: 0

@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using AICompanion.Core;
 
 namespace AICompanion.Overlay
 {
@@ -136,7 +137,7 @@ namespace AICompanion.Overlay
                     return;
                 }
 
-                var hwnd = CreateWindowExW(WsExToolWindow | WsExNoActivate, ClassName, "AI Companion", WsPopup, 0, 0, 0, 0, IntPtr.Zero, IntPtr.Zero, instance, IntPtr.Zero);
+                var hwnd = CreateWindowExW(WsExToolWindow | WsExNoActivate, ClassName, AppName.Display, WsPopup, 0, 0, 0, 0, IntPtr.Zero, IntPtr.Zero, instance, IntPtr.Zero);
                 if (hwnd == IntPtr.Zero)
                 {
                     _status = 2;
@@ -219,7 +220,7 @@ namespace AICompanion.Overlay
             data.uFlags = NifMessage | NifIcon | NifTip | NifShowTip;
             data.uCallbackMessage = TrayCallback;
             data.hIcon = icon;
-            data.szTip = "AI Companion";
+            data.szTip = AppName.Display;
             if (!Shell_NotifyIcon(NimAdd, ref data))
                 return false;
 
@@ -641,7 +642,11 @@ namespace AICompanion.Overlay
 
             try
             {
-                return TryReadString(key, valueName, out enabled);
+                string command;
+                if (!TryReadString(key, valueName, out command))
+                    return false;
+                enabled = !string.IsNullOrWhiteSpace(command);
+                return true;
             }
             catch (Exception)
             {
@@ -706,9 +711,44 @@ namespace AICompanion.Overlay
             }
         }
 
-        static bool TryReadString(IntPtr key, string valueName, out bool enabled)
+        public bool TryReadCommand(string valueName, out string command)
         {
-            enabled = false;
+            command = null;
+            if (string.IsNullOrEmpty(valueName))
+                return false;
+
+            var key = IntPtr.Zero;
+            try
+            {
+                var opened = RegOpenKeyExW(HkeyCurrentUser, WindowsStartupEntry.RunSubKey, 0, KeyQueryValue, out key);
+                if (opened == ErrorFileNotFound)
+                    return true;
+                if (opened != ErrorSuccess || key == IntPtr.Zero)
+                    return false;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+
+            try
+            {
+                return TryReadString(key, valueName, out command);
+            }
+            catch (Exception)
+            {
+                command = null;
+                return false;
+            }
+            finally
+            {
+                RegCloseKey(key);
+            }
+        }
+
+        static bool TryReadString(IntPtr key, string valueName, out string command)
+        {
+            command = null;
             uint type;
             uint size = 0;
             var probed = RegQueryValueExW(key, valueName, IntPtr.Zero, out type, null, ref size);
@@ -740,7 +780,7 @@ namespace AICompanion.Overlay
             var end = text.IndexOf('\0');
             if (end >= 0)
                 text = text.Substring(0, end);
-            enabled = !string.IsNullOrWhiteSpace(text);
+            command = string.IsNullOrWhiteSpace(text) ? null : text;
             return true;
         }
 

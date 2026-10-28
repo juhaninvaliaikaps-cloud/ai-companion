@@ -79,7 +79,7 @@ Implement `ITtsProvider.Synthesize` and construct it from `VoiceSpeaker` instead
 
 ## Try it in the Windows build
 
-1. Build and run `Builds/Windows/AICompanion.exe`.
+1. Build and run `Builds/Windows/BackseatCatgirl.exe`.
 2. If the key is not already saved, open the panel, enter it in the password row, and press **Save**.
 3. Send a short sentence. Hear `eve`, and watch `Talk on` only while the audio plays. The Game view stays live if a reply cannot be played; a **Note** explains it.
 4. **Mute** or **F6** silences the current reply and is still muted after you restart the build. **Esc**, **Stop**, and a new message cut off speech.
@@ -150,11 +150,11 @@ A missing model, no microphone, or a microphone the OS refused becomes a **Note*
 5. If a reply is speaking, hold **V** or **Mic**. The voice stops, the button reads **Rec** and turns red, and the overlay stays near 60 fps.
 6. Say a short English or Finnish sentence and release. Within about two seconds the line shows under **You**, then the companion replies. The Console shows `STT:` lines for the recording and the transcription, with no transcript text.
 7. Hold **V** while the message field is focused. Nothing records. Click off the field and **V** works again. **F6** still mutes. **F7** still cycles the avatar.
-8. Unplug the microphone, or deny microphone access, and hold **V**. A **Note** explains it. Delete the `.bin` and hold **V** again. A **Note** names the download menu. Play mode does not freeze.
+8. Unplug the microphone, or deny microphone access, and hold **V**. A **Note** explains it. Delete the `.bin` and hold **V** again. A **Note** names the missing model file. Play mode does not freeze.
 
 ### Try it in the Windows build
 
-1. Download the model in the Editor first, so `StreamingAssets/Whisper/ggml-base.bin` is present, then rebuild and run `Builds/Windows/AICompanion.exe`. The Whisper plugins, including `ggml-vulkan.dll`, are copied into `AICompanion_Data/Plugins/x86_64`. The model is copied from StreamingAssets.
+1. Download the model in the Editor first, so `StreamingAssets/Whisper/ggml-base.bin` is present, then rebuild and run `Builds/Windows/BackseatCatgirl.exe`. The Whisper plugins, including `ggml-vulkan.dll`, are copied into `BackseatCatgirl_Data/Plugins/x86_64`. The model is copied from StreamingAssets.
 2. If Windows asks, allow the microphone for the build.
 3. Click the window. Hold **V** or **Mic**, speak a short sentence, and release. The **You** line appears, and any current TTS stops when the hold starts.
 4. A missing model or a blocked microphone shows a **Note**. No audio file is written next to the exe. The player log's `STT:` lines stay free of the transcript.
