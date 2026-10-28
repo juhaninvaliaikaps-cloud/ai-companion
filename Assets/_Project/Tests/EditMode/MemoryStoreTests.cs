@@ -120,5 +120,53 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(MemoryStore.MaxSearchResults, store.Search("parrot").Count);
             Assert.AreEqual(3, store.Search("parrot", 3).Count);
         }
+
+        [Test]
+        public void Add_IsIdempotentForTheSameText()
+        {
+            var store = MemoryStore.Load(_path);
+            var first = store.AddFact("The user's name is Jussi", privateMode: false);
+            var second = store.AddFact("  the user's name is jussi  ", privateMode: false);
+
+            Assert.AreEqual(1, store.Count);
+            Assert.AreEqual(first.id, second.id);
+        }
+
+        [Test]
+        public void Add_UpgradesAnExistingEntryToCore()
+        {
+            var store = MemoryStore.Load(_path);
+            store.AddFact("The user's name is Jussi", privateMode: false);
+
+            store.AddFact("The user's name is Jussi", privateMode: false, core: true);
+
+            Assert.IsTrue(store.Entries[0].isCore);
+        }
+
+        [Test]
+        public void SearchFor_AlwaysIncludesCoreFacts()
+        {
+            var store = MemoryStore.Load(_path);
+            store.AddFact("Likes coffee with oat milk", privateMode: false);
+            store.AddFact("The user's name is Jussi", privateMode: false, core: true);
+
+            var hits = store.SearchFor("what is the weather like");
+
+            Assert.IsTrue(hits.Count >= 1);
+            Assert.IsTrue(hits[0].isCore);
+            StringAssert.Contains("Jussi", hits[0].text);
+        }
+
+        [Test]
+        public void SearchFor_FallsBackToRecentEntriesWhenNothingMatches()
+        {
+            var store = MemoryStore.Load(_path);
+            store.AddFact("Likes coffee with oat milk", privateMode: false);
+
+            var hits = store.SearchFor("zzz");
+
+            Assert.AreEqual(1, hits.Count);
+            Assert.AreEqual("Likes coffee with oat milk", hits[0].text);
+        }
     }
 }

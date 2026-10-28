@@ -36,7 +36,25 @@ Both live in the same per-user folder as the settings and the API key.
 
 `MemoryStore.Search(query, max, includePrivate)` is keyword search: the query is lowercased, split on non-alphanumeric characters, words shorter than three characters and a small stop-word list are dropped, and every remaining token that appears in an entry scores a point. A summary scores two, because it carries more context. Ties keep the newest entry. At most eight entries come back by default.
 
-Callers pass the last user message as the query. This is deliberately simple: embeddings are a later step, and the interface (`Search`) is what an embedding implementation would replace.
+The chat path uses `MemoryStore.SearchFor(...)`, which is built on top of that:
+
+1. **Core facts first** — entries flagged `isCore` (a name, how the user wants to be addressed). They always go into the prompt, so "what is my name?" works even though the stored sentence may never contain the word the user typed. At most three.
+2. **Keyword hits** next, as above.
+3. **Recent fallback** — when nothing matches, the newest entries are used instead of sending an empty memory block.
+
+Embeddings are a later step; `Search`/`SearchFor` is the seam an embedding implementation would replace.
+
+## Automatic capture
+
+`ChatPanel.CaptureMemory` runs after every successful reply where the user wrote at least three words. It calls `MemoryCapture.CaptureAsync` with the same provider that answered:
+
+1. `MemoryFactExtractor.BuildExchangeText` packs the user text and the reply into one message.
+2. The request uses `MemoryFactExtractor.SystemPrompt`, which asks for a JSON array of short third-person facts and nothing else.
+3. `MemoryFactExtractor.Parse` finds the array in the reply — prose or a code fence around it is fine — and rejects anything that is not a quoted list.
+4. Each fact is stored with `MemoryStore.Add`, which skips text that already exists ignoring case, and flags identity facts (name, "call me") as core.
+5. A log line reports only the count: `Memory: saved 2 fact(s)`.
+
+The extraction call goes to the active provider. In private mode that is the local model, and if a cloud provider is somehow passed anyway, `CaptureAsync` returns before sending anything. Facts written in private mode carry `isPrivate` and are filtered out of cloud prompts later.
 
 ## Prompt wiring
 
@@ -80,7 +98,8 @@ personality.SetPersona("Leia", 0.7f);
 
 ## Limits
 
-- Keyword search, not embeddings. Paraphrases miss: "java" does not find "coffee".
-- Nothing writes memories automatically yet. The chat does not summarise itself; a later ticket decides when a session becomes a summary, and it must pass the current private-mode flag.
+- Keyword search plus core facts, not embeddings. Paraphrases still miss: "java" does not find "coffee", though a core fact such as the user's name is always present.
+- Capture runs after each reply and costs one extra small request. Short messages (fewer than three words) are skipped. There is no per-session summary yet; only facts are extracted, and a later ticket can add summaries through `AddSummary` with the private flag.
+- The extraction prompt sees the exchange only. If the model returns prose instead of a JSON array, that exchange contributes nothing.
 - The files are plain JSON. Encryption is Phase 3 (`JUH-33`).
 - A very large `memory.json` is read whole on start; pruning is not implemented.

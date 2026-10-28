@@ -23,6 +23,12 @@ namespace AICompanion.Memory
         public string createdAtUtc = string.Empty;
         public bool isPrivate;
 
+        /// <summary>
+        /// Identity-level facts (a name, how the user wants to be addressed). Core
+        /// entries are always offered to the prompt, whatever the question was.
+        /// </summary>
+        public bool isCore;
+
         public bool IsValid
         {
             get { return !string.IsNullOrWhiteSpace(id) && !string.IsNullOrWhiteSpace(text); }

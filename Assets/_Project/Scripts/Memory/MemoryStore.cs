@@ -50,6 +50,8 @@ namespace AICompanion.Memory
     public sealed class MemoryStore
     {
         public const int MaxSearchResults = 8;
+        public const int MaxCoreFacts = 3;
+        public const int MaxRecentFallback = 3;
         public const int MinTokenLength = 3;
 
         static readonly HashSet<string> StopWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -111,33 +113,64 @@ namespace AICompanion.Memory
             return Load(MemoryPaths.MemoryFile());
         }
 
-        public MemoryEntry AddFact(string text, bool privateMode)
+        public MemoryEntry AddFact(string text, bool privateMode, bool core = false)
         {
-            return Add(text, MemoryKind.Fact, privateMode);
+            return Add(text, MemoryKind.Fact, privateMode, core);
         }
 
-        public MemoryEntry AddSummary(string text, bool privateMode)
+        public MemoryEntry AddSummary(string text, bool privateMode, bool core = false)
         {
-            return Add(text, MemoryKind.Summary, privateMode);
+            return Add(text, MemoryKind.Summary, privateMode, core);
         }
 
-        public MemoryEntry Add(string text, MemoryKind kind, bool privateMode)
+        /// <summary>
+        /// Stores one entry. Text that matches an existing entry, ignoring case and
+        /// surrounding space, returns the existing row instead of adding a duplicate,
+        /// and a later core flag upgrades it.
+        /// </summary>
+        public MemoryEntry Add(string text, MemoryKind kind, bool privateMode, bool core = false)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return null;
 
+            var trimmed = text.Trim();
+            var existing = FindDuplicate(trimmed);
+            if (existing != null)
+            {
+                if (core && !existing.isCore)
+                {
+                    existing.isCore = true;
+                    Save();
+                }
+
+                return existing;
+            }
+
             var entry = new MemoryEntry
             {
                 id = Guid.NewGuid().ToString("N"),
-                text = text.Trim(),
+                text = trimmed,
                 kind = kind,
                 createdAtUtc = DateTime.UtcNow.ToString("o"),
                 isPrivate = privateMode,
+                isCore = core,
             };
 
             _file.entries.Add(entry);
             Save();
             return entry;
+        }
+
+        MemoryEntry FindDuplicate(string text)
+        {
+            for (var i = 0; i < _file.entries.Count; i++)
+            {
+                var candidate = _file.entries[i];
+                if (candidate != null && string.Equals(candidate.text, text, StringComparison.OrdinalIgnoreCase))
+                    return candidate;
+            }
+
+            return null;
         }
 
         public bool Delete(string id)
@@ -214,6 +247,58 @@ namespace AICompanion.Memory
 
             for (var i = 0; i < scored.Count && result.Count < max; i++)
                 result.Add(scored[i].entry);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Retrieval used by the chat path. Core facts always come first, so "what is my
+        /// name?" reaches the prompt even when the stored sentence never uses the word
+        /// the user typed. Keyword hits follow, and an empty result falls back to the
+        /// most recent entries so the companion is not blank after one vague question.
+        /// </summary>
+        public IReadOnlyList<MemoryEntry> SearchFor(string query, int max = MaxSearchResults, bool includePrivate = true)
+        {
+            var result = new List<MemoryEntry>();
+            if (max <= 0)
+                return result;
+
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (var i = 0; i < _file.entries.Count; i++)
+            {
+                var entry = _file.entries[i];
+                if (entry == null || !entry.IsValid || !entry.isCore)
+                    continue;
+                if (entry.isPrivate && !includePrivate)
+                    continue;
+
+                if (result.Count >= MaxCoreFacts)
+                    break;
+                if (seen.Add(entry.id))
+                    result.Add(entry);
+            }
+
+            var hits = Search(query, max, includePrivate);
+            for (var i = 0; i < hits.Count && result.Count < max; i++)
+            {
+                if (seen.Add(hits[i].id))
+                    result.Add(hits[i]);
+            }
+
+            if (result.Count == 0)
+            {
+                for (var i = _file.entries.Count - 1; i >= 0 && result.Count < MaxRecentFallback; i--)
+                {
+                    var entry = _file.entries[i];
+                    if (entry == null || !entry.IsValid)
+                        continue;
+                    if (entry.isPrivate && !includePrivate)
+                        continue;
+
+                    if (seen.Add(entry.id))
+                        result.Add(entry);
+                }
+            }
 
             return result;
         }

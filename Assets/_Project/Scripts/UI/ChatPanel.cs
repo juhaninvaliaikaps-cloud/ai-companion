@@ -321,7 +321,10 @@ namespace AICompanion.UI
                 return;
 
             if (result.Ok)
+            {
                 ApplyCue();
+                CaptureMemory(provider, text, result.Text);
+            }
 
             BindSpeech();
             if (_speech != null && _cancel != null && _cancel.Token.Equals(token))
@@ -405,6 +408,44 @@ namespace AICompanion.UI
             var animator = GetComponent<IAvatarAnimator>();
             if (animator != null)
                 animator.SetTalking(talking);
+        }
+
+        /// <summary>
+        /// Asks the provider for durable facts after a reply, and stores them with the
+        /// private flag of the current session. Very short messages are skipped because
+        /// they never carry a durable fact and every capture is a second request.
+        /// </summary>
+        async void CaptureMemory(IChatProvider provider, string userText, string assistantText)
+        {
+            if (provider == null || string.IsNullOrEmpty(userText) || WordCount(userText) < 3)
+                return;
+
+            var privacy = GetComponent<IPrivacyMode>();
+            var privateMode = privacy != null && privacy.PrivateMode;
+
+            try
+            {
+                await MemoryCapture.CaptureAsync(provider, userText, assistantText, privateMode, MemoryRuntime.Store);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Memory: capture failed (" + e.GetType().Name + ")");
+            }
+        }
+
+        static int WordCount(string text)
+        {
+            var count = 0;
+            var inWord = false;
+            for (var i = 0; i < text.Length; i++)
+            {
+                var whitespace = char.IsWhiteSpace(text[i]);
+                if (!whitespace && !inWord)
+                    count++;
+                inWord = !whitespace;
+            }
+
+            return count;
         }
 
         /// <summary>

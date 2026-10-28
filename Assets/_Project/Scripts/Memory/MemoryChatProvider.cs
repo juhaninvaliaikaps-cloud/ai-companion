@@ -65,7 +65,7 @@ namespace AICompanion.Memory
 
             var memories = _store == null
                 ? null
-                : _store.Search(LastUserMessage(request), MemoryStore.MaxSearchResults, IsLocal);
+                : _store.SearchFor(LastUserMessage(request), MemoryStore.MaxSearchResults, IsLocal);
 
             var memoryBlock = MemoryPrompt.Build(memories);
             var personaBlock = _personality == null ? string.Empty : MemoryPrompt.BuildPersona(_personality.Current);
