@@ -29,12 +29,30 @@ namespace AICompanion.AI
         }
     }
 
+    /// <summary>
+    /// Wraps every registered provider once, without the factory knowing what the
+    /// wrapper does. The memory layer uses it to add remembered facts to the prompt.
+    /// </summary>
+    public interface IChatProviderDecorator
+    {
+        IChatProvider Wrap(IChatProvider provider);
+    }
+
     public static class ChatProviderFactory
     {
         public static ChatProviderRegistry Create(ChatSettings settings, IApiKeySource keys, IChatTransport transport)
         {
+            return Create(settings, keys, transport, null);
+        }
+
+        public static ChatProviderRegistry Create(
+            ChatSettings settings,
+            IApiKeySource keys,
+            IChatTransport transport,
+            IChatProviderDecorator decorator)
+        {
             var registry = new ChatProviderRegistry();
-            registry.Register(new OpenAiCompatibleChatProvider(new OpenAiProviderConfig
+            registry.Register(Wrap(decorator, new OpenAiCompatibleChatProvider(new OpenAiProviderConfig
             {
                 ProviderId = ChatDefaults.GrokId,
                 DisplayName = "Grok",
@@ -49,8 +67,8 @@ namespace AICompanion.AI
                     return null;
                 },
                 Transport = transport
-            }));
-            registry.Register(new OpenAiCompatibleChatProvider(new OpenAiProviderConfig
+            })));
+            registry.Register(Wrap(decorator, new OpenAiCompatibleChatProvider(new OpenAiProviderConfig
             {
                 ProviderId = ChatDefaults.LocalId,
                 DisplayName = "Local model",
@@ -60,8 +78,17 @@ namespace AICompanion.AI
                 TimeoutSeconds = () => settings != null ? settings.timeoutSeconds : ChatDefaults.TimeoutSeconds,
                 ApiKey = () => null,
                 Transport = transport
-            }));
+            })));
             return registry;
+        }
+
+        static IChatProvider Wrap(IChatProviderDecorator decorator, IChatProvider provider)
+        {
+            if (decorator == null)
+                return provider;
+
+            var wrapped = decorator.Wrap(provider);
+            return wrapped ?? provider;
         }
 
         static string Value(string configured, string fallback)

@@ -5,6 +5,7 @@
         "AICompanion.Core",
         "AICompanion.AI",
         "AICompanion.AnimationDirector",
+        "AICompanion.Memory",
         "UnityEngine.UI"
     ],
     "includePlatforms": [],

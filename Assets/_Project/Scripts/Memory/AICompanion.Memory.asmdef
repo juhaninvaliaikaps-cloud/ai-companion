@@ -1,0 +1,17 @@
+{
+    "name": "AICompanion.Memory",
+    "rootNamespace": "AICompanion.Memory",
+    "references": [
+        "AICompanion.Core",
+        "AICompanion.AI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
