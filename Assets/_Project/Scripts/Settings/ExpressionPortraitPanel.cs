@@ -55,6 +55,7 @@ namespace AICompanion.Settings
         bool _started;
         bool _paths;
         bool _placed;
+        bool? _preferLeft;
         bool _shown;
         bool _logged;
 
@@ -439,8 +440,11 @@ namespace AICompanion.Settings
         void Place(float delta)
         {
             var avoidChat = _chat != null ? _chat.InteractiveRect : new Rect(0f, 0f, 0f, 0f);
-            var target = PortraitPlacement.Beside(HeadPoint(delta), Screen.width, Screen.height, avoidChat, PortraitPlacement.DebugLabel);
-            _guiRect = PortraitPlacement.Smooth(_guiRect, target, delta, _placed);
+            var head = HeadPoint(delta);
+            var target = PortraitPlacement.Beside(head, Screen.width, Screen.height, avoidChat, PortraitPlacement.DebugLabel, _preferLeft);
+            if (target.width > 0f)
+                _preferLeft = target.x + target.width * 0.5f < head.x;
+            _guiRect = PortraitPlacement.Smooth(_guiRect, target, delta, _placed, PortraitPlacement.DeadZone);
             _placed = true;
             if (_frame == null)
                 return;
