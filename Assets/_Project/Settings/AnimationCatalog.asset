@@ -123,3 +123,47 @@ MonoBehaviour:
     animatorState: 
     clip: {fileID: 0}
     durationSeconds: 0
+  - id: embarrassed
+    description: strong blush, eyes lowered, small tense mouth
+    tags:
+    - mood
+    - blush
+    emotion: 5
+    intensity: 0.9
+    gesture: 
+    animatorState: 
+    clip: {fileID: 0}
+    durationSeconds: 0
+  - id: shy
+    description: light blush, lowered eyes, small smile
+    tags:
+    - mood
+    - blush
+    emotion: 6
+    intensity: 0.55
+    gesture: 
+    animatorState: 
+    clip: {fileID: 0}
+    durationSeconds: 0
+  - id: flustered
+    description: strong blush with an open mouth
+    tags:
+    - mood
+    - blush
+    emotion: 7
+    intensity: 0.9
+    gesture: 
+    animatorState: 
+    clip: {fileID: 0}
+    durationSeconds: 0
+  - id: concerned
+    description: worried, inner brows raised, little blush
+    tags:
+    - mood
+    - worried
+    emotion: 8
+    intensity: 0.7
+    gesture: 
+    animatorState: 
+    clip: {fileID: 0}
+    durationSeconds: 0

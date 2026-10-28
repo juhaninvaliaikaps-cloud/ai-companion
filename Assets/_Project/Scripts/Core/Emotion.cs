@@ -7,5 +7,9 @@ namespace AICompanion.Core
         Sad = 2,
         Surprised = 3,
         Thinking = 4,
+        Embarrassed = 5,
+        Shy = 6,
+        Flustered = 7,
+        Concerned = 8,
     }
 }

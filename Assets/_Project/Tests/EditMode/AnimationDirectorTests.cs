@@ -257,6 +257,8 @@ namespace AICompanion.Tests.EditMode
                 StringAssert.Contains("Leave the gesture attribute out for an emotion only", prompt);
                 StringAssert.Contains("- wave_hello:", prompt);
                 StringAssert.Contains("- happy:", prompt);
+                StringAssert.Contains("- embarrassed:", prompt);
+                StringAssert.Contains(EmotionNames.CatalogLine, prompt);
             }
             finally
             {

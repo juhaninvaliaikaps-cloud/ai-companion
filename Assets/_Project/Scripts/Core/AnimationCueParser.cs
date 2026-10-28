@@ -307,7 +307,7 @@ namespace AICompanion.Core
                 switch (name)
                 {
                     case "emotion":
-                        if (!Enum.TryParse(value, true, out emotion))
+                        if (!EmotionNames.TryParse(value, out emotion))
                         {
                             ok = false;
                         }

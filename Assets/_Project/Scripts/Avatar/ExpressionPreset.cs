@@ -1,7 +1,8 @@
 namespace AICompanion.Avatar
 {
     /// <summary>
-    /// Expression slots shared by VRM presets and ARKit blendshapes.
+    /// Expression slots shared by VRM presets, ARKit blendshapes, and Daz-style names.
+    /// <see cref="Blush"/> stays last. <c>EmotionFace.Collect</c> walks every slot up to it.
     /// </summary>
     public enum ExpressionPreset
     {
@@ -16,6 +17,12 @@ namespace AICompanion.Avatar
         Angry,
         Sorrow,
         Fun,
-        Surprised
+        Surprised,
+        EyeSquint,
+        BrowInnerUp,
+        BrowOuterUp,
+        EyeWide,
+        EyeLookDown,
+        Blush
     }
 }

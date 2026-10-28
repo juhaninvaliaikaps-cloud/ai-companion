@@ -107,7 +107,8 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(ExpressionPreset.Blink, ExpressionPresetMap.Classify("EyeClose"));
             Assert.AreEqual(ExpressionPreset.Blink, ExpressionPresetMap.Classify("Fcl_EYE_Close"));
             Assert.AreEqual(ExpressionPreset.Blink, ExpressionPresetMap.Classify("eyeBlinkLeft"));
-            Assert.AreEqual(ExpressionPreset.None, ExpressionPresetMap.Classify("eyeLookDownLeft"));
+            Assert.AreEqual(ExpressionPreset.EyeLookDown, ExpressionPresetMap.Classify("eyeLookDownLeft"));
+            Assert.IsFalse(BlinkShapeSelection.IsBlinkName("eyeLookDownLeft"));
 
             var none = BlinkShapeSelection.Collect(new[] { "jawOpen", "mouthSmile" }, null);
             Assert.AreEqual(0, none.Length);

@@ -55,6 +55,7 @@ namespace AICompanion.Avatar
         float _proceduralBlink;
         FacePose _face;
         LipSyncDriver _lips;
+        readonly BlushOverlay _blush = new BlushOverlay();
         UnityAction _beforeRender;
         ICompanionPause _pause;
         bool _pauseSearched;
@@ -128,10 +129,14 @@ namespace AICompanion.Avatar
             _bindings = NoBindings;
             _proceduralBlink = 0f;
             if (instance == null)
+            {
+                _blush.Release();
                 return;
+            }
 
             BindAnimator(instance);
             _bindings = BindShapes(instance, descriptor);
+            AttachBlush();
             PushParameters();
             if (_animator == null)
                 return;
@@ -187,6 +192,7 @@ namespace AICompanion.Avatar
         {
             if (_beforeRender != null)
                 Application.onBeforeRender -= _beforeRender;
+            _blush.Release();
             CommitYaw();
         }
 
@@ -308,7 +314,7 @@ namespace AICompanion.Avatar
             if (_hasTalking)
                 _animator.SetBool(TalkingHash, _model.IsTalking);
             if (_hasEmotion)
-                _animator.SetInteger(EmotionHash, (int)_model.Emotion);
+                _animator.SetInteger(EmotionHash, AvatarAnimatorStates.BodyParameter(_model.Emotion));
             if (_hasIntensity)
                 _animator.SetFloat(IntensityHash, _model.EmotionIntensity);
         }
@@ -427,8 +433,37 @@ namespace AICompanion.Avatar
                 var renderer = bindings[i].Renderer;
                 if (renderer == null)
                     continue;
-                renderer.SetBlendShapeWeight(bindings[i].Index, pose.UnityWeight(bindings[i].Preset));
+                var weight = pose.UnityWeight(bindings[i].Preset);
+                if (bindings[i].Preset == ExpressionPreset.Blush && !BlushSettings.Enabled)
+                    weight = 0f;
+                renderer.SetBlendShapeWeight(bindings[i].Index, weight);
             }
+
+            _blush.SetIntensity(pose.Blush);
+        }
+
+        void AttachBlush()
+        {
+            _blush.Release();
+            var hasShape = false;
+            for (var i = 0; i < _bindings.Length; i++)
+            {
+                if (_bindings[i].Preset == ExpressionPreset.Blush)
+                {
+                    hasShape = true;
+                    break;
+                }
+            }
+
+            Transform head = null;
+            if (_animator != null && _animator.isHuman)
+                head = _animator.GetBoneTransform(HumanBodyBones.Head);
+
+            var ready = false;
+            if (BlushSettings.Enabled && !hasShape && head != null)
+                ready = _blush.Attach(head);
+
+            Debug.Log(BlushOverlay.FormatLog(BlushSettings.Enabled, hasShape, head != null, ready || hasShape));
         }
     }
 }

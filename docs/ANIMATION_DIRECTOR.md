@@ -14,7 +14,7 @@ That sounds fun. Let's go!
 
 | Attribute | Meaning | Default |
 | --- | --- | --- |
-| `emotion` | One of `neutral`, `happy`, `sad`, `surprised`, `thinking`. Unknown values make the cue invalid. | `neutral` |
+| `emotion` | One of `neutral`, `happy`, `sad`, `surprised`, `thinking`, `embarrassed`, `shy`, `flustered`, `concerned`. `worried` is `concerned`. Unknown values make the cue invalid. | `neutral` |
 | `intensity` | 0 to 1. Clamped by `AnimationCue`. | `0.6` |
 | `gesture` | A catalog id (`wave_hello`) or that row's gesture name (`wave`). The director tries the id first. An unknown value is still parsed; the director then plays neutral. | none |
 

@@ -1,0 +1,85 @@
+{
+  "poses": [
+    {
+      "emotion": "happy",
+      "weights": [
+        { "channel": "joy", "weight": 1 },
+        { "channel": "eyeSquint", "weight": 0.72 },
+        { "channel": "fun", "weight": 0.22 },
+        { "channel": "aa", "weight": 0.48 },
+        { "channel": "oh", "weight": 0.12 }
+      ]
+    },
+    {
+      "emotion": "sad",
+      "weights": [
+        { "channel": "sorrow", "weight": 0.9 },
+        { "channel": "angry", "weight": 0.5 },
+        { "channel": "eyeLookDown", "weight": 0.15 }
+      ]
+    },
+    {
+      "emotion": "surprised",
+      "weights": [
+        { "channel": "surprised", "weight": 1 },
+        { "channel": "browInnerUp", "weight": 0.75 },
+        { "channel": "browOuterUp", "weight": 0.7 },
+        { "channel": "eyeWide", "weight": 0.8 },
+        { "channel": "aa", "weight": 0.45 },
+        { "channel": "oh", "weight": 0.3 }
+      ]
+    },
+    {
+      "emotion": "thinking",
+      "weights": [
+        { "channel": "ih", "weight": 0.35 },
+        { "channel": "blink", "weight": 0.15 },
+        { "channel": "browInnerUp", "weight": 0.12 }
+      ]
+    },
+    {
+      "emotion": "embarrassed",
+      "weights": [
+        { "channel": "blush", "weight": 1 },
+        { "channel": "eyeLookDown", "weight": 0.7 },
+        { "channel": "blink", "weight": 0.28 },
+        { "channel": "browInnerUp", "weight": 0.4 },
+        { "channel": "eyeSquint", "weight": 0.15 },
+        { "channel": "sorrow", "weight": 0.12 }
+      ]
+    },
+    {
+      "emotion": "shy",
+      "weights": [
+        { "channel": "blush", "weight": 0.38 },
+        { "channel": "eyeLookDown", "weight": 0.45 },
+        { "channel": "blink", "weight": 0.12 },
+        { "channel": "joy", "weight": 0.32 },
+        { "channel": "eyeSquint", "weight": 0.28 },
+        { "channel": "browInnerUp", "weight": 0.15 }
+      ]
+    },
+    {
+      "emotion": "flustered",
+      "weights": [
+        { "channel": "blush", "weight": 0.92 },
+        { "channel": "aa", "weight": 0.55 },
+        { "channel": "oh", "weight": 0.22 },
+        { "channel": "browInnerUp", "weight": 0.35 },
+        { "channel": "eyeWide", "weight": 0.2 },
+        { "channel": "joy", "weight": 0.12 }
+      ]
+    },
+    {
+      "emotion": "concerned",
+      "weights": [
+        { "channel": "browInnerUp", "weight": 0.85 },
+        { "channel": "sorrow", "weight": 0.28 },
+        { "channel": "eyeLookDown", "weight": 0.2 },
+        { "channel": "blink", "weight": 0.08 },
+        { "channel": "blush", "weight": 0.22 },
+        { "channel": "surprised", "weight": 0.28 }
+      ]
+    }
+  ]
+}
