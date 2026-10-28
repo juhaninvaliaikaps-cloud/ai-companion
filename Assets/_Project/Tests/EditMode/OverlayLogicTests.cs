@@ -232,6 +232,21 @@ namespace AICompanion.Tests.EditMode
             }
         }
 
+        [Test]
+        public void SettingsPanel_DoesNotChangeClickThroughMode()
+        {
+            var mode = OverlayClickThrough.Silhouette;
+            Assert.IsFalse(OverlayClickThroughPolicy.ShouldClickThrough(mode, true, false, false));
+            Assert.IsTrue(OverlayClickThroughPolicy.ShouldClickThrough(mode, false, false, false));
+            Assert.AreEqual(OverlayClickThrough.Silhouette, mode);
+
+            Assert.IsTrue(OverlayClickThroughPolicy.ShouldClickThrough(OverlayClickThrough.PanelsOnly, false, true, false));
+            Assert.IsFalse(OverlayClickThroughPolicy.ShouldClickThrough(OverlayClickThrough.PanelsOnly, true, false, false));
+            Assert.IsFalse(OverlayClickThroughPolicy.ShouldClickThrough(OverlayClickThrough.Capture, false, false, false));
+            Assert.AreEqual(OverlayClickThrough.Silhouette, OverlayClickThroughPolicy.Parse("nope"));
+            Assert.AreEqual("panels", OverlayClickThroughPolicy.Name(OverlayClickThrough.PanelsOnly));
+        }
+
         sealed class FakeHit : IOverlayHitQuery
         {
             public FakeHit(bool overCollider, bool overUi, bool opaquePixel)

@@ -9,6 +9,7 @@
         "AICompanion.Overlay",
         "AICompanion.UI",
         "AICompanion.Voice",
+        "AICompanion.Settings",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

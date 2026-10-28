@@ -70,7 +70,7 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void Menu_SettingsHookIsAStubUntilAWindowExists()
+        public void Menu_SettingsRaisesTheOpenHook()
         {
             var menu = new TrayMenuState();
             var calls = 0;
@@ -80,8 +80,7 @@ namespace AICompanion.Tests.EditMode
             menu.RaiseSettings();
 
             Assert.AreEqual(1, calls);
-            StringAssert.Contains("JUH-55", TrayMenuState.SettingsStubMessage);
-            StringAssert.Contains("stub", TrayMenuState.SettingsStubMessage);
+            Assert.IsFalse(menu.Apply(TrayCommand.OpenSettings).PauseChanged);
         }
 
         [Test]
@@ -153,7 +152,8 @@ namespace AICompanion.Tests.EditMode
         public void Startup_BuildsAQuotedPerUserRunCommand()
         {
             Assert.AreEqual(@"Software\Microsoft\Windows\CurrentVersion\Run", WindowsStartupEntry.RunSubKey);
-            Assert.AreEqual("AI Companion", WindowsStartupEntry.ValueName);
+            Assert.AreEqual("Backseat Catgirl", WindowsStartupEntry.ValueName);
+            Assert.AreEqual("AI Companion", WindowsStartupEntry.PreviousValueName);
             Assert.AreEqual(
                 "\"C:\\Games\\AI Companion\\AICompanion.exe\"",
                 WindowsStartupEntry.BuildCommand(@"C:\Games\AI Companion\AICompanion.exe"));
@@ -193,6 +193,62 @@ namespace AICompanion.Tests.EditMode
             store.Fail = true;
             Assert.IsFalse(StartupToggle.TryApply(store, true, @"C:\AICompanion.exe"));
             Assert.IsFalse(StartupToggle.TryApply(null, false, @"C:\AICompanion.exe"));
+        }
+
+        [Test]
+        public void Startup_RenamesTheOldRunValueAndDropsTheStaleEntry()
+        {
+            var store = new MemoryStartupRegistration();
+            var command = "\"C:\\Games\\BackseatCatgirl.exe\"";
+            store.TrySetEnabled(WindowsStartupEntry.PreviousValueName, true, command);
+
+            Assert.IsTrue(StartupRename.Migrate(store, WindowsStartupEntry.PreviousValueName, WindowsStartupEntry.ValueName));
+            Assert.AreEqual(command, store.Command(WindowsStartupEntry.ValueName));
+            Assert.IsNull(store.Command(WindowsStartupEntry.PreviousValueName));
+
+            store.TrySetEnabled(WindowsStartupEntry.PreviousValueName, true, "\"C:\\old.exe\"");
+            Assert.IsTrue(StartupRename.Migrate(store, WindowsStartupEntry.PreviousValueName, WindowsStartupEntry.ValueName));
+            Assert.AreEqual(command, store.Command(WindowsStartupEntry.ValueName));
+            Assert.IsNull(store.Command(WindowsStartupEntry.PreviousValueName));
+        }
+
+        [Test]
+        public void Startup_RenameKeepsTheOldValueWhenTheNewWriteFails()
+        {
+            var store = new MemoryStartupRegistration();
+            var command = "\"C:\\Games\\BackseatCatgirl.exe\"";
+            store.TrySetEnabled(WindowsStartupEntry.PreviousValueName, true, command);
+            store.FailWrites = true;
+
+            Assert.IsFalse(StartupRename.Migrate(store, WindowsStartupEntry.PreviousValueName, WindowsStartupEntry.ValueName));
+            store.FailWrites = false;
+            Assert.AreEqual(command, store.Command(WindowsStartupEntry.PreviousValueName));
+            Assert.IsNull(store.Command(WindowsStartupEntry.ValueName));
+        }
+
+        [Test]
+        public void PrefsRename_CopiesTheOldHiveOnceAndSkipsTheMarker()
+        {
+            Assert.AreEqual(
+                @"Software\AI Companion\AI Companion",
+                PrefsRenamePlan.PlayerSubKey(AppName.Company, AppName.PreviousDisplay));
+            Assert.AreEqual(
+                @"Software\AI Companion\Backseat Catgirl",
+                PrefsRenamePlan.PlayerSubKey(AppName.Company, AppName.Display));
+            Assert.AreEqual(
+                @"Software\Unity\UnityEditor\AI Companion\Backseat Catgirl",
+                PrefsRenamePlan.EditorSubKey(AppName.Company, AppName.Display));
+
+            var source = new[]
+            {
+                new PrefRegistryValue { Name = "ai-companion.paused_h1", Type = 4, Data = new byte[] { 1, 0, 0, 0 } },
+                new PrefRegistryValue { Name = PrefsRenamePlan.Marker, Type = 4, Data = new byte[] { 1, 0, 0, 0 } },
+                new PrefRegistryValue { Name = "empty", Type = 4, Data = new byte[0] }
+            };
+            var copy = PrefsRenamePlan.ValuesToCopy(source, false);
+            Assert.AreEqual(1, copy.Length);
+            Assert.AreEqual("ai-companion.paused_h1", copy[0].Name);
+            Assert.AreEqual(0, PrefsRenamePlan.ValuesToCopy(source, true).Length);
         }
 
         [Test]
@@ -270,6 +326,7 @@ namespace AICompanion.Tests.EditMode
             readonly Dictionary<string, string> _values = new Dictionary<string, string>();
 
             public bool Fail;
+            public bool FailWrites;
 
             public bool TryGetEnabled(string valueName, out bool enabled)
             {
@@ -283,7 +340,7 @@ namespace AICompanion.Tests.EditMode
 
             public bool TrySetEnabled(string valueName, bool enabled, string command)
             {
-                if (Fail)
+                if (Fail || FailWrites)
                     return false;
                 if (enabled)
                 {
@@ -294,6 +351,17 @@ namespace AICompanion.Tests.EditMode
                 }
 
                 _values.Remove(valueName);
+                return true;
+            }
+
+            public bool TryReadCommand(string valueName, out string command)
+            {
+                command = null;
+                if (Fail || string.IsNullOrEmpty(valueName))
+                    return false;
+                string value;
+                if (_values.TryGetValue(valueName, out value))
+                    command = value;
                 return true;
             }
 

@@ -10,7 +10,7 @@ namespace AICompanion.Core
     {
         private void Awake()
         {
-            Debug.Log("AI Companion bootstrap ready.");
+            Debug.Log(AppName.Display + " bootstrap ready.");
             StartCompanionHooks();
         }
 

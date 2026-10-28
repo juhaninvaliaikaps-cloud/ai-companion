@@ -49,6 +49,7 @@ namespace AICompanion.Overlay
         bool _middleWasHeld;
         float _yawPointerX;
         bool _clickThrough;
+        OverlayClickThrough _clickThroughMode = OverlayClickThrough.Silhouette;
         float _windowScale = 1f;
         int _anchorRight;
         int _anchorBottom;
@@ -94,6 +95,9 @@ namespace AICompanion.Overlay
 
         public bool IsTopmost => _topmost;
         public bool IsClickThrough => _clickThrough;
+        public float WindowScale => _windowScale;
+        public int IdleFrameRate => idleFrameRate;
+        public OverlayClickThrough ClickThroughMode => _clickThroughMode;
         public bool IsCompanionVisible => _companionVisible;
         public IWindowChrome Chrome => _chrome;
 
@@ -228,8 +232,7 @@ namespace AICompanion.Overlay
                     AdjustZoom(scroll, unityScreen);
             }
 
-            bool interactive = !SilhouetteHit.ShouldClickThrough(overUi, onSilhouette, _dragging || _yawDrag);
-            _clickThrough = !interactive;
+            _clickThrough = OverlayClickThroughPolicy.ShouldClickThrough(_clickThroughMode, overUi, onSilhouette, _dragging || _yawDrag);
             _chrome.SetClickThrough(_clickThrough);
             QueueAlphaSample(inside, outsideSlack, pixel);
 
@@ -309,6 +312,32 @@ namespace AICompanion.Overlay
             _topmost = topmost;
             if (_chrome != null && _chrome.IsSupported)
                 _chrome.SetTopmost(topmost);
+        }
+
+        public void SetClickThroughMode(OverlayClickThrough mode)
+        {
+            _clickThroughMode = mode;
+        }
+
+        public void SetIdleFrameRate(int fps)
+        {
+            if (fps < 1)
+                fps = 1;
+            if (fps > OverlayFrameRate.Active)
+                fps = OverlayFrameRate.Active;
+            idleFrameRate = fps;
+        }
+
+        public void SetWindowScale(float scale)
+        {
+            if (!_started)
+                StartCompanion();
+
+            _windowScale = scale;
+            ApplySizedWindow(true);
+            PlayerPrefs.SetFloat(OverlayWindowSize.ScalePrefKey, _windowScale);
+            PushAvatarScale();
+            LockUiPixels();
         }
 
         public void SetCompanionVisible(bool visible)

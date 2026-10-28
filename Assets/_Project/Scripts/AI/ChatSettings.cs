@@ -17,5 +17,21 @@ namespace AICompanion.AI
         public float temperature = ChatDefaults.Temperature;
         public int maxTokens = ChatDefaults.MaxTokens;
         public string systemPrompt = ChatDefaults.SystemPrompt;
+
+        public ChatSettings RuntimeCopy()
+        {
+            var copy = CreateInstance<ChatSettings>();
+            copy.hideFlags = HideFlags.HideAndDontSave;
+            copy.providerId = providerId;
+            copy.model = model;
+            copy.baseUrl = baseUrl;
+            copy.localModel = localModel;
+            copy.localBaseUrl = localBaseUrl;
+            copy.timeoutSeconds = timeoutSeconds;
+            copy.temperature = temperature;
+            copy.maxTokens = maxTokens;
+            copy.systemPrompt = systemPrompt;
+            return copy;
+        }
     }
 }

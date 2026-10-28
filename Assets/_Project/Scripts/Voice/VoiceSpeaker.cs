@@ -41,6 +41,32 @@ namespace AICompanion.Voice
 
         public bool IsMuted => _muted;
 
+        public ChatSettings RuntimeChat
+        {
+            get
+            {
+                if (!_started)
+                    StartCompanion();
+                return chatSettings;
+            }
+        }
+
+        public VoiceSettings RuntimeVoice
+        {
+            get
+            {
+                if (!_started)
+                    StartCompanion();
+                return voiceSettings;
+            }
+        }
+
+        public void ApplyPlaybackVolume()
+        {
+            if (_source != null && voiceSettings != null)
+                _source.volume = Mathf.Clamp01(voiceSettings.volume);
+        }
+
         public bool IsSpeaking => _playback.ShouldTalk || _requestInFlight || _playback.QueuedCount > 0 || _clips.Count > 0 || _decoded.Count > 0;
 
         public void StartCompanion()
@@ -49,10 +75,8 @@ namespace AICompanion.Voice
                 return;
 
             _started = true;
-            if (chatSettings == null)
-                chatSettings = ScriptableObject.CreateInstance<ChatSettings>();
-            if (voiceSettings == null)
-                voiceSettings = ScriptableObject.CreateInstance<VoiceSettings>();
+            chatSettings = chatSettings != null ? chatSettings.RuntimeCopy() : ScriptableObject.CreateInstance<ChatSettings>();
+            voiceSettings = voiceSettings != null ? voiceSettings.RuntimeCopy() : ScriptableObject.CreateInstance<VoiceSettings>();
             _muted = PlayerPrefs.GetInt(MutePref, 0) != 0;
             EnsureSource();
             var timeout = voiceSettings.timeoutSeconds <= 0f ? 20f : voiceSettings.timeoutSeconds;
@@ -93,9 +117,10 @@ namespace AICompanion.Voice
 
         public void SetMuted(bool muted)
         {
+            var changed = _muted != muted;
             _muted = muted;
             PlayerPrefs.SetInt(MutePref, muted ? 1 : 0);
-            if (!muted)
+            if (!muted || !changed)
                 return;
 
             _turn.Cancel();
@@ -109,7 +134,8 @@ namespace AICompanion.Voice
             SilencePlayback();
             InvalidateRequest();
             _noted.Clear();
-            _turn.Begin(SpeechPolicy.ShouldSpeak(chatSettings, voiceSettings, !CompanionPause.SpeechAllowed(_muted, _suppressed)));
+            var blocked = !CompanionPause.SpeechAllowed(_muted, _suppressed);
+            _turn.Begin(SpeechPolicy.ShouldSpeak(chatSettings, voiceSettings, blocked, PrivateMode()));
             ApplyTalking();
         }
 
@@ -146,8 +172,27 @@ namespace AICompanion.Voice
             ApplyTalking();
         }
 
+        bool PrivateMode()
+        {
+            var privacy = GetComponent<IPrivacyMode>();
+            return privacy != null && privacy.PrivateMode;
+        }
+
         void PumpSynthesis()
         {
+            if (!SpeechPolicy.ShouldSpeak(chatSettings, voiceSettings, false, PrivateMode()))
+            {
+                if (_turn.Accepting || _turn.PendingCount > 0 || _requestInFlight)
+                {
+                    _turn.Cancel();
+                    SilencePlayback();
+                    InvalidateRequest();
+                    ApplyTalking();
+                }
+
+                return;
+            }
+
             if (_requestInFlight)
             {
                 var limit = voiceSettings != null && voiceSettings.timeoutSeconds > 0f ? voiceSettings.timeoutSeconds : 20f;

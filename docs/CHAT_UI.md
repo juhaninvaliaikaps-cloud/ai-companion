@@ -50,7 +50,7 @@ A missing key, a rejected request, or a model the key cannot use shows as a **No
 
 ## Try it in the Windows build
 
-1. Build and run `Builds/Windows/AICompanion.exe`.
+1. Build and run `Builds/Windows/BackseatCatgirl.exe`.
 2. If the key is not already in the environment or the per-user file, press **F10** if the panel is hidden, type the key into the password row, and press **Save**. The field clears and a note says the key was saved on this PC.
 3. The panel is to her left, with empty space between the panel and her body. Click the panel or press **F10** so the window comes forward, then type and press **Enter**. The reply streams. Speech is in [VOICE.md](VOICE.md).
 4. **Esc** or **Stop** cancels. **F10** hides the panel without ending the overlay. Empty pixels still click through to the desktop. Drag the window from her or from the top-left label, not from the panel.

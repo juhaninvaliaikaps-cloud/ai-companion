@@ -199,6 +199,29 @@ namespace AICompanion.UI
             return request;
         }
 
+        public void ClearTranscript()
+        {
+            _lines.Clear();
+            IsBusy = false;
+            Generation++;
+            Touch();
+        }
+
+        public bool ImportLine(ChatLineKind kind, string text)
+        {
+            if (kind != ChatLineKind.User && kind != ChatLineKind.Assistant && kind != ChatLineKind.System)
+                return false;
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            var clean = text.Trim();
+            if (clean.Length > 4000)
+                clean = clean.Substring(0, 4000);
+            _lines.Add(new ChatLine(kind, clean, false));
+            Touch();
+            return true;
+        }
+
         public string FormatTranscript()
         {
             var sb = new StringBuilder();

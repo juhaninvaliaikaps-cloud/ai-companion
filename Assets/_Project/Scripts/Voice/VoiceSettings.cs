@@ -18,5 +18,20 @@ namespace AICompanion.Voice
         public bool allowCloudTtsForLocalReplies;
         public float timeoutSeconds = 20f;
         public int sampleRate = 24000;
+
+        public VoiceSettings RuntimeCopy()
+        {
+            var copy = CreateInstance<VoiceSettings>();
+            copy.hideFlags = HideFlags.HideAndDontSave;
+            copy.enabled = enabled;
+            copy.voiceId = voiceId;
+            copy.language = language;
+            copy.speed = speed;
+            copy.volume = volume;
+            copy.allowCloudTtsForLocalReplies = allowCloudTtsForLocalReplies;
+            copy.timeoutSeconds = timeoutSeconds;
+            copy.sampleRate = sampleRate;
+            return copy;
+        }
     }
 }

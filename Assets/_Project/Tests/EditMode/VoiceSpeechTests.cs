@@ -167,6 +167,15 @@ namespace AICompanion.Tests.EditMode
                 voice.enabled = true;
                 Assert.IsFalse(SpeechPolicy.ShouldSpeak(chat, voice, true));
                 Assert.IsFalse(SpeechPolicy.ShouldSpeak(chat, null, false));
+
+                voice.allowCloudTtsForLocalReplies = true;
+                chat.providerId = ChatDefaults.LocalId;
+                Assert.IsFalse(SpeechPolicy.ShouldSpeak(chat, voice, false, true));
+                Assert.IsFalse(OutboundPrivacy.AllowsCloudTts(true));
+                Assert.IsFalse(OutboundPrivacy.AllowsVoiceAgent(true));
+                Assert.IsFalse(OutboundPrivacy.AllowsUthana(true));
+                Assert.IsTrue(OutboundPrivacy.AllowsVoiceAgent(false));
+                Assert.AreEqual(ChatDefaults.LocalId, OutboundPrivacy.ChatProviderId(true, ChatDefaults.GrokId));
             }
             finally
             {

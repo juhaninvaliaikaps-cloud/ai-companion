@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace AICompanion.Overlay
@@ -161,6 +162,59 @@ namespace AICompanion.Overlay
 
             var delta = now - previousTime;
             return delta > 0.02f && delta <= gapSeconds;
+        }
+    }
+
+    public enum OverlayClickThrough
+    {
+        Silhouette = 0,
+        PanelsOnly = 1,
+        Capture = 2
+    }
+
+    /// <summary>
+    /// Click-through modes for the overlay. A settings panel is just another UI
+    /// hit: it does not change the mode, the layered style, or topmost.
+    /// </summary>
+    public static class OverlayClickThroughPolicy
+    {
+        public const string SilhouetteName = "silhouette";
+        public const string PanelsOnlyName = "panels";
+        public const string CaptureName = "capture";
+
+        public static OverlayClickThrough Parse(string value)
+        {
+            if (string.Equals(value, PanelsOnlyName, StringComparison.OrdinalIgnoreCase))
+                return OverlayClickThrough.PanelsOnly;
+            if (string.Equals(value, CaptureName, StringComparison.OrdinalIgnoreCase))
+                return OverlayClickThrough.Capture;
+            return OverlayClickThrough.Silhouette;
+        }
+
+        public static string Name(OverlayClickThrough mode)
+        {
+            switch (mode)
+            {
+                case OverlayClickThrough.PanelsOnly:
+                    return PanelsOnlyName;
+                case OverlayClickThrough.Capture:
+                    return CaptureName;
+                default:
+                    return SilhouetteName;
+            }
+        }
+
+        public static bool ShouldClickThrough(OverlayClickThrough mode, bool overUi, bool onSilhouette, bool dragging)
+        {
+            switch (mode)
+            {
+                case OverlayClickThrough.Capture:
+                    return false;
+                case OverlayClickThrough.PanelsOnly:
+                    return !overUi && !dragging;
+                default:
+                    return SilhouetteHit.ShouldClickThrough(overUi, onSilhouette, dragging);
+            }
         }
     }
 

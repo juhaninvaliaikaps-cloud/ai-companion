@@ -1,0 +1,23 @@
+{
+    "name": "AICompanion.Settings",
+    "rootNamespace": "AICompanion.Settings",
+    "references": [
+        "AICompanion.Core",
+        "AICompanion.AI",
+        "AICompanion.Overlay",
+        "AICompanion.UI",
+        "AICompanion.Voice",
+        "AICompanion.Avatar",
+        "UnityEngine.UI",
+        "UnityEngine.UnityWebRequestModule"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

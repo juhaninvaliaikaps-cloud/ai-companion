@@ -11,7 +11,7 @@ namespace AICompanion.Tests.PlayMode
         [UnityTest]
         public IEnumerator Awake_LogsReadyMessage()
         {
-            LogAssert.Expect(LogType.Log, "AI Companion bootstrap ready.");
+            LogAssert.Expect(LogType.Log, AppName.Display + " bootstrap ready.");
 
             var host = new GameObject("AppBootstrap test");
             host.AddComponent<AppBootstrap>();

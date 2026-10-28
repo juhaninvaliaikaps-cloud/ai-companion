@@ -63,20 +63,11 @@ namespace AICompanion.Overlay
         public const string StartupLabel = "Start with Windows";
         public const string QuitLabel = "Quit";
 
-        /// <summary>
-        /// JUH-55 stub. The settings window does not exist yet.
-        /// </summary>
-        public const string SettingsStubMessage = "JUH-55 stub: the settings window is not implemented yet.";
-
         readonly object _gate = new object();
         bool _companionVisible = true;
         bool _paused;
         bool _startWithWindows;
 
-        /// <summary>
-        /// JUH-55 stub hook. The tray logs <see cref="SettingsStubMessage"/> from here
-        /// until a settings window subscribes and replaces that behavior.
-        /// </summary>
         public event Action SettingsRequested;
 
         public bool CompanionVisible
