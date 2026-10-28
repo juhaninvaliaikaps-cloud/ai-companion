@@ -279,8 +279,31 @@ namespace AICompanion.Avatar
 
         void LateUpdate()
         {
+            UpdateGestureLayerWeight();
             AdvanceFace(Time.deltaTime);
             ApplyFace(DisplayedFace());
+        }
+
+        /// <summary>
+        /// The gesture layer has an Empty state with no motion and writeDefaultValues off,
+        /// so it keeps the last gesture pose unless its weight is released. Fade the weight
+        /// to zero while Empty is active, which hands the body back to the base layer.
+        /// </summary>
+        void UpdateGestureLayerWeight()
+        {
+            if (_animator == null || _animator.layerCount <= AvatarAnimatorLayers.Gestures)
+                return;
+
+            var info = _animator.GetCurrentAnimatorStateInfo(AvatarAnimatorLayers.Gestures);
+            var empty = info.IsName(AvatarAnimatorStates.Empty);
+            var current = _animator.GetLayerWeight(AvatarAnimatorLayers.Gestures);
+            var target = empty ? 0f : 1f;
+            if (Mathf.Abs(current - target) < 0.001f)
+                return;
+
+            _animator.SetLayerWeight(
+                AvatarAnimatorLayers.Gestures,
+                Mathf.MoveTowards(current, target, Time.deltaTime * 6f));
         }
 
         void BindAnimator(GameObject instance)
