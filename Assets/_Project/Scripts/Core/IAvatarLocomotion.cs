@@ -10,5 +10,11 @@ namespace AICompanion.Core
         void SetWalking(bool walking);
 
         void SetFalling(bool falling);
+
+        /// <summary>
+        /// +1 while she walks right, -1 while she walks left, 0 when she stands still.
+        /// The avatar turns its root toward the direction of travel.
+        /// </summary>
+        void SetWalkingDirection(float direction);
     }
 }
