@@ -9,6 +9,7 @@
         "AICompanion.Voice",
         "AICompanion.Avatar",
         "UnityEngine.UI",
+        "UnityEngine.ImageConversionModule",
         "UnityEngine.UnityWebRequestModule"
     ],
     "includePlatforms": [],

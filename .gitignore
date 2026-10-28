@@ -134,6 +134,19 @@ Desktop.ini
 /Assets/StreamingAssets/Whisper/*.bin.meta
 /Assets/StreamingAssets/Whisper/*.partial
 
+# Local expression portraits. Load them from %APPDATA%\ProjectLeia\portraits. See docs/PORTRAITS.md.
+/portraits/
+/Assets/Portraits/
+/Assets/Portraits.meta
+/Assets/_Project/Portraits/
+/Assets/_Project/Portraits.meta
+/Assets/**/[Pp]ortraits/*.png
+/Assets/**/[Pp]ortraits/*.jpg
+/Assets/**/[Pp]ortraits/*.jpeg
+/Assets/**/[Pp]ortraits/*.png.meta
+/Assets/**/[Pp]ortraits/*.jpg.meta
+/Assets/**/[Pp]ortraits/*.jpeg.meta
+
 # Local secrets. The xAI key lives outside the repo. See docs/CHAT_PROVIDERS.md.
 /Config/appsettings.json
 /Config/*.local.json

@@ -56,6 +56,7 @@ namespace AICompanion.Settings
         public bool PrivateMode;
         public string CompanionName = string.Empty;
         public string Relationship = RelationshipStyles.Friend;
+        public bool ShowExpressionPortrait;
 
         public static CompanionSettings CreateDefault()
         {
@@ -334,6 +335,8 @@ namespace AICompanion.Settings
                 settings.CompanionName = text;
             if (TryString(json, "relationship", out text))
                 settings.Relationship = text;
+            if (TryBool(json, "showExpressionPortrait", out flag))
+                settings.ShowExpressionPortrait = flag;
             settings.Normalize();
             return settings;
         }
@@ -371,6 +374,7 @@ namespace AICompanion.Settings
             Bool(sb, "privateMode", source.PrivateMode);
             String(sb, "companionName", source.CompanionName);
             String(sb, "relationship", source.Relationship);
+            Bool(sb, "showExpressionPortrait", source.ShowExpressionPortrait);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;

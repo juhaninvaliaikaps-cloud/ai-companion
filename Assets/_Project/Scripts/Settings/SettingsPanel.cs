@@ -26,7 +26,7 @@ namespace AICompanion.Settings
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(100)]
-    public sealed class SettingsPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IPrivacyMode
+    public sealed partial class SettingsPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IPrivacyMode
     {
         enum Tab
         {
@@ -712,6 +712,7 @@ namespace AICompanion.Settings
             AddSourceButton("Local prefab", AvatarSourceNames.Local);
             AddSourceButton("VRM sample", AvatarSourceNames.Vrm);
             AddSourceButton("FBX sample", AvatarSourceNames.Fbx);
+            BuildPortraitToggle();
             AddButton("Reset rotation", () =>
             {
                 var mount = GetComponent<AvatarMount>();
