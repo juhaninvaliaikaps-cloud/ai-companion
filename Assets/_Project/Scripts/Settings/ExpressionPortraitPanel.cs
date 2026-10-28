@@ -56,6 +56,7 @@ namespace AICompanion.Settings
         bool _paths;
         bool _placed;
         bool? _preferLeft;
+        string _heldExpression = string.Empty;
         bool _shown;
         bool _logged;
 
@@ -122,6 +123,8 @@ namespace AICompanion.Settings
             var speaking = AnimatorAlive() && _animator.IsTalking;
             if (hasAmplitude && amplitude >= PortraitTalkMotion.AmplitudeThreshold)
                 speaking = true;
+
+            emotion = PortraitHold.Resolve(emotion, ref _heldExpression, speaking);
 
             var view = _director.Tick(
                 delta,
@@ -449,6 +452,7 @@ namespace AICompanion.Settings
 
             return PortraitNames.For(_animator.Emotion);
         }
+
 
         void Place(float delta)
         {
