@@ -87,9 +87,9 @@ MonoBehaviour:
     emotion: 1
     intensity: 0.7
     gesture: wave
-    animatorState: 
-    clip: {fileID: 0}
-    durationSeconds: 0
+    animatorState: Wave
+    clip: {fileID: 7400000, guid: 9ea8170a60d2b1b44877d8311ea8b5dd, type: 2}
+    durationSeconds: 1.4
   - id: nod_yes
     description: agreeing nod
     tags:
@@ -98,9 +98,9 @@ MonoBehaviour:
     emotion: 0
     intensity: 0.4
     gesture: nod
-    animatorState: 
-    clip: {fileID: 0}
-    durationSeconds: 0
+    animatorState: Nod
+    clip: {fileID: 7400000, guid: 7a82aeb89b15f4d4ea9c5e3d0c2b08fa, type: 2}
+    durationSeconds: 1
   - id: shrug
     description: uncertain shrug with no strong feeling
     tags:
@@ -109,9 +109,9 @@ MonoBehaviour:
     emotion: 0
     intensity: 0.4
     gesture: shrug
-    animatorState: 
-    clip: {fileID: 0}
-    durationSeconds: 0
+    animatorState: Shrug
+    clip: {fileID: 7400000, guid: a17f2c85ffe8596478988cc8777cf672, type: 2}
+    durationSeconds: 1.3
   - id: laugh
     description: short laugh at something funny
     tags:
@@ -120,6 +120,28 @@ MonoBehaviour:
     emotion: 1
     intensity: 0.9
     gesture: laugh
-    animatorState: 
-    clip: {fileID: 0}
-    durationSeconds: 0
+    animatorState: Laugh
+    clip: {fileID: 7400000, guid: cbb75233dfc1463428d54216ae542886, type: 2}
+    durationSeconds: 1.4
+  - id: walk
+    description: walking loop on the spot
+    tags:
+    - locomotion
+    - loop
+    emotion: 0
+    intensity: 0.5
+    gesture: walk
+    animatorState: Walk
+    clip: {fileID: 7400000, guid: b4869355e6c1ac1488b71041a13984df, type: 2}
+    durationSeconds: 1
+  - id: turn_around
+    description: turn around in place to look behind
+    tags:
+    - turn
+    - orientation
+    emotion: 0
+    intensity: 0.5
+    gesture: turn
+    animatorState: Turn180
+    clip: {fileID: 7400000, guid: 65600ade8e3454e469fec84e305bd4e6, type: 2}
+    durationSeconds: 0.9

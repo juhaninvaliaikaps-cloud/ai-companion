@@ -23,7 +23,25 @@ namespace AICompanion.Editor.Avatars
             "Happy",
             "Sad",
             "Surprised",
-            "Thinking"
+            "Thinking",
+            "Wave",
+            "Nod",
+            "Shrug",
+            "Laugh",
+            "Walk",
+            "Turn180"
+        };
+
+        /// <summary>Clips that loop. Gestures and the turn play once.</summary>
+        static readonly string[] LoopingClips =
+        {
+            "Idle",
+            "Talk",
+            "Happy",
+            "Sad",
+            "Surprised",
+            "Thinking",
+            "Walk"
         };
 
         [MenuItem("AI Companion/Rebuild Basic Animator")]
@@ -64,6 +82,20 @@ namespace AICompanion.Editor.Avatars
             AnimationUtility.SetEditorCurve(clip, binding, new AnimationCurve(keys));
         }
 
+        /// <summary>
+        /// Writes explicit keyframes for one muscle. Used by gestures, where a sine is
+        /// the wrong shape: a wave is a raise, two wags, and a drop.
+        /// </summary>
+        public static void Keys(AnimationClip clip, string muscle, params (float time, float value)[] samples)
+        {
+            var keys = new Keyframe[samples.Length];
+            for (var i = 0; i < samples.Length; i++)
+                keys[i] = new Keyframe(samples[i].time, samples[i].value, 0f, 0f);
+
+            var binding = EditorCurveBinding.FloatCurve(string.Empty, typeof(Animator), muscle);
+            AnimationUtility.SetEditorCurve(clip, binding, new AnimationCurve(keys));
+        }
+
         static void Rebuild(bool force)
         {
             Directory.CreateDirectory(Path.Combine(Application.dataPath, "_Project/Animations"));
@@ -92,8 +124,8 @@ namespace AICompanion.Editor.Avatars
             CompanionClipCurves.Populate(clip);
 
             var settings = AnimationUtility.GetAnimationClipSettings(clip);
-            settings.loopTime = true;
-            settings.loopBlend = true;
+            settings.loopTime = IsLooping(clipName);
+            settings.loopBlend = IsLooping(clipName);
             AnimationUtility.SetAnimationClipSettings(clip, settings);
 
             if (created)
@@ -104,13 +136,25 @@ namespace AICompanion.Editor.Avatars
             return clip;
         }
 
+        static bool IsLooping(string clipName)
+        {
+            for (var i = 0; i < LoopingClips.Length; i++)
+            {
+                if (LoopingClips[i] == clipName)
+                    return true;
+            }
+
+            return false;
+        }
+
         static void EnsureController(AnimationClip[] clips)
         {
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
             if (controller != null)
             {
+                EnsureGestureLayer(controller, clips);
                 if (!ControllerLooksValid(controller))
-                    Debug.LogWarning("Companion.controller did not import with Idle, Talk, and the emotion parameters. Delete that asset and run AI Companion/Rebuild Basic Animator if the body stays on the bind pose.");
+                    Debug.LogWarning("Companion.controller did not import with Idle, Talk, the emotion parameters, and the gesture layer. Delete that asset and run AI Companion/Rebuild Basic Animator if the body stays on the bind pose.");
                 return;
             }
 
@@ -147,7 +191,126 @@ namespace AICompanion.Editor.Avatars
                 return false;
 
             var states = controller.layers[0].stateMachine.states;
-            return states != null && states.Length >= 5;
+            if (states == null || states.Length < 5)
+                return false;
+
+            if (controller.layers.Length <= AvatarAnimatorLayers.Gestures)
+                return false;
+
+            var gestureStates = controller.layers[AvatarAnimatorLayers.Gestures].stateMachine.states;
+            return gestureStates != null && gestureStates.Length >= 7;
+        }
+
+        /// <summary>
+        /// Adds the gesture layer to an existing controller. The layer is an override
+        /// layer with writeDefaultValues off, so a gesture only moves the muscles its
+        /// clip names and the emotion pose underneath is left alone. Gestures run here
+        /// instead of on the base layer because the emotion states use AnyState
+        /// transitions, and those would pull a gesture back to Idle mid-move.
+        /// </summary>
+        static void EnsureGestureLayer(AnimatorController controller, AnimationClip[] clips)
+        {
+            var byName = new System.Collections.Generic.Dictionary<string, AnimationClip>();
+            for (var i = 0; i < clips.Length; i++)
+                byName[clips[i].name] = clips[i];
+
+            var gestureNames = new[]
+            {
+                AvatarAnimatorStates.Wave,
+                AvatarAnimatorStates.Nod,
+                AvatarAnimatorStates.Shrug,
+                AvatarAnimatorStates.Laugh
+            };
+
+            var parameters = new System.Collections.Generic.HashSet<string>();
+            var existing = controller.parameters;
+            for (var i = 0; i < existing.Length; i++)
+                parameters.Add(existing[i].name);
+
+            for (var i = 0; i < gestureNames.Length; i++)
+            {
+                if (!parameters.Contains(gestureNames[i]))
+                    controller.AddParameter(gestureNames[i], AnimatorControllerParameterType.Trigger);
+            }
+
+            if (!parameters.Contains(AvatarAnimatorStates.Turn180))
+                controller.AddParameter(AvatarAnimatorStates.Turn180, AnimatorControllerParameterType.Trigger);
+            if (!parameters.Contains("Walking"))
+                controller.AddParameter("Walking", AnimatorControllerParameterType.Bool);
+
+            var layers = controller.layers;
+            if (layers.Length <= AvatarAnimatorLayers.Gestures)
+            {
+                controller.AddLayer("Gestures");
+                layers = controller.layers;
+                var layer = layers[AvatarAnimatorLayers.Gestures];
+                layer.blendingMode = AnimatorLayerBlendingMode.Override;
+                layer.defaultWeight = 1f;
+                layers[AvatarAnimatorLayers.Gestures] = layer;
+                controller.layers = layers;
+            }
+
+            var machine = controller.layers[AvatarAnimatorLayers.Gestures].stateMachine;
+            if (machine.states != null && machine.states.Length > 1)
+                return;
+
+            var empty = machine.AddState(AvatarAnimatorStates.Empty);
+            empty.writeDefaultValues = false;
+            machine.defaultState = empty;
+
+            for (var i = 0; i < gestureNames.Length; i++)
+            {
+                var state = machine.AddState(gestureNames[i]);
+                state.motion = byName[gestureNames[i]];
+                state.writeDefaultValues = false;
+
+                var enter = empty.AddTransition(state);
+                enter.AddCondition(AnimatorConditionMode.If, 0f, gestureNames[i]);
+                enter.hasExitTime = false;
+                enter.hasFixedDuration = true;
+                enter.duration = 0.15f;
+                enter.canTransitionToSelf = false;
+
+                var leave = state.AddTransition(empty);
+                leave.hasExitTime = true;
+                leave.exitTime = 0.95f;
+                leave.hasFixedDuration = true;
+                leave.duration = 0.2f;
+                leave.canTransitionToSelf = false;
+            }
+
+            var walk = machine.AddState(AvatarAnimatorStates.Walk);
+            walk.motion = byName["Walk"];
+            walk.writeDefaultValues = false;
+            var toWalk = empty.AddTransition(walk);
+            toWalk.AddCondition(AnimatorConditionMode.If, 0f, "Walking");
+            toWalk.hasExitTime = false;
+            toWalk.hasFixedDuration = true;
+            toWalk.duration = 0.2f;
+            var fromWalk = walk.AddTransition(empty);
+            fromWalk.AddCondition(AnimatorConditionMode.IfNot, 0f, "Walking");
+            fromWalk.hasExitTime = false;
+            fromWalk.hasFixedDuration = true;
+            fromWalk.duration = 0.2f;
+            fromWalk.canTransitionToSelf = false;
+
+            var turn = machine.AddState(AvatarAnimatorStates.Turn180);
+            turn.motion = byName["Turn180"];
+            turn.writeDefaultValues = false;
+            var toTurn = empty.AddTransition(turn);
+            toTurn.AddCondition(AnimatorConditionMode.If, 0f, AvatarAnimatorStates.Turn180);
+            toTurn.hasExitTime = false;
+            toTurn.hasFixedDuration = true;
+            toTurn.duration = 0.1f;
+            toTurn.canTransitionToSelf = false;
+            var fromTurn = turn.AddTransition(empty);
+            fromTurn.hasExitTime = true;
+            fromTurn.exitTime = 0.95f;
+            fromTurn.hasFixedDuration = true;
+            fromTurn.duration = 0.2f;
+            fromTurn.canTransitionToSelf = false;
+
+            EditorUtility.SetDirty(controller);
         }
 
         static void CreateController(AnimationClip[] clips)

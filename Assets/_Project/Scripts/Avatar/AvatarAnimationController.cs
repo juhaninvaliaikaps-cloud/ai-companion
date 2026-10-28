@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using AICompanion.Core;
 using UnityEngine;
@@ -41,6 +42,7 @@ namespace AICompanion.Avatar
         };
 
         [SerializeField] RuntimeAnimatorController controller;
+        [SerializeField] AvatarSelection selection;
 
         readonly AvatarAnimatorModel _model = new AvatarAnimatorModel();
         ShapeBinding[] _bindings = NoBindings;
@@ -62,6 +64,7 @@ namespace AICompanion.Avatar
         UnityAction _beforeRender;
         ICompanionPause _pause;
         bool _pauseSearched;
+        Coroutine _turn;
 
         struct ShapeBinding
         {
@@ -127,11 +130,44 @@ namespace AICompanion.Avatar
                 return false;
 
             var hash = Animator.StringToHash(stateName);
-            if (!_animator.HasState(0, hash))
+            var layer = _animator.HasState(AvatarAnimatorLayers.Gestures, hash) ? AvatarAnimatorLayers.Gestures : 0;
+            if (!_animator.HasState(layer, hash))
                 return false;
 
-            _animator.CrossFade(hash, Mathf.Max(0f, crossfadeSeconds), 0, 0f);
+            _animator.CrossFade(hash, Mathf.Max(0f, crossfadeSeconds), layer, 0f);
+
+            if (layer == AvatarAnimatorLayers.Gestures && stateName == AvatarAnimatorStates.Turn180)
+                StartTurn();
+
             return true;
+        }
+
+        void StartTurn()
+        {
+            if (_turn != null)
+                StopCoroutine(_turn);
+
+            _turn = StartCoroutine(TurnInPlace());
+        }
+
+        IEnumerator TurnInPlace()
+        {
+            if (_root == null)
+            {
+                _turn = null;
+                yield break;
+            }
+
+            const float duration = 0.9f;
+            var elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                _root.Rotate(0f, 180f * Time.deltaTime / duration, 0f, Space.World);
+                yield return null;
+            }
+
+            _turn = null;
         }
 
         public void Attach(GameObject instance, AvatarDescriptor descriptor, AvatarPreference source)
@@ -243,8 +279,31 @@ namespace AICompanion.Avatar
 
         void LateUpdate()
         {
+            UpdateGestureLayerWeight();
             AdvanceFace(Time.deltaTime);
             ApplyFace(DisplayedFace());
+        }
+
+        /// <summary>
+        /// The gesture layer has an Empty state with no motion and writeDefaultValues off,
+        /// so it keeps the last gesture pose unless its weight is released. Fade the weight
+        /// to zero while Empty is active, which hands the body back to the base layer.
+        /// </summary>
+        void UpdateGestureLayerWeight()
+        {
+            if (_animator == null || _animator.layerCount <= AvatarAnimatorLayers.Gestures)
+                return;
+
+            var info = _animator.GetCurrentAnimatorStateInfo(AvatarAnimatorLayers.Gestures);
+            var empty = info.IsName(AvatarAnimatorStates.Empty);
+            var current = _animator.GetLayerWeight(AvatarAnimatorLayers.Gestures);
+            var target = empty ? 0f : 1f;
+            if (Mathf.Abs(current - target) < 0.001f)
+                return;
+
+            _animator.SetLayerWeight(
+                AvatarAnimatorLayers.Gestures,
+                Mathf.MoveTowards(current, target, Time.deltaTime * 6f));
         }
 
         void BindAnimator(GameObject instance)
@@ -270,7 +329,7 @@ namespace AICompanion.Avatar
                 return;
             }
 
-            animator.runtimeAnimatorController = controller;
+            animator.runtimeAnimatorController = ResolveController();
             CacheParameters(animator);
         }
 
@@ -305,6 +364,51 @@ namespace AICompanion.Avatar
                 root.Rotate(0f, yaw, 0f, Space.World);
         }
 
+        /// <summary>
+        /// The shared controller, or an override controller when the local avatar
+        /// selection names replacement clips. Overrides are matched by base clip name,
+        /// so a local walk clip replaces the CC0 walk without touching the repository.
+        /// </summary>
+        RuntimeAnimatorController ResolveController()
+        {
+            var source = selection;
+            if (source == null)
+            {
+                var mount = GetComponent<AvatarMount>();
+                if (mount != null)
+                    source = mount.Selection;
+            }
+
+            var overrides = source != null ? source.animationOverrides : null;
+            if (overrides == null || overrides.Length == 0)
+                return controller;
+
+            var baseClips = controller.animationClips;
+            var pairs = new List<KeyValuePair<AnimationClip, AnimationClip>>(overrides.Length);
+            for (var i = 0; i < overrides.Length; i++)
+            {
+                var entry = overrides[i];
+                if (entry == null || entry.clip == null || string.IsNullOrWhiteSpace(entry.clipName))
+                    continue;
+
+                for (var c = 0; c < baseClips.Length; c++)
+                {
+                    var baseClip = baseClips[c];
+                    if (baseClip == null || baseClip.name != entry.clipName)
+                        continue;
+
+                    pairs.Add(new KeyValuePair<AnimationClip, AnimationClip>(baseClip, entry.clip));
+                    break;
+                }
+            }
+
+            if (pairs.Count == 0)
+                return controller;
+
+            var overrideController = new AnimatorOverrideController(controller);
+            overrideController.ApplyOverrides(pairs);
+            return overrideController;
+        }
         void CacheParameters(Animator animator)
         {
             var parameters = animator.parameters;

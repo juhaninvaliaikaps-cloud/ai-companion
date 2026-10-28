@@ -16,6 +16,17 @@ namespace AICompanion.Core
     }
 
     /// <summary>
+    /// Animation layer indices on <c>Companion.controller</c>. Layer 2 is an override
+    /// layer for gestures, so the base layer's emotion transitions cannot interrupt one.
+    /// </summary>
+    public static class AvatarAnimatorLayers
+    {
+        public const int Base = 0;
+        public const int Talk = 1;
+        public const int Gestures = 2;
+    }
+
+    /// <summary>
     /// State names on <c>Companion.controller</c>. Emotion values match <see cref="Emotion"/>.
     /// </summary>
     public static class AvatarAnimatorStates
@@ -27,6 +38,15 @@ namespace AICompanion.Core
         public const string Thinking = "Thinking";
         public const string Silent = "Silent";
         public const string Talk = "Talk";
+
+        // Gesture layer.
+        public const string Empty = "Empty";
+        public const string Wave = "Wave";
+        public const string Nod = "Nod";
+        public const string Shrug = "Shrug";
+        public const string Laugh = "Laugh";
+        public const string Walk = "Walk";
+        public const string Turn180 = "Turn180";
 
         public static string ForEmotion(Emotion emotion)
         {
