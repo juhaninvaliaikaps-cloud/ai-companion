@@ -157,6 +157,18 @@ MonoBehaviour:
     animatorState: Turn180
     clip: {fileID: 7400000, guid: 65600ade8e3454e469fec84e305bd4e6, type: 2}
     durationSeconds: 0.9
+  - id: stop
+    description: stand still and stop wandering
+    tags:
+    - movement
+    - still
+    emotion: 0
+    intensity: 0.3
+    portrait: 
+    gesture: 
+    animatorState: 
+    clip: {fileID: 0}
+    durationSeconds: 1
   - id: concerned
     description: worried about you or about something you said
     tags:
