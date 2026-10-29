@@ -525,7 +525,9 @@ namespace AICompanion.Avatar
                 return;
 
             if (_hasTalking)
-                _animator.SetBool(TalkingHash, _model.IsTalking);
+                // Talking is a face-only performance now: the mouth follows lip sync while the
+            // body keeps whatever it is doing, walking and gestures included. The controller no
+            // longer writes the Talking parameter, so the old Talk body state never plays.
             if (_hasEmotion)
                 _animator.SetInteger(EmotionHash, (int)_model.Emotion);
             if (_hasIntensity)

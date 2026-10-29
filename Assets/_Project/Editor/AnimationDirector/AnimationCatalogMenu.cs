@@ -74,7 +74,7 @@ namespace AICompanion.Editor.AnimationDirector
                 Entry("sad", "downcast, sympathetic reaction", Emotion.Sad, 0.7f, string.Empty, "Sad", "Sad", 2f, "mood", "negative"),
                 Entry("surprised", "short startled reaction", Emotion.Surprised, 0.9f, string.Empty, "Surprised", "Surprised", 1f, "mood", "reaction"),
                 Entry("thinking", "considering something with mild uncertainty", Emotion.Thinking, 0.6f, string.Empty, "Thinking", "Thinking", 2f, "mood", "thinking"),
-                Entry("talk", "speaking loop while the reply audio plays", Emotion.Neutral, 0.3f, string.Empty, "Talk", "Talk", 1f, "speech", "loop"),
+    
                 Entry("wave_hello", "friendly hello wave", Emotion.Happy, 0.7f, "wave", "Wave", "Wave", 1.4f, "greeting", "friendly"),
                 Entry("nod_yes", "agreeing nod", Emotion.Neutral, 0.4f, "nod", "Nod", "Nod", 1f, "agreement", "confirmation"),
                 Entry("shrug", "uncertain shrug with no strong feeling", Emotion.Neutral, 0.4f, "shrug", "Shrug", "Shrug", 1.3f, "uncertain", "neutral"),
