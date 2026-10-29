@@ -197,6 +197,13 @@ namespace AICompanion.Avatar
             if (!_animator.HasState(layer, hash))
                 return false;
 
+            // The layer weight is zero while Empty is current, and during the crossfade the
+            // current state is still Empty, so the gesture would fade in behind the base
+            // layer and the talking pose showed instead of the wave. Bring the layer up as
+            // soon as a gesture is requested.
+            if (layer == AvatarAnimatorLayers.Gestures)
+                _animator.SetLayerWeight(AvatarAnimatorLayers.Gestures, 1f);
+
             _animator.CrossFade(hash, Mathf.Max(0f, crossfadeSeconds), layer, 0f);
 
             if (layer == AvatarAnimatorLayers.Gestures && stateName == AvatarAnimatorStates.Turn180)
@@ -383,6 +390,9 @@ namespace AICompanion.Avatar
         void UpdateGestureLayerWeight()
         {
             if (_animator == null || _animator.layerCount <= AvatarAnimatorLayers.Gestures)
+                return;
+
+            if (_animator.IsInTransition(AvatarAnimatorLayers.Gestures))
                 return;
 
             var info = _animator.GetCurrentAnimatorStateInfo(AvatarAnimatorLayers.Gestures);
