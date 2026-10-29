@@ -257,11 +257,17 @@ namespace AICompanion.Editor.Avatars
             var machine = controller.layers[AvatarAnimatorLayers.Gestures].stateMachine;
             if (machine.states != null && machine.states.Length > 1)
             {
+                var changed = false;
                 if (!HasState(machine, AvatarAnimatorStates.Fall))
                 {
                     AddFallState(machine, byName);
-                    EditorUtility.SetDirty(controller);
+                    changed = true;
                 }
+
+                changed |= AddWalkInterrupts(machine);
+
+                if (changed)
+                    EditorUtility.SetDirty(controller);
 
                 return;
             }
@@ -270,11 +276,13 @@ namespace AICompanion.Editor.Avatars
             empty.writeDefaultValues = false;
             machine.defaultState = empty;
 
+            var gestureStates = new AnimatorState[gestureNames.Length];
             for (var i = 0; i < gestureNames.Length; i++)
             {
                 var state = machine.AddState(gestureNames[i]);
                 state.motion = byName[gestureNames[i]];
                 state.writeDefaultValues = false;
+                gestureStates[i] = state;
 
                 var enter = empty.AddTransition(state);
                 enter.AddCondition(AnimatorConditionMode.If, 0f, gestureNames[i]);
@@ -306,6 +314,21 @@ namespace AICompanion.Editor.Avatars
             fromWalk.duration = 0.2f;
             fromWalk.canTransitionToSelf = false;
 
+            // A trigger that arrives while Walking is true had no transition out of the Walk
+            // state, so the gesture never showed. Every gesture can now interrupt the walk.
+            for (var g = 0; g < gestureStates.Length; g++)
+            {
+                if (gestureStates[g] == null)
+                    continue;
+
+                var toGesture = walk.AddTransition(gestureStates[g]);
+                toGesture.AddCondition(AnimatorConditionMode.If, 0f, gestureNames[g]);
+                toGesture.hasExitTime = false;
+                toGesture.hasFixedDuration = true;
+                toGesture.duration = 0.12f;
+                toGesture.canTransitionToSelf = false;
+            }
+
             var turn = machine.AddState(AvatarAnimatorStates.Turn180);
             turn.motion = byName["Turn180"];
             turn.writeDefaultValues = false;
@@ -325,6 +348,80 @@ namespace AICompanion.Editor.Avatars
             AddFallState(machine, byName);
 
             EditorUtility.SetDirty(controller);
+        }
+
+        /// <summary>
+        /// A gesture trigger that arrives while Walking is true has no transition from the
+        /// Walk state, so the clip never shows. Add a Walk to gesture transition per gesture,
+        /// skipping the ones that already exist so the bake stays repeatable.
+        /// </summary>
+        static bool AddWalkInterrupts(AnimatorStateMachine machine)
+        {
+            var states = machine != null ? machine.states : null;
+            if (states == null)
+                return false;
+
+            AnimatorState walk = null;
+            var gestures = new System.Collections.Generic.List<AnimatorState>();
+            for (var i = 0; i < states.Length; i++)
+            {
+                var state = states[i].state;
+                if (state == null)
+                    continue;
+
+                if (state.name == AvatarAnimatorStates.Walk)
+                {
+                    walk = state;
+                    continue;
+                }
+
+                if (AvatarAnimatorStates.Wave == state.name
+                    || AvatarAnimatorStates.Nod == state.name
+                    || AvatarAnimatorStates.Shrug == state.name
+                    || AvatarAnimatorStates.Laugh == state.name
+                    || AvatarAnimatorStates.Turn180 == state.name
+                    || AvatarAnimatorStates.Fall == state.name)
+                {
+                    gestures.Add(state);
+                }
+            }
+
+            if (walk == null || gestures.Count == 0)
+                return false;
+
+            var added = false;
+            for (var g = 0; g < gestures.Count; g++)
+            {
+                var gesture = gestures[g];
+                if (HasTransition(walk, gesture.name))
+                    continue;
+
+                var transition = walk.AddTransition(gesture);
+                transition.AddCondition(AnimatorConditionMode.If, 0f, gesture.name);
+                transition.hasExitTime = false;
+                transition.hasFixedDuration = true;
+                transition.duration = 0.12f;
+                transition.canTransitionToSelf = false;
+                added = true;
+            }
+
+            return added;
+        }
+
+        static bool HasTransition(AnimatorState from, string destinationName)
+        {
+            var transitions = from != null ? from.transitions : null;
+            if (transitions == null)
+                return false;
+
+            for (var i = 0; i < transitions.Length; i++)
+            {
+                var target = transitions[i].destinationState;
+                if (target != null && target.name == destinationName)
+                    return true;
+            }
+
+            return false;
         }
 
         static bool HasState(AnimatorStateMachine machine, string name)
