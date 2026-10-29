@@ -53,6 +53,8 @@ namespace AICompanion.UI
         IDesktopWindow _desktop;
         float _anchorX;
         bool _anchorReady;
+        IAvatarAnimator _avatar;
+        bool _visualTalking;
         bool? _panelOnLeft;
         int _anchorSource = -1;
         bool _placementLogged;
@@ -189,6 +191,8 @@ namespace AICompanion.UI
 
         void Update()
         {
+            KeepVisualTalking();
+
             var fieldFocused = (_input != null && _input.isFocused) || (_keyInput != null && _keyInput.isFocused);
             DebugInputGuard.SetTextFieldFocused(fieldFocused);
             if (!_started)
@@ -470,8 +474,40 @@ namespace AICompanion.UI
             RefreshTranscript(true);
         }
 
+        /// <summary>
+        /// Without a TTS key there is no audio, so the animator never hears talking and the
+        /// mouth stays still. Drive the visual talking flag from the streamed reply as a
+        /// fallback; voice playback still takes over when it has a key.
+        /// </summary>
+        void KeepVisualTalking()
+        {
+            if (!_visualTalking)
+                return;
+            if (_conversation != null && _conversation.IsBusy)
+                return;
+            if (_speech != null && _speech.IsSpeaking)
+                return;
+
+            _visualTalking = false;
+            SetVisualTalking(false);
+        }
+
+        void SetVisualTalking(bool talking)
+        {
+            if (_avatar == null)
+                _avatar = GetComponent<IAvatarAnimator>();
+            if (_avatar != null)
+                _avatar.SetTalking(talking);
+        }
+
         void ForwardSpeech(string piece)
         {
+            if (!string.IsNullOrEmpty(piece))
+            {
+                _visualTalking = true;
+                SetVisualTalking(true);
+            }
+
             BindSpeech();
             if (_speech != null)
                 _speech.Append(piece);

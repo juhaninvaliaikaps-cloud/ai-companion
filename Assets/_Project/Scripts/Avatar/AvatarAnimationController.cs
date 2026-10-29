@@ -344,7 +344,7 @@ namespace AICompanion.Avatar
             if (changed)
                 PushParameters();
 
-            if (Input.GetKeyDown(KeyCode.F9) && !DebugInputGuard.IsBlocked(KeyCode.F9))
+            if (Input.GetKeyDown(KeyCode.F11) && !DebugInputGuard.IsBlocked(KeyCode.F11))
                 CycleExpression();
         }
 

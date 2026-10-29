@@ -104,6 +104,15 @@ namespace AICompanion.AnimationDirector
                 return;
             }
 
+            // A reply without a cue used to reset the face to neutral, which wiped a mood
+            // the previous reply set. Keep the last emotion instead; PlayNeutral is the
+            // explicit reset.
+            if (IsNoCue(cue))
+            {
+                Debug.Log("AnimationDirector: no cue -> kept");
+                return;
+            }
+
             var decision = _model.Decide(cue);
             var verdict = _rules.Allow(decision, Time.unscaledTime);
             if (verdict != RuleVerdict.Allow)
@@ -120,7 +129,15 @@ namespace AICompanion.AnimationDirector
 
         public void PlayNeutral()
         {
-            Play(AnimationCueParser.NeutralCue);
+            _rules.Clear();
+            Apply(AnimationDirectorModel.Neutral());
+            LastDecision = AnimationDirectorModel.Neutral();
+            Debug.Log("AnimationDirector: neutral reset");
+        }
+
+        static bool IsNoCue(AnimationCue cue)
+        {
+            return string.IsNullOrWhiteSpace(cue.Gesture) && cue.Emotion == Emotion.Neutral;
         }
 
         bool Apply(DirectorDecision decision)

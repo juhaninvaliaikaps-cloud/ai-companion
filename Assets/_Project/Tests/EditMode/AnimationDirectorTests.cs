@@ -335,7 +335,7 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void Play_NoCue_LogsNeutral()
+        public void Play_NoCue_KeepsTheLastMood()
         {
             var host = new GameObject("director");
             try
@@ -343,11 +343,13 @@ namespace AICompanion.Tests.EditMode
                 var avatar = host.AddComponent<RecordingAvatar>();
                 var director = host.AddComponent<Director>();
                 AssignCatalog(director, NewCatalog());
-                LogAssert.Expect(LogType.Log, "AnimationDirector: no cue -> neutral");
+                director.Play(new AnimationCue(Emotion.Happy, 0.8f, string.Empty));
+                var before = avatar.Emotion;
 
+                LogAssert.Expect(LogType.Log, "AnimationDirector: no cue -> kept");
                 director.Play(AnimationCueParser.NeutralCue);
 
-                Assert.AreEqual(Emotion.Neutral, avatar.Emotion);
+                Assert.AreEqual(before, avatar.Emotion);
                 Assert.AreEqual(0, avatar.PlayCalls);
             }
             finally

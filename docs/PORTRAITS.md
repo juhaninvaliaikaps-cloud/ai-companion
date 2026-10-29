@@ -2,7 +2,7 @@
 
 The 3D face cannot show every expression. An optional drawn portrait sits in a rounded frame beside her head and follows that point on screen. It is off until you turn it on.
 
-Press **F9** to cycle the portrait expressions without a model reply: concerned, embarrassed, shy, flustered, embarrassed_worried, angry, teasing, excited, loving, sleepy, happy, then neutral. The console logs `Expression preview: <name>`.
+Press **F11** to cycle the portrait expressions without a model reply: concerned, embarrassed, shy, flustered, embarrassed_worried, angry, teasing, excited, loving, sleepy, happy, then neutral. The console logs `Expression preview: <name>`.
 
 **Settings → Avatar → Show expression portrait.** The switch is `showExpressionPortrait` in `settings.json`. The default is off. Empty pixels outside the frame still click through. The frame itself catches clicks so the desktop under the picture is not pressed by accident.
 
