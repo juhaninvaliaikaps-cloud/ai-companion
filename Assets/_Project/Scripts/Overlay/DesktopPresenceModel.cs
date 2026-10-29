@@ -96,6 +96,7 @@ namespace AICompanion.Overlay
         readonly float _maxPause;
         readonly float _minWalk;
         readonly float _maxWalk;
+        readonly bool _wanderByIdle;
 
         DesktopWorkArea _area;
         int _windowWidth;
@@ -117,7 +118,8 @@ namespace AICompanion.Overlay
             float minPause = DefaultMinPause,
             float maxPause = DefaultMaxPause,
             float minWalk = DefaultMinWalk,
-            float maxWalk = DefaultMaxWalk)
+            float maxWalk = DefaultMaxWalk,
+            bool wanderByIdle = true)
         {
             _windowWidth = Math.Max(1, windowWidth);
             _windowHeight = Math.Max(1, windowHeight);
@@ -129,6 +131,7 @@ namespace AICompanion.Overlay
             _maxPause = maxPause;
             _minWalk = minWalk;
             _maxWalk = maxWalk;
+            _wanderByIdle = wanderByIdle;
             State = PresenceState.Idle;
             _timer = NextPause();
         }
@@ -295,13 +298,41 @@ namespace AICompanion.Overlay
                     _y = GroundY;
                     _timer -= step;
                     if (_timer <= 0f)
-                        StartWalking();
+                    {
+                        // Wandering used to start on a timer, which fought every scripted
+                        // gesture. With it off she only walks when the director asks.
+                        if (_wanderByIdle)
+                            StartWalking();
+                        else
+                            _timer = NextPause();
+                    }
+
                     break;
             }
 
             _x = ClampX(_x);
             var moved = Math.Abs(_x - wasX) > 0.001f || Math.Abs(_y - wasY) > 0.001f || State != wasState;
             return Frame(moved);
+        }
+
+        /// <summary>
+        /// Walks for a bounded time in the requested direction. A drop in progress is left
+        /// alone so the request cannot teleport her off the ground.
+        /// </summary>
+        public void RequestWalk(float direction, float seconds)
+        {
+            if (State == PresenceState.Falling)
+                return;
+
+            State = PresenceState.Walking;
+            _direction = direction < 0f ? -1 : 1;
+            _timer = Math.Min(30f, Math.Max(0.2f, seconds));
+        }
+
+        public void RequestStop()
+        {
+            if (State == PresenceState.Walking)
+                StopWalking();
         }
 
         void StartWalking()

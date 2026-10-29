@@ -22,6 +22,12 @@ namespace AICompanion.AnimationDirector
         IAnimationStatePlayer _states;
         bool _suppressed;
 
+        public const float WalkRequestSeconds = 4f;
+        public const string WalkCue = "walk";
+        public const string StopCue = "stop";
+
+        IWalkRequest _walk;
+
         public bool ReactionsSuppressed => _suppressed;
 
         public DirectorDecision LastDecision { get; private set; }
@@ -102,10 +108,43 @@ namespace AICompanion.AnimationDirector
                 return;
             }
 
+            if (TryHandleMovement(cue))
+                return;
+
             var decision = _model.Decide(cue);
             var played = Apply(decision);
             LastDecision = decision;
             Debug.Log(AnimationDirectorLog.Format(cue, decision, played));
+        }
+
+        /// <summary>
+        /// walk and stop are requests to the desktop presence rather than Animator states, so
+        /// she moves because the model asked, not because a wander timer fired.
+        /// </summary>
+        bool TryHandleMovement(AnimationCue cue)
+        {
+            var token = cue.Gesture == null ? string.Empty : cue.Gesture.Trim().ToLowerInvariant();
+            if (token != WalkCue && token != StopCue)
+                return false;
+
+            if (_walk == null)
+                _walk = GetComponent<IWalkRequest>();
+            if (_walk == null)
+                return false;
+
+            if (token == WalkCue)
+            {
+                var direction = UnityEngine.Random.value < 0.5f ? -1f : 1f;
+                _walk.RequestWalk(direction, WalkRequestSeconds);
+                Debug.Log("AnimationDirector: cue walk -> requested");
+            }
+            else
+            {
+                _walk.RequestStop();
+                Debug.Log("AnimationDirector: cue stop -> requested");
+            }
+
+            return true;
         }
 
         public void PlayNeutral()
