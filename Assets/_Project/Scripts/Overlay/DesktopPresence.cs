@@ -23,11 +23,61 @@ namespace AICompanion.Overlay
         bool _walkingSent;
         bool _fallingSent;
         float _walkDirectionSent = float.NaN;
+        bool _hasPendingWalk;
+        float _pendingDirection;
+        float _pendingSeconds;
+        bool _pendingStop;
         bool _unsupportedLogged;
 
         public bool KeepFrameRateActive
         {
             get { return _model != null && _model.State != PresenceState.Idle; }
+        }
+
+        /// <summary>Walks for a bounded time, asked by the animation director.</summary>
+        public void RequestWalk(float direction, float seconds)
+        {
+            if (_model == null)
+            {
+                _pendingDirection = direction;
+                _pendingSeconds = seconds;
+                _hasPendingWalk = true;
+                _pendingStop = false;
+                return;
+            }
+
+            _model.RequestWalk(direction, seconds);
+        }
+
+        public void RequestStop()
+        {
+            if (_model == null)
+            {
+                _pendingStop = true;
+                _hasPendingWalk = false;
+                return;
+            }
+
+            _model.RequestStop();
+        }
+
+        void ApplyPendingWalk()
+        {
+            if (_model == null)
+                return;
+
+            if (_pendingStop)
+            {
+                _pendingStop = false;
+                _model.RequestStop();
+                return;
+            }
+
+            if (_hasPendingWalk)
+            {
+                _hasPendingWalk = false;
+                _model.RequestWalk(_pendingDirection, _pendingSeconds);
+            }
         }
 
         public DesktopPresenceModel Model
@@ -74,7 +124,10 @@ namespace AICompanion.Overlay
             var height = Mathf.Max(1, bottom - top);
 
             if (_model == null)
-                _model = new DesktopPresenceModel(width, height, seed, walkSpeed, gravity);
+            {
+                _model = new DesktopPresenceModel(width, height, seed, walkSpeed, gravity, wanderByIdle: false);
+                ApplyPendingWalk();
+            }
             else
                 _model.SetWindowSize(width, height);
 

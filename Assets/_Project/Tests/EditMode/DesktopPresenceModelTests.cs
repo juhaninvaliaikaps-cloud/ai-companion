@@ -168,5 +168,86 @@ namespace AICompanion.Tests.EditMode
 
             Assert.AreEqual(PresenceState.Idle, model.State);
         }
+
+        static DesktopPresenceModel QuietModel()
+        {
+            var model = new DesktopPresenceModel(480, 720, 7, wanderByIdle: false);
+            model.SetWorkArea(Area());
+            return model;
+        }
+
+        [Test]
+        public void WithoutWanderingSheStandsStillOnHerOwn()
+        {
+            var model = QuietModel();
+            model.PlaceAt(400, model.GroundY);
+            var start = model.X;
+
+            for (var i = 0; i < 600; i++)
+                model.Tick(1f / 60f);
+
+            Assert.AreEqual(PresenceState.Idle, model.State);
+            Assert.AreEqual(start, model.X);
+        }
+
+        [Test]
+        public void ARequestedWalkMovesInTheRequestedDirection()
+        {
+            var model = QuietModel();
+            model.PlaceAt(400, model.GroundY);
+
+            model.RequestWalk(1f, 2f);
+            model.Tick(0.5f);
+
+            Assert.Greater(model.X, 400f);
+
+            model.RequestStop();
+            model.RequestWalk(-1f, 2f);
+            var before = model.X;
+            model.Tick(0.5f);
+
+            Assert.Less(model.X, before);
+        }
+
+        [Test]
+        public void ARequestedWalkEndsAfterItsDuration()
+        {
+            var model = QuietModel();
+            model.PlaceAt(400, model.GroundY);
+
+            model.RequestWalk(1f, 0.3f);
+            for (var i = 0; i < 40; i++)
+                model.Tick(1f / 60f);
+
+            Assert.AreEqual(PresenceState.Idle, model.State);
+        }
+
+        [Test]
+        public void RequestStopEndsAWalkImmediately()
+        {
+            var model = QuietModel();
+            model.PlaceAt(400, model.GroundY);
+
+            model.RequestWalk(1f, 10f);
+            model.Tick(0.2f);
+            model.RequestStop();
+
+            Assert.AreEqual(PresenceState.Idle, model.State);
+
+            var x = model.X;
+            model.Tick(1f);
+            Assert.AreEqual(x, model.X);
+        }
+
+        [Test]
+        public void ARequestedWalkIsIgnoredWhileFalling()
+        {
+            var model = QuietModel();
+            model.PlaceAt(400, 100);
+
+            model.RequestWalk(1f, 2f);
+
+            Assert.AreEqual(PresenceState.Falling, model.State);
+        }
     }
 }
