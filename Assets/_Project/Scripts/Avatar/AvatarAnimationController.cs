@@ -388,13 +388,23 @@ namespace AICompanion.Avatar
             var info = _animator.GetCurrentAnimatorStateInfo(AvatarAnimatorLayers.Gestures);
             var empty = info.IsName(AvatarAnimatorStates.Empty);
             var current = _animator.GetLayerWeight(AvatarAnimatorLayers.Gestures);
-            var target = empty ? 0f : 1f;
-            if (Mathf.Abs(current - target) < 0.001f)
+
+            // Releasing the weight gradually held the last walk or gesture pose for a moment,
+            // which looked like floating above the ground and hands pointing forward. Drop it
+            // immediately; fade in only when a gesture takes over.
+            if (empty)
+            {
+                if (current > 0.001f)
+                    _animator.SetLayerWeight(AvatarAnimatorLayers.Gestures, 0f);
+                return;
+            }
+
+            if (current >= 1f)
                 return;
 
             _animator.SetLayerWeight(
                 AvatarAnimatorLayers.Gestures,
-                Mathf.MoveTowards(current, target, Time.deltaTime * 6f));
+                Mathf.MoveTowards(current, 1f, Time.deltaTime * 8f));
         }
 
         void BindAnimator(GameObject instance)
