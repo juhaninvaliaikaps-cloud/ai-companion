@@ -73,18 +73,6 @@ MonoBehaviour:
     animatorState: Thinking
     clip: {fileID: 7400000, guid: 6105ee95016d6963d0148253f6e4286a, type: 2}
     durationSeconds: 2
-  - id: talk
-    description: speaking loop while the reply audio plays
-    tags:
-    - speech
-    - loop
-    emotion: 0
-    intensity: 0.3
-    portrait: 
-    gesture: 
-    animatorState: Talk
-    clip: {fileID: 7400000, guid: b46e4968199732b4d6a7a3f6963f410c, type: 2}
-    durationSeconds: 1
   - id: wave_hello
     description: friendly hello wave
     tags:
