@@ -338,3 +338,16 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
     priority: 0
+  - id: laughing
+    description: laughing, open smile on the portrait while the body stays still
+    tags:
+    - amused
+    - laugh
+    emotion: 1
+    intensity: 0.9
+    portrait: laughing
+    gesture: 
+    animatorState: 
+    clip: {fileID: 0}
+    durationSeconds: 2
+    priority: 0

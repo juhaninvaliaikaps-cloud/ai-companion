@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using AICompanion.Core;
 using AICompanion.Settings;
@@ -23,21 +24,25 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(PortraitStems.SmileOpen, map.Resolve("happy").Open);
             Assert.AreEqual(PortraitStems.SmileBlinkClosed, map.Resolve("happy").BlinkClosed);
             Assert.AreEqual(PortraitStems.SmileTalk, map.Resolve("smile").Talk);
-            Assert.AreEqual(PortraitStems.Sad, map.Resolve("sad").Open);
-            Assert.IsFalse(map.Resolve("sad").HasBlink);
-            Assert.AreEqual(PortraitStems.Surprised, map.Resolve("surprised").Open);
-            Assert.AreEqual(PortraitStems.Thinking, map.Resolve("thinking").Open);
-            Assert.AreEqual(PortraitStems.Pouty, map.Resolve("angry").Open);
-            Assert.AreEqual(PortraitStems.Sleepy, map.Resolve("sleepy").Open);
-            Assert.AreEqual(PortraitStems.Sleepy, map.Resolve("tired").Open);
-            Assert.AreEqual(PortraitStems.SmugWink, map.Resolve("teasing").Open);
-            Assert.AreEqual(PortraitStems.Excited, map.Resolve("excited").Open);
-            Assert.AreEqual(PortraitStems.WinkSmile, map.Resolve("loving").Open);
-            Assert.AreEqual(PortraitStems.Concerned, map.Resolve("concerned").Open);
-            Assert.AreEqual(PortraitStems.Embarrassed, map.Resolve("embarrassed").Open);
-            Assert.AreEqual(PortraitStems.Shy, map.Resolve("shy").Open);
-            Assert.AreEqual(PortraitStems.Flustered, map.Resolve("flustered").Open);
-            Assert.AreEqual(PortraitStems.EmbarrassedWorried, map.Resolve("embarrassed_worried").Open);
+            Assert.AreEqual(PortraitStems.SmileBlinkHalf, map.Resolve("happy").BlinkHalf);
+
+            AssertAnimated(map, "laughing", PortraitStems.Happy, PortraitStems.HappyBlinkHalf, PortraitStems.HappyBlinkClosed, PortraitStems.HappyTalk);
+            AssertAnimated(map, "sad", PortraitStems.Sad, PortraitStems.SadBlinkHalf, PortraitStems.SadBlinkClosed, PortraitStems.SadTalk);
+            AssertAnimated(map, "surprised", PortraitStems.Surprised, PortraitStems.SurprisedBlinkHalf, PortraitStems.SurprisedBlinkClosed, PortraitStems.SurprisedTalk);
+            AssertAnimated(map, "thinking", PortraitStems.Thinking, PortraitStems.ThinkingBlinkHalf, PortraitStems.ThinkingBlinkClosed, PortraitStems.ThinkingTalk);
+            AssertAnimated(map, "angry", PortraitStems.Pouty, PortraitStems.PoutyBlinkHalf, PortraitStems.PoutyBlinkClosed, PortraitStems.PoutyTalk);
+            AssertAnimated(map, "pouty", PortraitStems.Pouty, PortraitStems.PoutyBlinkHalf, PortraitStems.PoutyBlinkClosed, PortraitStems.PoutyTalk);
+            AssertAnimated(map, "excited", PortraitStems.Excited, PortraitStems.ExcitedBlinkHalf, PortraitStems.ExcitedBlinkClosed, PortraitStems.ExcitedTalk);
+            AssertAnimated(map, "concerned", PortraitStems.Concerned, PortraitStems.ConcernedBlinkHalf, PortraitStems.ConcernedBlinkClosed, PortraitStems.ConcernedTalk);
+            AssertAnimated(map, "embarrassed", PortraitStems.Embarrassed, PortraitStems.EmbarrassedBlinkHalf, PortraitStems.EmbarrassedBlinkClosed, PortraitStems.EmbarrassedTalk);
+            AssertAnimated(map, "shy", PortraitStems.Shy, PortraitStems.ShyBlinkHalf, PortraitStems.ShyBlinkClosed, PortraitStems.ShyTalk);
+            AssertAnimated(map, "flustered", PortraitStems.Flustered, PortraitStems.FlusteredBlinkHalf, PortraitStems.FlusteredBlinkClosed, PortraitStems.FlusteredTalk);
+
+            AssertStill(map, "sleepy", PortraitStems.Sleepy);
+            AssertStill(map, "tired", PortraitStems.Sleepy);
+            AssertStill(map, "teasing", PortraitStems.SmugWink);
+            AssertStill(map, "loving", PortraitStems.WinkSmile);
+            AssertStill(map, "embarrassed_worried", PortraitStems.EmbarrassedWorried);
 
             Assert.AreEqual(PortraitStems.NeutralOpen, map.Resolve("not-an-emotion").Open);
             Assert.AreEqual(PortraitStems.NeutralOpen, map.Resolve(null).Open);
@@ -80,6 +85,8 @@ namespace AICompanion.Tests.EditMode
             Assert.IsFalse(map.Resolve("angry").HasTalk);
             Assert.AreEqual(PortraitStems.NeutralOpen, map.Resolve("neutral").Open);
             Assert.AreEqual(PortraitStems.Surprised, map.Resolve("surprised").Open);
+            Assert.AreEqual(PortraitStems.SurprisedBlinkHalf, map.Resolve("surprised").BlinkHalf);
+            Assert.AreEqual(PortraitStems.HappyBlinkHalf, map.Resolve("laughing").BlinkHalf);
 
             string file;
             Assert.IsTrue(map.TryTransition("neutral", "happy", out file));
@@ -281,13 +288,15 @@ namespace AICompanion.Tests.EditMode
             var mouth = talking.Tick(0f, "neutral", true, true, 0.9f, map, library, 1f, 1f, 1f, 0f, 0.5f);
             Assert.AreEqual("neutral_talk.png", mouth.Front);
 
-            var sad = new PortraitDirector();
+            var sad = new PortraitDirector(_ => { });
             var still = sad.Tick(0f, "sad", true, true, 0.9f, map, library, 1f, 1f, 1f, 0f, 0.5f);
             Assert.AreEqual("10_sad.png", still.Front);
+            Assert.IsTrue(still.Visible);
 
-            var missing = new PortraitDirector();
+            var missing = new PortraitDirector(_ => { });
             var fallback = missing.Tick(0f, "surprised", false, false, 0f, map, library, 1f, 1f, 1f, 0f, 0.5f);
             Assert.AreEqual("neutral_open.png", fallback.Front);
+            Assert.IsTrue(fallback.Visible);
 
             var fading = new PortraitDirector();
             fading.Tick(0f, "neutral", false, false, 0f, map, library, 1f, 1f, 1f, 0f, 0.5f);
@@ -347,6 +356,109 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void MissingFrame_UsesTheStillThenNeutralAndWarnsOnce()
+        {
+            var library = PortraitLibrary.FromFileNames(new[]
+            {
+                "neutral_open.png",
+                "neutral_blink_half.png",
+                "neutral_blink_closed.png",
+                "neutral_talk.png",
+                "10_sad.png",
+                "sad_talk.png"
+            });
+
+            Assert.AreEqual("10_sad.png", PortraitFiles.Resolve(library, PortraitStems.SadBlinkHalf, PortraitStems.Sad, PortraitStems.NeutralOpen));
+            Assert.AreEqual("sad_talk.png", PortraitFiles.Resolve(library, PortraitStems.SadTalk, PortraitStems.Sad, PortraitStems.NeutralOpen));
+            Assert.AreEqual("neutral_open.png", PortraitFiles.Resolve(library, PortraitStems.Surprised, PortraitStems.Surprised, PortraitStems.NeutralOpen));
+            Assert.AreEqual("neutral_open.png", PortraitFiles.Resolve(library, PortraitStems.SurprisedBlinkClosed, PortraitStems.Surprised, PortraitStems.NeutralOpen));
+            Assert.AreEqual("neutral_open.png", PortraitFiles.Resolve(library, PortraitStems.NeutralOpen, PortraitStems.NeutralOpen, PortraitStems.NeutralOpen));
+            Assert.IsNull(PortraitFiles.Resolve(null, PortraitStems.Sad, PortraitStems.Sad, PortraitStems.NeutralOpen));
+
+            var warnings = new List<string>();
+            var map = PortraitMap.CreateDefaults();
+            var director = new PortraitDirector(warnings.Add);
+            var quiet = director.Tick(0f, "sad", false, false, 0f, map, library, 1f, 1f, 1f, 0f, 0.5f);
+            Assert.AreEqual("10_sad.png", quiet.Front);
+            Assert.IsTrue(quiet.Visible);
+            Assert.AreEqual(2, warnings.Count);
+            CollectionAssert.Contains(warnings, PortraitMissing.Line(PortraitStems.SadBlinkHalf, false));
+            CollectionAssert.Contains(warnings, PortraitMissing.Line(PortraitStems.SadBlinkClosed, false));
+
+            director.Tick(0.05f, "sad", false, false, 0f, map, library, 1f, 1f, 1f, 0f, 0.5f);
+            Assert.AreEqual(2, warnings.Count);
+
+            var talking = director.Tick(0f, "sad", true, true, 0.9f, map, library, 1f, 1f, 1f, 0f, 0.5f);
+            Assert.AreEqual("sad_talk.png", talking.Front);
+            Assert.IsTrue(talking.Visible);
+            Assert.AreEqual(2, warnings.Count);
+
+            var before = warnings.Count;
+            var surprisedDirector = new PortraitDirector(warnings.Add);
+            var surprised = surprisedDirector.Tick(0f, "surprised", false, false, 0f, map, library, 1f, 1f, 1f, 0f, 0.5f);
+            Assert.AreEqual("neutral_open.png", surprised.Front);
+            Assert.IsTrue(surprised.Visible);
+            CollectionAssert.Contains(warnings, PortraitMissing.Line(PortraitStems.Surprised, true));
+            CollectionAssert.Contains(warnings, PortraitMissing.Line(PortraitStems.SurprisedTalk, true));
+            var afterSurprised = warnings.Count;
+            surprisedDirector.Tick(0.05f, "surprised", true, true, 1f, map, library, 1f, 1f, 1f, 0f, 0.5f);
+            Assert.AreEqual(afterSurprised, warnings.Count);
+            Assert.Greater(afterSurprised, before);
+        }
+
+        [Test]
+        public void TalkingUsesTheCurrentExpressionsTalkAndBlinkFrames()
+        {
+            var library = PortraitLibrary.FromFileNames(new[]
+            {
+                "neutral_open.png",
+                "neutral_blink_half.png",
+                "neutral_blink_closed.png",
+                "neutral_talk.png",
+                "10_sad.png",
+                "sad_blink_half.png",
+                "sad_blink_closed.png",
+                "sad_talk.png"
+            });
+            var map = PortraitMap.CreateDefaults();
+            var held = string.Empty;
+            var quiet = 0f;
+            var emotion = PortraitHold.ResolveUtterance("sad", ref held, false, 0f, ref quiet);
+            emotion = PortraitHold.ResolveUtterance("neutral", ref held, false, 0.4f, ref quiet);
+            emotion = PortraitHold.ResolveUtterance("neutral", ref held, true, 2f, ref quiet);
+            Assert.AreEqual("sad", emotion);
+
+            var director = new PortraitDirector();
+            var talk = director.Tick(0f, emotion, true, false, 0f, map, library, 0f, 0f, 1f, 0f, 0.5f);
+            Assert.AreEqual("sad_talk.png", talk.Front);
+            Assert.AreNotEqual("neutral_talk.png", talk.Front);
+
+            var blink = director.Tick(2f, emotion, true, false, 0f, map, library, 0f, 0f, 1f, 0f, 0.5f);
+            Assert.AreEqual("sad_blink_half.png", blink.Front);
+            Assert.AreNotEqual("neutral_talk.png", blink.Front);
+        }
+
+        [Test]
+        public void Override_ReplacesDefaultFramesAndLeavesTheRest()
+        {
+            const string json = "{"
+                + "\"concerned\": \"02_concerned\","
+                + "\"laughing\": {\"open\": \"01_happy\", \"blinkHalf\": \"smile_blink_half\", \"blinkClosed\": \"smile_blink_closed\", \"talk\": \"smile_talk\"}"
+                + "}";
+
+            var map = PortraitMapJson.Parse(json);
+            Assert.AreEqual(PortraitStems.Concerned, map.Resolve("concerned").Open);
+            Assert.IsFalse(map.Resolve("concerned").HasBlink);
+            Assert.IsFalse(map.Resolve("concerned").HasTalk);
+            Assert.AreEqual(PortraitStems.Happy, map.Resolve("laughing").Open);
+            Assert.AreEqual(PortraitStems.SmileBlinkHalf, map.Resolve("laughing").BlinkHalf);
+            Assert.AreEqual(PortraitStems.SmileTalk, map.Resolve("laughing").Talk);
+            Assert.AreEqual(PortraitStems.SadBlinkHalf, map.Resolve("sad").BlinkHalf);
+            Assert.AreEqual(PortraitStems.PoutyTalk, map.Resolve("pouty").Talk);
+            Assert.AreEqual(PortraitStems.SmileOpen, map.Resolve("happy").Open);
+        }
+
+        [Test]
         public void Library_PrefersPngAndRejectsUnsafeNames()
         {
             var library = PortraitLibrary.FromFileNames(new[]
@@ -403,6 +515,25 @@ namespace AICompanion.Tests.EditMode
             var next = PortraitPlacement.Smooth(first, new Rect(placed.x + 40f, placed.y, placed.width, placed.height), 0.05f, true);
             Assert.Greater(next.x, placed.x);
             Assert.Less(next.x, placed.x + 40f);
+        }
+
+        static void AssertAnimated(PortraitMap map, string emotion, string open, string half, string closed, string talk)
+        {
+            var set = map.Resolve(emotion);
+            Assert.AreEqual(open, set.Open, emotion);
+            Assert.AreEqual(half, set.BlinkHalf, emotion);
+            Assert.AreEqual(closed, set.BlinkClosed, emotion);
+            Assert.AreEqual(talk, set.Talk, emotion);
+            Assert.IsTrue(set.HasBlink, emotion);
+            Assert.IsTrue(set.HasTalk, emotion);
+        }
+
+        static void AssertStill(PortraitMap map, string emotion, string open)
+        {
+            var set = map.Resolve(emotion);
+            Assert.AreEqual(open, set.Open, emotion);
+            Assert.IsFalse(set.HasBlink, emotion);
+            Assert.IsFalse(set.HasTalk, emotion);
         }
     }
 }

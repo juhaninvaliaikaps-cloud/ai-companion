@@ -59,6 +59,7 @@ namespace AICompanion.Avatar
             "loving",
             "sleepy",
             "happy",
+            "laughing",
             "neutral"
         };
 

@@ -97,6 +97,34 @@ namespace AICompanion.Editor.AnimationDirector
             PortraitEntry("excited", "excited and delighted", Emotion.Happy, 0.9f, "Happy", "Happy", 2f, "excited", "joy", "hype"),
             PortraitEntry("loving", "warm, affectionate and loving", Emotion.Happy, 0.8f, "Happy", "Happy", 2f, "loving", "affection", "warm"),
             PortraitEntry("sleepy", "sleepy and tired", Emotion.Neutral, 0.3f, "Idle", "Idle", 2f, "sleepy", "late", "tired"),
+            // Laughing is a portrait. The 3D face uses happy. There is no body clip, so the smile stays face-only.
+            PortraitFace("laughing", "laughing, open smile on the portrait while the body stays still", Emotion.Happy, 0.9f, "laughing", "amused", "laugh"),
+            };
+        }
+
+        /// <summary>
+        /// A portrait expression whose 3D side is only the face emotion. No animator state and no clip.
+        /// </summary>
+        private static AnimationEntry PortraitFace(
+            string id,
+            string description,
+            Emotion emotion,
+            float intensity,
+            string portrait,
+            params string[] tags)
+        {
+            return new AnimationEntry
+            {
+                id = id,
+                description = description,
+                tags = tags,
+                emotion = emotion,
+                intensity = intensity,
+                gesture = string.Empty,
+                animatorState = string.Empty,
+                clip = null,
+                durationSeconds = 2f,
+                portrait = portrait,
             };
         }
 

@@ -25,6 +25,11 @@ namespace AICompanion.Settings
             return new PortraitFrameSet(open, null, null, null, null);
         }
 
+        public static PortraitFrameSet Animated(string open, string blinkHalf, string blinkClosed, string talk)
+        {
+            return new PortraitFrameSet(open, blinkHalf, blinkClosed, talk, null);
+        }
+
         public bool HasBlink
         {
             get { return !string.IsNullOrEmpty(BlinkHalf) && !string.IsNullOrEmpty(BlinkClosed); }
@@ -102,19 +107,35 @@ namespace AICompanion.Settings
             map.Set("neutral", PortraitFrames.NeutralSet());
             map.Set("happy", PortraitFrames.SmileSet());
             map.Set("smile", PortraitFrames.SmileSet());
-            map.Set("sad", PortraitFrameSet.Single(PortraitStems.Sad));
-            map.Set("surprised", PortraitFrameSet.Single(PortraitStems.Surprised));
-            map.Set("thinking", PortraitFrameSet.Single(PortraitStems.Thinking));
-            map.Set("angry", PortraitFrameSet.Single(PortraitStems.Pouty));
+            map.Set("laughing", PortraitFrameSet.Animated(
+                PortraitStems.Happy,
+                PortraitStems.HappyBlinkHalf,
+                PortraitStems.HappyBlinkClosed,
+                PortraitStems.HappyTalk));
+            map.Set("sad", PortraitFrameSet.Animated(
+                PortraitStems.Sad, PortraitStems.SadBlinkHalf, PortraitStems.SadBlinkClosed, PortraitStems.SadTalk));
+            map.Set("surprised", PortraitFrameSet.Animated(
+                PortraitStems.Surprised, PortraitStems.SurprisedBlinkHalf, PortraitStems.SurprisedBlinkClosed, PortraitStems.SurprisedTalk));
+            map.Set("thinking", PortraitFrameSet.Animated(
+                PortraitStems.Thinking, PortraitStems.ThinkingBlinkHalf, PortraitStems.ThinkingBlinkClosed, PortraitStems.ThinkingTalk));
+            var pouty = PortraitFrameSet.Animated(
+                PortraitStems.Pouty, PortraitStems.PoutyBlinkHalf, PortraitStems.PoutyBlinkClosed, PortraitStems.PoutyTalk);
+            map.Set("angry", pouty);
+            map.Set("pouty", pouty);
             map.Set("sleepy", PortraitFrameSet.Single(PortraitStems.Sleepy));
             map.Set("tired", PortraitFrameSet.Single(PortraitStems.Sleepy));
             map.Set("teasing", PortraitFrameSet.Single(PortraitStems.SmugWink));
-            map.Set("excited", PortraitFrameSet.Single(PortraitStems.Excited));
+            map.Set("excited", PortraitFrameSet.Animated(
+                PortraitStems.Excited, PortraitStems.ExcitedBlinkHalf, PortraitStems.ExcitedBlinkClosed, PortraitStems.ExcitedTalk));
             map.Set("loving", PortraitFrameSet.Single(PortraitStems.WinkSmile));
-            map.Set("concerned", PortraitFrameSet.Single(PortraitStems.Concerned));
-            map.Set("embarrassed", PortraitFrameSet.Single(PortraitStems.Embarrassed));
-            map.Set("shy", PortraitFrameSet.Single(PortraitStems.Shy));
-            map.Set("flustered", PortraitFrameSet.Single(PortraitStems.Flustered));
+            map.Set("concerned", PortraitFrameSet.Animated(
+                PortraitStems.Concerned, PortraitStems.ConcernedBlinkHalf, PortraitStems.ConcernedBlinkClosed, PortraitStems.ConcernedTalk));
+            map.Set("embarrassed", PortraitFrameSet.Animated(
+                PortraitStems.Embarrassed, PortraitStems.EmbarrassedBlinkHalf, PortraitStems.EmbarrassedBlinkClosed, PortraitStems.EmbarrassedTalk));
+            map.Set("shy", PortraitFrameSet.Animated(
+                PortraitStems.Shy, PortraitStems.ShyBlinkHalf, PortraitStems.ShyBlinkClosed, PortraitStems.ShyTalk));
+            map.Set("flustered", PortraitFrameSet.Animated(
+                PortraitStems.Flustered, PortraitStems.FlusteredBlinkHalf, PortraitStems.FlusteredBlinkClosed, PortraitStems.FlusteredTalk));
             map.Set("embarrassed_worried", PortraitFrameSet.Single(PortraitStems.EmbarrassedWorried));
             map.SetTransition("neutral", "happy", PortraitStems.Smile);
             return map;

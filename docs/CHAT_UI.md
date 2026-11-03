@@ -15,7 +15,7 @@ The system prompt lives on `ChatSettings.systemPrompt`. The default is a short, 
 | **Esc** | A reply is streaming, speech is playing, or the field is focused | Cancel the reply and stop speech. Also leaves the text field. |
 | **Stop** | While a reply is streaming, or while speech is still playing | Same cancel as Esc. The button reads **Send** when idle. |
 | **Mute** / **F6** | **F6** is ignored while a text field is focused | Mute or unmute speech. Saved in `PlayerPrefs` (`ai-companion.tts-muted`). See [VOICE.md](VOICE.md). |
-| **F9** | Panel field is not focused | Open the panel if it is hidden and send the draft. If the draft is empty, send `Say hello in one short sentence.` |
+| **F9** | Panel field is not focused | Cycle the expression portrait preview. It does not open the panel, send the draft, or start a greeting. See [PORTRAITS.md](PORTRAITS.md). |
 | **V** / **Mic** | **V** is ignored while a text field is focused. **Mic** is a hold | Record speech, then send the transcript as a **You** line. See [VOICE.md](VOICE.md). |
 | Double-click | A visible avatar pixel, not on UI | Open the panel and focus the message field. |
 
@@ -44,7 +44,7 @@ The password row at the bottom writes the same per-user key file as **AI Compani
 7. With the field focused, press **1**, **T**, **R**, **F6**, **F7**, **F8**, and **F9**. The avatar, mute, rotate reset, avatar source, and topmost flag should stay as they were. Click the empty area or press **Esc** to leave the field, then **1** and **T** work again. **F6** toggles mute once the field is not focused.
 8. Click an empty pixel outside the avatar, the debug label, and the panel. The click reaches the desktop (in a Windows build) or is not consumed by the model. Drag still starts on the avatar or the top debug label, not on the panel.
 9. Double-click a visible part of the avatar. The panel opens.
-10. **F9**, with the field unfocused and empty, sends the one-line hello prompt.
+10. **F9**, with the field unfocused, cycles the portrait expression and does not send a message. An empty field stays empty.
 
 A missing key, a rejected request, or a model the key cannot use shows as a **Note**, with the same wording as the provider layer (`Invalid API key`, the billing hint, `Model ... not available`, and the rest).
 
