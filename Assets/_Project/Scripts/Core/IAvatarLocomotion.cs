@@ -16,5 +16,8 @@ namespace AICompanion.Core
         /// The avatar turns its root toward the direction of travel.
         /// </summary>
         void SetWalkingDirection(float direction);
+
+        /// <summary>True while the presence is dropping her. A gesture must not start mid-fall.</summary>
+        bool IsFalling { get; }
     }
 }
