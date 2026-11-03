@@ -23,6 +23,13 @@ namespace AICompanion.Tests.EditMode
                 return Task.FromResult(Reply);
             }
 
+            public int Prewarms;
+
+            public void Prewarm()
+            {
+                Prewarms++;
+            }
+
             public void Dispose()
             {
             }
@@ -158,6 +165,18 @@ namespace AICompanion.Tests.EditMode
                 File.Delete(model);
                 File.Delete(voices);
             }
+        }
+
+        [Test]
+        public void PrewarmStartsTheSessionWithoutAPath()
+        {
+            var session = new FakeSession();
+            var provider = Provider(session, "C:/nope/python.exe", "C:/nope/script.py", "C:/nope/m.onnx", "C:/nope/v.bin");
+
+            provider.Prewarm();
+
+            Assert.AreEqual(1, session.Prewarms);
+            Assert.AreEqual(0, session.Calls);
         }
 
         [Test]

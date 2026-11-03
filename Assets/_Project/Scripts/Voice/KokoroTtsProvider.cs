@@ -11,6 +11,9 @@ namespace AICompanion.Voice
     public interface IKokoroSession : IDisposable
     {
         Task<byte[]> Synthesize(string text, float speed, CancellationToken cancellationToken);
+
+        /// <summary>Starts the process so the model loads before the first sentence.</summary>
+        void Prewarm();
     }
 
     /// <summary>
@@ -58,6 +61,13 @@ namespace AICompanion.Voice
         public string Voice
         {
             get { return _voice; }
+        }
+
+        /// <summary>Starts the Python process early; the model loads in the background.</summary>
+        public void Prewarm()
+        {
+            if (_session != null)
+                _session.Prewarm();
         }
 
         public async Task<TtsResult> Synthesize(TtsRequest request, CancellationToken cancellationToken)
@@ -188,6 +198,12 @@ namespace AICompanion.Voice
         public Task<byte[]> Synthesize(string text, float speed, CancellationToken cancellationToken)
         {
             return Task.Run(() => SynthesizeBlocking(text, speed, cancellationToken), cancellationToken);
+        }
+
+        public void Prewarm()
+        {
+            lock (_sync)
+                EnsureStarted();
         }
 
         byte[] SynthesizeBlocking(string text, float speed, CancellationToken cancellationToken)

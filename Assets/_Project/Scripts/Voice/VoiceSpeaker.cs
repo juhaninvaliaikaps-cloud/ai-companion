@@ -81,6 +81,7 @@ namespace AICompanion.Voice
             EnsureSource();
             var timeout = voiceSettings.timeoutSeconds <= 0f ? 20f : voiceSettings.timeoutSeconds;
             _provider = BuildProvider(timeout);
+            PrewarmProvider();
         }
 
         /// <summary>
@@ -100,6 +101,7 @@ namespace AICompanion.Voice
                 ? voiceSettings.timeoutSeconds
                 : 20f;
             _provider = BuildProvider(timeout);
+            PrewarmProvider();
         }
 
         void EnsureProvider()
@@ -115,6 +117,15 @@ namespace AICompanion.Voice
 
             if (_provider == null || !string.Equals(_provider.ProviderId, desired, System.StringComparison.OrdinalIgnoreCase))
                 RefreshProvider();
+        }
+
+        void PrewarmProvider()
+        {
+            // Kokoro loads a 310 MB model on first use, so start it with the app when the
+            // user has already chosen it. Other providers load nothing.
+            var kokoro = _provider as KokoroTtsProvider;
+            if (kokoro != null)
+                kokoro.Prewarm();
         }
 
         ITtsProvider BuildProvider(float timeout)
