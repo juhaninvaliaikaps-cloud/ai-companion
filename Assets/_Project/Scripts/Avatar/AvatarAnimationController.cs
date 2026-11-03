@@ -69,6 +69,7 @@ namespace AICompanion.Avatar
 
         readonly AvatarAnimatorModel _model = new AvatarAnimatorModel();
         ShapeBinding[] _bindings = NoBindings;
+        readonly HashSet<ExpressionPreset> _boundPresets = new HashSet<ExpressionPreset>();
         Animator _animator;
         Transform _root;
         AvatarPreference _source = AvatarPreference.Auto;
@@ -272,6 +273,7 @@ namespace AICompanion.Avatar
             _hasWalking = false;
             _hasFalling = false;
             _bindings = NoBindings;
+            _boundPresets.Clear();
             _proceduralBlink = 0f;
             if (instance == null)
             {
@@ -281,6 +283,7 @@ namespace AICompanion.Avatar
 
             BindAnimator(instance);
             _bindings = BindShapes(instance, descriptor);
+            RememberBound();
             AttachBlush();
             PushParameters();
             if (_animator == null)
@@ -669,6 +672,13 @@ namespace AICompanion.Avatar
             return found.Count == 0 ? NoBindings : found.ToArray();
         }
 
+        void RememberBound()
+        {
+            _boundPresets.Clear();
+            for (var i = 0; i < _bindings.Length; i++)
+                _boundPresets.Add(_bindings[i].Preset);
+        }
+
         static void LogCoverage(List<KeyValuePair<ExpressionPreset, string>> boundNames, int unclassified, List<string> unclassifiedSample)
         {
             var bound = new HashSet<ExpressionPreset>();
@@ -724,8 +734,11 @@ namespace AICompanion.Avatar
                 : _talkAmount;
             var faceEmotion = _expressionHold.Active ? _expressionHold.Emotion : Emotion.Neutral;
             var intensity = _expressionHold.Active ? _expressionHold.Intensity : 0f;
-            var target = EmotionFace.Combine(
+            var emotionPose = EmotionFace.ProjectOnto(
                 EmotionFace.EmotionPose(faceEmotion, intensity),
+                _boundPresets);
+            var target = EmotionFace.Combine(
+                emotionPose,
                 EmotionFace.TalkPose(_talkTime, procedural));
             _face = EmotionFace.Approach(_face, target, deltaTime, EmotionFace.BlendSeconds);
         }

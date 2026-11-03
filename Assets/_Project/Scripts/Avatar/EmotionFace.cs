@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using AICompanion.Core;
 
 namespace AICompanion.Avatar
@@ -25,6 +26,10 @@ namespace AICompanion.Avatar
         public float BrowOuterUp;
         public float EyeWide;
         public float EyeLookDown;
+        public float EyeLookUp;
+        public float EyeLookSide;
+        public float MouthPress;
+        public float BrowSide;
         public float Blush;
 
         public float Get(ExpressionPreset preset)
@@ -63,6 +68,14 @@ namespace AICompanion.Avatar
                     return EyeWide;
                 case ExpressionPreset.EyeLookDown:
                     return EyeLookDown;
+                case ExpressionPreset.EyeLookUp:
+                    return EyeLookUp;
+                case ExpressionPreset.EyeLookSide:
+                    return EyeLookSide;
+                case ExpressionPreset.MouthPress:
+                    return MouthPress;
+                case ExpressionPreset.BrowSide:
+                    return BrowSide;
                 case ExpressionPreset.Blush:
                     return Blush;
                 default:
@@ -122,6 +135,18 @@ namespace AICompanion.Avatar
                 case ExpressionPreset.EyeLookDown:
                     EyeLookDown = value;
                     break;
+                case ExpressionPreset.EyeLookUp:
+                    EyeLookUp = value;
+                    break;
+                case ExpressionPreset.EyeLookSide:
+                    EyeLookSide = value;
+                    break;
+                case ExpressionPreset.MouthPress:
+                    MouthPress = value;
+                    break;
+                case ExpressionPreset.BrowSide:
+                    BrowSide = value;
+                    break;
                 case ExpressionPreset.Blush:
                     Blush = value;
                     break;
@@ -148,6 +173,10 @@ namespace AICompanion.Avatar
                 BrowOuterUp = BrowOuterUp * scale,
                 EyeWide = EyeWide * scale,
                 EyeLookDown = EyeLookDown * scale,
+                EyeLookUp = EyeLookUp * scale,
+                EyeLookSide = EyeLookSide * scale,
+                MouthPress = MouthPress * scale,
+                BrowSide = BrowSide * scale,
                 Blush = Blush * scale
             };
         }
@@ -266,6 +295,10 @@ namespace AICompanion.Avatar
                 BrowOuterUp = pose.BrowOuterUp,
                 EyeWide = pose.EyeWide,
                 EyeLookDown = pose.EyeLookDown,
+                EyeLookUp = pose.EyeLookUp,
+                EyeLookSide = pose.EyeLookSide,
+                MouthPress = pose.MouthPress,
+                BrowSide = pose.BrowSide,
                 Blush = pose.Blush
             };
         }
@@ -284,6 +317,36 @@ namespace AICompanion.Avatar
                 blink = 1f;
 
             pose.Blink = blink;
+            return pose;
+        }
+
+        /// <summary>
+        /// A mesh with no whole-face Surprised shape still gets wide eyes, raised brows,
+        /// and a slightly open jaw. A mesh with no Fun shape adds that weight to the squint.
+        /// Channels the mesh does have are left on their own shapes.
+        /// </summary>
+        public static FacePose ProjectOnto(FacePose pose, ICollection<ExpressionPreset> bound)
+        {
+            var hasSurprised = bound != null && bound.Contains(ExpressionPreset.Surprised);
+            if (!hasSurprised && pose.Surprised > 0f)
+            {
+                pose.EyeWide = Max01(pose.EyeWide, pose.Surprised);
+                pose.BrowInnerUp = Max01(pose.BrowInnerUp, pose.Surprised);
+                pose.BrowOuterUp = Max01(pose.BrowOuterUp, pose.Surprised);
+                pose.BrowSide = Max01(pose.BrowSide, pose.Surprised);
+                var jaw = pose.Surprised * 0.32f;
+                if (pose.Aa < jaw)
+                    pose.Aa = jaw;
+                pose.Surprised = 0f;
+            }
+
+            var hasFun = bound != null && bound.Contains(ExpressionPreset.Fun);
+            if (!hasFun && pose.Fun > 0f)
+            {
+                pose.EyeSquint = Clamp01(pose.EyeSquint + pose.Fun);
+                pose.Fun = 0f;
+            }
+
             return pose;
         }
 
@@ -307,6 +370,10 @@ namespace AICompanion.Avatar
                 BrowOuterUp = Clamp01(emotion.BrowOuterUp + talk.BrowOuterUp),
                 EyeWide = Clamp01(emotion.EyeWide + talk.EyeWide),
                 EyeLookDown = Clamp01(emotion.EyeLookDown + talk.EyeLookDown),
+                EyeLookUp = Clamp01(emotion.EyeLookUp + talk.EyeLookUp),
+                EyeLookSide = Clamp01(emotion.EyeLookSide + talk.EyeLookSide),
+                MouthPress = Clamp01(emotion.MouthPress + talk.MouthPress),
+                BrowSide = Clamp01(emotion.BrowSide + talk.BrowSide),
                 Blush = Clamp01(emotion.Blush + talk.Blush)
             };
         }
@@ -342,6 +409,10 @@ namespace AICompanion.Avatar
                 BrowOuterUp = Move(current.BrowOuterUp, target.BrowOuterUp, step),
                 EyeWide = Move(current.EyeWide, target.EyeWide, step),
                 EyeLookDown = Move(current.EyeLookDown, target.EyeLookDown, step),
+                EyeLookUp = Move(current.EyeLookUp, target.EyeLookUp, step),
+                EyeLookSide = Move(current.EyeLookSide, target.EyeLookSide, step),
+                MouthPress = Move(current.MouthPress, target.MouthPress, step),
+                BrowSide = Move(current.BrowSide, target.BrowSide, step),
                 Blush = Move(current.Blush, target.Blush, step)
             };
         }
@@ -373,6 +444,11 @@ namespace AICompanion.Avatar
         static float Move(float current, float target, float step)
         {
             return current + (target - current) * step;
+        }
+
+        static float Max01(float a, float b)
+        {
+            return Clamp01(a > b ? a : b);
         }
 
         static float Clamp01(float value)

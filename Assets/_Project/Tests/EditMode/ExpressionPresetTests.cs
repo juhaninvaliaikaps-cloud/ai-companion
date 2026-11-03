@@ -32,11 +32,40 @@ namespace AICompanion.Tests.EditMode
             var shy = library.Get(Emotion.Shy);
             var flustered = library.Get(Emotion.Flustered);
 
+            var sad = library.Get(Emotion.Sad);
+            var surprised = library.Get(Emotion.Surprised);
+            var thinking = library.Get(Emotion.Thinking);
+
             Assert.Greater(happy.Joy, 0.8f);
             Assert.Greater(happy.EyeSquint, 0.5f);
             Assert.Greater(happy.Aa, 0.3f);
+            Assert.Greater(happy.Fun, 0.2f);
+            Assert.AreEqual(0f, sad.Angry, 0.0001f);
+            Assert.Greater(sad.Sorrow, 0.7f);
+            Assert.Greater(sad.BrowInnerUp, 0.6f);
+            Assert.Greater(sad.EyeLookDown, 0.4f);
+            Assert.Greater(sad.EyeSquint, 0.1f);
+            Assert.Greater(surprised.EyeWide, 0.9f);
+            Assert.Greater(surprised.BrowInnerUp, 0.7f);
+            Assert.Greater(surprised.BrowOuterUp, 0.7f);
+            Assert.Greater(surprised.BrowSide, 0.7f);
+            Assert.Greater(surprised.Aa, 0.2f);
+            Assert.Less(surprised.Aa, 0.45f);
+            Assert.Greater(surprised.Surprised, 0.8f);
+            Assert.Greater(thinking.BrowSide, 0.6f);
+            Assert.AreEqual(0f, thinking.BrowOuterUp, 0.0001f);
+            Assert.AreEqual(0f, thinking.BrowInnerUp, 0.0001f);
+            Assert.Greater(thinking.EyeLookUp, 0.3f);
+            Assert.Greater(thinking.EyeLookSide, 0.2f);
+            Assert.Greater(thinking.Ou, 0.3f);
+            Assert.Greater(thinking.MouthPress, 0.3f);
             Assert.Greater(concerned.BrowInnerUp, concerned.EyeWide);
             Assert.Greater(concerned.BrowInnerUp, 0.7f);
+            Assert.Greater(concerned.BrowInnerUp, sad.BrowInnerUp);
+            Assert.Greater(sad.Sorrow, concerned.Sorrow);
+            Assert.Greater(sad.EyeLookDown, concerned.EyeLookDown);
+            Assert.AreEqual(0f, concerned.Blush, 0.0001f);
+            Assert.AreEqual(0f, concerned.Surprised, 0.0001f);
             Assert.Greater(embarrassed.EyeLookDown, 0.5f);
             Assert.Greater(embarrassed.Blush, 0.8f);
             Assert.Greater(shy.EyeLookDown, 0.3f);
@@ -105,7 +134,10 @@ namespace AICompanion.Tests.EditMode
             Assert.Greater(shy, 0.2f);
             Assert.Less(shy, 0.5f);
             Assert.Less(shy, embarrassed);
-            Assert.Less(concerned, embarrassed);
+            Assert.AreEqual(0f, concerned, 0.0001f);
+            Assert.AreEqual(0f, EmotionFace.BlushAmount(Emotion.Sad, 1f, true), 0.0001f);
+            Assert.AreEqual(0f, EmotionFace.BlushAmount(Emotion.Surprised, 1f, true), 0.0001f);
+            Assert.AreEqual(0f, EmotionFace.BlushAmount(Emotion.Thinking, 1f, true), 0.0001f);
             Assert.AreEqual(0f, EmotionFace.BlushAmount(Emotion.Neutral, 1f, true), 0.0001f);
             Assert.AreEqual(0f, EmotionFace.BlushAmount(Emotion.Happy, 1f, true), 0.0001f);
             Assert.AreEqual(embarrassed * 0.5f, EmotionFace.BlushAmount(Emotion.Embarrassed, 0.5f, true), 0.0001f);
@@ -127,6 +159,17 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(flustered.BrowInnerUp, spoken.BrowInnerUp, 0.0001f);
             Assert.AreEqual(flustered.EyeSquint, spoken.EyeSquint, 0.0001f);
             Assert.AreEqual(flustered.EyeLookDown, spoken.EyeLookDown, 0.0001f);
+            Assert.AreEqual(flustered.EyeLookUp, spoken.EyeLookUp, 0.0001f);
+            Assert.AreEqual(flustered.BrowSide, spoken.BrowSide, 0.0001f);
+            Assert.AreEqual(flustered.MouthPress, spoken.MouthPress, 0.0001f);
+
+            var thinking = EmotionFace.EmotionPose(Emotion.Thinking, 1f);
+            var thinkingSpoken = EmotionFace.OverrideMouth(thinking, new MouthWeights { A = 0.2f, U = 0f }, 1f);
+            Assert.AreEqual(0f, thinkingSpoken.Ou, 0.0001f);
+            Assert.AreEqual(thinking.MouthPress, thinkingSpoken.MouthPress, 0.0001f);
+            Assert.AreEqual(thinking.BrowSide, thinkingSpoken.BrowSide, 0.0001f);
+            Assert.AreEqual(thinking.EyeLookUp, thinkingSpoken.EyeLookUp, 0.0001f);
+            Assert.AreEqual(thinking.EyeLookSide, thinkingSpoken.EyeLookSide, 0.0001f);
 
             var held = EmotionFace.OverrideMouth(flustered, new MouthWeights { A = 0.2f }, 0f);
             Assert.AreEqual(flustered.Aa, held.Aa, 0.0001f);
@@ -237,6 +280,19 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(ExpressionPreset.None, ExpressionPresetMap.Classify("Fcl_HA_Fung1"));
             Assert.AreEqual(ExpressionPreset.None, ExpressionPresetMap.Classify("tongueOut"));
             Assert.AreEqual(ExpressionPreset.None, ExpressionPresetMap.Classify("dangerous"));
+            Assert.AreEqual(ExpressionPreset.Fun, ExpressionPresetMap.Classify("cheekSquintLeft"));
+            Assert.AreEqual(ExpressionPreset.Fun, ExpressionPresetMap.Classify("eCTRLCheekSquintL"));
+            Assert.AreEqual(ExpressionPreset.EyeSquint, ExpressionPresetMap.Classify("eyeSquintLeft"));
+            Assert.AreEqual(ExpressionPreset.BrowSide, ExpressionPresetMap.Classify("browOuterUpLeft"));
+            Assert.AreEqual(ExpressionPreset.BrowOuterUp, ExpressionPresetMap.Classify("browOuterUpRight"));
+            Assert.AreEqual(ExpressionPreset.BrowOuterUp, ExpressionPresetMap.Classify("browOuterUp"));
+            Assert.AreEqual(ExpressionPreset.EyeLookUp, ExpressionPresetMap.Classify("eyeLookUpLeft"));
+            Assert.AreEqual(ExpressionPreset.EyeLookSide, ExpressionPresetMap.Classify("eyeLookOutLeft"));
+            Assert.AreEqual(ExpressionPreset.EyeLookSide, ExpressionPresetMap.Classify("eyeLookInRight"));
+            Assert.AreEqual(ExpressionPreset.None, ExpressionPresetMap.Classify("eyeLookOutRight"));
+            Assert.AreEqual(ExpressionPreset.None, ExpressionPresetMap.Classify("eyeLookInLeft"));
+            Assert.AreEqual(ExpressionPreset.MouthPress, ExpressionPresetMap.Classify("mouthPressLeft"));
+            Assert.AreEqual(ExpressionPreset.Ou, ExpressionPresetMap.Classify("mouthPucker"));
             Assert.IsFalse(BlinkShapeSelection.IsBlinkName("下"));
             Assert.IsFalse(BlinkShapeSelection.IsBlinkName("eyeLookDownLeft"));
         }
@@ -265,17 +321,19 @@ namespace AICompanion.Tests.EditMode
             var library = ExpressionPresetLibrary.Parse(File.ReadAllText(path));
             var bound = new HashSet<ExpressionPreset>
             {
-                ExpressionPreset.Sorrow,
-                ExpressionPreset.Angry
+                ExpressionPreset.Sorrow
             };
 
             Assert.AreEqual(
-                "Expressions: sad -> 2/3 shapes found, missing eyeLookDown",
+                "Expressions: sad -> 1/5 shapes found, missing blink, eyeSquint, browInnerUp, eyeLookDown",
                 ExpressionCoverage.Format(Emotion.Sad, library.Get(Emotion.Sad), bound));
 
+            bound.Add(ExpressionPreset.Blink);
+            bound.Add(ExpressionPreset.EyeSquint);
+            bound.Add(ExpressionPreset.BrowInnerUp);
             bound.Add(ExpressionPreset.EyeLookDown);
             Assert.AreEqual(
-                "Expressions: sad -> 3/3 shapes found",
+                "Expressions: sad -> 5/5 shapes found",
                 ExpressionCoverage.Format(Emotion.Sad, library.Get(Emotion.Sad), bound));
 
             var names = new List<KeyValuePair<ExpressionPreset, string>>
@@ -291,6 +349,97 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(
                 "Expressions: unclassified 4, sample tongueOut, hair",
                 ExpressionCoverage.FormatUnclassified(4, new[] { "tongueOut", "hair" }));
+        }
+
+        [Test]
+        public void ArkitNames_CoverEveryShippedExpression()
+        {
+            var names = new[]
+            {
+                "browDownLeft", "browDownRight", "browInnerUp", "browOuterUpLeft", "browOuterUpRight",
+                "cheekSquintLeft", "cheekSquintRight",
+                "eyeBlinkLeft", "eyeBlinkRight",
+                "eyeLookDownLeft", "eyeLookDownRight",
+                "eyeLookInLeft", "eyeLookInRight",
+                "eyeLookOutLeft", "eyeLookOutRight",
+                "eyeLookUpLeft", "eyeLookUpRight",
+                "eyeSquintLeft", "eyeSquintRight",
+                "eyeWideLeft", "eyeWideRight",
+                "jawOpen", "mouthClose", "mouthFunnel", "mouthPucker",
+                "mouthSmileLeft", "mouthSmileRight",
+                "mouthFrownLeft", "mouthFrownRight",
+                "mouthStretchLeft", "mouthPressLeft", "mouthPressRight",
+                "tongueOut"
+            };
+            var bound = new HashSet<ExpressionPreset>();
+            for (var i = 0; i < names.Length; i++)
+            {
+                var preset = ExpressionPresetMap.Classify(names[i]);
+                if (preset != ExpressionPreset.None)
+                    bound.Add(preset);
+            }
+
+            Assert.IsFalse(bound.Contains(ExpressionPreset.Blush));
+            Assert.IsFalse(bound.Contains(ExpressionPreset.Surprised));
+            Assert.IsTrue(bound.Contains(ExpressionPreset.Fun));
+            Assert.IsTrue(bound.Contains(ExpressionPreset.BrowSide));
+            Assert.IsTrue(bound.Contains(ExpressionPreset.EyeLookUp));
+            Assert.IsTrue(bound.Contains(ExpressionPreset.EyeLookSide));
+            Assert.IsTrue(bound.Contains(ExpressionPreset.MouthPress));
+
+            var path = Path.Combine(Application.dataPath, "_Project/Resources/ExpressionPresets.json");
+            var library = ExpressionPresetLibrary.Parse(File.ReadAllText(path));
+            var emotions = new[]
+            {
+                Emotion.Happy, Emotion.Sad, Emotion.Surprised, Emotion.Thinking,
+                Emotion.Embarrassed, Emotion.Shy, Emotion.Flustered, Emotion.Concerned
+            };
+            for (var i = 0; i < emotions.Length; i++)
+            {
+                var line = ExpressionCoverage.Format(emotions[i], library.Get(emotions[i]), bound);
+                StringAssert.DoesNotContain("missing", line, line);
+            }
+        }
+
+        [Test]
+        public void ProjectOnto_FoldsMissingSurprisedAndFunOntoArkitShapes()
+        {
+            var surprised = EmotionFace.EmotionPose(Emotion.Surprised, 1f);
+            var arkit = new HashSet<ExpressionPreset>
+            {
+                ExpressionPreset.EyeWide,
+                ExpressionPreset.BrowInnerUp,
+                ExpressionPreset.BrowOuterUp,
+                ExpressionPreset.BrowSide,
+                ExpressionPreset.Aa
+            };
+            var folded = EmotionFace.ProjectOnto(surprised, arkit);
+            Assert.AreEqual(0f, folded.Surprised, 0.0001f);
+            Assert.Greater(folded.EyeWide, 0.9f);
+            Assert.Greater(folded.BrowInnerUp, 0.8f);
+            Assert.Greater(folded.BrowOuterUp, 0.8f);
+            Assert.Greater(folded.BrowSide, 0.8f);
+            Assert.Greater(folded.Aa, 0.2f);
+
+            var kept = EmotionFace.ProjectOnto(surprised, new HashSet<ExpressionPreset> { ExpressionPreset.Surprised });
+            Assert.Greater(kept.Surprised, 0.8f);
+
+            var happy = EmotionFace.EmotionPose(Emotion.Happy, 1f);
+            var noFun = EmotionFace.ProjectOnto(happy, new HashSet<ExpressionPreset>
+            {
+                ExpressionPreset.EyeSquint,
+                ExpressionPreset.Joy
+            });
+            Assert.AreEqual(0f, noFun.Fun, 0.0001f);
+            Assert.Greater(noFun.EyeSquint, happy.EyeSquint);
+
+            var withFun = EmotionFace.ProjectOnto(happy, new HashSet<ExpressionPreset>
+            {
+                ExpressionPreset.Fun,
+                ExpressionPreset.EyeSquint
+            });
+            Assert.AreEqual(happy.Fun, withFun.Fun, 0.0001f);
+            Assert.AreEqual(happy.EyeSquint, withFun.EyeSquint, 0.0001f);
         }
     }
 }

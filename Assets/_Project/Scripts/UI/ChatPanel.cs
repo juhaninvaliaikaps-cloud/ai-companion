@@ -456,6 +456,7 @@ namespace AICompanion.UI
         /// </summary>
         void ApplyCue()
         {
+            Debug.Log(EmotionNames.FormatFieldLog(_exchange.LastCue.EmotionField));
             var director = GetComponent<Director>();
             if (director != null)
                 director.Play(_exchange.LastCue);

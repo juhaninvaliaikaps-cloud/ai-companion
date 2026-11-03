@@ -106,6 +106,7 @@ namespace AICompanion.Settings
             map.Set("surprised", PortraitFrameSet.Single(PortraitStems.Surprised));
             map.Set("thinking", PortraitFrameSet.Single(PortraitStems.Thinking));
             map.Set("angry", PortraitFrameSet.Single(PortraitStems.Pouty));
+            map.Set("pouty", PortraitFrameSet.Single(PortraitStems.Pouty));
             map.Set("sleepy", PortraitFrameSet.Single(PortraitStems.Sleepy));
             map.Set("tired", PortraitFrameSet.Single(PortraitStems.Sleepy));
             map.Set("teasing", PortraitFrameSet.Single(PortraitStems.SmugWink));

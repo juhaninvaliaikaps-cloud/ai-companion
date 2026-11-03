@@ -23,6 +23,10 @@ namespace AICompanion.Avatar
         BrowOuterUp,
         EyeWide,
         EyeLookDown,
+        EyeLookUp,
+        EyeLookSide,
+        MouthPress,
+        BrowSide,
         Blush
     }
 }

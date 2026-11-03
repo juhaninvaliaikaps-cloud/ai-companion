@@ -49,6 +49,15 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void BuildPromptList_WritesThePortraitFaceWhenTheRowHasOne()
+        {
+            AnimationClipCatalog catalog = NewCatalog(Row("embarrassed", "a compliment", Emotion.Neutral, string.Empty));
+            catalog.Entries[0].portrait = "embarrassed";
+
+            Assert.AreEqual("- embarrassed: a compliment; emotion: neutral; face: embarrassed", catalog.BuildPromptList());
+        }
+
+        [Test]
         public void TryGetById_IgnoresCaseAndSurroundingSpace()
         {
             AnimationClipCatalog catalog = NewCatalog(Row("wave_hello", "wave", Emotion.Happy, "wave"));

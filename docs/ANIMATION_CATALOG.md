@@ -33,7 +33,7 @@ Twenty-two rows ship with the project. Five base emotions (`idle`, `happy`, `sad
 
 ## Prompt export
 
-`BuildPromptList()` returns one line per entry with an id, in list order, for the system prompt:
+`BuildPromptList()` returns one line per entry with an id, in list order, for the system prompt. A row with a portrait name also appends `; face: <portrait>`:
 
 ```text
 - idle: calm resting pose; the director returns here when nothing else plays; emotion: neutral; tags: mood, idle

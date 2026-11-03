@@ -28,6 +28,7 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(PortraitStems.Surprised, map.Resolve("surprised").Open);
             Assert.AreEqual(PortraitStems.Thinking, map.Resolve("thinking").Open);
             Assert.AreEqual(PortraitStems.Pouty, map.Resolve("angry").Open);
+            Assert.AreEqual(PortraitStems.Pouty, map.Resolve("pouty").Open);
             Assert.AreEqual(PortraitStems.Sleepy, map.Resolve("sleepy").Open);
             Assert.AreEqual(PortraitStems.Sleepy, map.Resolve("tired").Open);
             Assert.AreEqual(PortraitStems.SmugWink, map.Resolve("teasing").Open);

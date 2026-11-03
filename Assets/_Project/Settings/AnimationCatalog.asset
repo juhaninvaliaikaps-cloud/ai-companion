@@ -26,7 +26,7 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
   - id: happy
-    description: bright, cheerful reaction to good news
+    description: use for good news, a joke, or a warm greeting. Not the default
     tags:
     - mood
     - positive
@@ -38,7 +38,7 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
     durationSeconds: 2
   - id: sad
-    description: downcast, sympathetic reaction
+    description: use for sympathy, disappointment, bad news, or a let-down
     tags:
     - mood
     - negative
@@ -50,7 +50,7 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: 76130b703857e9ae665b1a99dc74df20, type: 2}
     durationSeconds: 2
   - id: surprised
-    description: short startled reaction
+    description: use for a sudden reveal, shock, or something unexpected
     tags:
     - mood
     - reaction
@@ -62,7 +62,7 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: 9498dbf0abc8e09fa6bd2cd0a916d890, type: 2}
     durationSeconds: 1
   - id: thinking
-    description: considering something with mild uncertainty
+    description: use when working something out, pausing, or unsure
     tags:
     - mood
     - thinking
@@ -158,7 +158,7 @@ MonoBehaviour:
     clip: {fileID: 0}
     durationSeconds: 1
   - id: concerned
-    description: worried about you or about something you said
+    description: use when worried about the user or about what they said. Inner brows, no blush
     tags:
     - care
     - worried
@@ -170,7 +170,7 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
   - id: embarrassed
-    description: flustered and embarrassed by a compliment
+    description: use when a compliment or being caught out makes her blush hard
     tags:
     - shy
     - compliment
@@ -182,7 +182,7 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
   - id: shy
-    description: shy and looking away
+    description: use when she is quiet and looking away, with a small smile and a light blush
     tags:
     - quiet
     - soft
@@ -194,7 +194,7 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
   - id: flustered
-    description: flustered, blushing, lost for words
+    description: use when she is lost for words or overwhelmed, blushing with an open mouth
     tags:
     - blush
     - tease
@@ -206,7 +206,7 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
   - id: embarrassed_worried
-    description: embarrassed and worried at the same time
+    description: use when she is embarrassed and worried at the same time
     tags:
     - mixed
     - care
@@ -218,7 +218,7 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: 76130b703857e9ae665b1a99dc74df20, type: 2}
     durationSeconds: 2
   - id: pouty
-    description: playfully pouting about something
+    description: use for playful annoyance or a pout. Write emotion sad, or gesture pouty
     tags:
     - pout
     - playful
@@ -230,7 +230,7 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: 76130b703857e9ae665b1a99dc74df20, type: 2}
     durationSeconds: 2
   - id: teasing
-    description: smug, teasing, knowing smile
+    description: use for a smug, knowing, teasing smile
     tags:
     - flirt
     - smug
@@ -242,7 +242,7 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
     durationSeconds: 2
   - id: excited
-    description: excited and delighted
+    description: use when she is delighted and energetic, more than a plain happy smile
     tags:
     - joy
     - hype
@@ -254,7 +254,7 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
     durationSeconds: 2
   - id: loving
-    description: warm, affectionate and loving
+    description: use when she is warm, affectionate, or loving
     tags:
     - affection
     - warm
@@ -266,7 +266,7 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
     durationSeconds: 2
   - id: sleepy
-    description: sleepy and tired
+    description: use when she is tired or ready for bed
     tags:
     - late
     - tired

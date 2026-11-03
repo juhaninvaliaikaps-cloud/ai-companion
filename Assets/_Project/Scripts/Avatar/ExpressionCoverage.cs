@@ -21,7 +21,7 @@ namespace AICompanion.Avatar
                     continue;
 
                 needed++;
-                if (bound != null && bound.Contains(preset))
+                if (Covers(preset, bound))
                     found++;
                 else
                     missing.Add(ChannelName(preset));
@@ -101,6 +101,32 @@ namespace AICompanion.Avatar
             }
 
             return builder.ToString();
+        }
+
+        /// <summary>
+        /// A channel counts when a blendshape is bound to it. Surprised also counts when
+        /// wide eyes and raised brows can stand in for the missing whole-face shape.
+        /// Fun counts when a squint can take it. Blush counts because the cheek overlay
+        /// is the stand-in when the mesh has no blush shape. The separate Blush line
+        /// still says which of those paths ran.
+        /// </summary>
+        public static bool Covers(ExpressionPreset preset, ICollection<ExpressionPreset> bound)
+        {
+            if (bound != null && bound.Contains(preset))
+                return true;
+            if (preset == ExpressionPreset.Blush)
+                return true;
+            if (preset == ExpressionPreset.Fun)
+                return bound != null && bound.Contains(ExpressionPreset.EyeSquint);
+            if (preset == ExpressionPreset.Surprised)
+            {
+                return bound != null
+                    && bound.Contains(ExpressionPreset.EyeWide)
+                    && bound.Contains(ExpressionPreset.BrowInnerUp)
+                    && (bound.Contains(ExpressionPreset.BrowOuterUp) || bound.Contains(ExpressionPreset.BrowSide));
+            }
+
+            return false;
         }
 
         public static string ChannelName(ExpressionPreset preset)

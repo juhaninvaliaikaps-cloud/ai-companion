@@ -190,6 +190,18 @@ namespace AICompanion.Avatar
                 case "eyelookdown":
                     preset = ExpressionPreset.EyeLookDown;
                     return true;
+                case "eyelookup":
+                    preset = ExpressionPreset.EyeLookUp;
+                    return true;
+                case "eyelookside":
+                    preset = ExpressionPreset.EyeLookSide;
+                    return true;
+                case "mouthpress":
+                    preset = ExpressionPreset.MouthPress;
+                    return true;
+                case "browside":
+                    preset = ExpressionPreset.BrowSide;
+                    return true;
                 case "blush":
                     preset = ExpressionPreset.Blush;
                     return true;

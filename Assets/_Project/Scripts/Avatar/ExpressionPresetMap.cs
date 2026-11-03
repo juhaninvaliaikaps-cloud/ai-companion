@@ -59,18 +59,26 @@ namespace AICompanion.Avatar
             if (normalized == "下" || normalized == "目下")
                 return ExpressionPreset.EyeLookDown;
 
+            if (Contains(normalized, "cheeksquint"))
+                return ExpressionPreset.Fun;
             if (Contains(normalized, "eyesquint") || Contains(normalized, "eyesmile") || Contains(normalized, "eyejoy") || Contains(normalized, "squint"))
                 return ExpressionPreset.EyeSquint;
             if (Contains(normalized, "browinnerup") || Contains(normalized, "browsinnerup"))
                 return ExpressionPreset.BrowInnerUp;
+            if (Contains(normalized, "browouterupl"))
+                return ExpressionPreset.BrowSide;
             if (Contains(normalized, "browouterup") || Contains(normalized, "browsouterup"))
                 return ExpressionPreset.BrowOuterUp;
             if (Contains(normalized, "browsup") || Contains(normalized, "browraise") || Contains(normalized, "eyebrowup") || Contains(normalized, "eyebrowraise"))
                 return ExpressionPreset.BrowInnerUp;
             if (Contains(normalized, "eyewide") || Contains(normalized, "eyeswide") || Contains(normalized, "wideeye"))
                 return ExpressionPreset.EyeWide;
+            if (Contains(normalized, "eyelookup"))
+                return ExpressionPreset.EyeLookUp;
             if (Contains(normalized, "lookdown") || Contains(normalized, "eyesdown") || Contains(normalized, "eyedown"))
                 return ExpressionPreset.EyeLookDown;
+            if (IsSideGlance(normalized))
+                return ExpressionPreset.EyeLookSide;
             if (Contains(normalized, "blush") || Contains(normalized, "cheekflush") || Contains(normalized, "facered"))
                 return ExpressionPreset.Blush;
 
@@ -82,6 +90,8 @@ namespace AICompanion.Avatar
                 return ExpressionPreset.Ou;
             if (Contains(normalized, "mouthclose"))
                 return ExpressionPreset.Ih;
+            if (Contains(normalized, "mouthpress"))
+                return ExpressionPreset.MouthPress;
             if (Contains(normalized, "mouthstretch"))
                 return ExpressionPreset.Ee;
             if (normalized.StartsWith("eyeblink", StringComparison.Ordinal) || normalized.StartsWith("blink", StringComparison.Ordinal)
@@ -103,6 +113,23 @@ namespace AICompanion.Avatar
                 return preset;
 
             return ExpressionPreset.None;
+        }
+
+        /// <summary>
+        /// Both eyes toward the subject's left. The opposite pair would cancel, so
+        /// eyeLookOutRight and eyeLookInLeft stay unclassified.
+        /// </summary>
+        static bool IsSideGlance(string normalized)
+        {
+            if (Contains(normalized, "eyelookoutleft"))
+                return true;
+            if (Contains(normalized, "eyelookoutl") && !Contains(normalized, "right"))
+                return true;
+            if (Contains(normalized, "eyelookinright"))
+                return true;
+            if (Contains(normalized, "eyelookinr") && !Contains(normalized, "left"))
+                return true;
+            return false;
         }
 
         static bool Contains(string normalized, string token)
@@ -195,13 +222,17 @@ namespace AICompanion.Avatar
             Add(map, ExpressionPreset.Joy, "joy", "happy", "fclalljoy", "fclmthjoy", "mouthsmileleft", "mouthsmileright", "mouthsmile", "にこり", "にっこり", "笑顔");
             Add(map, ExpressionPreset.Angry, "angry", "anger", "mad", "fclallangry", "fclbrwangry", "fclmthangry", "browdownleft", "browdownright", "browdown", "怒り");
             Add(map, ExpressionPreset.Sorrow, "sorrow", "sad", "sadness", "fclallsorrow", "fclbrwsorrow", "fclmthsorrow", "fcleyesorrow", "mouthfrownleft", "mouthfrownright", "mouthfrown", "困る", "悲しみ");
-            Add(map, ExpressionPreset.Fun, "fun", "relaxed", "fclallfun", "fclbrwfun", "なごみ");
+            Add(map, ExpressionPreset.Fun, "fun", "relaxed", "fclallfun", "fclbrwfun", "cheeksquint", "cheeksquintleft", "cheeksquintright", "なごみ");
             Add(map, ExpressionPreset.Surprised, "surprised", "surprise", "shock", "fclallsurprised", "fclbrwsurprised", "びっくり", "驚き");
             Add(map, ExpressionPreset.EyeSquint, "eyesquint", "eyesquintleft", "eyesquintright", "eyesmile", "eyesmileleft", "eyesmileright", "fcleyejoy", "笑い");
             Add(map, ExpressionPreset.BrowInnerUp, "browinnerup", "browinnerupleft", "browinnerupright");
-            Add(map, ExpressionPreset.BrowOuterUp, "browouterup", "browouterupleft", "browouterupright");
+            Add(map, ExpressionPreset.BrowOuterUp, "browouterup", "browouterupright");
+            Add(map, ExpressionPreset.BrowSide, "browouterupleft", "browside");
             Add(map, ExpressionPreset.EyeWide, "eyewide", "eyewideleft", "eyewideright", "eyeswide", "fcleyespread", "見開き");
             Add(map, ExpressionPreset.EyeLookDown, "eyelookdown", "eyelookdownleft", "eyelookdownright", "eyeslookdown", "eyesdown", "eyedown", "lookdown", "下");
+            Add(map, ExpressionPreset.EyeLookUp, "eyelookup", "eyelookupleft", "eyelookupright");
+            Add(map, ExpressionPreset.EyeLookSide, "eyelookoutleft", "eyelookinright");
+            Add(map, ExpressionPreset.MouthPress, "mouthpress", "mouthpressleft", "mouthpressright");
             Add(map, ExpressionPreset.Blush, "blush", "cheekblush", "faceblush", "tere", "照れ", "赤面", "頬染め");
             return map;
         }

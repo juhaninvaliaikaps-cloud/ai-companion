@@ -46,6 +46,38 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(CueParseStatus.Invalid, result.Status);
             Assert.AreEqual(Emotion.Neutral, result.Cue.Emotion);
             Assert.AreEqual(AnimationCueParser.NeutralIntensity, result.Cue.Intensity, 0.0001f);
+            Assert.AreEqual("furious", result.Cue.EmotionField);
+            Assert.AreEqual("Cue emotion: furious", EmotionNames.FormatFieldLog(result.Cue.EmotionField));
+        }
+
+        [Test]
+        public void Parse_KeepsTheRawEmotionFieldAndAliasesPortraitWords()
+        {
+            var sad = AnimationCueParser.Parse("Oh.\n<animation emotion=\"Sad\" intensity=\"0.7\" />");
+            Assert.AreEqual(Emotion.Sad, sad.Cue.Emotion);
+            Assert.AreEqual("Sad", sad.Cue.EmotionField);
+            Assert.AreEqual("Cue emotion: Sad", EmotionNames.FormatFieldLog(sad.Cue.EmotionField));
+
+            var none = AnimationCueParser.Parse("Hi.");
+            Assert.AreEqual(string.Empty, none.Cue.EmotionField);
+            Assert.AreEqual("Cue emotion: (none)", EmotionNames.FormatFieldLog(none.Cue.EmotionField));
+
+            var pouty = AnimationCueParser.Parse("Hmph.\n<animation emotion=\"pouty\" intensity=\"0.5\" />");
+            Assert.AreEqual(CueParseStatus.Parsed, pouty.Status);
+            Assert.AreEqual(Emotion.Sad, pouty.Cue.Emotion);
+            Assert.AreEqual("pouty", pouty.Cue.EmotionField);
+            Assert.AreEqual("angry", EmotionNames.PortraitAlias(pouty.Cue.EmotionField));
+
+            var sleepy = AnimationCueParser.Parse("Yawn.\n<animation emotion=\"sleepy\" />");
+            Assert.AreEqual(Emotion.Neutral, sleepy.Cue.Emotion);
+            Assert.AreEqual("sleepy", EmotionNames.PortraitAlias(sleepy.Cue.EmotionField));
+
+            var worried = AnimationCueParser.Parse("Hmm.\n<animation emotion=\"worried\" intensity=\"0.4\" />");
+            Assert.AreEqual(Emotion.Concerned, worried.Cue.Emotion);
+            Assert.AreEqual(string.Empty, EmotionNames.PortraitAlias(worried.Cue.EmotionField));
+
+            var noisy = new string('a', 80);
+            Assert.AreEqual(EmotionNames.MaxFieldLength, EmotionNames.SanitizeField(noisy + "\n").Length);
         }
 
         [Test]
