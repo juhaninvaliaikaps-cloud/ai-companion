@@ -26,18 +26,21 @@ namespace AICompanion.Editor.Avatars
                     CompanionAnimatorBaker.Curve(clip, "Right Arm Twist In-Out", 4f, -0.2f, 0f, 0f, 0f);
                     break;
                 case "Happy":
-                    CompanionAnimatorBaker.Curve(clip, "Spine Front-Back", 2f, -0.04f, 0.04f, 2f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Chest Front-Back", 2f, -0.03f, 0.03f, 2f, 0.2f);
-                    CompanionAnimatorBaker.Curve(clip, "Head Nod Down-Up", 2f, 0.1f, 0.04f, 2f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Head Turn Left-Right", 2f, 0f, 0.03f, 1f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Left Arm Down-Up", 2f, -0.18f, 0.06f, 2f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Right Arm Down-Up", 2f, -0.18f, 0.06f, 2f, 0.15f);
-                    CompanionAnimatorBaker.Curve(clip, "Left Arm Front-Back", 2f, 0.02f, 0f, 0f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Right Arm Front-Back", 2f, 0.02f, 0f, 0f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Left Forearm Stretch", 2f, 0.12f, 0f, 0f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Right Forearm Stretch", 2f, 0.12f, 0f, 0f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Left Shoulder Down-Up", 2f, 0.12f, 0.04f, 2f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Right Shoulder Down-Up", 2f, 0.12f, 0.04f, 2f, 0.15f);
+                    // A smile is a face and posture thing, but the arms still have to be written:
+                    // the base state resets unanimated muscles to their default, which is the
+                    // T-pose. These are the same relaxed arms Idle uses, held still.
+                    CompanionAnimatorBaker.Curve(clip, "Spine Front-Back", 2f, -0.03f, 0.02f, 2f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Chest Front-Back", 2f, -0.02f, 0.02f, 2f, 0.2f);
+                    CompanionAnimatorBaker.Curve(clip, "Head Nod Down-Up", 2f, 0.06f, 0.03f, 2f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Head Turn Left-Right", 2f, 0f, 0.02f, 1f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Arm Down-Up", 2f, -0.5f, 0.01f, 1f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Arm Down-Up", 2f, -0.5f, 0.01f, 1f, 0.4f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Arm Front-Back", 2f, 0.08f, 0f, 0f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Arm Front-Back", 2f, 0.08f, 0f, 0f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Forearm Stretch", 2f, 0.2f, 0.01f, 1f, 0.5f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Forearm Stretch", 2f, 0.2f, 0.01f, 1f, 0.8f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Arm Twist In-Out", 2f, 0.2f, 0f, 0f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Arm Twist In-Out", 2f, -0.2f, 0f, 0f, 0f);
                     break;
                 case "Sad":
                     CompanionAnimatorBaker.Curve(clip, "Spine Front-Back", 3f, 0.18f, 0.02f, 1f, 0f);

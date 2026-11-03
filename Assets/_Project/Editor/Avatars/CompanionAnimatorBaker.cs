@@ -155,6 +155,7 @@ namespace AICompanion.Editor.Avatars
             if (controller != null)
             {
                 EnsureGestureLayer(controller, clips);
+                EnsureBaseDefaults(controller);
                 if (!ControllerLooksValid(controller))
                     Debug.LogWarning("Companion.controller did not import with Idle, Talk, the emotion parameters, and the gesture layer. Delete that asset and run AI Companion/Rebuild Basic Animator if the body stays on the bind pose.");
                 return;
@@ -167,6 +168,39 @@ namespace AICompanion.Editor.Avatars
             }
 
             CreateController(clips);
+        }
+
+        /// <summary>
+        /// Base emotion states must write every muscle. Older controllers were baked with this
+        /// off, so a mood entered after Walking or Fall kept the tucked legs and raised arms,
+        /// which read as floating with swimming arms. Fix existing controllers in place.
+        /// </summary>
+        static bool EnsureBaseDefaults(AnimatorController controller)
+        {
+            var layers = controller.layers;
+            if (layers == null || layers.Length == 0)
+                return false;
+
+            var machine = layers[0].stateMachine;
+            var states = machine != null ? machine.states : null;
+            if (states == null)
+                return false;
+
+            var changed = false;
+            for (var i = 0; i < states.Length; i++)
+            {
+                var state = states[i].state;
+                if (state == null || state.writeDefaultValues)
+                    continue;
+
+                state.writeDefaultValues = true;
+                changed = true;
+            }
+
+            if (changed)
+                EditorUtility.SetDirty(controller);
+
+            return changed;
         }
 
         static bool ControllerLooksValid(AnimatorController controller)
@@ -437,7 +471,11 @@ namespace AICompanion.Editor.Avatars
         {
             var state = machine.AddState(stateName);
             state.motion = motion;
-            state.writeDefaultValues = false;
+
+            // Base emotion states must write every muscle, not only the ones their clip
+            // animates. With this off, a mood entered after Walking or Fall kept its tucked
+            // legs and raised arms, which read as floating with swimming arms.
+            state.writeDefaultValues = true;
             if (defaultState)
                 machine.defaultState = state;
 
