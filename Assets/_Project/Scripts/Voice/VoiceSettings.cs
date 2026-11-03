@@ -19,6 +19,15 @@ namespace AICompanion.Voice
         public float timeoutSeconds = 20f;
         public int sampleRate = 24000;
 
+        /// <summary>"xai" for the cloud voice, "piper" for the offline binary.</summary>
+        public string provider = "xai";
+
+        /// <summary>Full path to piper.exe, empty when the local voice is not installed.</summary>
+        public string piperExe = string.Empty;
+
+        /// <summary>Full path to the Piper .onnx voice model.</summary>
+        public string piperVoice = string.Empty;
+
         public VoiceSettings RuntimeCopy()
         {
             var copy = CreateInstance<VoiceSettings>();
@@ -31,6 +40,9 @@ namespace AICompanion.Voice
             copy.allowCloudTtsForLocalReplies = allowCloudTtsForLocalReplies;
             copy.timeoutSeconds = timeoutSeconds;
             copy.sampleRate = sampleRate;
+            copy.provider = provider;
+            copy.piperExe = piperExe;
+            copy.piperVoice = piperVoice;
             return copy;
         }
     }

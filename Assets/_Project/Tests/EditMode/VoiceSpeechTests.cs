@@ -141,6 +141,32 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Policy_AllowsTheLocalPiperVoiceEvenWithALocalChatModel()
+        {
+            var chat = ScriptableObject.CreateInstance<ChatSettings>();
+            var voice = ScriptableObject.CreateInstance<VoiceSettings>();
+            try
+            {
+                chat.providerId = ChatDefaults.LocalId;
+                voice.enabled = true;
+                voice.provider = PiperTtsProvider.Id;
+                voice.allowCloudTtsForLocalReplies = false;
+
+                Assert.IsTrue(SpeechPolicy.ShouldSpeak(chat, voice, false));
+                Assert.IsTrue(SpeechPolicy.ShouldSpeak(chat, voice, false, true));
+                Assert.IsFalse(SpeechPolicy.ShouldSpeak(chat, voice, true));
+
+                voice.enabled = false;
+                Assert.IsFalse(SpeechPolicy.ShouldSpeak(chat, voice, false));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(chat);
+                UnityEngine.Object.DestroyImmediate(voice);
+            }
+        }
+
+        [Test]
         public void Policy_SkipsCloudTtsForTheLocalProviderUnlessAllowed()
         {
             var chat = ScriptableObject.CreateInstance<ChatSettings>();

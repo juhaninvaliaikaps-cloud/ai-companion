@@ -46,6 +46,11 @@ namespace AICompanion.Settings
         public bool TtsEnabled = true;
         public string VoiceId = "eve";
         public string TtsLanguage = "en";
+
+        /// <summary>"xai" for the cloud voice, "piper" for the offline binary.</summary>
+        public string TtsProvider = "xai";
+        public string PiperExe = string.Empty;
+        public string PiperVoice = string.Empty;
         public float Volume = 1f;
         public bool Muted;
         public bool SttEnabled = true;
@@ -86,6 +91,9 @@ namespace AICompanion.Settings
             AvatarSource = AvatarSourceNames.Normalize(AvatarSource);
             VoiceId = CleanToken(VoiceId, "eve", 40);
             TtsLanguage = CleanToken(TtsLanguage, "en", 16);
+        TtsProvider = CleanToken(TtsProvider, "xai", 16);
+        PiperExe = CleanToken(PiperExe, string.Empty, 260);
+        PiperVoice = CleanToken(PiperVoice, string.Empty, 260);
             if (float.IsNaN(Volume) || float.IsInfinity(Volume) || Volume < 0f)
                 Volume = 0f;
             if (Volume > 1f)
@@ -314,6 +322,12 @@ namespace AICompanion.Settings
                 settings.VoiceId = text;
             if (TryString(json, "ttsLanguage", out text))
                 settings.TtsLanguage = text;
+            if (TryString(json, "ttsProvider", out text))
+                settings.TtsProvider = text;
+            if (TryString(json, "piperExe", out text))
+                settings.PiperExe = text;
+            if (TryString(json, "piperVoice", out text))
+                settings.PiperVoice = text;
             if (TryNumber(json, "volume", out number))
                 settings.Volume = (float)number;
             if (TryBool(json, "muted", out flag))
@@ -372,6 +386,9 @@ namespace AICompanion.Settings
             Bool(sb, "ttsEnabled", source.TtsEnabled);
             String(sb, "voiceId", source.VoiceId);
             String(sb, "ttsLanguage", source.TtsLanguage);
+            String(sb, "ttsProvider", source.TtsProvider);
+            String(sb, "piperExe", source.PiperExe);
+            String(sb, "piperVoice", source.PiperVoice);
             Number(sb, "volume", source.Volume, false);
             Bool(sb, "muted", source.Muted);
             Bool(sb, "sttEnabled", source.SttEnabled);

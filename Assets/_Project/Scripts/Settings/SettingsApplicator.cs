@@ -31,6 +31,9 @@ namespace AICompanion.Settings
                     voice.enabled = settings.TtsEnabled;
                     voice.voiceId = settings.VoiceId;
                     voice.language = settings.TtsLanguage;
+            voice.provider = settings.TtsProvider;
+            voice.piperExe = settings.PiperExe;
+            voice.piperVoice = settings.PiperVoice;
                     voice.volume = settings.Volume;
                 }
 

@@ -80,7 +80,51 @@ namespace AICompanion.Voice
             _muted = PlayerPrefs.GetInt(MutePref, 0) != 0;
             EnsureSource();
             var timeout = voiceSettings.timeoutSeconds <= 0f ? 20f : voiceSettings.timeoutSeconds;
-            _provider = new XaiTtsProvider(new EnvironmentApiKeySource(), new UnityTtsTransport(this), timeout);
+            _provider = BuildProvider(timeout);
+        }
+
+        /// <summary>
+        /// Rebuilds the provider from the current voice settings. Settings are applied after the
+        /// speaker starts, so without this a provider chosen in Settings never took effect and
+        /// speech silently used the cloud provider.
+        /// </summary>
+        public void RefreshProvider()
+        {
+            if (!_started)
+            {
+                StartCompanion();
+                return;
+            }
+
+            var timeout = voiceSettings != null && voiceSettings.timeoutSeconds > 0f
+                ? voiceSettings.timeoutSeconds
+                : 20f;
+            _provider = BuildProvider(timeout);
+        }
+
+        void EnsureProvider()
+        {
+            var desired = voiceSettings != null && string.Equals(voiceSettings.provider, PiperTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase)
+                ? PiperTtsProvider.Id
+                : "xai";
+
+            if (_provider == null || !string.Equals(_provider.ProviderId, desired, System.StringComparison.OrdinalIgnoreCase))
+                RefreshProvider();
+        }
+
+        ITtsProvider BuildProvider(float timeout)
+        {
+            var mode = voiceSettings != null ? voiceSettings.provider : null;
+            if (string.Equals(mode, PiperTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+            {
+                return new PiperTtsProvider(
+                    voiceSettings.piperExe,
+                    voiceSettings.piperVoice,
+                    new PiperProcessRunner(),
+                    timeout);
+            }
+
+            return new XaiTtsProvider(new EnvironmentApiKeySource(), new UnityTtsTransport(this), timeout);
         }
 
         void Start()
@@ -206,6 +250,7 @@ namespace AICompanion.Voice
                 return;
             }
 
+            EnsureProvider();
             if (_provider == null || !CompanionPause.SpeechAllowed(_muted, _suppressed))
                 return;
             if (!_turn.TryTake(out var generation, out var sentence))
