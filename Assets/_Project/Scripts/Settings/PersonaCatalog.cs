@@ -361,6 +361,9 @@ namespace AICompanion.Settings
                     settings.PiperVoice = resolved;
             }
 
+            if (!string.IsNullOrEmpty(source.KokoroVoiceId))
+                settings.KokoroVoice = source.KokoroVoiceId.Trim();
+
             string avatar;
             if (PersonaAvatars.TryNormalize(source.AvatarSource, out avatar))
                 settings.AvatarSource = avatar;

@@ -20,6 +20,20 @@ namespace AICompanion.Tests.EditMode
         const string ExampleLocalModel = "hf.co/mradermacher/Rocinante-X-12B-v1-Heretic-Uncensored-i1-GGUF:Q4_K_M";
 
         [Test]
+        public void APersonaCanNameAKokoroVoice()
+        {
+            var persona = PersonaDefinition.CreateStarter("lei");
+            persona.DisplayName = "Lei";
+            persona.KokoroVoiceId = "af_heart";
+
+            var json = PersonaJson.Write(persona);
+            StringAssert.Contains("kokoroVoiceId", json);
+
+            var parsed = PersonaJson.Parse(json);
+            Assert.AreEqual("af_heart", parsed.KokoroVoiceId);
+        }
+
+        [Test]
         public void BuiltInPresets_AreNeutralAndLeavePortraitAndPiperBlank()
         {
             var directory = PersonaFiles.BuiltInDirectory();

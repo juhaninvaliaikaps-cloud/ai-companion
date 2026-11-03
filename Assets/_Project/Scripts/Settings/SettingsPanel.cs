@@ -808,8 +808,7 @@ namespace AICompanion.Settings
                 _settings.KokoroVoice = value;
                 ApplyLive();
             });
-            Note("Piper and Kokoro speak offline with no API key. Kokoro sounds better; its first load takes about 15 seconds.");
-            Note("Piper speaks offline with no API key. Point it at piper.exe and a .onnx voice. A blank persona voice keeps these.");
+            Note("Piper and Kokoro speak offline with no API key. Kokoro sounds better; its first load takes about 15 seconds. A blank persona voice keeps these.");
             AddField("TTS language", _settings.TtsLanguage, false, value =>
             {
                 _settings.TtsLanguage = value;

@@ -20,7 +20,7 @@ namespace AICompanion.Settings
             AddLabel("Active now: " + ActiveModelText());
             Note(VoiceRoute.UsesCloudTts(_settings.PrivateMode, _settings.ProviderId)
                 ? "Cloud voice is used while chat is Grok."
-                : "Piper is used while chat is local or private. That audio stays on this PC.");
+                : "A local voice is used while chat is local or private: Piper, or Kokoro when you picked it. That audio stays on this PC.");
             Note("Cue instructions are added after the persona on every reply.");
             var active = _settings.PersonaId ?? string.Empty;
             AddButton(string.IsNullOrEmpty(active) ? "Setup name (active)" : "Use setup name", ClearActivePersona);
@@ -52,6 +52,7 @@ namespace AICompanion.Settings
             AddArea("Personality", persona.Personality, 78f, PersonaDefinition.MaxPersonalityLength, value => SaveActive(idFixed, item => item.Personality = value));
             AddArea("Speaking style", persona.SpeakingStyle, 52f, PersonaDefinition.MaxSpeakingStyleLength, value => SaveActive(idFixed, item => item.SpeakingStyle = value));
             AddField("Piper voice id (local)", persona.PiperVoiceId, false, value => SaveActive(idFixed, item => item.PiperVoiceId = value));
+            AddField("Kokoro voice id (local)", persona.KokoroVoiceId, false, value => SaveActive(idFixed, item => item.KokoroVoiceId = value));
             AddField("Cloud voice id (Grok)", persona.CloudVoiceId, false, value => SaveActive(idFixed, item => item.CloudVoiceId = value));
             Note("Blank voice, model, or avatar keeps the current one.");
             AddButton(PersonaChoiceLabel("Grok", persona.ProviderId, ChatDefaults.GrokId), () => SaveActive(idFixed, item => item.ProviderId = ChatDefaults.GrokId));
