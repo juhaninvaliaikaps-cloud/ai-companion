@@ -44,7 +44,7 @@ The value is not written to the Console, to exception text, or to the chat reply
 The chat panel is documented in [CHAT_UI.md](CHAT_UI.md). Short version:
 
 1. Open `Assets/_Project/Scenes/Main.unity` and enter Play mode, or run the Windows player.
-2. Press **F10** if the panel is hidden. Type a message and press **Enter**. **F9**, while the field is not focused, sends the draft or `Say hello in one short sentence.`
+2. Press **F10** if the panel is hidden. Type a message and press **Enter**. **F9** cycles the expression portrait and does not send the draft.
 3. The reply streams into the panel. The Console logs `Chat reply:` when it finishes. It does not log each chunk.
 4. **Esc** or **Stop** cancels the request that is in flight.
 5. A failure is a **Note** in the panel. The Console gets a warning with the HTTP status and the provider's message (`Chat error: HTTP 403 from Grok: ...`). The note shows a shorter line, or a hint when the cause is clear: `Invalid API key`, `xAI account has no API credits or billing is not set up (console.x.ai > Billing)`, `Model grok-4.7 not available for this key; change ChatSettings.model`, `Rate limited, try again shortly`, `Couldn't reach Grok`, or `Grok took too long to answer`. The log never includes the API key.

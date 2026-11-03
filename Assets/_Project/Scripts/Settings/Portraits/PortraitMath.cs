@@ -23,11 +23,21 @@ namespace AICompanion.Settings
     /// <summary>
     /// Keeps the mood she was in while she speaks. A reply without a cue resolves to
     /// neutral, which used to flip a blushing face to the neutral talking frame the moment
-    /// she started talking. The hold clears when the neutral idle arrives outside speech.
+    /// she started talking. The neutral cue often lands before the audio, so the hold
+    /// survives that quiet gap and the whole utterance, then releases once she has been
+    /// idle.
     /// </summary>
     public static class PortraitHold
     {
+        public const float ReleaseSeconds = 1.5f;
+
         public static string Resolve(string emotion, ref string held, bool speaking)
+        {
+            var quiet = 0f;
+            return ResolveUtterance(emotion, ref held, speaking, speaking ? 0f : ReleaseSeconds, ref quiet);
+        }
+
+        public static string ResolveUtterance(string emotion, ref string held, bool speaking, float delta, ref float quietFor)
         {
             var neutral = string.IsNullOrEmpty(emotion)
                 || string.Equals(emotion, "neutral", System.StringComparison.OrdinalIgnoreCase);
@@ -35,16 +45,82 @@ namespace AICompanion.Settings
             if (!neutral)
             {
                 held = emotion;
+                quietFor = 0f;
                 return emotion;
             }
 
-            if (speaking && !string.IsNullOrEmpty(held))
+            if (speaking)
+            {
+                quietFor = 0f;
+                if (!string.IsNullOrEmpty(held))
+                    return held;
+                return "neutral";
+            }
+
+            if (string.IsNullOrEmpty(held))
+            {
+                quietFor = 0f;
+                return "neutral";
+            }
+
+            if (delta < 0f || float.IsNaN(delta))
+                delta = 0f;
+
+            quietFor += delta;
+            if (quietFor < ReleaseSeconds)
                 return held;
 
-            if (!speaking)
-                held = string.Empty;
-
+            held = string.Empty;
+            quietFor = 0f;
             return "neutral";
+        }
+    }
+
+    /// <summary>
+    /// F9 cycles the portrait on the avatar. While that preview is up, and she is not
+    /// mid-reply or mid-speech, the panel flaps that expression's blink and talk frames.
+    /// A later cue, emotion key, or utterance leaves the preview.
+    /// </summary>
+    public struct PortraitPreview
+    {
+        public bool Active { get; private set; }
+
+        public string Expression { get; private set; }
+
+        string _hint;
+        Emotion _emotion;
+
+        public PortraitPreview Tick(bool keyDown, string hint, Emotion emotion, bool utterance)
+        {
+            hint = string.IsNullOrEmpty(hint) ? string.Empty : hint;
+
+            if (utterance)
+            {
+                Active = false;
+                Expression = string.Empty;
+                return this;
+            }
+
+            if (keyDown)
+            {
+                Active = true;
+                _hint = hint;
+                _emotion = emotion;
+                Expression = hint.Length == 0 ? "neutral" : hint;
+                return this;
+            }
+
+            if (!Active)
+                return this;
+
+            if (!string.Equals(hint, _hint, StringComparison.Ordinal) || emotion != _emotion)
+            {
+                Active = false;
+                Expression = string.Empty;
+                return this;
+            }
+
+            return this;
         }
     }
 
@@ -78,6 +154,37 @@ namespace AICompanion.Settings
         public const string SmileBlinkHalf = "smile_blink_half";
         public const string SmileBlinkClosed = "smile_blink_closed";
         public const string SmileTalk = "smile_talk";
+
+        public const string ConcernedBlinkHalf = "concerned_blink_half";
+        public const string ConcernedBlinkClosed = "concerned_blink_closed";
+        public const string ConcernedTalk = "concerned_talk";
+        public const string EmbarrassedBlinkHalf = "embarrassed_blink_half";
+        public const string EmbarrassedBlinkClosed = "embarrassed_blink_closed";
+        public const string EmbarrassedTalk = "embarrassed_talk";
+        public const string ShyBlinkHalf = "shy_blink_half";
+        public const string ShyBlinkClosed = "shy_blink_closed";
+        public const string ShyTalk = "shy_talk";
+        public const string FlusteredBlinkHalf = "flustered_blink_half";
+        public const string FlusteredBlinkClosed = "flustered_blink_closed";
+        public const string FlusteredTalk = "flustered_talk";
+        public const string PoutyBlinkHalf = "pouty_blink_half";
+        public const string PoutyBlinkClosed = "pouty_blink_closed";
+        public const string PoutyTalk = "pouty_talk";
+        public const string SadBlinkHalf = "sad_blink_half";
+        public const string SadBlinkClosed = "sad_blink_closed";
+        public const string SadTalk = "sad_talk";
+        public const string SurprisedBlinkHalf = "surprised_blink_half";
+        public const string SurprisedBlinkClosed = "surprised_blink_closed";
+        public const string SurprisedTalk = "surprised_talk";
+        public const string ThinkingBlinkHalf = "thinking_blink_half";
+        public const string ThinkingBlinkClosed = "thinking_blink_closed";
+        public const string ThinkingTalk = "thinking_talk";
+        public const string ExcitedBlinkHalf = "excited_blink_half";
+        public const string ExcitedBlinkClosed = "excited_blink_closed";
+        public const string ExcitedTalk = "excited_talk";
+        public const string HappyBlinkHalf = "happy_blink_half";
+        public const string HappyBlinkClosed = "happy_blink_closed";
+        public const string HappyTalk = "happy_talk";
 
         static readonly char[] Separators = { '/', '\\', ':', '*', '?', '"', '<', '>', '|' };
 

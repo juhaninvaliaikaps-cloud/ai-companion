@@ -93,6 +93,44 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void TheUpperBodyLayerHasAnAvatarMask()
+        {
+            var controller = LoadController();
+            Assert.GreaterOrEqual(controller.layers.Length, 4, "The upper body gesture layer is missing.");
+            Assert.AreEqual(AnimatorLayerBlendingMode.Override, controller.layers[3].blendingMode);
+            Assert.IsNotNull(controller.layers[3].avatarMask, "The upper body layer has no avatar mask.");
+        }
+
+        [Test]
+        public void GesturesLiveOnTheUpperBodyLayer()
+        {
+            var controller = LoadController();
+            Assert.GreaterOrEqual(controller.layers.Length, 4);
+
+            var names = new System.Collections.Generic.List<string>();
+            var states = controller.layers[3].stateMachine.states;
+            for (var i = 0; i < states.Length; i++)
+                names.Add(states[i].state.name);
+
+            Assert.Contains("Empty", names);
+            Assert.Contains("Wave", names);
+            Assert.Contains("Nod", names);
+            Assert.Contains("Shrug", names);
+            Assert.Contains("Laugh", names);
+
+            var body = new System.Collections.Generic.List<string>();
+            var bodyStates = controller.layers[2].stateMachine.states;
+            for (var i = 0; i < bodyStates.Length; i++)
+                body.Add(bodyStates[i].state.name);
+
+            Assert.Contains("Walk", body);
+            Assert.Contains("Turn180", body);
+            Assert.Contains("Fall", body);
+            Assert.IsFalse(body.Contains("Wave"), "Wave must live on the upper body layer only.");
+            Assert.IsFalse(body.Contains("Laugh"), "Laugh must live on the upper body layer only.");
+        }
+
+        [Test]
         public void NoClipLiftsHerOffTheGround()
         {
             var clips = System.IO.Directory.GetFiles("Assets/_Project/Animations", "*.anim");

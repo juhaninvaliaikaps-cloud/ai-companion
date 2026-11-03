@@ -26,6 +26,7 @@ namespace AICompanion.Core
             "teasing: a smug knowing smile. Use gesture teasing. " +
             "loving: warm and affectionate. Use gesture loving. " +
             "sleepy: tired. Use gesture sleepy. " +
+            "laughing: an open laugh. Use gesture laughing. The face is the happy smile. " +
             "neutral: calm, or when no feeling fits.";
 
         public static bool TryParse(string value, out Emotion emotion)
@@ -90,6 +91,7 @@ namespace AICompanion.Core
                 case "teasing":
                 case "loving":
                 case "sleepy":
+                case "laughing":
                     return token;
                 default:
                     return string.Empty;

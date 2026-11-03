@@ -155,6 +155,7 @@ namespace AICompanion.Editor.Avatars
             if (controller != null)
             {
                 EnsureGestureLayer(controller, clips);
+                EnsureUpperBodyLayer(controller, clips);
                 EnsureBaseDefaults(controller);
                 if (!ControllerLooksValid(controller))
                     Debug.LogWarning("Companion.controller did not import with Idle, Talk, the emotion parameters, and the gesture layer. Delete that asset and run AI Companion/Rebuild Basic Animator if the body stays on the bind pose.");
@@ -359,6 +360,130 @@ namespace AICompanion.Editor.Avatars
             AddFallState(machine, byName);
 
             EditorUtility.SetDirty(controller);
+        }
+
+        /// <summary>
+        /// Gestures that only move the upper body live on their own masked layer, so a wave can
+        /// play while the full-body layer keeps walking. The mask disables legs and feet.
+        /// </summary>
+        static void EnsureUpperBodyLayer(AnimatorController controller, AnimationClip[] clips)
+        {
+            var byName = new System.Collections.Generic.Dictionary<string, AnimationClip>();
+            for (var i = 0; i < clips.Length; i++)
+                byName[clips[i].name] = clips[i];
+
+            var gestureNames = new[]
+            {
+                AvatarAnimatorStates.Wave,
+                AvatarAnimatorStates.Nod,
+                AvatarAnimatorStates.Shrug,
+                AvatarAnimatorStates.Laugh
+            };
+
+            var mask = EnsureUpperBodyMask();
+            var layers = controller.layers;
+            if (layers.Length <= AvatarAnimatorLayers.UpperBody)
+            {
+                controller.AddLayer("Upper body");
+                layers = controller.layers;
+            }
+
+            var upper = layers[AvatarAnimatorLayers.UpperBody];
+            upper.blendingMode = AnimatorLayerBlendingMode.Override;
+            upper.defaultWeight = 1f;
+            upper.avatarMask = mask;
+            layers[AvatarAnimatorLayers.UpperBody] = upper;
+            controller.layers = layers;
+
+            var machine = controller.layers[AvatarAnimatorLayers.UpperBody].stateMachine;
+            if (machine.states == null || machine.states.Length <= 1)
+            {
+                var empty = machine.AddState(AvatarAnimatorStates.Empty);
+                empty.writeDefaultValues = false;
+                machine.defaultState = empty;
+
+                for (var i = 0; i < gestureNames.Length; i++)
+                {
+                    var state = machine.AddState(gestureNames[i]);
+                    state.motion = byName[gestureNames[i]];
+                    state.writeDefaultValues = false;
+
+                    var enter = empty.AddTransition(state);
+                    enter.AddCondition(AnimatorConditionMode.If, 0f, gestureNames[i]);
+                    enter.hasExitTime = false;
+                    enter.hasFixedDuration = true;
+                    enter.duration = 0.15f;
+                    enter.canTransitionToSelf = false;
+
+                    var leave = state.AddTransition(empty);
+                    leave.hasExitTime = true;
+                    leave.exitTime = 0.95f;
+                    leave.hasFixedDuration = true;
+                    leave.duration = 0.2f;
+                    leave.canTransitionToSelf = false;
+                }
+            }
+
+            PruneFullBodyGestures(controller, gestureNames);
+            EditorUtility.SetDirty(controller);
+        }
+
+        static AvatarMask EnsureUpperBodyMask()
+        {
+            var path = Folder + "/UpperBody.mask";
+            var mask = AssetDatabase.LoadAssetAtPath<AvatarMask>(path);
+            if (mask == null)
+            {
+                mask = new AvatarMask();
+                AssetDatabase.CreateAsset(mask, path);
+            }
+
+            mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.Root, true);
+            mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.Body, true);
+            mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.Head, true);
+            mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.LeftArm, true);
+            mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.RightArm, true);
+            mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.LeftFingers, true);
+            mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.RightFingers, true);
+            mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.LeftLeg, false);
+            mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.RightLeg, false);
+            mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.LeftFootIK, false);
+            mask.SetHumanoidBodyPartActive(AvatarMaskBodyPart.RightFootIK, false);
+            EditorUtility.SetDirty(mask);
+            AssetDatabase.SaveAssets();
+            return mask;
+        }
+
+        /// <summary>
+        /// The full-body gesture layer used to hold the gestures too. Leaving them there as well
+        /// would fire the same trigger on two layers at once, so they are removed from it.
+        /// </summary>
+        static void PruneFullBodyGestures(AnimatorController controller, string[] names)
+        {
+            var layers = controller.layers;
+            if (layers.Length <= AvatarAnimatorLayers.Gestures)
+                return;
+
+            var machine = layers[AvatarAnimatorLayers.Gestures].stateMachine;
+            var states = machine != null ? machine.states : null;
+            if (states == null)
+                return;
+
+            for (var i = states.Length - 1; i >= 0; i--)
+            {
+                var state = states[i].state;
+                if (state == null)
+                    continue;
+
+                for (var n = 0; n < names.Length; n++)
+                {
+                    if (state.name == names[n])
+                    {
+                        machine.RemoveState(state);
+                        break;
+                    }
+                }
+            }
         }
 
         static bool HasState(AnimatorStateMachine machine, string name)

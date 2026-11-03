@@ -56,6 +56,39 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void LaughingCueUsesTheHappyFaceAndDoesNotPlayABodyClip()
+        {
+            var catalog = ScriptableObject.CreateInstance<AnimationClipCatalog>();
+            catalog.SetEntries(new List<AnimationEntry>
+            {
+                new AnimationEntry
+                {
+                    id = "laughing",
+                    description = "laughing, open smile on the portrait while the body stays still",
+                    tags = new[] { "amused", "laugh" },
+                    emotion = Emotion.Happy,
+                    intensity = 0.9f,
+                    gesture = string.Empty,
+                    animatorState = string.Empty,
+                    clip = null,
+                    durationSeconds = 2f,
+                    portrait = "laughing",
+                }
+            });
+            var model = new AnimationDirectorModel(catalog);
+
+            var decision = model.Decide(Gesture("laughing"));
+
+            Assert.AreEqual("laughing", decision.Portrait);
+            Assert.AreEqual(Emotion.Happy, decision.Emotion);
+            Assert.AreEqual(DirectorAction.Emotion, decision.Action);
+            Assert.AreEqual(string.Empty, decision.StateName);
+            Assert.IsFalse(decision.GestureLacksState);
+            StringAssert.Contains("- laughing:", catalog.BuildPromptList());
+            StringAssert.Contains("emotion: happy", catalog.BuildPromptList());
+        }
+
+        [Test]
         public void NormalRowFallsBackToTheEmotionName()
         {
             var catalog = ScriptableObject.CreateInstance<AnimationClipCatalog>();

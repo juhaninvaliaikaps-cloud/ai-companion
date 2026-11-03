@@ -22,13 +22,29 @@ namespace AICompanion.AnimationDirector
         IAnimationStatePlayer _states;
         bool _suppressed;
 
-        public const float WalkRequestSeconds = 4f;
+        /// <summary>
+        /// Long enough that a reply cue usually arrives while she is still walking, so a
+        /// gesture can play over the walk. A stop cue still ends it immediately.
+        /// </summary>
+        public const float WalkRequestSeconds = 12f;
         public const string WalkCue = "walk";
         public const string StopCue = "stop";
 
         IWalkRequest _walk;
 
+        public const float GestureCooldownSeconds = 6f;
+
+        readonly DirectorRulebook _rules = new DirectorRulebook(GestureCooldownSeconds);
+        IAvatarLocomotion _locomotion;
+
         public bool ReactionsSuppressed => _suppressed;
+
+        bool IsFalling()
+        {
+            if (_locomotion == null)
+                _locomotion = GetComponent<IAvatarLocomotion>();
+            return _locomotion != null && _locomotion.IsFalling;
+        }
 
         public DirectorDecision LastDecision { get; private set; }
 
@@ -118,6 +134,21 @@ namespace AICompanion.AnimationDirector
             }
 
             var decision = _model.Decide(cue);
+
+            if (decision.Action == DirectorAction.GestureState && IsFalling())
+            {
+                Debug.Log(AnimationDirectorLog.Skipped(cue, busy: false, falling: true));
+                return;
+            }
+
+            var verdict = _rules.Allow(decision, Time.unscaledTime);
+            if (verdict != RuleVerdict.Allow)
+            {
+                LastDecision = decision;
+                Debug.Log(AnimationDirectorLog.Skipped(cue, verdict == RuleVerdict.Busy));
+                return;
+            }
+
             var played = Apply(decision);
             LastDecision = decision;
             Debug.Log(AnimationDirectorLog.Format(cue, decision, played));

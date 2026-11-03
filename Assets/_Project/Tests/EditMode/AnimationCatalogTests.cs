@@ -136,10 +136,18 @@ namespace AICompanion.Tests.EditMode
         {
             AnimationClipCatalog catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>(CatalogPath);
             Assert.IsNotNull(catalog, "Missing catalog asset at " + CatalogPath);
-            Assert.AreEqual(22, catalog.Entries.Count);
+            Assert.AreEqual(26, catalog.Entries.Count);
 
             Assert.IsTrue(catalog.Validate(out List<string> problems), string.Join("\n", problems));
-            Assert.AreEqual(22, catalog.BuildPromptList().Split('\n').Length);
+            Assert.AreEqual(26, catalog.BuildPromptList().Split('\n').Length);
+
+            Assert.IsTrue(catalog.TryGetById("laughing", out AnimationEntry laughing));
+            Assert.AreEqual("laughing", laughing.portrait);
+            Assert.AreEqual(Emotion.Happy, laughing.emotion);
+            Assert.IsFalse(laughing.HasGesture);
+            Assert.IsFalse(laughing.HasAnimatorState);
+            Assert.IsTrue(laughing.clip == null);
+            StringAssert.Contains("- laughing: laughing, open smile on the portrait while the body stays still; emotion: happy; face: laughing; tags: amused, laugh", catalog.BuildPromptList());
             Assert.IsFalse(catalog.TryGetById("talk", out _), "Talking is face-only, so the body talk row stays out of the catalog.");
 
             Assert.IsTrue(catalog.TryGetById("idle", out AnimationEntry idle));

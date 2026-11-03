@@ -14,7 +14,7 @@ A JSON file would need its own parser and a path lookup at runtime. The catalog 
 | --- | --- |
 | `id` | Stable name the model uses, for example `wave_hello`. Lookups ignore case and surrounding space. |
 | `description` | One short clause that tells the model when to use the row. It goes into the prompt list unchanged. |
-| `tags` | Free-form labels for search and for the prompt list. Not used by the director yet. |
+| `tags` | Free-form labels for the prompt list. The director also accepts a tag as a gesture when no id or gesture name matches. |
 | `emotion` | The `Emotion` enum value the cue should use. |
 | `intensity` | 0 to 1. Clamped by the cue, validated here. |
 | `gesture` | The gesture name a cue may carry, for example `wave`. Empty for a pure emotion row. |
@@ -27,7 +27,7 @@ A row may have a gesture and no state, or a state and no gesture. Both are valid
 
 ## Starter entries
 
-Twenty-two rows ship with the project. Five base emotions (`idle`, `happy`, `sad`, `surprised`, `thinking`), six gestures with an Animator state and a clip (`wave_hello`, `nod_yes`, `shrug`, `laugh`, `walk`, `turn_around`), `stop`, and ten portrait expressions (`concerned`, `embarrassed`, `shy`, `flustered`, `embarrassed_worried`, `pouty`, `teasing`, `excited`, `loving`, `sleepy`). Gesture rows play on the gesture layer of `Companion.controller`; see [ANIMATION_DIRECTOR.md](ANIMATION_DIRECTOR.md). Talking is face-only, so there is no `talk` row. A portrait row's `portrait` field is the 2D still and the name the 3D face resolves. The face weights live in [EXPRESSIONS.md](EXPRESSIONS.md), not in a new controller state.
+Twenty-six rows ship with the project. Five base emotions (`idle`, `happy`, `sad`, `surprised`, `thinking`), nine gestures (`wave_hello`, `nod_yes`, `shrug`, `laugh`, `walk`, `turn_around`, `wave_bye`, `nod_no`, `stop`) plus `sigh`, and eleven portrait expressions (`concerned`, `embarrassed`, `shy`, `flustered`, `embarrassed_worried`, `pouty`, `teasing`, `excited`, `loving`, `sleepy`, `laughing`). Wave, nod, shrug, and laugh play on the masked upper-body layer, so they can run while she walks. Walk, turn, and fall stay on the locomotion layer. See [ANIMATION_DIRECTOR.md](ANIMATION_DIRECTOR.md). Talking is face-only, so there is no `talk` row. A portrait row's `portrait` field is the 2D still and the name the 3D face resolves. `laughing` uses the happy face and the laughing frames, with no body clip. The face weights live in [EXPRESSIONS.md](EXPRESSIONS.md), not in a new controller state.
 
 **AI Companion > Animation Catalog > Rebuild Starter Catalog** rewrites the asset from `AnimationCatalogMenu.StarterEntries()`, which is where the starter rows are defined in code. Use it after an accidental delete. It also reloads clips from `Assets/_Project/Animations`, so a renamed clip shows up as a null reference on the row instead of a silent mismatch.
 

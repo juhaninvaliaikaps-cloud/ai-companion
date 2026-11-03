@@ -59,6 +59,7 @@ namespace AICompanion.Avatar
             "loving",
             "sleepy",
             "happy",
+            "laughing",
             "neutral"
         };
 
@@ -172,8 +173,11 @@ namespace AICompanion.Avatar
         }
 
         /// <summary>Drives the fall pose while she drops to the taskbar.</summary>
+        public bool IsFalling { get; private set; }
+
         public void SetFalling(bool falling)
         {
+            IsFalling = falling;
             if (_animator != null && _hasFalling)
                 _animator.SetBool(FallingHash, falling);
         }
@@ -203,13 +207,29 @@ namespace AICompanion.Avatar
                 return false;
 
             var hash = Animator.StringToHash(stateName);
-            var layer = _animator.HasState(AvatarAnimatorLayers.Gestures, hash) ? AvatarAnimatorLayers.Gestures : 0;
-            if (!_animator.HasState(layer, hash))
+
+            // Upper-body gestures win, then the full-body gesture layer, then the base layer.
+            var layer = -1;
+            if (_animator.HasState(AvatarAnimatorLayers.UpperBody, hash))
+                layer = AvatarAnimatorLayers.UpperBody;
+            else if (_animator.HasState(AvatarAnimatorLayers.Gestures, hash))
+                layer = AvatarAnimatorLayers.Gestures;
+            else if (_animator.HasState(0, hash))
+                layer = 0;
+
+            if (layer < 0)
                 return false;
 
-            _animator.CrossFade(hash, Mathf.Max(0f, crossfadeSeconds), layer, 0f);
+            if (layer != 0)
+            {
+                _lastGestureRequest = Time.unscaledTime;
+                _animator.SetLayerWeight(layer, 1f);
+            }
 
-            if (layer == AvatarAnimatorLayers.Gestures && stateName == AvatarAnimatorStates.Turn180)
+            _animator.CrossFade(hash, Mathf.Max(0f, crossfadeSeconds), layer, 0f);
+            Debug.Log("Gesture " + stateName + " on layer " + layer + " (weight " + _animator.GetLayerWeight(layer).ToString("0.00") + ")");
+
+            if (stateName == AvatarAnimatorStates.Turn180)
                 StartTurn();
 
             return true;
@@ -454,21 +474,47 @@ namespace AICompanion.Avatar
         /// so it keeps the last gesture pose unless its weight is released. Fade the weight
         /// to zero while Empty is active, which hands the body back to the base layer.
         /// </summary>
+        float _lastGestureRequest = -10f;
+
         void UpdateGestureLayerWeight()
         {
-            if (_animator == null || _animator.layerCount <= AvatarAnimatorLayers.Gestures)
+            ReleaseLayerWeight(AvatarAnimatorLayers.Gestures);
+            ReleaseLayerWeight(AvatarAnimatorLayers.UpperBody);
+        }
+
+        /// <summary>
+        /// Hands a layer back to the base layer once its Empty state is current, and fades it in
+        /// when a state takes over. Both the full-body and the upper-body gesture layers use it.
+        /// </summary>
+        void ReleaseLayerWeight(int layer)
+        {
+            if (_animator == null || _animator.layerCount <= layer)
                 return;
 
-            var info = _animator.GetCurrentAnimatorStateInfo(AvatarAnimatorLayers.Gestures);
-            var empty = info.IsName(AvatarAnimatorStates.Empty);
-            var current = _animator.GetLayerWeight(AvatarAnimatorLayers.Gestures);
-            var target = empty ? 0f : 1f;
-            if (Mathf.Abs(current - target) < 0.001f)
+            // Right after a request the layer must stay up even if the transition has not
+            // started yet, otherwise the weight race hides the whole gesture.
+            if (Time.unscaledTime - _lastGestureRequest < 0.6f)
+            {
+                if (_animator.GetLayerWeight(layer) < 0.999f)
+                    _animator.SetLayerWeight(layer, 1f);
+                return;
+            }
+
+            if (_animator.IsInTransition(layer))
                 return;
 
-            _animator.SetLayerWeight(
-                AvatarAnimatorLayers.Gestures,
-                Mathf.MoveTowards(current, target, Time.deltaTime * 6f));
+            var info = _animator.GetCurrentAnimatorStateInfo(layer);
+            var current = _animator.GetLayerWeight(layer);
+
+            if (info.IsName(AvatarAnimatorStates.Empty))
+            {
+                if (current > 0.001f)
+                    _animator.SetLayerWeight(layer, 0f);
+                return;
+            }
+
+            if (current < 0.999f)
+                _animator.SetLayerWeight(layer, Mathf.MoveTowards(current, 1f, Time.deltaTime * 8f));
         }
 
         void BindAnimator(GameObject instance)
