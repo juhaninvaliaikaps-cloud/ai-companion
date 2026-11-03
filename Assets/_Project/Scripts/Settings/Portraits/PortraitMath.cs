@@ -79,6 +79,37 @@ namespace AICompanion.Settings
         public const string SmileBlinkClosed = "smile_blink_closed";
         public const string SmileTalk = "smile_talk";
 
+        public const string ConcernedBlinkHalf = "concerned_blink_half";
+        public const string ConcernedBlinkClosed = "concerned_blink_closed";
+        public const string ConcernedTalk = "concerned_talk";
+        public const string EmbarrassedBlinkHalf = "embarrassed_blink_half";
+        public const string EmbarrassedBlinkClosed = "embarrassed_blink_closed";
+        public const string EmbarrassedTalk = "embarrassed_talk";
+        public const string ShyBlinkHalf = "shy_blink_half";
+        public const string ShyBlinkClosed = "shy_blink_closed";
+        public const string ShyTalk = "shy_talk";
+        public const string FlusteredBlinkHalf = "flustered_blink_half";
+        public const string FlusteredBlinkClosed = "flustered_blink_closed";
+        public const string FlusteredTalk = "flustered_talk";
+        public const string PoutyBlinkHalf = "pouty_blink_half";
+        public const string PoutyBlinkClosed = "pouty_blink_closed";
+        public const string PoutyTalk = "pouty_talk";
+        public const string SadBlinkHalf = "sad_blink_half";
+        public const string SadBlinkClosed = "sad_blink_closed";
+        public const string SadTalk = "sad_talk";
+        public const string SurprisedBlinkHalf = "surprised_blink_half";
+        public const string SurprisedBlinkClosed = "surprised_blink_closed";
+        public const string SurprisedTalk = "surprised_talk";
+        public const string ThinkingBlinkHalf = "thinking_blink_half";
+        public const string ThinkingBlinkClosed = "thinking_blink_closed";
+        public const string ThinkingTalk = "thinking_talk";
+        public const string ExcitedBlinkHalf = "excited_blink_half";
+        public const string ExcitedBlinkClosed = "excited_blink_closed";
+        public const string ExcitedTalk = "excited_talk";
+        public const string HappyBlinkHalf = "happy_blink_half";
+        public const string HappyBlinkClosed = "happy_blink_closed";
+        public const string HappyTalk = "happy_talk";
+
         static readonly char[] Separators = { '/', '\\', ':', '*', '?', '"', '<', '>', '|' };
 
         public static string Stem(string name)
