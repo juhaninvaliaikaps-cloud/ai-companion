@@ -154,6 +154,7 @@ namespace AICompanion.Editor.Avatars
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
             if (controller != null)
             {
+                PruneDeadParts(controller);
                 EnsureGestureLayer(controller, clips);
                 EnsureUpperBodyLayer(controller, clips);
                 EnsureBaseDefaults(controller);
@@ -204,38 +205,32 @@ namespace AICompanion.Editor.Avatars
             return changed;
         }
 
+                /// <summary>
+        /// The face-only controller: an Idle base state plus the gesture and upper-body layers.
+        /// Talking and emotions are blendshapes now, so their parameters are not required.
+        /// </summary>
         static bool ControllerLooksValid(AnimatorController controller)
         {
-            if (controller.layers == null || controller.layers.Length < 2)
+            var layers = controller.layers;
+            if (layers == null || layers.Length <= AvatarAnimatorLayers.UpperBody)
                 return false;
 
-            var talking = false;
-            var emotion = false;
-            var intensity = false;
-            var parameters = controller.parameters;
-            for (var i = 0; i < parameters.Length; i++)
+            var baseMachine = layers[0].stateMachine;
+            var states = baseMachine != null ? baseMachine.states : null;
+            if (states == null)
+                return false;
+
+            for (var i = 0; i < states.Length; i++)
             {
-                var parameter = parameters[i];
-                if (parameter.name == AvatarAnimatorParameters.Talking && parameter.type == AnimatorControllerParameterType.Bool)
-                    talking = true;
-                else if (parameter.name == AvatarAnimatorParameters.Emotion && parameter.type == AnimatorControllerParameterType.Int)
-                    emotion = true;
-                else if (parameter.name == AvatarAnimatorParameters.EmotionIntensity && parameter.type == AnimatorControllerParameterType.Float)
-                    intensity = true;
+                if (states[i].state != null && states[i].state.name == AvatarAnimatorStates.Idle)
+                {
+                    return layers[AvatarAnimatorLayers.Gestures].stateMachine != null
+                        && layers[AvatarAnimatorLayers.UpperBody].stateMachine != null
+                        && layers[AvatarAnimatorLayers.UpperBody].avatarMask != null;
+                }
             }
 
-            if (!talking || !emotion || !intensity)
-                return false;
-
-            var states = controller.layers[0].stateMachine.states;
-            if (states == null || states.Length < 5)
-                return false;
-
-            if (controller.layers.Length <= AvatarAnimatorLayers.Gestures)
-                return false;
-
-            var gestureStates = controller.layers[AvatarAnimatorLayers.Gestures].stateMachine.states;
-            return gestureStates != null && gestureStates.Length >= 7;
+            return false;
         }
 
         /// <summary>
@@ -533,6 +528,11 @@ namespace AICompanion.Editor.Avatars
             fromFall.canTransitionToSelf = false;
         }
 
+                /// <summary>
+        /// A fresh controller for the face-only design: one Idle base state, with the gesture and
+        /// upper-body layers added by the ensure passes. No talking or emotion parameters, because
+        /// the face and the portrait show those.
+        /// </summary>
         static void CreateController(AnimationClip[] clips)
         {
             var byName = new System.Collections.Generic.Dictionary<string, AnimationClip>();
@@ -540,56 +540,85 @@ namespace AICompanion.Editor.Avatars
                 byName[clips[i].name] = clips[i];
 
             var controller = AnimatorController.CreateAnimatorControllerAtPath(ControllerPath);
-            controller.AddParameter(AvatarAnimatorParameters.Talking, AnimatorControllerParameterType.Bool);
-            controller.AddParameter(AvatarAnimatorParameters.Emotion, AnimatorControllerParameterType.Int);
-            controller.AddParameter(AvatarAnimatorParameters.EmotionIntensity, AnimatorControllerParameterType.Float);
+            var baseMachine = controller.layers[0].stateMachine;
+            var idle = baseMachine.AddState(AvatarAnimatorStates.Idle);
+            idle.motion = byName["Idle"];
+            idle.writeDefaultValues = true;
+            baseMachine.defaultState = idle;
+        }
 
-            var parameters = controller.parameters;
-            for (var i = 0; i < parameters.Length; i++)
+        /// <summary>
+        /// Removes what the face-only design retired: the Talk layer, the body emotion states and
+        /// their parameters. Runs on an existing controller so old projects clean up in place.
+        /// </summary>
+        static bool PruneDeadParts(AnimatorController controller)
+        {
+            var changed = false;
+
+            var layers = controller.layers;
+            for (var i = layers.Length - 1; i >= 1; i--)
             {
-                if (parameters[i].name != AvatarAnimatorParameters.EmotionIntensity)
+                if (!string.Equals(layers[i].name, "Talk", System.StringComparison.Ordinal))
                     continue;
-                parameters[i].defaultFloat = 1f;
+
+                controller.RemoveLayer(i);
+                changed = true;
+                layers = controller.layers;
             }
 
-            controller.parameters = parameters;
+            var dead = new[]
+            {
+                AvatarAnimatorStates.Happy,
+                AvatarAnimatorStates.Sad,
+                AvatarAnimatorStates.Surprised,
+                AvatarAnimatorStates.Thinking,
+                AvatarAnimatorStates.Silent,
+            };
 
             var baseMachine = controller.layers[0].stateMachine;
-            AddEmotion(baseMachine, AvatarAnimatorStates.Idle, byName["Idle"], 0, true);
-            AddEmotion(baseMachine, AvatarAnimatorStates.Happy, byName["Happy"], 1, false);
-            AddEmotion(baseMachine, AvatarAnimatorStates.Sad, byName["Sad"], 2, false);
-            AddEmotion(baseMachine, AvatarAnimatorStates.Surprised, byName["Surprised"], 3, false);
-            AddEmotion(baseMachine, AvatarAnimatorStates.Thinking, byName["Thinking"], 4, false);
+            var states = baseMachine.states;
+            for (var i = states.Length - 1; i >= 0; i--)
+            {
+                var state = states[i].state;
+                if (state == null)
+                    continue;
 
-            controller.AddLayer("Talk");
-            var layers = controller.layers;
-            var talkLayer = layers[1];
-            talkLayer.blendingMode = AnimatorLayerBlendingMode.Additive;
-            talkLayer.defaultWeight = 1f;
-            layers[1] = talkLayer;
-            controller.layers = layers;
+                for (var d = 0; d < dead.Length; d++)
+                {
+                    if (state.name == dead[d])
+                    {
+                        baseMachine.RemoveState(state);
+                        changed = true;
+                        break;
+                    }
+                }
+            }
 
-            var talkMachine = controller.layers[1].stateMachine;
-            var silent = talkMachine.AddState(AvatarAnimatorStates.Silent);
-            silent.writeDefaultValues = false;
-            var talk = talkMachine.AddState(AvatarAnimatorStates.Talk);
-            talk.motion = byName["Talk"];
-            talk.writeDefaultValues = false;
-            talkMachine.defaultState = silent;
+            var obsolete = new[]
+            {
+                AvatarAnimatorParameters.Talking,
+                AvatarAnimatorParameters.Emotion,
+                AvatarAnimatorParameters.EmotionIntensity,
+            };
 
-            var toTalk = silent.AddTransition(talk);
-            toTalk.AddCondition(AnimatorConditionMode.If, 0f, AvatarAnimatorParameters.Talking);
-            toTalk.hasExitTime = false;
-            toTalk.hasFixedDuration = true;
-            toTalk.duration = 0.25f;
-            toTalk.canTransitionToSelf = false;
+            for (var p = controller.parameters.Length - 1; p >= 0; p--)
+            {
+                var name = controller.parameters[p].name;
+                for (var o = 0; o < obsolete.Length; o++)
+                {
+                    if (name == obsolete[o])
+                    {
+                        controller.RemoveParameter(p);
+                        changed = true;
+                        break;
+                    }
+                }
+            }
 
-            var toSilent = talk.AddTransition(silent);
-            toSilent.AddCondition(AnimatorConditionMode.IfNot, 0f, AvatarAnimatorParameters.Talking);
-            toSilent.hasExitTime = false;
-            toSilent.hasFixedDuration = true;
-            toSilent.duration = 0.25f;
-            toSilent.canTransitionToSelf = false;
+            if (changed)
+                EditorUtility.SetDirty(controller);
+
+            return changed;
         }
 
         static void AddEmotion(AnimatorStateMachine machine, string stateName, Motion motion, int emotionValue, bool defaultState)

@@ -98,35 +98,23 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void ControllerAsset_WiresIdleTalkAndEmotionClips()
+        public void ControllerAsset_IsFaceOnlyWithGestureLayers()
         {
             var root = Path.Combine(Application.dataPath, "_Project/Animations");
             var controller = File.ReadAllText(Path.Combine(root, "Companion.controller")).Replace("\r\n", "\n");
 
-            StringAssert.Contains("m_Name: Talking", controller);
-            StringAssert.Contains("m_Name: EmotionIntensity", controller);
+            // The face-only design retired these; a body emotion or Talk layer coming back would
+            // reintroduce the floating and swimming poses.
+            Assert.IsFalse(controller.Contains("m_Name: Talking"), "The Talking parameter should be gone.");
+            Assert.IsFalse(controller.Contains("m_Name: EmotionIntensity"), "The emotion parameters should be gone.");
+            Assert.IsFalse(controller.Contains("m_Name: Silent"), "The Talk layer should be gone.");
+
             StringAssert.Contains("m_Name: Idle", controller);
-            StringAssert.Contains("m_Name: Happy", controller);
-            StringAssert.Contains("m_Name: Sad", controller);
-            StringAssert.Contains("m_Name: Surprised", controller);
-            StringAssert.Contains("m_Name: Thinking", controller);
-            StringAssert.Contains("m_Name: Silent", controller);
-            StringAssert.Contains("m_Name: Talk\n  m_Speed: 1", controller);
-            StringAssert.Contains("m_DefaultState: {fileID: 110200001}", controller);
-            StringAssert.Contains("m_TransitionDuration: 0.3", controller);
-            StringAssert.Contains("m_HasExitTime: 0", controller);
-            StringAssert.Contains("m_BlendingMode: 1", controller);
-            StringAssert.Contains("m_DefaultWeight: 1", controller);
-            // Base emotion states must write every muscle so a walk or fall pose cannot leak
-            // into a mood. AnimatorBakeTests checks every state; this keeps the asset honest.
-            StringAssert.Contains("m_WriteDefaultValues: 1", controller);
 
             Assert.IsTrue(controller.Contains(MetaGuid(Path.Combine(root, "Idle.anim"))));
-            Assert.IsTrue(controller.Contains(MetaGuid(Path.Combine(root, "Talk.anim"))));
-            Assert.IsTrue(controller.Contains(MetaGuid(Path.Combine(root, "Happy.anim"))));
-            Assert.IsTrue(controller.Contains(MetaGuid(Path.Combine(root, "Sad.anim"))));
-            Assert.IsTrue(controller.Contains(MetaGuid(Path.Combine(root, "Surprised.anim"))));
-            Assert.IsTrue(controller.Contains(MetaGuid(Path.Combine(root, "Thinking.anim"))));
+            Assert.IsTrue(controller.Contains(MetaGuid(Path.Combine(root, "Wave.anim"))));
+            Assert.IsTrue(controller.Contains(MetaGuid(Path.Combine(root, "Walk.anim"))));
+            Assert.IsTrue(controller.Contains(MetaGuid(Path.Combine(root, "Fall.anim"))));
 
             var idle = File.ReadAllText(Path.Combine(root, "Idle.anim"));
             StringAssert.Contains("m_LoopTime: 1", idle);

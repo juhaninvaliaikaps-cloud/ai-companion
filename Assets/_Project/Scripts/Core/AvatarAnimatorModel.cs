@@ -22,11 +22,10 @@ namespace AICompanion.Core
     public static class AvatarAnimatorLayers
     {
         public const int Base = 0;
-        public const int Talk = 1;
-        public const int Gestures = 2;
+        public const int Gestures = 1;
 
         /// <summary>Upper-body gestures on their own masked layer, so they can run over Walk.</summary>
-        public const int UpperBody = 3;
+        public const int UpperBody = 2;
     }
 
     /// <summary>
