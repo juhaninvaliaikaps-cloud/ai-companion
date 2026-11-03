@@ -255,8 +255,13 @@ namespace AICompanion.Tests.EditMode
                 StringAssert.Contains("<animation emotion=\"happy\" intensity=\"0.8\" gesture=\"wave_hello\" />", prompt);
                 StringAssert.Contains("End every reply with one cue tag on its own line", prompt);
                 StringAssert.Contains("Leave the gesture attribute out for an emotion only", prompt);
+                StringAssert.Contains("Walk to the left is <animation emotion=\"neutral\" gesture=\"walk\" direction=\"left\" />", prompt);
+                StringAssert.Contains("direction=\"right\"", prompt);
+                StringAssert.Contains("set gesture to stop", prompt);
                 StringAssert.Contains("- wave_hello:", prompt);
                 StringAssert.Contains("- happy:", prompt);
+                StringAssert.Contains("walk along the desktop when asked to walk", prompt);
+                StringAssert.Contains("gesture: stop", prompt);
             }
             finally
             {

@@ -88,7 +88,7 @@ Transparency, topmost, drag, and click-through are properties of the Windows pla
 The overlay window follows the monitor work area: the top of the taskbar is the ground, and a work-area change (taskbar moved, monitor switched) is re-read every frame through IWindowChrome.TryGetWorkArea.
 
 - Dragging pauses the motion. When the button is released the window stays where the pointer left it, then falls from there to the ground with a short acceleration and no bounce.
-- While idle on the ground she pauses for a few seconds, walks left or right for a few seconds, stops, and repeats. Edges clamp: at the left or right work-area edge she stops instead of leaving the screen.
+- While idle on the ground she stands still. She walks only when a reply's cue asks her to (`gesture="walk"`, optional `direction="left"` or `direction="right"`), and she stops for `gesture="stop"`. Edges clamp: at the left or right work-area edge she stops instead of leaving the screen. A walk logs `Walk: request received dir=-1 secs=4` (1 is right). If the presence is missing, the log is `Walk: no IWalkRequest found`.
 - Walking and falling raise the overlay to the active frame rate through IOverlayKeepAwake; once she is idle on the ground it drops back to the idle rate.
 - The motion is screen-space arithmetic in DesktopPresenceModel with no Rigidbody, so any avatar works and nothing depends on root motion.
 

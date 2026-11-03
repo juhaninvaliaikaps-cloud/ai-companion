@@ -1,3 +1,4 @@
+using System.Globalization;
 using AICompanion.Core;
 using UnityEngine;
 
@@ -5,12 +6,12 @@ namespace AICompanion.Overlay
 {
     /// <summary>
     /// Moves the overlay window like a small physical thing on the desktop: it falls to
-    /// the taskbar after a drag, walks left and right along it, turns at the edges, and
-    /// wanders while idle. The arithmetic lives in <see cref="DesktopPresenceModel"/>.
+    /// the taskbar after a drag, and walks left or right when <see cref="IWalkRequest"/>
+    /// asks. The arithmetic lives in <see cref="DesktopPresenceModel"/>.
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(220)]
-    public sealed class DesktopPresence : MonoBehaviour, IOverlayKeepAwake
+    public sealed class DesktopPresence : MonoBehaviour, IOverlayKeepAwake, IWalkRequest
     {
         [SerializeField] float walkSpeed = DesktopPresenceModel.DefaultWalkSpeed;
         [SerializeField] float gravity = DesktopPresenceModel.DefaultGravity;
@@ -37,28 +38,46 @@ namespace AICompanion.Overlay
         /// <summary>Walks for a bounded time, asked by the animation director.</summary>
         public void RequestWalk(float direction, float seconds)
         {
-            if (_model == null)
+            var dir = direction < 0f ? -1 : 1;
+            Debug.Log(
+                "Walk: request received dir=" + dir.ToString(CultureInfo.InvariantCulture)
+                + " secs=" + seconds.ToString("0.##", CultureInfo.InvariantCulture));
+
+            // The model does not exist until the first motion step, and a fall in
+            // progress ignores the request. Keep it until she is standing.
+            if (_model == null || _model.State == PresenceState.Falling)
             {
-                _pendingDirection = direction;
+                _pendingDirection = dir;
                 _pendingSeconds = seconds;
                 _hasPendingWalk = true;
                 _pendingStop = false;
                 return;
             }
 
-            _model.RequestWalk(direction, seconds);
+            _hasPendingWalk = false;
+            _pendingStop = false;
+            _model.RequestWalk(dir, seconds);
         }
 
         public void RequestStop()
         {
-            if (_model == null)
+            if (_model == null || _model.State == PresenceState.Falling)
             {
                 _pendingStop = true;
                 _hasPendingWalk = false;
                 return;
             }
 
+            _pendingStop = false;
             _model.RequestStop();
+        }
+
+        void TryApplyPending()
+        {
+            if (_model == null || _model.State == PresenceState.Falling)
+                return;
+
+            ApplyPendingWalk();
         }
 
         void ApplyPendingWalk()
@@ -120,25 +139,59 @@ namespace AICompanion.Overlay
             if (!chrome.TryGetWorkArea(out var areaLeft, out var areaTop, out var areaRight, out var areaBottom))
                 return;
 
+            var frame = Advance(
+                Time.unscaledDeltaTime,
+                left,
+                top,
+                right,
+                bottom,
+                areaLeft,
+                areaTop,
+                areaRight,
+                areaBottom,
+                _window.IsDragging);
+            if (frame.Moved)
+                chrome.MoveWindow(new Vector2Int(frame.X, frame.Y), _window.IsTopmost);
+        }
+
+        /// <summary>
+        /// One motion step once a window rect and a work area are known. LateUpdate
+        /// reads those from the Windows chrome. Tests pass the same numbers, because
+        /// the editor chrome cannot move a window.
+        /// </summary>
+        public PresenceFrame Advance(
+            float deltaSeconds,
+            int left,
+            int top,
+            int right,
+            int bottom,
+            int areaLeft,
+            int areaTop,
+            int areaRight,
+            int areaBottom,
+            bool dragging)
+        {
             var width = Mathf.Max(1, right - left);
             var height = Mathf.Max(1, bottom - top);
 
             if (_model == null)
-            {
                 _model = new DesktopPresenceModel(width, height, seed, walkSpeed, gravity, wanderByIdle: false);
-                ApplyPendingWalk();
-            }
             else
                 _model.SetWindowSize(width, height);
 
             _model.SetWorkArea(new DesktopWorkArea(areaLeft, areaTop, areaRight, areaBottom));
 
-            if (_window.IsDragging)
+            if (dragging)
             {
                 _model.PlaceAt(left, top);
                 _wasDragging = true;
                 ApplyLocomotion(false, false, true);
-                return;
+                return new PresenceFrame(
+                    Mathf.RoundToInt(_model.X),
+                    Mathf.RoundToInt(_model.Y),
+                    _model.State,
+                    _model.FacingRight,
+                    false);
             }
 
             if (_wasDragging)
@@ -148,11 +201,13 @@ namespace AICompanion.Overlay
                 _model.Drop();
             }
 
-            var frame = _model.Tick(Time.unscaledDeltaTime);
-            if (frame.Moved)
-                chrome.MoveWindow(new Vector2Int(frame.X, frame.Y), _window.IsTopmost);
+            // SetWorkArea turns an in-air window into a fall and would drop a walk
+            // that was applied a line earlier. Apply only once she is not falling.
+            TryApplyPending();
 
+            var frame = _model.Tick(deltaSeconds);
             ApplyLocomotion(frame.Walking, frame.Falling, frame.FacingRight);
+            return frame;
         }
 
         void ApplyLocomotion(bool walking, bool falling, bool facingRight)

@@ -134,7 +134,7 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: cbb75233dfc1463428d54216ae542886, type: 2}
     durationSeconds: 1.4
   - id: walk
-    description: walking loop on the spot
+    description: walk along the desktop when asked to walk, move, come here, or go left or right
     tags:
     - locomotion
     - loop
@@ -158,14 +158,14 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: 65600ade8e3454e469fec84e305bd4e6, type: 2}
     durationSeconds: 0.9
   - id: stop
-    description: stand still and stop wandering
+    description: stop and stand still when asked to stop, wait, or stay
     tags:
     - movement
     - still
     emotion: 0
     intensity: 0.3
     portrait: 
-    gesture: 
+    gesture: stop
     animatorState: 
     clip: {fileID: 0}
     durationSeconds: 1

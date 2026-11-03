@@ -139,6 +139,60 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(CueParseStatus.Parsed, result.Status);
             Assert.AreEqual(Emotion.Sad, result.Cue.Emotion);
             Assert.AreEqual("shrug", result.Cue.Gesture);
+            Assert.AreEqual(0f, result.Cue.Direction, 0.0001f);
+        }
+
+        [Test]
+        public void Parse_WalkLeft_ReadsDirectionAndKeepsTheWalkToken()
+        {
+            var result = AnimationCueParser.Parse(
+                "On my way.\n<animation emotion=\"neutral\" gesture=\"Walk\" direction=\"Left\" />");
+
+            Assert.AreEqual("On my way.", result.Text);
+            Assert.AreEqual(CueParseStatus.Parsed, result.Status);
+            Assert.AreEqual("walk", result.Cue.Gesture);
+            Assert.AreEqual(-1f, result.Cue.Direction, 0.0001f);
+        }
+
+        [Test]
+        public void Parse_WalkRight_ReadsDirection()
+        {
+            var result = AnimationCueParser.Parse(
+                "Okay.\n<animation emotion=\"neutral\" gesture=\"walk\" direction=\"right\" />");
+
+            Assert.AreEqual("walk", result.Cue.Gesture);
+            Assert.AreEqual(1f, result.Cue.Direction, 0.0001f);
+        }
+
+        [Test]
+        public void Parse_WalkLeftAlias_FillsDirectionWhenTheAttributeIsMissing()
+        {
+            var result = AnimationCueParser.Parse("Sure.\n<animation emotion=\"neutral\" gesture=\"walk_left\" />");
+
+            Assert.AreEqual(CueParseStatus.Parsed, result.Status);
+            Assert.AreEqual("walk", result.Cue.Gesture);
+            Assert.AreEqual(-1f, result.Cue.Direction, 0.0001f);
+        }
+
+        [Test]
+        public void Parse_ExplicitDirectionWinsOverTheGestureAlias()
+        {
+            var result = AnimationCueParser.Parse(
+                "Sure.\n<animation emotion=\"neutral\" gesture=\"walk_left\" direction=\"right\" />");
+
+            Assert.AreEqual("walk", result.Cue.Gesture);
+            Assert.AreEqual(1f, result.Cue.Direction, 0.0001f);
+        }
+
+        [Test]
+        public void Parse_WalkingAndStopAliases_BecomeTheDirectorTokens()
+        {
+            var walking = AnimationCueParser.Parse("Going.\n<animation emotion=\"neutral\" gesture=\"walking\" />");
+            var stop = AnimationCueParser.Parse("Okay.\n<animation emotion=\"neutral\" gesture=\"STOP\" />");
+
+            Assert.AreEqual("walk", walking.Cue.Gesture);
+            Assert.AreEqual(0f, walking.Cue.Direction, 0.0001f);
+            Assert.AreEqual("stop", stop.Cue.Gesture);
         }
     }
 }

@@ -116,6 +116,9 @@ namespace AICompanion.Tests.EditMode
 
             Assert.IsTrue(catalog.TryGetByGesture("walk", out AnimationEntry walk));
             Assert.AreEqual("Walk", walk.animatorState);
+            StringAssert.Contains("walk along the desktop", walk.description);
+            Assert.IsTrue(catalog.TryGetByGesture("stop", out AnimationEntry stop));
+            Assert.AreEqual("stop", stop.id);
             Assert.IsTrue(catalog.TryGetByGesture("turn", out AnimationEntry turn));
             Assert.AreEqual("Turn180", turn.animatorState);
         }
