@@ -524,14 +524,10 @@ namespace AICompanion.Avatar
             if (_animator == null)
                 return;
 
-            if (_hasTalking)
-                // Talking is a face-only performance now: the mouth follows lip sync while the
-            // body keeps whatever it is doing, walking and gestures included. The controller no
-            // longer writes the Talking parameter, so the old Talk body state never plays.
-            if (_hasEmotion)
-                _animator.SetInteger(EmotionHash, (int)_model.Emotion);
-            if (_hasIntensity)
-                _animator.SetFloat(IntensityHash, _model.EmotionIntensity);
+            // Talking and emotions are face-only performances. Writing the Emotion parameter
+            // switched the base layer to a body clip, and that is where the floating and the
+            // swimming arms came from. The face and the portrait show the emotion; the body
+            // stays in Idle, in Walk, or in whatever the gesture layer is playing.
         }
 
         static ShapeBinding[] BindShapes(GameObject instance, AvatarDescriptor descriptor)
