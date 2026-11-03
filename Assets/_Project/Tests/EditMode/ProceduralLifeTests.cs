@@ -107,7 +107,8 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(ExpressionPreset.Blink, ExpressionPresetMap.Classify("EyeClose"));
             Assert.AreEqual(ExpressionPreset.Blink, ExpressionPresetMap.Classify("Fcl_EYE_Close"));
             Assert.AreEqual(ExpressionPreset.Blink, ExpressionPresetMap.Classify("eyeBlinkLeft"));
-            Assert.AreEqual(ExpressionPreset.None, ExpressionPresetMap.Classify("eyeLookDownLeft"));
+            Assert.AreEqual(ExpressionPreset.EyeLookDown, ExpressionPresetMap.Classify("eyeLookDownLeft"));
+            Assert.IsFalse(BlinkShapeSelection.IsBlinkName("eyeLookDownLeft"));
 
             var none = BlinkShapeSelection.Collect(new[] { "jawOpen", "mouthSmile" }, null);
             Assert.AreEqual(0, none.Length);
@@ -120,12 +121,18 @@ namespace AICompanion.Tests.EditMode
         {
             var thinking = EmotionFace.EmotionPose(Emotion.Thinking, 1f);
             var held = EmotionFace.ApplyProceduralBlink(thinking, 0f);
-            Assert.AreEqual(0.15f, held.Blink, 0.0001f);
-            Assert.AreEqual(thinking.Ih, held.Ih, 0.0001f);
+            Assert.AreEqual(thinking.Blink, held.Blink, 0.0001f);
+            Assert.AreEqual(thinking.Ou, held.Ou, 0.0001f);
+            Assert.AreEqual(thinking.MouthPress, held.MouthPress, 0.0001f);
 
             var closed = EmotionFace.ApplyProceduralBlink(thinking, 1f);
             Assert.AreEqual(1f, closed.Blink, 0.0001f);
-            Assert.AreEqual(thinking.Ih, closed.Ih, 0.0001f);
+            Assert.AreEqual(thinking.Ou, closed.Ou, 0.0001f);
+
+            var sad = EmotionFace.EmotionPose(Emotion.Sad, 1f);
+            var sadHeld = EmotionFace.ApplyProceduralBlink(sad, 0f);
+            Assert.AreEqual(0.12f, sadHeld.Blink, 0.0001f);
+            Assert.AreEqual(sad.Sorrow, sadHeld.Sorrow, 0.0001f);
 
             var happy = EmotionFace.EmotionPose(Emotion.Happy, 1f);
             happy.Aa = 0.4f;

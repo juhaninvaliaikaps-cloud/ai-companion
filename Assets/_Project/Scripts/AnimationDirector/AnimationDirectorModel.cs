@@ -190,7 +190,7 @@ namespace AICompanion.AnimationDirector
                             entry.emotion,
                             entry.intensity,
                             entry.id,
-                            portrait: entry.portrait,
+                            portrait: PortraitOf(entry.portrait, cue),
                             durationSeconds: entry.durationSeconds,
                             priority: entry.priority);
                     }
@@ -202,7 +202,7 @@ namespace AICompanion.AnimationDirector
                         entry.intensity,
                         entry.id,
                         entry.HasGesture,
-                        entry.portrait,
+                        PortraitOf(entry.portrait, cue),
                         entry.durationSeconds,
                         entry.priority);
                 }
@@ -210,12 +210,30 @@ namespace AICompanion.AnimationDirector
                 return Neutral();
             }
 
-            if (cue.Emotion == Emotion.Neutral)
+            var portrait = EmotionNames.PortraitAlias(cue.EmotionField);
+            if (cue.Emotion == Emotion.Neutral && portrait.Length == 0)
             {
                 return Neutral();
             }
 
-            return new DirectorDecision(DirectorAction.Emotion, string.Empty, cue.Emotion, cue.Intensity, string.Empty);
+            return new DirectorDecision(
+                DirectorAction.Emotion,
+                string.Empty,
+                cue.Emotion,
+                cue.Intensity,
+                string.Empty,
+                portrait: portrait);
+        }
+
+        /// <summary>
+        /// The catalog portrait wins. A raw word such as pouty or sleepy fills one in
+        /// when the row did not name a still.
+        /// </summary>
+        static string PortraitOf(string catalogPortrait, AnimationCue cue)
+        {
+            if (!string.IsNullOrWhiteSpace(catalogPortrait))
+                return catalogPortrait;
+            return EmotionNames.PortraitAlias(cue.EmotionField);
         }
 
         public static DirectorDecision Neutral()

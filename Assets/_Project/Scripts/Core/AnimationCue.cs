@@ -15,12 +15,16 @@ namespace AICompanion.Core
         public string Gesture { get; }
         public float Direction { get; }
 
-        public AnimationCue(Emotion emotion, float intensity, string gesture, float direction = 0f)
+        /// <summary>The emotion attribute text, trimmed, before aliasing. Empty when the tag omitted it.</summary>
+        public string EmotionField { get; }
+
+        public AnimationCue(Emotion emotion, float intensity, string gesture, float direction = 0f, string emotionField = null)
         {
             Emotion = emotion;
             Intensity = ClampIntensity(intensity);
             Gesture = gesture ?? string.Empty;
             Direction = NormalizeDirection(direction);
+            EmotionField = EmotionNames.SanitizeField(emotionField);
         }
 
         /// <summary>-1 left, +1 right, 0 when the side was not named or the value is not a number.</summary>

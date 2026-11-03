@@ -305,11 +305,13 @@ namespace AICompanion.Tests.EditMode
 
             Assert.AreEqual(1f, mixed.Surprised, 0.0001f);
             Assert.AreEqual(0f, mixed.Joy, 0.0001f);
-            Assert.AreEqual(0.33f, mixed.Aa, 0.0001f);
+            Assert.AreEqual(0.304f, mixed.Aa, 0.0001f);
             Assert.AreEqual(0f, mixed.Ih, 0.0001f);
-            Assert.AreEqual(0.156f, mixed.Oh, 0.0001f);
-            Assert.LessOrEqual(mixed.Aa, surprised.Aa);
-            Assert.LessOrEqual(mixed.Oh, surprised.Oh);
+            Assert.AreEqual(0.116f, mixed.Oh, 0.0001f);
+            Assert.AreEqual(surprised.EyeWide, mixed.EyeWide, 0.0001f);
+            Assert.AreEqual(surprised.BrowInnerUp, mixed.BrowInnerUp, 0.0001f);
+            Assert.AreEqual(surprised.BrowOuterUp, mixed.BrowOuterUp, 0.0001f);
+            Assert.AreEqual(surprised.BrowSide, mixed.BrowSide, 0.0001f);
 
             var unchanged = EmotionFace.OverrideMouth(surprised, speech, 0f);
             Assert.AreEqual(surprised.Aa, unchanged.Aa, 0.0001f);
@@ -323,7 +325,8 @@ namespace AICompanion.Tests.EditMode
 
             var early = EmotionFace.OverrideMouth(thinking, new MouthWeights { A = 0.02f }, 0.2f);
             Assert.AreEqual(0.004f, early.Aa, 0.0001f);
-            Assert.AreEqual(0.28f, early.Ih, 0.0001f);
+            Assert.AreEqual(0.36f, early.Ou, 0.0001f);
+            Assert.AreEqual(thinking.MouthPress, early.MouthPress, 0.0001f);
 
             var happy = EmotionFace.EmotionPose(Emotion.Happy, 1f);
             var talking = EmotionFace.OverrideMouth(happy, new MouthWeights { A = 0.35f }, 1f);

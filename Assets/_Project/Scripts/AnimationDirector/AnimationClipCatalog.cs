@@ -144,6 +144,11 @@ namespace AICompanion.AnimationDirector
                 }
 
                 builder.Append("; emotion: ").Append(entry.emotion.ToString().ToLowerInvariant());
+                if (!string.IsNullOrWhiteSpace(entry.portrait))
+                {
+                    builder.Append("; face: ").Append(entry.portrait.Trim());
+                }
+
                 string tags = JoinTags(entry.tags);
                 if (tags.Length > 0)
                 {

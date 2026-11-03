@@ -55,6 +55,8 @@ namespace AICompanion.Avatar
                 case UniVRM10.ExpressionPreset.angry: return ExpressionPreset.Angry;
                 case UniVRM10.ExpressionPreset.sad: return ExpressionPreset.Sorrow;
                 case UniVRM10.ExpressionPreset.relaxed: return ExpressionPreset.Fun;
+                case UniVRM10.ExpressionPreset.surprised: return ExpressionPreset.Surprised;
+                case UniVRM10.ExpressionPreset.lookDown: return ExpressionPreset.EyeLookDown;
                 default: return ExpressionPreset.None;
             }
         }

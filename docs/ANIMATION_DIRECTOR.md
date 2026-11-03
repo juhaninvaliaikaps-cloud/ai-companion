@@ -14,7 +14,7 @@ That sounds fun. Let's go!
 
 | Attribute | Meaning | Default |
 | --- | --- | --- |
-| `emotion` | One of `neutral`, `happy`, `sad`, `surprised`, `thinking`. Unknown values make the cue invalid. | `neutral` |
+| `emotion` | One of `neutral`, `happy`, `sad`, `surprised`, `thinking`, `embarrassed`, `shy`, `flustered`, `concerned`. `worried` is `concerned`. `angry`, `pout`, and `pouty` are `sad` and keep the pouty still. `excited`, `teasing`, and `loving` are `happy` and keep that still. `sleepy` and `tired` are `neutral` and keep the sleepy still. Any other unknown value makes the cue invalid. The raw attribute is logged as `Cue emotion: <field>` before it is interpreted. | `neutral` |
 | `intensity` | 0 to 1. Clamped by `AnimationCue`. | `0.6` |
 | `gesture` | A catalog id (`wave_hello`) or that row's gesture name (`wave`). The director tries the id first. An unknown value is still parsed; the director then plays neutral. `walk` and `stop` are not clips: they ask the desktop presence to move or stand. | none |
 | `direction` | `left` or `right`, only meaningful with `gesture="walk"`. Omitted means she picks a side. `walk_left` / `walk_right` fill the same side when the attribute is missing. | none |

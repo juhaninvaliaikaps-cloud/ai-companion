@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using AICompanion.Core;
 
 namespace AICompanion.Avatar
@@ -20,6 +21,16 @@ namespace AICompanion.Avatar
         public float Sorrow;
         public float Fun;
         public float Surprised;
+        public float EyeSquint;
+        public float BrowInnerUp;
+        public float BrowOuterUp;
+        public float EyeWide;
+        public float EyeLookDown;
+        public float EyeLookUp;
+        public float EyeLookSide;
+        public float MouthPress;
+        public float BrowSide;
+        public float Blush;
 
         public float Get(ExpressionPreset preset)
         {
@@ -47,9 +58,127 @@ namespace AICompanion.Avatar
                     return Fun;
                 case ExpressionPreset.Surprised:
                     return Surprised;
+                case ExpressionPreset.EyeSquint:
+                    return EyeSquint;
+                case ExpressionPreset.BrowInnerUp:
+                    return BrowInnerUp;
+                case ExpressionPreset.BrowOuterUp:
+                    return BrowOuterUp;
+                case ExpressionPreset.EyeWide:
+                    return EyeWide;
+                case ExpressionPreset.EyeLookDown:
+                    return EyeLookDown;
+                case ExpressionPreset.EyeLookUp:
+                    return EyeLookUp;
+                case ExpressionPreset.EyeLookSide:
+                    return EyeLookSide;
+                case ExpressionPreset.MouthPress:
+                    return MouthPress;
+                case ExpressionPreset.BrowSide:
+                    return BrowSide;
+                case ExpressionPreset.Blush:
+                    return Blush;
                 default:
                     return 0f;
             }
+        }
+
+        public void Set(ExpressionPreset preset, float value)
+        {
+            switch (preset)
+            {
+                case ExpressionPreset.Aa:
+                    Aa = value;
+                    break;
+                case ExpressionPreset.Ih:
+                    Ih = value;
+                    break;
+                case ExpressionPreset.Ou:
+                    Ou = value;
+                    break;
+                case ExpressionPreset.Ee:
+                    Ee = value;
+                    break;
+                case ExpressionPreset.Oh:
+                    Oh = value;
+                    break;
+                case ExpressionPreset.Blink:
+                    Blink = value;
+                    break;
+                case ExpressionPreset.Joy:
+                    Joy = value;
+                    break;
+                case ExpressionPreset.Angry:
+                    Angry = value;
+                    break;
+                case ExpressionPreset.Sorrow:
+                    Sorrow = value;
+                    break;
+                case ExpressionPreset.Fun:
+                    Fun = value;
+                    break;
+                case ExpressionPreset.Surprised:
+                    Surprised = value;
+                    break;
+                case ExpressionPreset.EyeSquint:
+                    EyeSquint = value;
+                    break;
+                case ExpressionPreset.BrowInnerUp:
+                    BrowInnerUp = value;
+                    break;
+                case ExpressionPreset.BrowOuterUp:
+                    BrowOuterUp = value;
+                    break;
+                case ExpressionPreset.EyeWide:
+                    EyeWide = value;
+                    break;
+                case ExpressionPreset.EyeLookDown:
+                    EyeLookDown = value;
+                    break;
+                case ExpressionPreset.EyeLookUp:
+                    EyeLookUp = value;
+                    break;
+                case ExpressionPreset.EyeLookSide:
+                    EyeLookSide = value;
+                    break;
+                case ExpressionPreset.MouthPress:
+                    MouthPress = value;
+                    break;
+                case ExpressionPreset.BrowSide:
+                    BrowSide = value;
+                    break;
+                case ExpressionPreset.Blush:
+                    Blush = value;
+                    break;
+            }
+        }
+
+        public FacePose Scale(float scale)
+        {
+            return new FacePose
+            {
+                Aa = Aa * scale,
+                Ih = Ih * scale,
+                Ou = Ou * scale,
+                Ee = Ee * scale,
+                Oh = Oh * scale,
+                Blink = Blink * scale,
+                Joy = Joy * scale,
+                Angry = Angry * scale,
+                Sorrow = Sorrow * scale,
+                Fun = Fun * scale,
+                Surprised = Surprised * scale,
+                EyeSquint = EyeSquint * scale,
+                BrowInnerUp = BrowInnerUp * scale,
+                BrowOuterUp = BrowOuterUp * scale,
+                EyeWide = EyeWide * scale,
+                EyeLookDown = EyeLookDown * scale,
+                EyeLookUp = EyeLookUp * scale,
+                EyeLookSide = EyeLookSide * scale,
+                MouthPress = MouthPress * scale,
+                BrowSide = BrowSide * scale,
+                Blush = Blush * scale
+            };
         }
 
         public float UnityWeight(ExpressionPreset preset)
@@ -90,37 +219,18 @@ namespace AICompanion.Avatar
 
         public static FacePose EmotionPose(Emotion emotion, float intensity)
         {
-            var scale = AnimationCue.ClampIntensity(intensity);
-            switch (emotion)
-            {
-                case Emotion.Happy:
-                    return new FacePose
-                    {
-                        Joy = scale,
-                        Fun = 0.22f * scale
-                    };
-                case Emotion.Sad:
-                    return new FacePose
-                    {
-                        Sorrow = 0.9f * scale,
-                        Angry = 0.5f * scale
-                    };
-                case Emotion.Surprised:
-                    return new FacePose
-                    {
-                        Surprised = scale,
-                        Aa = 0.45f * scale,
-                        Oh = 0.3f * scale
-                    };
-                case Emotion.Thinking:
-                    return new FacePose
-                    {
-                        Ih = 0.35f * scale,
-                        Blink = 0.15f * scale
-                    };
-                default:
-                    return default;
-            }
+            return ExpressionPresetLibrary.Active.Get(emotion).Scale(AnimationCue.ClampIntensity(intensity));
+        }
+
+        /// <summary>
+        /// Blush for an emotion. <paramref name="enabled"/> is the global switch
+        /// (<see cref="BlushSettings.Enabled"/>). False always returns 0.
+        /// </summary>
+        public static float BlushAmount(Emotion emotion, float intensity, bool enabled)
+        {
+            if (!enabled)
+                return 0f;
+            return EmotionPose(emotion, intensity).Blush;
         }
 
         public static FacePose TalkPose(float timeSeconds, float amount)
@@ -179,7 +289,17 @@ namespace AICompanion.Avatar
                 Angry = pose.Angry,
                 Sorrow = pose.Sorrow,
                 Fun = pose.Fun,
-                Surprised = pose.Surprised
+                Surprised = pose.Surprised,
+                EyeSquint = pose.EyeSquint,
+                BrowInnerUp = pose.BrowInnerUp,
+                BrowOuterUp = pose.BrowOuterUp,
+                EyeWide = pose.EyeWide,
+                EyeLookDown = pose.EyeLookDown,
+                EyeLookUp = pose.EyeLookUp,
+                EyeLookSide = pose.EyeLookSide,
+                MouthPress = pose.MouthPress,
+                BrowSide = pose.BrowSide,
+                Blush = pose.Blush
             };
         }
 
@@ -200,6 +320,36 @@ namespace AICompanion.Avatar
             return pose;
         }
 
+        /// <summary>
+        /// A mesh with no whole-face Surprised shape still gets wide eyes, raised brows,
+        /// and a slightly open jaw. A mesh with no Fun shape adds that weight to the squint.
+        /// Channels the mesh does have are left on their own shapes.
+        /// </summary>
+        public static FacePose ProjectOnto(FacePose pose, ICollection<ExpressionPreset> bound)
+        {
+            var hasSurprised = bound != null && bound.Contains(ExpressionPreset.Surprised);
+            if (!hasSurprised && pose.Surprised > 0f)
+            {
+                pose.EyeWide = Max01(pose.EyeWide, pose.Surprised);
+                pose.BrowInnerUp = Max01(pose.BrowInnerUp, pose.Surprised);
+                pose.BrowOuterUp = Max01(pose.BrowOuterUp, pose.Surprised);
+                pose.BrowSide = Max01(pose.BrowSide, pose.Surprised);
+                var jaw = pose.Surprised * 0.32f;
+                if (pose.Aa < jaw)
+                    pose.Aa = jaw;
+                pose.Surprised = 0f;
+            }
+
+            var hasFun = bound != null && bound.Contains(ExpressionPreset.Fun);
+            if (!hasFun && pose.Fun > 0f)
+            {
+                pose.EyeSquint = Clamp01(pose.EyeSquint + pose.Fun);
+                pose.Fun = 0f;
+            }
+
+            return pose;
+        }
+
         public static FacePose Combine(FacePose emotion, FacePose talk)
         {
             return new FacePose
@@ -214,7 +364,17 @@ namespace AICompanion.Avatar
                 Angry = Clamp01(emotion.Angry + talk.Angry),
                 Sorrow = Clamp01(emotion.Sorrow + talk.Sorrow),
                 Fun = Clamp01(emotion.Fun + talk.Fun),
-                Surprised = Clamp01(emotion.Surprised + talk.Surprised)
+                Surprised = Clamp01(emotion.Surprised + talk.Surprised),
+                EyeSquint = Clamp01(emotion.EyeSquint + talk.EyeSquint),
+                BrowInnerUp = Clamp01(emotion.BrowInnerUp + talk.BrowInnerUp),
+                BrowOuterUp = Clamp01(emotion.BrowOuterUp + talk.BrowOuterUp),
+                EyeWide = Clamp01(emotion.EyeWide + talk.EyeWide),
+                EyeLookDown = Clamp01(emotion.EyeLookDown + talk.EyeLookDown),
+                EyeLookUp = Clamp01(emotion.EyeLookUp + talk.EyeLookUp),
+                EyeLookSide = Clamp01(emotion.EyeLookSide + talk.EyeLookSide),
+                MouthPress = Clamp01(emotion.MouthPress + talk.MouthPress),
+                BrowSide = Clamp01(emotion.BrowSide + talk.BrowSide),
+                Blush = Clamp01(emotion.Blush + talk.Blush)
             };
         }
 
@@ -243,7 +403,17 @@ namespace AICompanion.Avatar
                 Angry = Move(current.Angry, target.Angry, step),
                 Sorrow = Move(current.Sorrow, target.Sorrow, step),
                 Fun = Move(current.Fun, target.Fun, step),
-                Surprised = Move(current.Surprised, target.Surprised, step)
+                Surprised = Move(current.Surprised, target.Surprised, step),
+                EyeSquint = Move(current.EyeSquint, target.EyeSquint, step),
+                BrowInnerUp = Move(current.BrowInnerUp, target.BrowInnerUp, step),
+                BrowOuterUp = Move(current.BrowOuterUp, target.BrowOuterUp, step),
+                EyeWide = Move(current.EyeWide, target.EyeWide, step),
+                EyeLookDown = Move(current.EyeLookDown, target.EyeLookDown, step),
+                EyeLookUp = Move(current.EyeLookUp, target.EyeLookUp, step),
+                EyeLookSide = Move(current.EyeLookSide, target.EyeLookSide, step),
+                MouthPress = Move(current.MouthPress, target.MouthPress, step),
+                BrowSide = Move(current.BrowSide, target.BrowSide, step),
+                Blush = Move(current.Blush, target.Blush, step)
             };
         }
 
@@ -253,7 +423,7 @@ namespace AICompanion.Avatar
                 return 0;
 
             var count = 0;
-            var last = (int)ExpressionPreset.Surprised;
+            var last = (int)ExpressionPreset.Blush;
             for (var i = 1; i <= last && count < destination.Length; i++)
             {
                 if (available == null || i >= available.Length || !available[i])
@@ -274,6 +444,11 @@ namespace AICompanion.Avatar
         static float Move(float current, float target, float step)
         {
             return current + (target - current) * step;
+        }
+
+        static float Max01(float a, float b)
+        {
+            return Clamp01(a > b ? a : b);
         }
 
         static float Clamp01(float value)

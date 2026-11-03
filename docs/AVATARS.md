@@ -15,21 +15,31 @@ The console logs one line when a model is ready, for example `Avatar ready: Comp
 
 ## Expression names
 
-`ExpressionPresetMap` maps blendshape names onto `Aa`, `Ih`, `Ou`, `Ee`, `Oh`, `Blink`, `Joy`, `Angry`, `Sorrow`, `Fun`, and `Surprised`.
+`ExpressionPresetMap` maps blendshape names onto `Aa`, `Ih`, `Ou`, `Ee`, `Oh`, `Blink`, `Joy`, `Angry`, `Sorrow`, `Fun`, `Surprised`, and the finer face channels in [EXPRESSIONS.md](EXPRESSIONS.md). Daz-style names such as `eCTRLMouthSmile` and `eCTRLBlush` use the same table.
 
 | Preset | Names it accepts |
 | --- | --- |
-| Aa | `aa`, `a`, `Fcl_MTH_A`, `jawOpen` |
+| Aa | `aa`, `a`, `Fcl_MTH_A`, `jawOpen`, `eCTRLMouthOpen` |
 | Ih | `ih`, `i`, `Fcl_MTH_I`, `mouthClose` |
 | Ou | `ou`, `u`, `Fcl_MTH_U`, `mouthPucker` |
 | Ee | `ee`, `e`, `Fcl_MTH_E`, `mouthStretch*` |
 | Oh | `oh`, `o`, `Fcl_MTH_O`, `mouthFunnel` |
-| Blink | `blink`, `EyeClose`, `Fcl_EYE_Close`, `eyeBlinkLeft`, `eyeBlinkRight` |
-| Joy | `joy`, `happy`, `Fcl_ALL_Joy`, `mouthSmile*` |
+| Blink | `blink`, `EyeClose`, `Fcl_EYE_Close`, `eyeBlinkLeft`, `eyeBlinkRight`, `eCTRLEyesClosedL` |
+| Joy | `joy`, `happy`, `Fcl_ALL_Joy`, `mouthSmile*`, `eCTRLMouthSmile` |
 | Angry | `angry`, `Fcl_ALL_Angry`, `browDown*` |
 | Sorrow | `sorrow`, `sad`, `Fcl_ALL_Sorrow`, `mouthFrown*` |
-| Fun | `fun`, `relaxed`, `Fcl_ALL_Fun` |
-| Surprised | `surprised`, `browInnerUp`, `browOuterUp*`, `eyeWide*` |
+| Fun | `fun`, `relaxed`, `Fcl_ALL_Fun`, `cheekSquint*` |
+| Surprised | `surprised`, `Fcl_ALL_Surprised` |
+| EyeSquint | `eyeSquint*`, `eCTRLEyeSquintL` |
+| BrowInnerUp | `browInnerUp`, `eCTRLBrowsInnerUp` |
+| BrowOuterUp | `browOuterUp`, `browOuterUpRight` |
+| BrowSide | `browOuterUpLeft` |
+| EyeWide | `eyeWide*` |
+| EyeLookDown | `eyeLookDown*`, `eCTRLEyeLookDown` |
+| EyeLookUp | `eyeLookUp*` |
+| EyeLookSide | `eyeLookOutLeft`, `eyeLookInRight` |
+| MouthPress | `mouthPress*` |
+| Blush | `blush`, `cheekBlush`, `eCTRLBlush` |
 
 A VRM expression preset is also recorded when its clip points at a blendshape, even if that shape's name is custom. Names that do not match stay in the full list and are not forced into a preset. Asuna's 52 ARKit shapes (`jawOpen`, `eyeBlinkLeft`, `mouthFunnel`, and the rest) use this table.
 
@@ -101,11 +111,12 @@ The controller is `Assets/_Project/Animations/Companion.controller`.
 
 | State | When it plays |
 | --- | --- |
-| Idle | Default. Emotion parameter `0` (Neutral). Loops. |
-| Happy, Sad, Surprised, Thinking | Emotion parameter `1` to `4`. The crossfade is 0.3 seconds. |
-| Talk | Additive layer while the `Talking` bool is true, so an emotion keeps playing underneath. |
+| Idle | Default. Loops. |
+| Happy, Sad, Surprised, Thinking | Present on the controller. The runtime does not write the Emotion parameter, so these body clips stay unused. |
+| Talk | Present on the additive layer. The runtime does not write `Talking`, so the body does not talk. |
+| Wave, Nod, Shrug, Laugh, Walk, Turn180, Fall | Gesture layer. A cue or a walk plays these. |
 
-`IAvatarAnimator.SetTalking(bool)` and `SetEmotion(Emotion, intensity)` write `Talking`, `Emotion`, and `EmotionIntensity` (0 to 1). Root motion is off. The Animator stays on Normal update mode, so the clips keep advancing while the overlay is throttled to 15 fps. The motion looks a little choppier at that rate.
+`IAvatarAnimator.SetEmotion(Emotion, intensity)` changes the face and the portrait. It does not write `Talking`, `Emotion`, or `EmotionIntensity` on the Animator. Writing those parameters played the body clips, and that is where the floating and the swimming arms came from. The body stays in Idle, in Walk, or on the gesture that is playing. Root motion is off. The Animator stays on Normal update mode, so the clips keep advancing while the overlay is throttled to 15 fps. The motion looks a little choppier at that rate.
 
 The overlay camera starts at `(0, 1, -3.2)` and looks along +Z, then each frame moves so the whole body fits the window. A humanoid whose chest faces +Z therefore shows its back until spawn. After the controller is bound, the root yaws so the body faces that camera. Body forward comes from the hips, spine, and upper legs when those bones exist, and from the root's forward otherwise. The yaw is on the model root. Root motion stays off, so the yaw remains while the clips play. The fit uses the posed humanoid bones, so a clip or a yaw does not push the head, hands, or feet outside the 480×720 window.
 
@@ -113,7 +124,7 @@ Right-click a visible pixel to turn on rotate mode. The label reads `Rotate: on 
 
 The clips are original Humanoid muscle curves, released under CC0. The licence file is `Assets/_Project/Animations/LICENSE.txt`. They are not Mixamo, not Quaternius, and not Asuna's Asset Store animations. To swap one later, replace the `.anim` or drop another Humanoid clip onto that state. Leave third-party clips whose licence does not allow redistribution out of this public repository. If a character stays on the bind pose after import, use **AI Companion > Rebuild Basic Animator** once. That writes the same curves through the Unity animation API.
 
-The face uses the expression map. Happy drives Joy (`mouthSmile*`). Sad drives Sorrow (`mouthFrown*`) and Angry (`browDown*`). Surprised drives `browInnerUp`, `browOuterUp*`, and `eyeWide*`, plus a little jaw. Thinking presses the mouth closed a bit and squints slightly. While TTS audio is playing, lip sync replaces the mouth shapes (jaw, and a small vowel accent). It does not add them on top of the emotion mouth, and it does not drive `mouthClose` while the jaw is open. Smiles, frowns, and brows stay on the emotion. A procedural blink uses the same blink shapes and does not write the mouth. Pressing **T** with no audio still plays the old procedural jaw. Weights for emotions ease in over about 0.3 seconds. The blink itself is quicker than that. The mouth itself follows the audio with a short attack and a slightly slower release. A model with no blendshapes and no jaw bone keeps the body clips and skips the face.
+The face uses the expression map and the weights in [EXPRESSIONS.md](EXPRESSIONS.md). Happy drives a smile, smile-eyes, and cheek squint, and opens the mouth as the intensity goes up. Sad drives an inner brow, a frown, a downward look, and a slight squint. Surprised widens the eyes, raises the inner brow and both outer brows, and opens the jaw a little. Thinking raises one outer brow, looks up and to one side, and puckers the mouth. Embarrassed, shy, and flustered blush. Concerned raises the inner brows and does not blush. A portrait cue such as `gesture="embarrassed"` uses that face even when the catalog's body emotion is neutral. Names cover VRM, VRoid (`Fcl_BRW_Sorrow` and the other part shapes), ARKit, Daz, and MMD (`にこり`, `困る`, `怒り`, `びっくり`, `まばたき`, `照れ`). While TTS audio is playing, lip sync replaces the mouth shapes (jaw, and a small vowel accent, including a thinking pucker). It does not add them on top of the emotion mouth, and it does not drive `mouthClose` while the jaw is open. Smiles, frowns, brows, a side glance, a lip press, and blush stay on the emotion for the whole reply, including the quiet moment before the first syllable and a short tail after the audio stops. The next cue replaces that expression immediately. The animator `Talking` parameter stays unset, so the Talk body clip does not take the face back to a neutral talking pose. A procedural blink uses the same blink shapes and does not write the mouth. Pressing **T** with no audio still plays the old procedural jaw. Weights for emotions ease in over about 0.3 seconds. The blink itself is quicker than that. The mouth itself follows the audio with a short attack and a slightly slower release. A model with no blendshapes and no jaw bone keeps the body clips and skips the face. On spawn the Console logs one `Expressions: <emotion> -> N/M shapes found` line per emotion (an ARKit face reports every shipped expression complete). Each reply logs `Cue emotion: <field>` and then `Expression: <emotion>`.
 
 Between clips, `ProceduralLife` adds a slow breath, a crossfaded idle sway, and optional cursor look-at. The controller and the clip names stay as they are. Details and the Settings toggle are in [PROCEDURAL_LIFE.md](PROCEDURAL_LIFE.md).
 
@@ -141,7 +152,7 @@ With the window focused, **1** is Neutral, **2** Happy, **3** Sad, **4** Surpris
 1. Play mode shows the CC0 VRM (or Asuna, if the local prefab is assigned) instead of the capsule. The Console has an `Avatar ready` line with `humanoid=True` and the mapped shapes.
 2. Press **F7**. The other sample appears. Press **F7** again to return. Clearing **Local Prefab** and both sample paths brings the capsule back.
 3. Build the Windows player (`unity command build_windows_player`, then poll `build_status`) and run `Builds/Windows/BackseatCatgirl.exe`. The desktop shows around the model. Drag her body, not the empty space beside it. Clicks in that empty space, close to the mesh as well as farther away, reach the window behind. **F8** still toggles topmost. **F7** still cycles avatars. The frame-rate label still drops to about 15 after the pointer leaves for about 3 seconds.
-4. With Asuna focused, Idle is already playing. Press **2**, **3**, **4**, **5**, then **1**. The body eases between those poses, and her face smiles, frowns and lowers the brows, raises the brows, then returns to neutral. Press **T**. The mouth moves and the emotion stays. Press **T** again to stop. Move the pointer off the window until the label says about 15 fps. She should still be moving, a bit choppier.
+4. With Asuna focused, Idle is already playing. Press **2**, **3**, **4**, **5**, then **1**. The body stays in Idle. Her face smiles, frowns and lowers the brows, raises the brows, then returns to neutral. The Console logs `Expression: happy`, `Expression: sad`, and the others. Press **T**. The mouth moves and the emotion stays. Press **T** again to stop. Move the pointer off the window until the label says about 15 fps. She should still be moving, a bit choppier.
 5. Press **F7** until a CC0 sample is showing. The same controller and the same keys apply. Empty space around the mesh still clicks through. Drag, **F8**, and the frame-rate drop still work. If a model has no blendshapes, the body still plays and the Console has no errors. The `LipSync:` line then says `jaw bone` or `none`.
 6. Send a short spoken line (see [VOICE.md](VOICE.md)). Her mouth opens and closes with the audio and is shut again shortly after it ends. Happy or surprised can stay on the brows and the smile while the mouth follows the words. The Console has one `LipSync:` line. Paste that line if the mouth does not move.
 7. Asuna and each CC0 sample should spawn facing the camera (face visible), with hair and clothes on. Right-click her body. The label says `Rotate: on (right-click to finish)`. Drag horizontally. She yaws, and the window stays put. Right-click again, or press **Esc**. Left-drag moves the window again. Quit and relaunch. That source comes back at the yaw you left. **F7** to another source uses that source's own yaw. Middle-click her, or press **R** in rotate mode, and she faces the camera again. Middle-click also zooms back out to the full body. Scroll over her to zoom in. Her torso stays visible with the boots, then scroll out or middle-click until her feet, hair, and the top of her head are all inside the window. Hold Ctrl and scroll over her. She changes size, the `Size` label updates, and the chat panel stays the same pixel size. Empty pixels still click through, and the wheel does nothing there. At about 15 fps she is still moving.

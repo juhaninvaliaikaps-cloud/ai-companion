@@ -27,7 +27,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: happy
-    description: bright, cheerful reaction to good news
+    description: use for good news, a joke, or a warm greeting. Not the default
     tags:
     - mood
     - positive
@@ -40,7 +40,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: sad
-    description: downcast, sympathetic reaction
+    description: use for sympathy, disappointment, bad news, or a let-down
     tags:
     - mood
     - negative
@@ -53,7 +53,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: surprised
-    description: short startled reaction
+    description: use for a sudden reveal, shock, or something unexpected
     tags:
     - mood
     - reaction
@@ -66,7 +66,7 @@ MonoBehaviour:
     durationSeconds: 1
     priority: 0
   - id: thinking
-    description: considering something with mild uncertainty
+    description: use when working something out, pausing, or unsure
     tags:
     - mood
     - thinking
@@ -209,7 +209,7 @@ MonoBehaviour:
     durationSeconds: 1
     priority: 0
   - id: concerned
-    description: worried about you or about something you said
+    description: use when worried about the user or about what they said. Inner brows, no blush
     tags:
     - care
     - worried
@@ -222,7 +222,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: embarrassed
-    description: flustered and embarrassed by a compliment
+    description: use when a compliment or being caught out makes her blush hard
     tags:
     - shy
     - compliment
@@ -235,7 +235,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: shy
-    description: shy and looking away
+    description: use when she is quiet and looking away, with a small smile and a light blush
     tags:
     - quiet
     - soft
@@ -248,7 +248,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: flustered
-    description: flustered, blushing, lost for words
+    description: use when she is lost for words or overwhelmed, blushing with an open mouth
     tags:
     - blush
     - tease
@@ -261,7 +261,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: embarrassed_worried
-    description: embarrassed and worried at the same time
+    description: use when she is embarrassed and worried at the same time
     tags:
     - mixed
     - care
@@ -274,7 +274,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: pouty
-    description: playfully pouting about something
+    description: use for playful annoyance or a pout. Write emotion sad, or gesture pouty
     tags:
     - pout
     - playful
@@ -287,7 +287,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: teasing
-    description: smug, teasing, knowing smile
+    description: use for a smug, knowing, teasing smile
     tags:
     - flirt
     - smug
@@ -300,7 +300,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: excited
-    description: excited and delighted
+    description: use when she is delighted and energetic, more than a plain happy smile
     tags:
     - joy
     - hype
@@ -313,7 +313,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: loving
-    description: warm, affectionate and loving
+    description: use when she is warm, affectionate, or loving
     tags:
     - affection
     - warm
@@ -326,7 +326,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: sleepy
-    description: sleepy and tired
+    description: use when she is tired or ready for bed
     tags:
     - late
     - tired

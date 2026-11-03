@@ -75,7 +75,9 @@ namespace AICompanion.AnimationDirector
                 return "\n\nAnimations you can use. Name the gesture id in the cue tag.\n"
                     + list
                     + "\n"
-                    + AnimationCueParser.Instruction;
+                    + AnimationCueParser.Instruction
+                    + "\n"
+                    + EmotionNames.CatalogLine;
             }
         }
 
@@ -104,6 +106,8 @@ namespace AICompanion.AnimationDirector
             if (CompanionPause.ReactionsAllowed(_suppressed) || _animator == null)
                 return;
 
+            if (_animator is IExpressionHint hint)
+                hint.ExpressionName = string.Empty;
             _animator.SetEmotion(Emotion.Neutral, 1f);
             _animator.SetTalking(false);
         }
@@ -226,9 +230,11 @@ namespace AICompanion.AnimationDirector
         {
             if (IsAlive(_animator))
             {
-                _animator.SetEmotion(decision.Emotion, decision.Intensity);
+                // The portrait name has to be in place before SetEmotion logs, so a
+                // portrait row whose body emotion is neutral still reports the face.
                 if (_animator is IExpressionHint hint)
                     hint.ExpressionName = decision.Portrait;
+                _animator.SetEmotion(decision.Emotion, decision.Intensity);
             }
 
             if (decision.Action != DirectorAction.GestureState || !IsAlive(_states) || decision.StateName.Length == 0)

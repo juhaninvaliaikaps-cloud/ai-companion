@@ -70,6 +70,7 @@ namespace AICompanion.Avatar
 
         readonly AvatarAnimatorModel _model = new AvatarAnimatorModel();
         ShapeBinding[] _bindings = NoBindings;
+        readonly HashSet<ExpressionPreset> _boundPresets = new HashSet<ExpressionPreset>();
         Animator _animator;
         Transform _root;
         AvatarPreference _source = AvatarPreference.Auto;
@@ -88,10 +89,14 @@ namespace AICompanion.Avatar
         float _proceduralBlink;
         FacePose _face;
         LipSyncDriver _lips;
+        readonly BlushOverlay _blush = new BlushOverlay();
+        readonly ExpressionHold _expressionHold = new ExpressionHold();
         UnityAction _beforeRender;
         ICompanionPause _pause;
         bool _pauseSearched;
         Coroutine _turn;
+        Emotion _loggedExpression;
+        bool _hasLoggedExpression;
 
         struct ShapeBinding
         {
@@ -108,6 +113,8 @@ namespace AICompanion.Avatar
 
         public void SetTalking(bool talking)
         {
+            // Mouth only. The held expression stays, and the animator Talking bool
+            // stays untouched so the Talk body clip cannot replace the face.
             _model.SetTalking(talking);
             PushParameters();
         }
@@ -116,6 +123,9 @@ namespace AICompanion.Avatar
         {
             _model.SetEmotion(emotion, intensity);
             PushParameters();
+            var face = FaceEmotion.Resolve(_expressionName, _model.Emotion);
+            _expressionHold.Apply(face, _model.EmotionIntensity, _expressionName, UtteranceActive());
+            NoteFace();
         }
 
         /// <summary>Drives the Walk state on the gesture layer while she moves along the desktop.</summary>
@@ -227,10 +237,19 @@ namespace AICompanion.Avatar
 
         string _expressionName = string.Empty;
 
-        /// <summary>Portrait expression name named by the animation director, empty when none.</summary>
+        /// <summary>
+        /// Portrait expression name for this reply. The director writes it, and the hold
+        /// keeps it until speech has finished so the 2D frame cannot fall back to neutral
+        /// while the blendshapes are still on the expression.
+        /// </summary>
         public string ExpressionName
         {
-            get { return _expressionName; }
+            get
+            {
+                if (!string.IsNullOrEmpty(_expressionName))
+                    return _expressionName;
+                return _expressionHold.Portrait;
+            }
             set { _expressionName = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant(); }
         }
 
@@ -274,12 +293,18 @@ namespace AICompanion.Avatar
             _hasWalking = false;
             _hasFalling = false;
             _bindings = NoBindings;
+            _boundPresets.Clear();
             _proceduralBlink = 0f;
             if (instance == null)
+            {
+                _blush.Release();
                 return;
+            }
 
             BindAnimator(instance);
             _bindings = BindShapes(instance, descriptor);
+            RememberBound();
+            AttachBlush();
             PushParameters();
             if (_animator == null)
                 return;
@@ -342,6 +367,7 @@ namespace AICompanion.Avatar
         {
             if (_beforeRender != null)
                 Application.onBeforeRender -= _beforeRender;
+            _blush.Release();
             CommitYaw();
         }
 
@@ -362,7 +388,12 @@ namespace AICompanion.Avatar
             }
 
             if (changed)
+            {
+                _expressionName = string.Empty;
                 PushParameters();
+                _expressionHold.Apply(_model.Emotion, _model.EmotionIntensity, string.Empty, UtteranceActive());
+                NoteFace();
+            }
 
             if (Input.GetKeyDown(KeyCode.F9) && !DebugInputGuard.IsBlocked(KeyCode.F9))
                 CycleExpression();
@@ -373,7 +404,20 @@ namespace AICompanion.Avatar
             _expressionCursor = (_expressionCursor + 1) % DebugExpressions.Length;
             var name = DebugExpressions[_expressionCursor];
             ExpressionName = name == "neutral" ? string.Empty : name;
+            var face = FaceEmotion.Resolve(_expressionName, Emotion.Neutral);
+            SetEmotion(face, 1f);
             Debug.Log("Expression preview: " + name);
+        }
+
+        void NoteFace()
+        {
+            var face = FaceEmotion.Resolve(_expressionName, _model.Emotion);
+            if (_hasLoggedExpression && face == _loggedExpression)
+                return;
+
+            _hasLoggedExpression = true;
+            _loggedExpression = face;
+            Debug.Log(FaceEmotion.FormatLog(face));
         }
 
         bool IsPaused()
@@ -391,8 +435,38 @@ namespace AICompanion.Avatar
         {
             UpdateWalkFacing(Time.deltaTime);
             UpdateGestureLayerWeight();
+            if (ReleaseExpression(Time.deltaTime))
+                NoteFace();
             AdvanceFace(Time.deltaTime);
             ApplyFace(DisplayedFace());
+        }
+
+        /// <summary>
+        /// True while this reply is still being spoken. Synthesis and the clip queue
+        /// count, so a pause between sentences does not drop the expression.
+        /// </summary>
+        bool UtteranceActive()
+        {
+            var speech = GetComponent<ISpeechOutput>();
+            var behaviour = speech as Object;
+            if (behaviour != null && speech.IsSpeaking)
+                return true;
+            return _model.IsTalking;
+        }
+
+        /// <summary>
+        /// Drops the reply's expression once speech has finished and the short tail
+        /// has elapsed. The portrait name and the body emotion go with it, so the
+        /// 2D still returns to neutral on the same frame as the blendshapes.
+        /// </summary>
+        bool ReleaseExpression(float deltaTime)
+        {
+            if (!_expressionHold.Tick(deltaTime, UtteranceActive()))
+                return false;
+
+            _expressionName = string.Empty;
+            _model.SetEmotion(Emotion.Neutral, 1f);
+            return true;
         }
 
         /// <summary>
@@ -468,6 +542,10 @@ namespace AICompanion.Avatar
 
             animator.runtimeAnimatorController = ResolveController();
             CacheParameters(animator);
+            // The Talk state still listens for this bool. Leaving it true plays that
+            // body clip, and the face goes back to the clip's talking pose.
+            if (_hasTalking && animator.GetBool(TalkingHash))
+                animator.SetBool(TalkingHash, false);
         }
 
         bool TryHumanoidForward(out Vector3 forward)
@@ -596,6 +674,9 @@ namespace AICompanion.Avatar
             }
 
             var found = new List<ShapeBinding>(32);
+            var boundNames = new List<KeyValuePair<ExpressionPreset, string>>(32);
+            var unclassified = 0;
+            var unclassifiedSample = new List<string>(8);
             var renderers = instance.GetComponentsInChildren<SkinnedMeshRenderer>(true);
             for (var r = 0; r < renderers.Length; r++)
             {
@@ -616,8 +697,14 @@ namespace AICompanion.Avatar
                     if (preset == ExpressionPreset.None && LipSyncTargetSelection.TryClassifyMouth(shapeName, out var mouth))
                         preset = mouth;
                     if (preset == ExpressionPreset.None)
+                    {
+                        unclassified++;
+                        if (unclassifiedSample.Count < 8)
+                            unclassifiedSample.Add(shapeName);
                         continue;
+                    }
 
+                    boundNames.Add(new KeyValuePair<ExpressionPreset, string>(preset, shapeName));
                     found.Add(new ShapeBinding
                     {
                         Renderer = renderer,
@@ -627,7 +714,43 @@ namespace AICompanion.Avatar
                 }
             }
 
+            LogCoverage(boundNames, unclassified, unclassifiedSample);
             return found.Count == 0 ? NoBindings : found.ToArray();
+        }
+
+        void RememberBound()
+        {
+            _boundPresets.Clear();
+            for (var i = 0; i < _bindings.Length; i++)
+                _boundPresets.Add(_bindings[i].Preset);
+        }
+
+        static void LogCoverage(List<KeyValuePair<ExpressionPreset, string>> boundNames, int unclassified, List<string> unclassifiedSample)
+        {
+            var bound = new HashSet<ExpressionPreset>();
+            for (var i = 0; i < boundNames.Count; i++)
+                bound.Add(boundNames[i].Key);
+
+            Debug.Log(ExpressionCoverage.FormatBound(boundNames));
+            Debug.Log(ExpressionCoverage.FormatUnclassified(unclassified, unclassifiedSample));
+
+            var library = ExpressionPresetLibrary.Active;
+            var emotions = new[]
+            {
+                Emotion.Happy,
+                Emotion.Sad,
+                Emotion.Surprised,
+                Emotion.Thinking,
+                Emotion.Embarrassed,
+                Emotion.Shy,
+                Emotion.Flustered,
+                Emotion.Concerned
+            };
+            for (var i = 0; i < emotions.Length; i++)
+            {
+                var emotion = emotions[i];
+                Debug.Log(ExpressionCoverage.Format(emotion, library.Get(emotion), bound));
+            }
         }
 
         void AdvanceFace(float deltaTime)
@@ -655,8 +778,13 @@ namespace AICompanion.Avatar
             var procedural = handsMouth
                 ? EmotionFace.ProceduralTalkScale(_talkAmount, ownership)
                 : _talkAmount;
+            var faceEmotion = _expressionHold.Active ? _expressionHold.Emotion : Emotion.Neutral;
+            var intensity = _expressionHold.Active ? _expressionHold.Intensity : 0f;
+            var emotionPose = EmotionFace.ProjectOnto(
+                EmotionFace.EmotionPose(faceEmotion, intensity),
+                _boundPresets);
             var target = EmotionFace.Combine(
-                EmotionFace.EmotionPose(_model.Emotion, _model.EmotionIntensity),
+                emotionPose,
                 EmotionFace.TalkPose(_talkTime, procedural));
             _face = EmotionFace.Approach(_face, target, deltaTime, EmotionFace.BlendSeconds);
         }
@@ -690,8 +818,37 @@ namespace AICompanion.Avatar
                 var renderer = bindings[i].Renderer;
                 if (renderer == null)
                     continue;
-                renderer.SetBlendShapeWeight(bindings[i].Index, pose.UnityWeight(bindings[i].Preset));
+                var weight = pose.UnityWeight(bindings[i].Preset);
+                if (bindings[i].Preset == ExpressionPreset.Blush && !BlushSettings.Enabled)
+                    weight = 0f;
+                renderer.SetBlendShapeWeight(bindings[i].Index, weight);
             }
+
+            _blush.SetIntensity(pose.Blush);
+        }
+
+        void AttachBlush()
+        {
+            _blush.Release();
+            var hasShape = false;
+            for (var i = 0; i < _bindings.Length; i++)
+            {
+                if (_bindings[i].Preset == ExpressionPreset.Blush)
+                {
+                    hasShape = true;
+                    break;
+                }
+            }
+
+            Transform head = null;
+            if (_animator != null && _animator.isHuman)
+                head = _animator.GetBoneTransform(HumanBodyBones.Head);
+
+            var ready = false;
+            if (BlushSettings.Enabled && !hasShape && head != null)
+                ready = _blush.Attach(head);
+
+            Debug.Log(BlushOverlay.FormatLog(BlushSettings.Enabled, hasShape, head != null, ready || hasShape));
         }
     }
 }

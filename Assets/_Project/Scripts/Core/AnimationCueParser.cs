@@ -51,8 +51,11 @@ namespace AICompanion.Core
         public const int MaxGestureLength = 32;
 
         public const string Instruction =
-            "End every reply with one cue tag on its own line: " +
-            "<animation emotion=\"happy\" intensity=\"0.8\" gesture=\"wave_hello\" />. " +
+            "End every reply with one cue tag on its own line. " +
+            "The sample <animation emotion=\"happy\" intensity=\"0.8\" gesture=\"wave_hello\" /> is the format only. " +
+            "Pick the emotion that fits this reply. Happy and embarrassed are not defaults. " +
+            "A sad reply is <animation emotion=\"sad\" intensity=\"0.7\" />. " +
+            "A surprised reply is <animation emotion=\"surprised\" intensity=\"0.8\" />. " +
             "Set gesture to a catalog id (wave_hello) or that row's gesture name (wave). " +
             "Leave the gesture attribute out for an emotion only. " +
             "When the user asks you to walk, move, come here, or go to one side, set gesture to walk " +
@@ -224,7 +227,7 @@ namespace AICompanion.Core
                     }
                     else
                     {
-                        cue = NeutralCue;
+                        cue = new AnimationCue(Emotion.Neutral, NeutralIntensity, string.Empty, 0f, parsed.EmotionField);
                         status = CueParseStatus.Invalid;
                     }
 
@@ -354,6 +357,7 @@ namespace AICompanion.Core
             var intensity = DefaultIntensity;
             var gesture = string.Empty;
             var direction = 0f;
+            var emotionField = string.Empty;
             var ok = true;
 
             foreach (Match attribute in AttributePattern.Matches(trimmed))
@@ -365,7 +369,8 @@ namespace AICompanion.Core
                 switch (name)
                 {
                     case "emotion":
-                        if (!Enum.TryParse(value, true, out emotion))
+                        emotionField = value;
+                        if (!EmotionNames.TryParse(value, out emotion))
                         {
                             ok = false;
                         }
@@ -395,11 +400,12 @@ namespace AICompanion.Core
 
             if (!ok)
             {
+                cue = new AnimationCue(Emotion.Neutral, NeutralIntensity, string.Empty, 0f, emotionField);
                 return false;
             }
 
             NormalizeMovementCue(ref gesture, ref direction);
-            cue = new AnimationCue(emotion, intensity, gesture, direction);
+            cue = new AnimationCue(emotion, intensity, gesture, direction, emotionField);
             return true;
         }
 

@@ -49,6 +49,15 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void BuildPromptList_WritesThePortraitFaceWhenTheRowHasOne()
+        {
+            AnimationClipCatalog catalog = NewCatalog(Row("embarrassed", "a compliment", Emotion.Neutral, string.Empty));
+            catalog.Entries[0].portrait = "embarrassed";
+
+            Assert.AreEqual("- embarrassed: a compliment; emotion: neutral; face: embarrassed", catalog.BuildPromptList());
+        }
+
+        [Test]
         public void TryGetById_IgnoresCaseAndSurroundingSpace()
         {
             AnimationClipCatalog catalog = NewCatalog(Row("wave_hello", "wave", Emotion.Happy, "wave"));
@@ -96,6 +105,33 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Validate_ReportsDuplicateGesturesBrokenTokensAndPromptLineBreaks()
+        {
+            AnimationClipCatalog catalog = NewCatalog(
+                Row("wave_hello", "friendly", Emotion.Happy, "wave"),
+                Row("other", "also a wave", Emotion.Happy, "WAVE"),
+                Row("bad id", "space in the id", Emotion.Neutral, "nod!"),
+                Row("note", "line one\nline two", Emotion.Neutral, string.Empty));
+
+            Assert.IsFalse(catalog.Validate(out List<string> problems));
+            Assert.IsTrue(problems.Exists(problem => problem.Contains("Duplicate gesture 'WAVE'")));
+            Assert.IsTrue(problems.Exists(problem => problem.Contains("has an id that cannot be written")));
+            Assert.IsTrue(problems.Exists(problem => problem.Contains("gesture that cannot be written")));
+            Assert.IsTrue(problems.Exists(problem => problem.Contains("line break in its description")));
+        }
+
+        [Test]
+        public void Validate_ReportsAGestureThatCollidesWithAnotherId()
+        {
+            AnimationClipCatalog catalog = NewCatalog(
+                Row("wave", "the emotion named wave", Emotion.Happy, string.Empty),
+                Row("wave_hello", "friendly hello wave", Emotion.Happy, "wave"));
+
+            Assert.IsFalse(catalog.Validate(out List<string> problems));
+            Assert.IsTrue(problems.Exists(problem => problem.Contains("another row's id")));
+        }
+
+        [Test]
         public void StarterCatalogAsset_HasTwelveValidEntriesWithResolvedClips()
         {
             AnimationClipCatalog catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>(CatalogPath);
@@ -111,7 +147,7 @@ namespace AICompanion.Tests.EditMode
             Assert.IsFalse(laughing.HasGesture);
             Assert.IsFalse(laughing.HasAnimatorState);
             Assert.IsTrue(laughing.clip == null);
-            StringAssert.Contains("- laughing: laughing, open smile on the portrait while the body stays still; emotion: happy; tags: amused, laugh", catalog.BuildPromptList());
+            StringAssert.Contains("- laughing: laughing, open smile on the portrait while the body stays still; emotion: happy; face: laughing; tags: amused, laugh", catalog.BuildPromptList());
             Assert.IsFalse(catalog.TryGetById("talk", out _), "Talking is face-only, so the body talk row stays out of the catalog.");
 
             Assert.IsTrue(catalog.TryGetById("idle", out AnimationEntry idle));
@@ -130,6 +166,14 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("stop", stop.id);
             Assert.IsTrue(catalog.TryGetByGesture("turn", out AnimationEntry turn));
             Assert.AreEqual("Turn180", turn.animatorState);
+
+            Assert.IsTrue(catalog.TryGetById("embarrassed", out AnimationEntry embarrassed));
+            Assert.AreEqual("embarrassed", embarrassed.portrait);
+            Assert.AreEqual(Emotion.Neutral, embarrassed.emotion);
+            Assert.IsTrue(catalog.TryGetById("shy", out AnimationEntry shy));
+            Assert.AreEqual("shy", shy.portrait);
+            Assert.IsTrue(catalog.TryGetById("flustered", out AnimationEntry flustered));
+            Assert.AreEqual("flustered", flustered.portrait);
         }
 
         private AnimationClipCatalog NewCatalog(params AnimationEntry[] entries)

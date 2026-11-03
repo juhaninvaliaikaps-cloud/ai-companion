@@ -18,11 +18,19 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(1f, happy.Joy, 0.0001f);
             Assert.Greater(happy.Fun, 0f);
             Assert.AreEqual(0f, happy.Sorrow, 0.0001f);
-            Assert.AreEqual(0.9f, sad.Sorrow, 0.0001f);
-            Assert.AreEqual(0.5f, sad.Angry, 0.0001f);
+            Assert.AreEqual(0.85f, sad.Sorrow, 0.0001f);
+            Assert.AreEqual(0f, sad.Angry, 0.0001f);
+            Assert.AreEqual(0.75f, sad.BrowInnerUp, 0.0001f);
+            Assert.AreEqual(0.55f, sad.EyeLookDown, 0.0001f);
             Assert.AreEqual(1f, surprised.Surprised, 0.0001f);
-            Assert.Greater(surprised.Aa, 0f);
-            Assert.Greater(thinking.Ih, 0f);
+            Assert.AreEqual(1f, surprised.EyeWide, 0.0001f);
+            Assert.Greater(surprised.Aa, 0.2f);
+            Assert.AreEqual(0.8f, thinking.BrowSide, 0.0001f);
+            Assert.AreEqual(0.5f, thinking.EyeLookUp, 0.0001f);
+            Assert.AreEqual(0.4f, thinking.EyeLookSide, 0.0001f);
+            Assert.AreEqual(0.45f, thinking.Ou, 0.0001f);
+            Assert.AreEqual(0.4f, thinking.MouthPress, 0.0001f);
+            Assert.AreEqual(0f, thinking.Ih, 0.0001f);
             Assert.AreEqual(0f, neutral.Joy, 0.0001f);
             Assert.AreEqual(0f, neutral.Aa, 0.0001f);
             Assert.AreEqual(0f, EmotionFace.EmotionPose(Emotion.Happy, 0f).Joy, 0.0001f);
@@ -31,9 +39,9 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(ExpressionPreset.Joy, ExpressionPresetMap.Classify("mouthSmileLeft"));
             Assert.AreEqual(ExpressionPreset.Sorrow, ExpressionPresetMap.Classify("mouthFrownRight"));
             Assert.AreEqual(ExpressionPreset.Angry, ExpressionPresetMap.Classify("browDownLeft"));
-            Assert.AreEqual(ExpressionPreset.Surprised, ExpressionPresetMap.Classify("browInnerUp"));
-            Assert.AreEqual(ExpressionPreset.Surprised, ExpressionPresetMap.Classify("browOuterUpRight"));
-            Assert.AreEqual(ExpressionPreset.Surprised, ExpressionPresetMap.Classify("eyeWideLeft"));
+            Assert.AreEqual(ExpressionPreset.BrowInnerUp, ExpressionPresetMap.Classify("browInnerUp"));
+            Assert.AreEqual(ExpressionPreset.BrowOuterUp, ExpressionPresetMap.Classify("browOuterUpRight"));
+            Assert.AreEqual(ExpressionPreset.EyeWide, ExpressionPresetMap.Classify("eyeWideLeft"));
             Assert.AreEqual(ExpressionPreset.Surprised, ExpressionPresetMap.Classify("surprised"));
             Assert.AreEqual(ExpressionPreset.Aa, ExpressionPresetMap.Classify("jawOpen"));
         }
@@ -67,12 +75,13 @@ namespace AICompanion.Tests.EditMode
 
             var mid = EmotionFace.Approach(happy, sad, 0.15f, 0.3f);
             Assert.AreEqual(0.5f, mid.Joy, 0.0001f);
-            Assert.AreEqual(0.45f, mid.Sorrow, 0.0001f);
-            Assert.AreEqual(0.25f, mid.Angry, 0.0001f);
+            Assert.AreEqual(0.425f, mid.Sorrow, 0.0001f);
+            Assert.AreEqual(0f, mid.Angry, 0.0001f);
+            Assert.AreEqual(0.375f, mid.BrowInnerUp, 0.0001f);
 
             var done = EmotionFace.Approach(happy, sad, 1f, 0.3f);
             Assert.AreEqual(0f, done.Joy, 0.0001f);
-            Assert.AreEqual(0.9f, done.Sorrow, 0.0001f);
+            Assert.AreEqual(0.85f, done.Sorrow, 0.0001f);
         }
 
         [Test]
@@ -89,7 +98,7 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(ExpressionPreset.Joy, writes[0].Preset);
             Assert.AreEqual(0f, writes[0].UnityWeight, 0.01f);
             Assert.AreEqual(ExpressionPreset.Sorrow, writes[1].Preset);
-            Assert.AreEqual(90f, writes[1].UnityWeight, 0.01f);
+            Assert.AreEqual(85f, writes[1].UnityWeight, 0.01f);
             Assert.AreEqual(0, EmotionFace.Collect(EmotionFace.EmotionPose(Emotion.Happy, 1f), null, writes));
         }
     }

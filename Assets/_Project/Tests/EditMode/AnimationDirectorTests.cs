@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using AICompanion.AnimationDirector;
+using AICompanion.Avatar;
 using AICompanion.Core;
 using NUnit.Framework;
 using UnityEditor;
@@ -260,6 +261,10 @@ namespace AICompanion.Tests.EditMode
                 StringAssert.Contains("set gesture to stop", prompt);
                 StringAssert.Contains("- wave_hello:", prompt);
                 StringAssert.Contains("- happy:", prompt);
+                StringAssert.Contains("- embarrassed:", prompt);
+                StringAssert.Contains("face: embarrassed", prompt);
+                StringAssert.Contains("Do not default to happy or embarrassed.", prompt);
+                StringAssert.Contains(EmotionNames.CatalogLine, prompt);
                 StringAssert.Contains("walk along the desktop when asked to walk", prompt);
                 StringAssert.Contains("gesture: stop", prompt);
             }
@@ -361,6 +366,61 @@ namespace AICompanion.Tests.EditMode
             }
         }
 
+        [Test]
+        public void Play_PortraitCue_KeepsThePortraitNameForTheFace()
+        {
+            var host = new GameObject("director");
+            try
+            {
+                var avatar = host.AddComponent<RecordingAvatar>();
+                var director = host.AddComponent<Director>();
+                var row = Entry("embarrassed", Emotion.Neutral, 0.6f, string.Empty, "Idle");
+                row.portrait = "embarrassed";
+                AssignCatalog(director, NewCatalog(row));
+                LogAssert.Expect(LogType.Log, "AnimationDirector: emotion neutral -> applied");
+
+                director.Play(new AnimationCue(Emotion.Neutral, 0.5f, "embarrassed"));
+
+                Assert.AreEqual("embarrassed", avatar.ExpressionName);
+                Assert.AreEqual(Emotion.Neutral, avatar.Emotion);
+                Assert.AreEqual(Emotion.Embarrassed, FaceEmotion.Resolve(avatar.ExpressionName, avatar.Emotion));
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void Decide_PortraitWords_FillTheStillWithoutReplacingACatalogPortrait()
+        {
+            var model = NewModel(Entry("sad", Emotion.Sad, 0.7f, string.Empty, string.Empty));
+
+            var pouty = AnimationCueParser.Parse("<animation emotion=\"pouty\" intensity=\"0.5\" />").Cue;
+            var poutDecision = model.Decide(pouty);
+            Assert.AreEqual(DirectorAction.Emotion, poutDecision.Action);
+            Assert.AreEqual(Emotion.Sad, poutDecision.Emotion);
+            Assert.AreEqual("angry", poutDecision.Portrait);
+
+            var sleepy = AnimationCueParser.Parse("<animation emotion=\"sleepy\" />").Cue;
+            var sleepyDecision = model.Decide(sleepy);
+            Assert.AreEqual(DirectorAction.Emotion, sleepyDecision.Action);
+            Assert.AreEqual(Emotion.Neutral, sleepyDecision.Emotion);
+            Assert.AreEqual("sleepy", sleepyDecision.Portrait);
+
+            var worried = AnimationCueParser.Parse("<animation emotion=\"worried\" intensity=\"0.4\" />").Cue;
+            var worriedDecision = model.Decide(worried);
+            Assert.AreEqual(Emotion.Concerned, worriedDecision.Emotion);
+            Assert.AreEqual(string.Empty, worriedDecision.Portrait);
+
+            var row = Entry("pouty", Emotion.Sad, 0.45f, string.Empty, "Sad");
+            row.portrait = "angry";
+            var catalogued = new AnimationDirectorModel(NewCatalog(row)).Decide(
+                AnimationCueParser.Parse("<animation emotion=\"pouty\" gesture=\"pouty\" />").Cue);
+            Assert.AreEqual("angry", catalogued.Portrait);
+            Assert.AreEqual(Emotion.Sad, catalogued.Emotion);
+        }
+
         AnimationClipCatalog NewCatalog(params AnimationEntry[] entries)
         {
             var catalog = ScriptableObject.CreateInstance<AnimationClipCatalog>();
@@ -395,11 +455,12 @@ namespace AICompanion.Tests.EditMode
         }
     }
 
-    sealed class RecordingAvatar : MonoBehaviour, IAvatarAnimator, IAnimationStatePlayer
+    sealed class RecordingAvatar : MonoBehaviour, IAvatarAnimator, IAnimationStatePlayer, IExpressionHint
     {
         public bool IsTalking { get; private set; }
         public Emotion Emotion { get; private set; }
         public float EmotionIntensity { get; private set; }
+        public string ExpressionName { get; set; }
         public int PlayCalls;
         public string LastState;
         public bool HasState = true;
