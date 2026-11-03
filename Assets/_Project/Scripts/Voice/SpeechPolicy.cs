@@ -21,9 +21,16 @@ namespace AICompanion.Voice
         /// </summary>
         public static bool ShouldSpeak(ChatSettings chat, VoiceSettings voice, bool muted, bool privateMode)
         {
-            if (privateMode || !OutboundPrivacy.AllowsCloudTts(privateMode))
-                return false;
             if (voice == null || !voice.enabled || muted)
+                return false;
+
+            // The offline Piper voice never leaves the machine, so the cloud rules below do
+            // not apply to it. Without this a local chat model silenced speech entirely.
+            var localVoice = string.Equals(voice.provider, PiperTtsProvider.Id, StringComparison.OrdinalIgnoreCase);
+            if (localVoice)
+                return true;
+
+            if (privateMode || !OutboundPrivacy.AllowsCloudTts(privateMode))
                 return false;
 
             var provider = chat != null && chat.providerId != null ? chat.providerId.Trim() : string.Empty;
