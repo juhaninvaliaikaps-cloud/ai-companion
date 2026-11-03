@@ -80,7 +80,22 @@ namespace AICompanion.Voice
             _muted = PlayerPrefs.GetInt(MutePref, 0) != 0;
             EnsureSource();
             var timeout = voiceSettings.timeoutSeconds <= 0f ? 20f : voiceSettings.timeoutSeconds;
-            _provider = new XaiTtsProvider(new EnvironmentApiKeySource(), new UnityTtsTransport(this), timeout);
+            _provider = BuildProvider(timeout);
+        }
+
+        ITtsProvider BuildProvider(float timeout)
+        {
+            var mode = voiceSettings != null ? voiceSettings.provider : null;
+            if (string.Equals(mode, PiperTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+            {
+                return new PiperTtsProvider(
+                    voiceSettings.piperExe,
+                    voiceSettings.piperVoice,
+                    new PiperProcessRunner(),
+                    timeout);
+            }
+
+            return new XaiTtsProvider(new EnvironmentApiKeySource(), new UnityTtsTransport(this), timeout);
         }
 
         void Start()

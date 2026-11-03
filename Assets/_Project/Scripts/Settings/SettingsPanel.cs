@@ -733,6 +733,23 @@ namespace AICompanion.Settings
         void BuildVoice()
         {
             AddToggle("Speak replies", _settings.TtsEnabled, value => _settings.TtsEnabled = value);
+            var piper = string.Equals(_settings.TtsProvider, "piper", System.StringComparison.OrdinalIgnoreCase);
+            AddToggle(piper ? "Local voice: Piper (selected)" : "Use local voice (Piper)", piper, value =>
+            {
+                _settings.TtsProvider = value ? "piper" : "xai";
+                ApplyLive();
+            });
+            AddField("Piper exe", _settings.PiperExe, false, value =>
+            {
+                _settings.PiperExe = value;
+                ApplyLive();
+            });
+            AddField("Piper voice model", _settings.PiperVoice, false, value =>
+            {
+                _settings.PiperVoice = value;
+                ApplyLive();
+            });
+            Note("Piper speaks offline with no API key. Point it at piper.exe and a .onnx voice.");
             AddField("Voice", _settings.VoiceId, false, value =>
             {
                 _settings.VoiceId = value;
