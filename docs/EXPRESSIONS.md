@@ -36,6 +36,8 @@ A cue that reaches the face logs `Expression: sad` (or `embarrassed`, `shy`, `fl
 
 While she is talking, lip sync replaces `aa`, `ih`, `ou`, `ee`, and `oh`. Smile, brows, squint, look-down, and blush stay. A procedural blink takes the max of the emotion lids and the blink, and does not write the mouth.
 
+The expression stays up for the whole reply. Starting to talk does not put the blendshapes or the portrait back on the neutral talking face. The mouth layers on top: lip sync and the procedural jaw write only those five mouth channels. The portrait keeps the same expression name, so its talk frame is that expression's own talk frame when the frame set has one, and a set without a talk frame stays on its still. She returns to neutral only after the reply's speech has finished (synthesis and the clip queue both count, so a pause between sentences keeps the expression) and then been quiet for about 0.8 seconds, or sooner when the next cue arrives. A `neutral` cue clears immediately. The pause between the cue and the first syllable does not count as the end of speech, so a slow TTS start cannot drop the face. When the hold lets go, the Console logs `Expression: neutral`.
+
 ## Blush
 
 `BlushSettings.Enabled` is the global switch (`true`). Set it to `false` and both the shape and the overlay stay off.
@@ -61,7 +63,7 @@ Blush: off
 
 ## Tests
 
-`ExpressionPresetTests` covers preset lookup, unknown channels, VRM / ARKit / Daz / MMD names, portrait-name resolution, the found/missing coverage line, blush strength, lip-sync priority over the mouth, and the blink leaving blush alone. Rendering the overlay is a manual check.
+`ExpressionPresetTests` covers preset lookup, unknown channels, VRM / ARKit / Daz / MMD names, portrait-name resolution, the found/missing coverage line, blush strength, lip-sync priority over the mouth, and the blink leaving blush alone. `ExpressionHoldTests` covers the reply hold: it stays up before the first syllable, through speech, and for a short tail, and a new cue replaces it. Rendering the overlay is a manual check.
 
 ## Local check
 
@@ -70,6 +72,6 @@ Build the Windows player and talk to her.
 1. Keys **1**–**5** still select neutral, happy, sad, surprised, and thinking on the face. The body stays in Idle unless she is walking or playing a gesture.
 2. A reply whose cue is `emotion="embarrassed"` or `gesture="embarrassed"` lowers her eyes and brings in a strong blush. `shy` is a lighter blush and a small smile. `flustered` blushes and opens the mouth. `concerned` or `worried` raises the inner brows without that strong blush. The same cue updates the 2D portrait when **Show expression portrait** is on.
 3. `happy` near 1, or the laugh gesture, smiles with the eyes and opens the mouth. A lower intensity is the gentler smile.
-4. While audio is playing, the mouth follows the words. Brows, smile, and blush stay on the emotion. She still blinks.
+4. While audio is playing, the mouth follows the words and the expression she was given stays on the face and the portrait until the audio has been quiet for a short moment. Brows, smile, and blush stay on the emotion. She still blinks. The next cue can replace that expression immediately. `Expression: neutral` is the line after the hold lets go.
 5. An avatar with a blush blendshape uses it. One without it gets the cheek quads, and they turn with her head. `BlushSettings.Enabled = false` clears both.
 6. On spawn the Console shows `Expressions: bound ...`, one `Expressions: <emotion> -> N/M shapes found` line per emotion, and one `Blush:` line. Each cue adds `Expression: <emotion>`. `Blush: showing` appears when the cheek quads turn on.

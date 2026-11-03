@@ -194,6 +194,38 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void TalkFrameFollowsTheCurrentExpression()
+        {
+            var withTalk = new PortraitFrameSet("10_sad", "sad_blink_half", "sad_blink_closed", "sad_talk", null);
+            Assert.AreEqual("sad_talk", PortraitFrames.Choose(withTalk, PortraitLid.Half, true));
+            Assert.AreEqual("sad_blink_half", PortraitFrames.Choose(withTalk, PortraitLid.Half, false));
+            Assert.AreEqual("sad_blink_closed", PortraitFrames.Choose(withTalk, PortraitLid.Closed, false));
+
+            var stillOnly = PortraitFrameSet.Single("02_concerned");
+            Assert.AreEqual("02_concerned", PortraitFrames.Choose(stillOnly, PortraitLid.Closed, true));
+
+            var library = PortraitLibrary.FromFileNames(new[]
+            {
+                "neutral_open.png",
+                "neutral_talk.png",
+                "10_sad.png",
+                "sad_talk.png",
+                "02_concerned.png"
+            });
+            var map = PortraitMap.CreateDefaults();
+            Assert.IsTrue(map.Set("sad", new PortraitFrameSet("10_sad", null, null, "sad_talk", null)));
+            Assert.IsTrue(map.Set("concerned", new PortraitFrameSet("02_concerned", null, null, "concerned_talk", null)));
+
+            var speaking = new PortraitDirector();
+            var sadTalk = speaking.Tick(0f, "sad", true, true, 0.9f, map, library, 1f, 1f, 1f, 0f, 0.5f);
+            Assert.AreEqual("sad_talk.png", sadTalk.Front);
+
+            var missingTalk = new PortraitDirector();
+            var concerned = missingTalk.Tick(0f, "concerned", true, true, 0.9f, map, library, 1f, 1f, 1f, 0f, 0.5f);
+            Assert.AreEqual("02_concerned.png", concerned.Front);
+        }
+
+        [Test]
         public void Fade_CrossfadesAndHoldsTheInBetweenFrame()
         {
             Assert.AreEqual(0.15f, PortraitCrossfade.DurationFor(0f), 0.0001f);

@@ -82,7 +82,8 @@ The animator emotions today are neutral, happy, sad, surprised, and thinking. Th
 ## Motion
 
 - Blink, when the current expression has both blink frames: open → half → closed → half → open. Each frame holds 40–60 ms. The gap is 2–6 s. About one blink in five plays twice.
-- Talk, when the expression has a talk frame and she is speaking: the open and talk frames follow lip-sync loudness (`IMouthDriver.MouthOverride`). If that level never moves, they take turns on a short random hold. Expressions with no talk frame stay on their still.
+- Talk, when the expression has a talk frame and she is speaking: the open and talk frames follow lip-sync loudness (`IMouthDriver.MouthOverride`). The talk frame is the one on the current expression's frame set. If that level never moves, they take turns on a short random hold. Expressions with no talk frame stay on their still. A missing talk file stays on that still too, rather than the neutral talking frame.
 - Changing emotion crossfades for 150–250 ms. If `transitions` has `from->to` with `inBetween`, that image holds the middle of the fade. Blink and talk wait until the fade finishes.
+- The expression from the reply stays up while she talks and for a short moment after the audio stops. The next cue replaces it. Neutral comes back with the face, not when the mouth starts moving.
 
-The portrait reads the emotion already chosen by the animation director (`IAvatarAnimator.Emotion`). It does not parse chat and it does not edit `Companion.controller`.
+The portrait reads the expression the animation director is holding (`IExpressionHint.ExpressionName`, then `IAvatarAnimator.Emotion`). It does not parse chat and it does not edit `Companion.controller`.

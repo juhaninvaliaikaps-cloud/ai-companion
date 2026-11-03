@@ -88,6 +88,7 @@ namespace AICompanion.Avatar
         FacePose _face;
         LipSyncDriver _lips;
         readonly BlushOverlay _blush = new BlushOverlay();
+        readonly ExpressionHold _expressionHold = new ExpressionHold();
         UnityAction _beforeRender;
         ICompanionPause _pause;
         bool _pauseSearched;
@@ -110,6 +111,8 @@ namespace AICompanion.Avatar
 
         public void SetTalking(bool talking)
         {
+            // Mouth only. The held expression stays, and the animator Talking bool
+            // stays untouched so the Talk body clip cannot replace the face.
             _model.SetTalking(talking);
             PushParameters();
         }
@@ -118,6 +121,8 @@ namespace AICompanion.Avatar
         {
             _model.SetEmotion(emotion, intensity);
             PushParameters();
+            var face = FaceEmotion.Resolve(_expressionName, _model.Emotion);
+            _expressionHold.Apply(face, _model.EmotionIntensity, _expressionName, UtteranceActive());
             NoteFace();
         }
 
@@ -211,10 +216,19 @@ namespace AICompanion.Avatar
 
         string _expressionName = string.Empty;
 
-        /// <summary>Portrait expression name named by the animation director, empty when none.</summary>
+        /// <summary>
+        /// Portrait expression name for this reply. The director writes it, and the hold
+        /// keeps it until speech has finished so the 2D frame cannot fall back to neutral
+        /// while the blendshapes are still on the expression.
+        /// </summary>
         public string ExpressionName
         {
-            get { return _expressionName; }
+            get
+            {
+                if (!string.IsNullOrEmpty(_expressionName))
+                    return _expressionName;
+                return _expressionHold.Portrait;
+            }
             set { _expressionName = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant(); }
         }
 
@@ -354,6 +368,7 @@ namespace AICompanion.Avatar
             {
                 _expressionName = string.Empty;
                 PushParameters();
+                _expressionHold.Apply(_model.Emotion, _model.EmotionIntensity, string.Empty, UtteranceActive());
                 NoteFace();
             }
 
@@ -366,7 +381,8 @@ namespace AICompanion.Avatar
             _expressionCursor = (_expressionCursor + 1) % DebugExpressions.Length;
             var name = DebugExpressions[_expressionCursor];
             ExpressionName = name == "neutral" ? string.Empty : name;
-            NoteFace();
+            var face = FaceEmotion.Resolve(_expressionName, Emotion.Neutral);
+            SetEmotion(face, 1f);
             Debug.Log("Expression preview: " + name);
         }
 
@@ -396,8 +412,38 @@ namespace AICompanion.Avatar
         {
             UpdateWalkFacing(Time.deltaTime);
             UpdateGestureLayerWeight();
+            if (ReleaseExpression(Time.deltaTime))
+                NoteFace();
             AdvanceFace(Time.deltaTime);
             ApplyFace(DisplayedFace());
+        }
+
+        /// <summary>
+        /// True while this reply is still being spoken. Synthesis and the clip queue
+        /// count, so a pause between sentences does not drop the expression.
+        /// </summary>
+        bool UtteranceActive()
+        {
+            var speech = GetComponent<ISpeechOutput>();
+            var behaviour = speech as Object;
+            if (behaviour != null && speech.IsSpeaking)
+                return true;
+            return _model.IsTalking;
+        }
+
+        /// <summary>
+        /// Drops the reply's expression once speech has finished and the short tail
+        /// has elapsed. The portrait name and the body emotion go with it, so the
+        /// 2D still returns to neutral on the same frame as the blendshapes.
+        /// </summary>
+        bool ReleaseExpression(float deltaTime)
+        {
+            if (!_expressionHold.Tick(deltaTime, UtteranceActive()))
+                return false;
+
+            _expressionName = string.Empty;
+            _model.SetEmotion(Emotion.Neutral, 1f);
+            return true;
         }
 
         /// <summary>
@@ -447,6 +493,10 @@ namespace AICompanion.Avatar
 
             animator.runtimeAnimatorController = ResolveController();
             CacheParameters(animator);
+            // The Talk state still listens for this bool. Leaving it true plays that
+            // body clip, and the face goes back to the clip's talking pose.
+            if (_hasTalking && animator.GetBool(TalkingHash))
+                animator.SetBool(TalkingHash, false);
         }
 
         bool TryHumanoidForward(out Vector3 forward)
@@ -672,9 +722,10 @@ namespace AICompanion.Avatar
             var procedural = handsMouth
                 ? EmotionFace.ProceduralTalkScale(_talkAmount, ownership)
                 : _talkAmount;
-            var faceEmotion = FaceEmotion.Resolve(_expressionName, _model.Emotion);
+            var faceEmotion = _expressionHold.Active ? _expressionHold.Emotion : Emotion.Neutral;
+            var intensity = _expressionHold.Active ? _expressionHold.Intensity : 0f;
             var target = EmotionFace.Combine(
-                EmotionFace.EmotionPose(faceEmotion, _model.EmotionIntensity),
+                EmotionFace.EmotionPose(faceEmotion, intensity),
                 EmotionFace.TalkPose(_talkTime, procedural));
             _face = EmotionFace.Approach(_face, target, deltaTime, EmotionFace.BlendSeconds);
         }
