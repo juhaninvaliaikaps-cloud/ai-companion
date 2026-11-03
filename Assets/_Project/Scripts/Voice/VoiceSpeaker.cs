@@ -28,6 +28,8 @@ namespace AICompanion.Voice
         AudioSource _source;
         AudioClip _current;
         ITtsProvider _provider;
+        SpeechOrigin _origin;
+        bool _originSet;
         CancellationTokenSource _ttsCancel;
         int _requestSerial;
         bool _requestInFlight;
@@ -69,6 +71,12 @@ namespace AICompanion.Voice
 
         public bool IsSpeaking => _playback.ShouldTalk || _requestInFlight || _playback.QueuedCount > 0 || _clips.Count > 0 || _decoded.Count > 0;
 
+        /// <summary>The engine that will speak the current reply. Empty before the first route.</summary>
+        public string ActiveEngineId
+        {
+            get { return _provider != null ? _provider.ProviderId : string.Empty; }
+        }
+
         public void StartCompanion()
         {
             if (_started)
@@ -106,17 +114,58 @@ namespace AICompanion.Voice
 
         void EnsureProvider()
         {
-            var desired = "xai";
+            if (!_originSet)
+                _origin = OriginFromSettings();
+            ApplyUtterance(_origin, false);
+        }
+
+        SpeechOrigin OriginFromSettings()
+        {
+            return new SpeechOrigin
+            {
+                ChatProviderId = chatSettings != null ? chatSettings.providerId : null,
+                Model = chatSettings != null && VoiceRoute.UsesCloudTts(PrivateMode(), chatSettings.providerId)
+                    ? chatSettings.model
+                    : chatSettings != null ? chatSettings.localModel : null,
+                Private = PrivateMode()
+            };
+        }
+
+        void ApplyUtterance(SpeechOrigin origin, bool log)
+        {
+            if (!_started)
+                StartCompanion();
+
+            _origin = origin;
+            _originSet = true;
+            var plan = VoiceUtterance.Decide(origin, voiceSettings, System.IO.File.Exists);
             if (voiceSettings != null)
             {
-                if (string.Equals(voiceSettings.provider, PiperTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
-                    desired = PiperTtsProvider.Id;
-                else if (string.Equals(voiceSettings.provider, KokoroTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
-                    desired = KokoroTtsProvider.Id;
+                voiceSettings.provider = plan.EngineId;
+                if (plan.Local)
+                {
+                    if (string.Equals(plan.EngineId, KokoroTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!string.IsNullOrEmpty(plan.Voice))
+                            voiceSettings.kokoroVoice = plan.Voice;
+                    }
+                    else if (!string.IsNullOrEmpty(plan.PiperPath))
+                    {
+                        voiceSettings.piperVoice = plan.PiperPath;
+                    }
+                }
+                else if (!string.IsNullOrEmpty(plan.Voice))
+                {
+                    voiceSettings.voiceId = plan.Voice;
+                }
             }
 
+            var desired = plan.EngineId;
             if (_provider == null || !string.Equals(_provider.ProviderId, desired, System.StringComparison.OrdinalIgnoreCase))
                 RefreshProvider();
+
+            if (log)
+                Debug.Log(plan.LogLine());
         }
 
         void PrewarmProvider()
@@ -217,11 +266,20 @@ namespace AICompanion.Voice
 
         public void BeginUtterance()
         {
+            BeginUtterance(OriginFromSettings());
+        }
+
+        public void BeginUtterance(SpeechOrigin origin)
+        {
             SilencePlayback();
             InvalidateRequest();
             _noted.Clear();
+            ApplyUtterance(origin, true);
             var blocked = !CompanionPause.SpeechAllowed(_muted, _suppressed);
-            _turn.Begin(SpeechPolicy.ShouldSpeak(chatSettings, voiceSettings, blocked, PrivateMode()));
+            var chatId = origin.Private ? ChatDefaults.LocalId : origin.ChatProviderId;
+            if (chatSettings != null)
+                chatSettings.providerId = string.IsNullOrWhiteSpace(chatId) ? chatSettings.providerId : chatId;
+            _turn.Begin(SpeechPolicy.ShouldSpeak(chatSettings, voiceSettings, blocked, origin.Private));
             ApplyTalking();
         }
 
@@ -298,6 +356,12 @@ namespace AICompanion.Voice
             EnsureProvider();
             if (_provider == null || !CompanionPause.SpeechAllowed(_muted, _suppressed))
                 return;
+            if (BlocksCloud(_origin) && !string.Equals(_provider.ProviderId, PiperTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+            {
+                Debug.Log(VoiceUtterance.Decide(_origin, voiceSettings, System.IO.File.Exists).LogLine() + " blocked=cloud");
+                return;
+            }
+
             if (!_turn.TryTake(out var generation, out var sentence))
                 return;
 
@@ -308,13 +372,24 @@ namespace AICompanion.Voice
             RunSynthesis(BuildRequest(sentence), generation, serial, _ttsCancel.Token);
         }
 
+        static bool BlocksCloud(SpeechOrigin origin)
+        {
+            return !VoiceRoute.UsesCloudTts(origin.Private, origin.ChatProviderId);
+        }
+
         async void RunSynthesis(TtsRequest request, int generation, int serial, CancellationToken token)
         {
             try
             {
+                if (BlocksCloud(_origin) && (_provider == null || !string.Equals(_provider.ProviderId, PiperTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase)))
+                {
+                    Debug.Log(VoiceUtterance.Decide(_origin, voiceSettings, System.IO.File.Exists).LogLine() + " blocked=cloud");
+                    _requestInFlight = false;
+                    return;
+                }
+
                 var chars = request != null && request.Text != null ? request.Text.Length : 0;
-                var askedRate = TtsRequestJson.NormalizeSampleRate(request != null ? request.SampleRate : 24000);
-                Debug.Log("Voice: TTS request starting (" + chars.ToString() + " chars, pcm, " + askedRate.ToString() + " Hz)");
+                Debug.Log(RequestLine(chars));
 
                 TtsResult result;
                 try
@@ -476,6 +551,21 @@ namespace AICompanion.Voice
             if (type.Length > 80)
                 type = type.Substring(0, 80);
             return type;
+        }
+
+        string RequestLine(int chars)
+        {
+            var engine = _provider != null ? _provider.ProviderId : string.Empty;
+            if (string.Equals(engine, PiperTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+            {
+                var voice = voiceSettings != null ? voiceSettings.piperVoice : string.Empty;
+                var label = string.IsNullOrWhiteSpace(voice) ? VoiceUtterance.DefaultPiperVoiceId : System.IO.Path.GetFileNameWithoutExtension(voice);
+                return "Voice: TTS request starting (" + chars.ToString() + " chars, engine=Piper, voice=" + label + ")";
+            }
+
+            var cloud = voiceSettings != null ? voiceSettings.voiceId : "eve";
+            var rate = TtsRequestJson.NormalizeSampleRate(voiceSettings != null ? voiceSettings.sampleRate : 24000);
+            return "Voice: TTS request starting (" + chars.ToString() + " chars, engine=xAI, voice=" + cloud + ", pcm, " + rate.ToString() + " Hz)";
         }
 
         TtsRequest BuildRequest(string sentence)

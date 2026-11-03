@@ -68,6 +68,22 @@ namespace AICompanion.Settings
                 return fallback;
             return null;
         }
+
+        /// <summary>
+        /// A persona portrait folder when that directory exists. Otherwise the
+        /// standard portraits folder from <see cref="Resolve"/>.
+        /// </summary>
+        public static string Select(string requested, string applicationData, string persistentDataPath, Func<string, bool> directoryExists)
+        {
+            if (directoryExists != null && !string.IsNullOrWhiteSpace(requested))
+            {
+                var trimmed = requested.Trim();
+                if (directoryExists(trimmed))
+                    return trimmed;
+            }
+
+            return Resolve(applicationData, persistentDataPath, directoryExists);
+        }
     }
 
     /// <summary>

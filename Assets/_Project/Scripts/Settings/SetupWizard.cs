@@ -394,8 +394,7 @@ namespace AICompanion.Settings
             bodyRect.offsetMin = new Vector2(8f, 64f);
             bodyRect.offsetMax = new Vector2(-8f, -52f);
             var scroll = body.AddComponent<ScrollRect>();
-            scroll.horizontal = false;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
+            SettingsScroll.Apply(scroll);
             var viewport = new GameObject("Viewport");
             viewport.transform.SetParent(body.transform, false);
             var viewportRect = viewport.AddComponent<RectTransform>();

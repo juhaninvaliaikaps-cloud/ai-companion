@@ -28,6 +28,7 @@ namespace AICompanion.Settings
     public sealed class CompanionSettings
     {
         public const int CurrentVersion = 1;
+        public const int MaxModelLength = 200;
 
         public int Version = CurrentVersion;
         public string ProviderId = ChatDefaults.GrokId;
@@ -73,6 +74,15 @@ namespace AICompanion.Settings
         public bool PrivateMode;
         public string CompanionName = string.Empty;
         public string Relationship = RelationshipStyles.Friend;
+
+        /// <summary>Active persona id. Empty keeps the setup-wizard prompt.</summary>
+        public string PersonaId = string.Empty;
+
+        /// <summary>
+        /// Optional portrait set. Empty uses %APPDATA%\ProjectLeia\portraits.
+        /// A missing folder also falls back to that standard folder.
+        /// </summary>
+        public string PortraitFolder = string.Empty;
         public bool ShowExpressionPortrait;
 
         public static CompanionSettings CreateDefault()
@@ -86,10 +96,9 @@ namespace AICompanion.Settings
             ProviderId = string.Equals(ProviderId, ChatDefaults.LocalId, StringComparison.OrdinalIgnoreCase)
                 ? ChatDefaults.LocalId
                 : ChatDefaults.GrokId;
-            Model = CleanToken(Model, ChatDefaults.Model, 80);
-            Model = CleanToken(Model, ChatDefaults.Model, 80);
-        BaseUrl = CleanUrl(BaseUrl, ChatDefaults.BaseUrl);
-        LocalModel = CleanToken(LocalModel, ChatDefaults.LocalModel, 80);
+            Model = CleanToken(Model, ChatDefaults.Model, MaxModelLength);
+            BaseUrl = CleanUrl(BaseUrl, ChatDefaults.BaseUrl);
+            LocalModel = CleanToken(LocalModel, ChatDefaults.LocalModel, MaxModelLength);
             LocalBaseUrl = CleanUrl(LocalBaseUrl, ChatDefaults.LocalBaseUrl);
             if (float.IsNaN(TimeoutSeconds) || float.IsInfinity(TimeoutSeconds) || TimeoutSeconds < 1f || TimeoutSeconds > 300f)
                 TimeoutSeconds = ChatDefaults.TimeoutSeconds;
@@ -124,6 +133,8 @@ namespace AICompanion.Settings
                 IdleFrameRate = OverlayFrameRate.Active;
             CompanionName = CompanionPersona.SanitizeName(CompanionName);
             Relationship = RelationshipStyles.Normalize(Relationship);
+            PersonaId = PersonaIds.Normalize(PersonaId);
+            PortraitFolder = PersonaDefinition.CleanPath(PortraitFolder);
         }
 
         static string CleanToken(string value, string fallback, int max)
@@ -237,6 +248,13 @@ namespace AICompanion.Settings
             if (string.IsNullOrEmpty(folder))
                 return null;
             return Path.Combine(folder, HistoryFileName);
+        }
+
+        public static string PersonasFolder(string folder)
+        {
+            if (string.IsNullOrEmpty(folder))
+                return null;
+            return Path.Combine(folder, "personas");
         }
     }
 
@@ -382,6 +400,10 @@ namespace AICompanion.Settings
                 settings.CompanionName = text;
             if (TryString(json, "relationship", out text))
                 settings.Relationship = text;
+            if (TryString(json, "personaId", out text))
+                settings.PersonaId = text;
+            if (TryString(json, "portraitFolder", out text))
+                settings.PortraitFolder = text;
             if (TryBool(json, "showExpressionPortrait", out flag))
                 settings.ShowExpressionPortrait = flag;
             settings.Normalize();
@@ -431,6 +453,8 @@ namespace AICompanion.Settings
             Bool(sb, "privateMode", source.PrivateMode);
             String(sb, "companionName", source.CompanionName);
             String(sb, "relationship", source.Relationship);
+            String(sb, "personaId", source.PersonaId);
+            String(sb, "portraitFolder", source.PortraitFolder);
             Bool(sb, "showExpressionPortrait", source.ShowExpressionPortrait);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
