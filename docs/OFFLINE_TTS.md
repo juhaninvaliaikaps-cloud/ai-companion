@@ -44,7 +44,7 @@ Python environment, because it runs as an ONNX model:
    ```
 2. Download the model files into `E:\Tools\tts`:
    - `kokoro-v1.0.onnx` and `voices-v1.0.bin` from the kokoro-onnx releases.
-3. Copy `kokoro_server.py` next to them.
+3. Copy `tools/kokoro/kokoro_server.py` from this repo into `E:\Tools\tts`.
 4. In the app: **Settings ? Voice ? Use Kokoro voice**, then set
    - **Kokoro python**: `E:\Tools\tts\venv\Scripts\python.exe`
    - **Kokoro script**: `E:\Tools\tts\kokoro_server.py`
