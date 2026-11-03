@@ -131,13 +131,16 @@ namespace AICompanion.Voice
 
             if (string.Equals(mode, KokoroTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
             {
+                // The first request loads a 310 MB model, which takes about 17 s on this
+                // machine. A 20 s voice timeout cut it off, so give the process a floor.
+                var kokoroTimeout = Mathf.Max(timeout, 120f);
                 var session = new KokoroProcessSession(
                     voiceSettings.kokoroPython,
                     voiceSettings.kokoroScript,
                     voiceSettings.kokoroModel,
                     voiceSettings.kokoroVoices,
                     voiceSettings.kokoroVoice,
-                    timeout);
+                    kokoroTimeout);
                 return new KokoroTtsProvider(
                     voiceSettings.kokoroPython,
                     voiceSettings.kokoroScript,
