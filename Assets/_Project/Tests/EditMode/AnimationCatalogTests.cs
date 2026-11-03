@@ -100,10 +100,10 @@ namespace AICompanion.Tests.EditMode
         {
             AnimationClipCatalog catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>(CatalogPath);
             Assert.IsNotNull(catalog, "Missing catalog asset at " + CatalogPath);
-            Assert.AreEqual(22, catalog.Entries.Count);
+            Assert.AreEqual(25, catalog.Entries.Count);
 
             Assert.IsTrue(catalog.Validate(out List<string> problems), string.Join("\n", problems));
-            Assert.AreEqual(22, catalog.BuildPromptList().Split('\n').Length);
+            Assert.AreEqual(25, catalog.BuildPromptList().Split('\n').Length);
             Assert.IsFalse(catalog.TryGetById("talk", out _), "Talking is face-only, so the body talk row stays out of the catalog.");
 
             Assert.IsTrue(catalog.TryGetById("idle", out AnimationEntry idle));

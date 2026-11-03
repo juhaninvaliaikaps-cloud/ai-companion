@@ -30,7 +30,21 @@ namespace AICompanion.AnimationDirector
         /// </summary>
         public bool GestureLacksState { get; }
 
-        public DirectorDecision(DirectorAction action, string stateName, Emotion emotion, float intensity, string entryId, bool gestureLacksState = false, string portrait = null)
+        /// <summary>Clip length of the row, used by the rulebook to know when it ends.</summary>
+        public float DurationSeconds { get; }
+
+        public int Priority { get; }
+
+        public DirectorDecision(
+            DirectorAction action,
+            string stateName,
+            Emotion emotion,
+            float intensity,
+            string entryId,
+            bool gestureLacksState = false,
+            string portrait = null,
+            float durationSeconds = 0f,
+            int priority = 0)
         {
             Action = action;
             StateName = stateName ?? string.Empty;
@@ -39,6 +53,8 @@ namespace AICompanion.AnimationDirector
             EntryId = entryId ?? string.Empty;
             GestureLacksState = gestureLacksState;
             Portrait = portrait != null ? portrait.Trim() : string.Empty;
+            DurationSeconds = durationSeconds;
+            Priority = priority;
         }
     }
 
@@ -82,6 +98,17 @@ namespace AICompanion.AnimationDirector
             }
 
             return "AnimationDirector: no cue -> neutral";
+        }
+
+        public static string Skipped(AnimationCue cue, bool busy, bool falling = false)
+        {
+            var gesture = SafeGesture(cue.Gesture);
+            var token = gesture.Length > 0 ? "cue " + gesture : "emotion";
+            if (falling)
+                return "AnimationDirector: " + token + " -> falling, skipped";
+            return busy
+                ? "AnimationDirector: " + token + " -> busy, skipped"
+                : "AnimationDirector: " + token + " -> cooling down, skipped";
         }
 
         public static string MissingCatalog(AnimationCue cue)
@@ -163,7 +190,9 @@ namespace AICompanion.AnimationDirector
                             entry.emotion,
                             entry.intensity,
                             entry.id,
-                            portrait: entry.portrait);
+                            portrait: entry.portrait,
+                            durationSeconds: entry.durationSeconds,
+                            priority: entry.priority);
                     }
 
                     return new DirectorDecision(
@@ -173,7 +202,9 @@ namespace AICompanion.AnimationDirector
                         entry.intensity,
                         entry.id,
                         entry.HasGesture,
-                        entry.portrait);
+                        entry.portrait,
+                        entry.durationSeconds,
+                        entry.priority);
                 }
 
                 return Neutral();
@@ -205,7 +236,12 @@ namespace AICompanion.AnimationDirector
                 return true;
             }
 
-            return _catalog.TryGetByGesture(gesture, out entry);
+            if (_catalog.TryGetByGesture(gesture, out entry))
+            {
+                return true;
+            }
+
+            return _catalog.TryGetByTag(gesture, out entry);
         }
     }
 }

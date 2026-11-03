@@ -270,6 +270,12 @@ namespace AICompanion.Tests.EditMode
     {
         public bool Walking;
         public float Direction;
+        public bool Falling;
+
+        public bool IsFalling
+        {
+            get { return Falling; }
+        }
 
         public void SetWalking(bool walking)
         {
