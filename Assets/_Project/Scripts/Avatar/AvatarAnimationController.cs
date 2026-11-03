@@ -210,9 +210,13 @@ namespace AICompanion.Avatar
                 return false;
 
             if (layer != 0)
+            {
+                _lastGestureRequest = Time.unscaledTime;
                 _animator.SetLayerWeight(layer, 1f);
+            }
 
             _animator.CrossFade(hash, Mathf.Max(0f, crossfadeSeconds), layer, 0f);
+            Debug.Log("Gesture " + stateName + " on layer " + layer + " (weight " + _animator.GetLayerWeight(layer).ToString("0.00") + ")");
 
             if (stateName == AvatarAnimatorStates.Turn180)
                 StartTurn();
@@ -395,6 +399,8 @@ namespace AICompanion.Avatar
         /// so it keeps the last gesture pose unless its weight is released. Fade the weight
         /// to zero while Empty is active, which hands the body back to the base layer.
         /// </summary>
+        float _lastGestureRequest = -10f;
+
         void UpdateGestureLayerWeight()
         {
             ReleaseLayerWeight(AvatarAnimatorLayers.Gestures);
@@ -409,6 +415,15 @@ namespace AICompanion.Avatar
         {
             if (_animator == null || _animator.layerCount <= layer)
                 return;
+
+            // Right after a request the layer must stay up even if the transition has not
+            // started yet, otherwise the weight race hides the whole gesture.
+            if (Time.unscaledTime - _lastGestureRequest < 0.6f)
+            {
+                if (_animator.GetLayerWeight(layer) < 0.999f)
+                    _animator.SetLayerWeight(layer, 1f);
+                return;
+            }
 
             if (_animator.IsInTransition(layer))
                 return;
