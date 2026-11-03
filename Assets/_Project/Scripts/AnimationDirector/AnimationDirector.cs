@@ -22,7 +22,11 @@ namespace AICompanion.AnimationDirector
         IAnimationStatePlayer _states;
         bool _suppressed;
 
-        public const float WalkRequestSeconds = 4f;
+        /// <summary>
+        /// Long enough that a reply cue usually arrives while she is still walking, so a
+        /// gesture can play over the walk. A stop cue still ends it immediately.
+        /// </summary>
+        public const float WalkRequestSeconds = 12f;
         public const string WalkCue = "walk";
         public const string StopCue = "stop";
 

@@ -64,7 +64,7 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("walk", filter.Cue.Gesture);
             Assert.AreEqual(-1f, filter.Cue.Direction, 0.0001f);
 
-            LogAssert.Expect(LogType.Log, "Walk: request received dir=-1 secs=4");
+            LogAssert.Expect(LogType.Log, "Walk: request received dir=-1 secs=12");
             LogAssert.Expect(LogType.Log, "AnimationDirector: cue walk -> requested");
             director.Play(filter.Cue);
 
@@ -122,7 +122,7 @@ namespace AICompanion.Tests.EditMode
             filter.Push("Going.\n<animation emotion=\"neutral\" gesture=\"walk\" direction=\"right\" />");
             filter.Flush();
 
-            LogAssert.Expect(LogType.Log, "Walk: request received dir=1 secs=4");
+            LogAssert.Expect(LogType.Log, "Walk: request received dir=1 secs=12");
             LogAssert.Expect(LogType.Log, "AnimationDirector: cue walk -> requested");
             director.Play(filter.Cue);
             Step(presence, 0.1f, 800, false);
@@ -150,7 +150,7 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("walk", filter.Cue.Gesture);
             Assert.AreEqual(1f, filter.Cue.Direction, 0.0001f);
 
-            LogAssert.Expect(LogType.Log, "Walk: request received dir=1 secs=4");
+            LogAssert.Expect(LogType.Log, "Walk: request received dir=1 secs=12");
             LogAssert.Expect(LogType.Log, "AnimationDirector: cue walk -> requested");
             director.Play(filter.Cue);
             Assert.IsNull(presence.Model);
@@ -194,7 +194,7 @@ namespace AICompanion.Tests.EditMode
             Step(presence, 0.1f, 800, false);
             var start = presence.Model.X;
 
-            LogAssert.Expect(LogType.Log, "Walk: request received dir=-1 secs=4");
+            LogAssert.Expect(LogType.Log, "Walk: request received dir=-1 secs=12");
             LogAssert.Expect(LogType.Log, "AnimationDirector: cue walk -> requested");
             director.Play(new AnimationCue(Emotion.Neutral, 0.5f, "walk_left"));
             Step(presence, 0.1f, 800, false);
