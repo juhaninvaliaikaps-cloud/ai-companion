@@ -29,6 +29,12 @@ namespace AICompanion.AnimationDirector
         public AnimationClip clip;
         public float durationSeconds;
 
+        /// <summary>
+        /// 0 for ordinary reactions. A higher value lets the row interrupt a gesture that is
+        /// still playing, and blocks lower-priority gestures while it runs.
+        /// </summary>
+        public int priority;
+
         public bool HasGesture
         {
             get { return !string.IsNullOrWhiteSpace(gesture); }

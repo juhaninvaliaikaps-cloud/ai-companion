@@ -163,8 +163,11 @@ namespace AICompanion.Avatar
         }
 
         /// <summary>Drives the fall pose while she drops to the taskbar.</summary>
+        public bool IsFalling { get; private set; }
+
         public void SetFalling(bool falling)
         {
+            IsFalling = falling;
             if (_animator != null && _hasFalling)
                 _animator.SetBool(FallingHash, falling);
         }

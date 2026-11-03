@@ -80,6 +80,9 @@ namespace AICompanion.Editor.AnimationDirector
                 Entry("laugh", "short laugh at something funny", Emotion.Happy, 0.9f, "laugh", "Laugh", "Laugh", 1.4f, "amused", "funny"),
                 Entry("walk", "walk along the desktop when asked to walk, move, come here, or go left or right", Emotion.Neutral, 0.5f, "walk", "Walk", "Walk", 1f, "locomotion", "loop"),
                 Entry("turn_around", "turn around in place to look behind", Emotion.Neutral, 0.5f, "turn", "Turn180", "Turn180", 0.9f, "turn", "orientation"),
+            PriorityRow(Entry("wave_bye", "friendly goodbye wave", Emotion.Happy, 0.7f, "wave_bye", "Wave", "Wave", 1.4f, "greeting", "goodbye"), 1),
+            Entry("nod_no", "shaking the head no", Emotion.Neutral, 0.4f, "nod_no", "Nod", "Nod", 1f, "disagreement", "no"),
+            Entry("sigh", "a quiet sigh", Emotion.Sad, 0.5f, string.Empty, "Sad", "Sad", 2f, "sigh", "tired"),
                 Entry("stop", "stop and stand still when asked to stop, wait, or stay", Emotion.Neutral, 0.3f, "stop", string.Empty, string.Empty, 1f, "movement", "still"),
 
             // Portrait expressions. The body keeps a base emotion; the portrait name in the
@@ -142,6 +145,13 @@ namespace AICompanion.Editor.AnimationDirector
         {
             var entry = Entry(id, description, emotion, intensity, string.Empty, animatorState, clipName, durationSeconds, tags);
             entry.portrait = portrait;
+            return entry;
+        }
+
+        private static AnimationEntry PriorityRow(AnimationEntry entry, int priority)
+        {
+            if (entry != null)
+                entry.priority = priority;
             return entry;
         }
 
