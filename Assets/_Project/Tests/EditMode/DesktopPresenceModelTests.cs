@@ -16,6 +16,38 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void TheFirstWorkAreaPlacesHerOnTheGroundWithoutAFall()
+        {
+            var model = Model();
+            model.SetWorkArea(Area());
+
+            var frame = model.Tick(1f / 60f);
+
+            Assert.AreEqual(PresenceState.Idle, frame.State);
+            Assert.IsFalse(frame.Falling);
+            Assert.AreEqual(model.GroundY, frame.Y);
+        }
+
+        [Test]
+        public void AFootOffsetChangeKeepsHerFeetOnTheLine()
+        {
+            var model = Model();
+            model.SetWorkArea(Area());
+            model.Tick(1f / 60f);
+
+            var groundBefore = model.GroundY;
+            var yBefore = model.Y;
+
+            model.SetFootOffset(10f);
+            var frame = model.Tick(1f / 60f);
+
+            Assert.AreEqual(groundBefore + 10, model.GroundY);
+            Assert.AreEqual(yBefore + 10, frame.Y);
+            Assert.AreEqual(model.GroundY, frame.Y);
+            Assert.IsFalse(frame.Falling);
+        }
+
+        [Test]
         public void Tick_FallsAndLandsOnTheGround()
         {
             var model = Model();

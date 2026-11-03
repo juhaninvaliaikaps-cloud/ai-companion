@@ -135,7 +135,7 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void ReplyWalk_BeforeTheModelExists_SurvivesTheFallAndThenMoves()
+        public void ReplyWalk_BeforeTheModelExists_AppliesWhenTheModelAppears()
         {
             var host = Track(new GameObject("falling-host"));
             host.AddComponent<RecordingAvatar>();
@@ -155,11 +155,11 @@ namespace AICompanion.Tests.EditMode
             director.Play(filter.Cue);
             Assert.IsNull(presence.Model);
 
-            // Window is in the air: creating the model must not drop the request.
+            // She is placed on the taskbar on the first frame, so the queued request
+            // runs at once instead of waiting for a fall to finish.
             var first = FallStep(presence, 0.1f);
-            Assert.AreEqual(PresenceState.Falling, presence.Model.State);
-            Assert.AreEqual(0f, presence.Model.X, 0.001f);
-            Assert.IsFalse(first.Walking);
+            Assert.IsFalse(first.Falling);
+            Assert.AreEqual(presence.Model.GroundY, presence.Model.Y);
 
             var moved = false;
             for (var i = 0; i < 40 && !moved; i++)
