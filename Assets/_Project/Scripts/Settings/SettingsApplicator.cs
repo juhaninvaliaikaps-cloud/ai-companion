@@ -100,6 +100,7 @@ namespace AICompanion.Settings
             chat.providerId = provider;
             chat.model = settings.Model;
             chat.localModel = settings.LocalModel;
+            chat.baseUrl = settings.BaseUrl;
             chat.localBaseUrl = settings.LocalBaseUrl;
             chat.timeoutSeconds = settings.TimeoutSeconds;
             ApplyPersona(chat, settings);

@@ -79,6 +79,8 @@ namespace AICompanion.Avatar
             _visible = visible;
             _left.gameObject.SetActive(visible);
             _right.gameObject.SetActive(visible);
+            if (visible)
+                Debug.Log("Blush: showing");
         }
 
         public void Release()

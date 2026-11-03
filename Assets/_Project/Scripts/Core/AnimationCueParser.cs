@@ -55,6 +55,11 @@ namespace AICompanion.Core
             "<animation emotion=\"happy\" intensity=\"0.8\" gesture=\"wave_hello\" />. " +
             "Set gesture to a catalog id (wave_hello) or that row's gesture name (wave). " +
             "Leave the gesture attribute out for an emotion only. " +
+            "When the user asks you to walk, move, come here, or go to one side, set gesture to walk " +
+            "in that same reply, even if you only agree in the sentence. " +
+            "Walk to the left is <animation emotion=\"neutral\" gesture=\"walk\" direction=\"left\" />. " +
+            "Walk to the right uses direction=\"right\". Omit direction when they do not name a side. " +
+            "When they ask you to stop, wait, or stand still, set gesture to stop. " +
             "The tag is not part of the reply text, so never mention it.";
 
         static readonly string Marker = "<" + TagName;
@@ -125,6 +130,58 @@ namespace AICompanion.Core
             }
 
             return string.Equals(SanitizeGesture(trimmed), trimmed, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Collapses walk and stop aliases onto the tokens the director handles, and
+        /// fills a missing side from a gesture such as walk_left. An explicit direction
+        /// wins over the alias. Idempotent, so the director can run it again.
+        /// </summary>
+        public static void NormalizeMovementCue(ref string gesture, ref float direction)
+        {
+            gesture = gesture == null ? string.Empty : gesture.Trim().ToLowerInvariant();
+            direction = AnimationCue.NormalizeDirection(direction);
+
+            if (gesture == "walking")
+            {
+                gesture = "walk";
+                return;
+            }
+
+            if (IsWalkLeft(gesture))
+            {
+                gesture = "walk";
+                if (direction == 0f)
+                    direction = -1f;
+                return;
+            }
+
+            if (IsWalkRight(gesture))
+            {
+                gesture = "walk";
+                if (direction == 0f)
+                    direction = 1f;
+                return;
+            }
+
+            if (gesture == "stand_still" || gesture == "standstill" || gesture == "stop_walking")
+                gesture = "stop";
+        }
+
+        static bool IsWalkLeft(string gesture)
+        {
+            return gesture == "walk_left"
+                || gesture == "walkleft"
+                || gesture == "walking_left"
+                || gesture == "walkingleft";
+        }
+
+        static bool IsWalkRight(string gesture)
+        {
+            return gesture == "walk_right"
+                || gesture == "walkright"
+                || gesture == "walking_right"
+                || gesture == "walkingright";
         }
 
         static CueParseResult Scan(string text, bool holdPartial)
@@ -296,6 +353,7 @@ namespace AICompanion.Core
             var emotion = Emotion.Neutral;
             var intensity = DefaultIntensity;
             var gesture = string.Empty;
+            var direction = 0f;
             var ok = true;
 
             foreach (Match attribute in AttributePattern.Matches(trimmed))
@@ -329,6 +387,9 @@ namespace AICompanion.Core
                     case "gesture":
                         gesture = SanitizeGesture(value);
                         break;
+                    case "direction":
+                        direction = ParseDirection(value);
+                        break;
                 }
             }
 
@@ -337,8 +398,23 @@ namespace AICompanion.Core
                 return false;
             }
 
-            cue = new AnimationCue(emotion, intensity, gesture);
+            NormalizeMovementCue(ref gesture, ref direction);
+            cue = new AnimationCue(emotion, intensity, gesture, direction);
             return true;
+        }
+
+        /// <summary>left / right, or 0 when the attribute is missing or not a side.</summary>
+        static float ParseDirection(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return 0f;
+
+            var token = value.Trim().ToLowerInvariant();
+            if (token == "left" || token == "l" || token == "-1")
+                return -1f;
+            if (token == "right" || token == "r" || token == "1" || token == "+1")
+                return 1f;
+            return 0f;
         }
 
         static int SkipTag(string text, StringBuilder builder, int start, int end)

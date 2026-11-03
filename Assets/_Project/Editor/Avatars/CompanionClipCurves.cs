@@ -26,18 +26,21 @@ namespace AICompanion.Editor.Avatars
                     CompanionAnimatorBaker.Curve(clip, "Right Arm Twist In-Out", 4f, -0.2f, 0f, 0f, 0f);
                     break;
                 case "Happy":
-                    CompanionAnimatorBaker.Curve(clip, "Spine Front-Back", 2f, -0.04f, 0.04f, 2f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Chest Front-Back", 2f, -0.03f, 0.03f, 2f, 0.2f);
-                    CompanionAnimatorBaker.Curve(clip, "Head Nod Down-Up", 2f, 0.1f, 0.04f, 2f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Head Turn Left-Right", 2f, 0f, 0.03f, 1f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Left Arm Down-Up", 2f, -0.18f, 0.06f, 2f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Right Arm Down-Up", 2f, -0.18f, 0.06f, 2f, 0.15f);
-                    CompanionAnimatorBaker.Curve(clip, "Left Arm Front-Back", 2f, 0.02f, 0f, 0f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Right Arm Front-Back", 2f, 0.02f, 0f, 0f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Left Forearm Stretch", 2f, 0.12f, 0f, 0f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Right Forearm Stretch", 2f, 0.12f, 0f, 0f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Left Shoulder Down-Up", 2f, 0.12f, 0.04f, 2f, 0f);
-                    CompanionAnimatorBaker.Curve(clip, "Right Shoulder Down-Up", 2f, 0.12f, 0.04f, 2f, 0.15f);
+                    // A smile is a face and posture thing, but the arms still have to be written:
+                    // the base state resets unanimated muscles to their default, which is the
+                    // T-pose. These are the same relaxed arms Idle uses, held still.
+                    CompanionAnimatorBaker.Curve(clip, "Spine Front-Back", 2f, -0.03f, 0.02f, 2f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Chest Front-Back", 2f, -0.02f, 0.02f, 2f, 0.2f);
+                    CompanionAnimatorBaker.Curve(clip, "Head Nod Down-Up", 2f, 0.06f, 0.03f, 2f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Head Turn Left-Right", 2f, 0f, 0.02f, 1f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Arm Down-Up", 2f, -0.5f, 0.01f, 1f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Arm Down-Up", 2f, -0.5f, 0.01f, 1f, 0.4f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Arm Front-Back", 2f, 0.08f, 0f, 0f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Arm Front-Back", 2f, 0.08f, 0f, 0f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Forearm Stretch", 2f, 0.2f, 0.01f, 1f, 0.5f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Forearm Stretch", 2f, 0.2f, 0.01f, 1f, 0.8f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Arm Twist In-Out", 2f, 0.2f, 0f, 0f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Arm Twist In-Out", 2f, -0.2f, 0f, 0f, 0f);
                     break;
                 case "Sad":
                     CompanionAnimatorBaker.Curve(clip, "Spine Front-Back", 3f, 0.18f, 0.02f, 1f, 0f);
@@ -88,6 +91,97 @@ namespace AICompanion.Editor.Avatars
                     CompanionAnimatorBaker.Curve(clip, "Right Arm Down-Up", 1.2f, 0f, 0.1f, 1f, 0f);
                     CompanionAnimatorBaker.Curve(clip, "Right Arm Front-Back", 1.2f, 0f, 0.06f, 1f, 0.4f);
                     CompanionAnimatorBaker.Curve(clip, "Right Forearm Stretch", 1.2f, 0f, 0.05f, 1f, 0.2f);
+                    break;
+                case "Wave":
+                    CompanionAnimatorBaker.Keys(clip, "Right Arm Down-Up",
+                        (0f, 0f), (0.35f, 0.85f), (0.55f, 0.72f), (0.75f, 0.88f), (0.95f, 0.72f), (1.15f, 0.88f), (1.4f, 0f));
+                    CompanionAnimatorBaker.Keys(clip, "Right Forearm Stretch",
+                        (0f, 0.1f), (0.35f, 0.55f), (1.15f, 0.55f), (1.4f, 0.1f));
+                    CompanionAnimatorBaker.Keys(clip, "Right Arm Front-Back",
+                        (0f, 0.05f), (0.35f, 0.25f), (1.15f, 0.25f), (1.4f, 0.05f));
+                    CompanionAnimatorBaker.Keys(clip, "Right Shoulder Down-Up",
+                        (0f, 0f), (0.35f, 0.18f), (1.15f, 0.18f), (1.4f, 0f));
+                    CompanionAnimatorBaker.Curve(clip, "Head Tilt Left-Right", 1.4f, 0.06f, 0.03f, 1f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Spine Twist Left-Right", 1.4f, 0.03f, 0.02f, 1f, 0f);
+                    break;
+                case "Nod":
+                    CompanionAnimatorBaker.Keys(clip, "Head Nod Down-Up",
+                        (0f, 0f), (0.2f, 0.3f), (0.4f, 0f), (0.6f, 0.28f), (0.8f, 0f), (1f, 0f));
+                    CompanionAnimatorBaker.Keys(clip, "Neck Nod Down-Up",
+                        (0f, 0f), (0.2f, 0.12f), (0.4f, 0f), (0.6f, 0.12f), (0.8f, 0f), (1f, 0f));
+                    CompanionAnimatorBaker.Curve(clip, "Chest Front-Back", 1f, 0.02f, 0.01f, 1f, 0f);
+                    break;
+                case "Shrug":
+                    CompanionAnimatorBaker.Keys(clip, "Left Shoulder Down-Up",
+                        (0f, 0f), (0.35f, 0.5f), (0.9f, 0.5f), (1.3f, 0f));
+                    CompanionAnimatorBaker.Keys(clip, "Right Shoulder Down-Up",
+                        (0f, 0f), (0.35f, 0.5f), (0.9f, 0.5f), (1.3f, 0f));
+                    CompanionAnimatorBaker.Keys(clip, "Left Arm Down-Up",
+                        (0f, 0f), (0.35f, 0.15f), (0.9f, 0.15f), (1.3f, 0f));
+                    CompanionAnimatorBaker.Keys(clip, "Right Arm Down-Up",
+                        (0f, 0f), (0.35f, 0.15f), (0.9f, 0.15f), (1.3f, 0f));
+                    CompanionAnimatorBaker.Keys(clip, "Left Forearm Stretch",
+                        (0f, 0.1f), (0.35f, 0.38f), (0.9f, 0.38f), (1.3f, 0.1f));
+                    CompanionAnimatorBaker.Keys(clip, "Right Forearm Stretch",
+                        (0f, 0.1f), (0.35f, 0.38f), (0.9f, 0.38f), (1.3f, 0.1f));
+                    CompanionAnimatorBaker.Curve(clip, "Head Tilt Left-Right", 1.3f, 0.1f, 0.05f, 1f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Spine Front-Back", 1.3f, -0.02f, 0.02f, 1f, 0f);
+                    break;
+                case "Laugh":
+                    CompanionAnimatorBaker.Curve(clip, "Chest Front-Back", 1.4f, 0.04f, 0.07f, 4f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Spine Front-Back", 1.4f, 0.02f, 0.05f, 4f, 0.3f);
+                    CompanionAnimatorBaker.Curve(clip, "Head Nod Down-Up", 1.4f, 0.1f, 0.05f, 4f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Shoulder Down-Up", 1.4f, 0.08f, 0.05f, 4f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Shoulder Down-Up", 1.4f, 0.08f, 0.05f, 4f, 0.2f);
+                    CompanionAnimatorBaker.Curve(clip, "Jaw Close", 1.4f, -0.15f, 0.1f, 4f, 0f);
+                    break;
+                case "Walk":
+                    // Feminine cadence: a shorter stride, a wider hip sway, and arms that
+                    // stay closer to the body than a neutral walk.
+                    CompanionAnimatorBaker.Curve(clip, "Left Upper Leg Front-Back", 1f, 0f, 0.3f, 1f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Upper Leg Front-Back", 1f, 0f, 0.3f, 1f, 3.14159f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Lower Leg Stretch", 1f, 0.1f, 0.15f, 1f, 1.5708f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Lower Leg Stretch", 1f, 0.1f, 0.15f, 1f, 4.7124f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Foot Up-Down", 1f, 0f, 0.1f, 1f, 1.5708f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Foot Up-Down", 1f, 0f, 0.1f, 1f, 4.7124f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Arm Front-Back", 1f, 0.02f, 0.12f, 1f, 3.14159f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Arm Front-Back", 1f, 0.02f, 0.12f, 1f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Arm Down-Up", 1f, -0.08f, 0.02f, 1f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Arm Down-Up", 1f, -0.08f, 0.02f, 1f, 3.14159f);
+                    CompanionAnimatorBaker.Curve(clip, "Spine Left-Right", 1f, 0f, 0.09f, 1f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Chest Twist Left-Right", 1f, 0f, 0.05f, 1f, 3.14159f);
+                    CompanionAnimatorBaker.Curve(clip, "Spine Front-Back", 1f, 0.01f, 0.02f, 2f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Head Turn Left-Right", 1f, 0f, 0.02f, 1f, 0f);
+                    break;
+                case "Fall":
+                    // Arms up and out, knees tucked, spine arched back, with a small flutter
+                    // so the pose reads as motion while she is in the air.
+                    CompanionAnimatorBaker.Curve(clip, "Left Arm Down-Up", 0.9f, 0.75f, 0.08f, 2f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Arm Down-Up", 0.9f, 0.75f, 0.08f, 2f, 3.14159f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Arm Front-Back", 0.9f, 0.25f, 0.06f, 2f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Arm Front-Back", 0.9f, 0.25f, 0.06f, 2f, 3.14159f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Lower Leg Stretch", 0.9f, 0.55f, 0.1f, 2f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Lower Leg Stretch", 0.9f, 0.45f, 0.1f, 2f, 3.14159f);
+                    CompanionAnimatorBaker.Curve(clip, "Left Upper Leg Front-Back", 0.9f, 0.3f, 0.08f, 2f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Right Upper Leg Front-Back", 0.9f, 0.2f, 0.08f, 2f, 3.14159f);
+                    CompanionAnimatorBaker.Curve(clip, "Spine Front-Back", 0.9f, -0.15f, 0.04f, 1f, 0f);
+                    CompanionAnimatorBaker.Curve(clip, "Head Front-Back", 0.9f, -0.2f, 0.05f, 1f, 0f);
+                    break;
+
+                case "Turn180":
+                    // The rotation itself is done on the root by AvatarAnimationController.
+                    // The clip only shifts the weight so the spin reads as a turn, not a skate.
+                    CompanionAnimatorBaker.Keys(clip, "Spine Twist Left-Right",
+                        (0f, 0f), (0.3f, -0.15f), (0.6f, 0.1f), (0.9f, 0f));
+                    CompanionAnimatorBaker.Keys(clip, "Left Upper Leg Front-Back",
+                        (0f, 0f), (0.45f, 0.12f), (0.9f, 0f));
+                    CompanionAnimatorBaker.Keys(clip, "Right Upper Leg Front-Back",
+                        (0f, 0f), (0.45f, -0.12f), (0.9f, 0f));
+                    CompanionAnimatorBaker.Keys(clip, "Left Arm Down-Up",
+                        (0f, 0f), (0.45f, 0.1f), (0.9f, 0f));
+                    CompanionAnimatorBaker.Keys(clip, "Right Arm Down-Up",
+                        (0f, 0f), (0.45f, 0.1f), (0.9f, 0f));
+                    CompanionAnimatorBaker.Curve(clip, "Head Turn Left-Right", 0.9f, 0f, 0.08f, 1f, 0f);
                     break;
             }
         }

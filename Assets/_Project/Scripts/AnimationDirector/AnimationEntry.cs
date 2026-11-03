@@ -18,6 +18,12 @@ namespace AICompanion.AnimationDirector
         public string[] tags = Array.Empty<string>();
         public Emotion emotion = Emotion.Neutral;
         [Range(0f, 1f)] public float intensity = 1f;
+
+        /// <summary>
+        /// Optional portrait expression name for rows the five-value Emotion enum cannot
+        /// describe, such as embarrassed, shy or teasing. Empty falls back to the emotion.
+        /// </summary>
+        public string portrait = string.Empty;
         public string gesture = string.Empty;
         public string animatorState = string.Empty;
         public AnimationClip clip;

@@ -22,6 +22,12 @@ namespace AICompanion.AnimationDirector
         IAnimationStatePlayer _states;
         bool _suppressed;
 
+        public const float WalkRequestSeconds = 4f;
+        public const string WalkCue = "walk";
+        public const string StopCue = "stop";
+
+        IWalkRequest _walk;
+
         public bool ReactionsSuppressed => _suppressed;
 
         public DirectorDecision LastDecision { get; private set; }
@@ -84,6 +90,8 @@ namespace AICompanion.AnimationDirector
             if (CompanionPause.ReactionsAllowed(_suppressed) || _animator == null)
                 return;
 
+            if (_animator is IExpressionHint hint)
+                hint.ExpressionName = string.Empty;
             _animator.SetEmotion(Emotion.Neutral, 1f);
             _animator.SetTalking(false);
         }
@@ -91,6 +99,11 @@ namespace AICompanion.AnimationDirector
         public void Play(AnimationCue cue)
         {
             if (!CompanionPause.ReactionsAllowed(_suppressed))
+                return;
+
+            // Walk and stop are not catalog clips. Handling them first keeps a walk row
+            // with an Animator state from playing an on-the-spot loop instead of moving.
+            if (TryHandleMovement(cue))
                 return;
 
             if (_model == null || !IsAlive(_animator) || !IsAlive(_states))
@@ -110,6 +123,73 @@ namespace AICompanion.AnimationDirector
             Debug.Log(AnimationDirectorLog.Format(cue, decision, played));
         }
 
+        /// <summary>
+        /// walk and stop are requests to the desktop presence rather than Animator states, so
+        /// she moves because the model asked, not because a wander timer fired.
+        /// </summary>
+        bool TryHandleMovement(AnimationCue cue)
+        {
+            var token = cue.Gesture == null ? string.Empty : cue.Gesture.Trim();
+            var direction = cue.Direction;
+            AnimationCueParser.NormalizeMovementCue(ref token, ref direction);
+            if (token != WalkCue && token != StopCue)
+                return false;
+
+            var walk = ResolveWalk();
+            if (walk == null)
+            {
+                Debug.Log("Walk: no IWalkRequest found");
+                return true;
+            }
+
+            if (token == WalkCue)
+            {
+                if (direction == 0f)
+                    direction = UnityEngine.Random.value < 0.5f ? -1f : 1f;
+                walk.RequestWalk(direction, WalkRequestSeconds);
+                Debug.Log("AnimationDirector: cue walk -> requested");
+            }
+            else
+            {
+                walk.RequestStop();
+                Debug.Log("AnimationDirector: cue stop -> requested");
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// The presence is added to the overlay host after the scene loads. In Main that
+        /// host is this object. A split setup is found by the interface, and a miss is
+        /// not cached, so a presence that appears later still receives the next cue.
+        /// </summary>
+        IWalkRequest ResolveWalk()
+        {
+            if (IsAlive(_walk))
+                return _walk;
+
+            _walk = null;
+            var local = GetComponent<IWalkRequest>();
+            if (IsAlive(local))
+            {
+                _walk = local;
+                return _walk;
+            }
+
+            var behaviours = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                var candidate = behaviours[i] as IWalkRequest;
+                if (!IsAlive(candidate))
+                    continue;
+
+                _walk = candidate;
+                return _walk;
+            }
+
+            return null;
+        }
+
         public void PlayNeutral()
         {
             Play(AnimationCueParser.NeutralCue);
@@ -119,6 +199,10 @@ namespace AICompanion.AnimationDirector
         {
             if (IsAlive(_animator))
             {
+                // The portrait name has to be in place before SetEmotion logs, so a
+                // portrait row whose body emotion is neutral still reports the face.
+                if (_animator is IExpressionHint hint)
+                    hint.ExpressionName = decision.Portrait;
                 _animator.SetEmotion(decision.Emotion, decision.Intensity);
             }
 

@@ -19,7 +19,7 @@ namespace AICompanion.UI
         public const float DefaultGap = 40f;
         public const float MinWidth = 96f;
 
-        public static Rect Place(float screenWidth, float screenHeight, Rect avatarBounds, float gap)
+        public static Rect Place(float screenWidth, float screenHeight, Rect avatarBounds, float gap, bool? preferLeft = null)
         {
             if (float.IsNaN(gap) || gap < 0f)
                 gap = 0f;
@@ -34,7 +34,23 @@ namespace AICompanion.UI
             var rightRoom = Mathf.Max(0f, screenWidth - Margin - avatarRight);
             var leftUsable = leftRoom - gap;
             var rightUsable = rightRoom - gap;
-            var useLeft = leftUsable >= MinWidth || (rightUsable < MinWidth && leftUsable >= rightUsable);
+            // Stay on the side chosen last time while it still fits. Without this the panel
+            // flips whenever the avatar drifts past the midpoint, which reads as jumping
+            // while she walks along the desktop.
+            var leftFits = leftUsable >= MinWidth;
+            var rightFits = rightUsable >= MinWidth;
+
+            bool useLeft;
+            if (preferLeft.HasValue && (preferLeft.Value ? leftFits : rightFits))
+                useLeft = preferLeft.Value;
+            else if (leftFits && rightFits)
+                useLeft = leftUsable >= rightUsable;
+            else if (leftFits)
+                useLeft = true;
+            else if (rightFits)
+                useLeft = false;
+            else
+                useLeft = leftUsable >= rightUsable;
 
             float x;
             float width;
@@ -69,14 +85,33 @@ namespace AICompanion.UI
             return new Rect(anchorX - width * 0.5f, 0f, width, Mathf.Max(1f, screenHeight));
         }
 
-        public static float SmoothAnchor(float current, float target, float deltaSeconds, bool initialized, out bool nowInitialized)
+        public static float SmoothAnchor(
+            float current,
+            float target,
+            float deltaSeconds,
+            bool initialized,
+            out bool nowInitialized,
+            float deadZone = 0f,
+            float maxSpeed = 0f)
         {
             nowInitialized = true;
             if (!initialized || float.IsNaN(current) || deltaSeconds <= 0f)
                 return target;
 
+            var delta = target - current;
+            if (Math.Abs(delta) <= deadZone)
+                return current;
+
             var blend = 1f - (float)Math.Exp(-8.0 * deltaSeconds);
-            return current + (target - current) * blend;
+            var step = delta * blend;
+            if (maxSpeed > 0f)
+            {
+                var maxStep = maxSpeed * deltaSeconds;
+                if (Math.Abs(step) > maxStep)
+                    step = Math.Sign(step) * maxStep;
+            }
+
+            return current + step;
         }
 
         public static Rect ClampInside(Rect panel, Rect visible)

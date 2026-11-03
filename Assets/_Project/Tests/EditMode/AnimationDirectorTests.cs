@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using AICompanion.AnimationDirector;
+using AICompanion.Avatar;
 using AICompanion.Core;
 using NUnit.Framework;
 using UnityEditor;
@@ -255,10 +256,15 @@ namespace AICompanion.Tests.EditMode
                 StringAssert.Contains("<animation emotion=\"happy\" intensity=\"0.8\" gesture=\"wave_hello\" />", prompt);
                 StringAssert.Contains("End every reply with one cue tag on its own line", prompt);
                 StringAssert.Contains("Leave the gesture attribute out for an emotion only", prompt);
+                StringAssert.Contains("Walk to the left is <animation emotion=\"neutral\" gesture=\"walk\" direction=\"left\" />", prompt);
+                StringAssert.Contains("direction=\"right\"", prompt);
+                StringAssert.Contains("set gesture to stop", prompt);
                 StringAssert.Contains("- wave_hello:", prompt);
                 StringAssert.Contains("- happy:", prompt);
                 StringAssert.Contains("- embarrassed:", prompt);
                 StringAssert.Contains(EmotionNames.CatalogLine, prompt);
+                StringAssert.Contains("walk along the desktop when asked to walk", prompt);
+                StringAssert.Contains("gesture: stop", prompt);
             }
             finally
             {
@@ -358,6 +364,31 @@ namespace AICompanion.Tests.EditMode
             }
         }
 
+        [Test]
+        public void Play_PortraitCue_KeepsThePortraitNameForTheFace()
+        {
+            var host = new GameObject("director");
+            try
+            {
+                var avatar = host.AddComponent<RecordingAvatar>();
+                var director = host.AddComponent<Director>();
+                var row = Entry("embarrassed", Emotion.Neutral, 0.6f, string.Empty, "Idle");
+                row.portrait = "embarrassed";
+                AssignCatalog(director, NewCatalog(row));
+                LogAssert.Expect(LogType.Log, "AnimationDirector: emotion neutral -> applied");
+
+                director.Play(new AnimationCue(Emotion.Neutral, 0.5f, "embarrassed"));
+
+                Assert.AreEqual("embarrassed", avatar.ExpressionName);
+                Assert.AreEqual(Emotion.Neutral, avatar.Emotion);
+                Assert.AreEqual(Emotion.Embarrassed, FaceEmotion.Resolve(avatar.ExpressionName, avatar.Emotion));
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
         AnimationClipCatalog NewCatalog(params AnimationEntry[] entries)
         {
             var catalog = ScriptableObject.CreateInstance<AnimationClipCatalog>();
@@ -392,11 +423,12 @@ namespace AICompanion.Tests.EditMode
         }
     }
 
-    sealed class RecordingAvatar : MonoBehaviour, IAvatarAnimator, IAnimationStatePlayer
+    sealed class RecordingAvatar : MonoBehaviour, IAvatarAnimator, IAnimationStatePlayer, IExpressionHint
     {
         public bool IsTalking { get; private set; }
         public Emotion Emotion { get; private set; }
         public float EmotionIntensity { get; private set; }
+        public string ExpressionName { get; set; }
         public int PlayCalls;
         public string LastState;
         public bool HasState = true;

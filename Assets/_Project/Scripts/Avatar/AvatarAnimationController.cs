@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using AICompanion.Core;
 using UnityEngine;
@@ -17,11 +18,13 @@ namespace AICompanion.Avatar
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(12100)]
-    public sealed class AvatarAnimationController : MonoBehaviour, IAvatarAnimator, IAvatarTurntable, IAvatarAnchor, IAnimationStatePlayer
+    public sealed class AvatarAnimationController : MonoBehaviour, IAvatarAnimator, IAvatarTurntable, IAvatarAnchor, IAnimationStatePlayer, IAvatarLocomotion, IExpressionHint
     {
         static readonly int TalkingHash = Animator.StringToHash(AvatarAnimatorParameters.Talking);
         static readonly int EmotionHash = Animator.StringToHash(AvatarAnimatorParameters.Emotion);
         static readonly int IntensityHash = Animator.StringToHash(AvatarAnimatorParameters.EmotionIntensity);
+        static readonly int WalkingHash = Animator.StringToHash(AvatarAnimatorParameters.Walking);
+        static readonly int FallingHash = Animator.StringToHash(AvatarAnimatorParameters.Falling);
         static readonly ShapeBinding[] NoBindings = new ShapeBinding[0];
         static readonly KeyCode[] DebugKeys =
         {
@@ -35,10 +38,34 @@ namespace AICompanion.Avatar
             KeyCode.Keypad3,
             KeyCode.Keypad4,
             KeyCode.Keypad5,
-            KeyCode.T
+            KeyCode.T,
+            KeyCode.F9
         };
 
+        /// <summary>
+        /// F9 cycles the portrait expressions so the stills and the transitions can be
+        /// checked without a model reply. "neutral" clears the hint.
+        /// </summary>
+        static readonly string[] DebugExpressions =
+        {
+            "concerned",
+            "embarrassed",
+            "shy",
+            "flustered",
+            "embarrassed_worried",
+            "angry",
+            "teasing",
+            "excited",
+            "loving",
+            "sleepy",
+            "happy",
+            "neutral"
+        };
+
+        int _expressionCursor = -1;
+
         [SerializeField] RuntimeAnimatorController controller;
+        [SerializeField] AvatarSelection selection;
 
         readonly AvatarAnimatorModel _model = new AvatarAnimatorModel();
         ShapeBinding[] _bindings = NoBindings;
@@ -46,9 +73,14 @@ namespace AICompanion.Avatar
         Transform _root;
         AvatarPreference _source = AvatarPreference.Auto;
         float _extraYaw;
+        float _walkDirection;
+        float _walkYaw;
+        float _walkYawApplied;
         bool _hasTalking;
         bool _hasEmotion;
         bool _hasIntensity;
+        bool _hasWalking;
+        bool _hasFalling;
         bool _warnedMissingController;
         float _talkAmount;
         float _talkTime;
@@ -59,6 +91,9 @@ namespace AICompanion.Avatar
         UnityAction _beforeRender;
         ICompanionPause _pause;
         bool _pauseSearched;
+        Coroutine _turn;
+        Emotion _loggedExpression;
+        bool _hasLoggedExpression;
 
         struct ShapeBinding
         {
@@ -83,6 +118,58 @@ namespace AICompanion.Avatar
         {
             _model.SetEmotion(emotion, intensity);
             PushParameters();
+            NoteFace();
+        }
+
+        /// <summary>Drives the Walk state on the gesture layer while she moves along the desktop.</summary>
+        public void SetWalking(bool walking)
+        {
+            if (_animator != null && _hasWalking)
+                _animator.SetBool(WalkingHash, walking);
+        }
+
+        public void SetWalkingDirection(float direction)
+        {
+            _walkDirection = float.IsNaN(direction) ? 0f : Mathf.Clamp(direction, -1f, 1f);
+        }
+
+        /// <summary>
+        /// Turns the root toward the walk direction on top of the saved per-avatar yaw, so
+        /// the turntable value survives. The applied offset is tracked so it can be removed
+        /// when she stops or the yaw is reset.
+        /// </summary>
+        void UpdateWalkFacing(float delta)
+        {
+            if (_root == null)
+                return;
+
+            var target = WalkFacing.Offset(_walkDirection, _extraYaw);
+            if (delta > 0f)
+            {
+                var blend = 1f - Mathf.Pow(0.5f, delta / 0.22f);
+                _walkYaw += (target - _walkYaw) * blend;
+            }
+            else
+            {
+                _walkYaw = target;
+            }
+
+            var step = _walkYaw - _walkYawApplied;
+            if (Mathf.Abs(step) < 0.01f)
+            {
+                _walkYawApplied = _walkYaw;
+                return;
+            }
+
+            _root.Rotate(0f, step, 0f, Space.World);
+            _walkYawApplied = _walkYaw;
+        }
+
+        /// <summary>Drives the fall pose while she drops to the taskbar.</summary>
+        public void SetFalling(bool falling)
+        {
+            if (_animator != null && _hasFalling)
+                _animator.SetBool(FallingHash, falling);
         }
 
         /// <summary>
@@ -110,11 +197,53 @@ namespace AICompanion.Avatar
                 return false;
 
             var hash = Animator.StringToHash(stateName);
-            if (!_animator.HasState(0, hash))
+            var layer = _animator.HasState(AvatarAnimatorLayers.Gestures, hash) ? AvatarAnimatorLayers.Gestures : 0;
+            if (!_animator.HasState(layer, hash))
                 return false;
 
-            _animator.CrossFade(hash, Mathf.Max(0f, crossfadeSeconds), 0, 0f);
+            _animator.CrossFade(hash, Mathf.Max(0f, crossfadeSeconds), layer, 0f);
+
+            if (layer == AvatarAnimatorLayers.Gestures && stateName == AvatarAnimatorStates.Turn180)
+                StartTurn();
+
             return true;
+        }
+
+        string _expressionName = string.Empty;
+
+        /// <summary>Portrait expression name named by the animation director, empty when none.</summary>
+        public string ExpressionName
+        {
+            get { return _expressionName; }
+            set { _expressionName = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant(); }
+        }
+
+        void StartTurn()
+        {
+            if (_turn != null)
+                StopCoroutine(_turn);
+
+            _turn = StartCoroutine(TurnInPlace());
+        }
+
+        IEnumerator TurnInPlace()
+        {
+            if (_root == null)
+            {
+                _turn = null;
+                yield break;
+            }
+
+            const float duration = 0.9f;
+            var elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                _root.Rotate(0f, 180f * Time.deltaTime / duration, 0f, Space.World);
+                yield return null;
+            }
+
+            _turn = null;
         }
 
         public void Attach(GameObject instance, AvatarDescriptor descriptor, AvatarPreference source)
@@ -126,6 +255,8 @@ namespace AICompanion.Avatar
             _hasTalking = false;
             _hasEmotion = false;
             _hasIntensity = false;
+            _hasWalking = false;
+            _hasFalling = false;
             _bindings = NoBindings;
             _proceduralBlink = 0f;
             if (instance == null)
@@ -174,10 +305,17 @@ namespace AICompanion.Avatar
 
         public void ResetYaw()
         {
-            if (_root != null && Mathf.Abs(_extraYaw) > 0.0001f)
-                _root.Rotate(0f, -_extraYaw, 0f, Space.World);
+            if (_root != null)
+            {
+                var total = _extraYaw + _walkYawApplied;
+                if (Mathf.Abs(total) > 0.0001f)
+                    _root.Rotate(0f, -total, 0f, Space.World);
+            }
 
             _extraYaw = 0f;
+            _walkYaw = 0f;
+            _walkYawApplied = 0f;
+            _walkDirection = 0f;
             AvatarYawKeys.Write(_source, 0f, true);
         }
 
@@ -213,7 +351,34 @@ namespace AICompanion.Avatar
             }
 
             if (changed)
+            {
+                _expressionName = string.Empty;
                 PushParameters();
+                NoteFace();
+            }
+
+            if (Input.GetKeyDown(KeyCode.F9) && !DebugInputGuard.IsBlocked(KeyCode.F9))
+                CycleExpression();
+        }
+
+        void CycleExpression()
+        {
+            _expressionCursor = (_expressionCursor + 1) % DebugExpressions.Length;
+            var name = DebugExpressions[_expressionCursor];
+            ExpressionName = name == "neutral" ? string.Empty : name;
+            NoteFace();
+            Debug.Log("Expression preview: " + name);
+        }
+
+        void NoteFace()
+        {
+            var face = FaceEmotion.Resolve(_expressionName, _model.Emotion);
+            if (_hasLoggedExpression && face == _loggedExpression)
+                return;
+
+            _hasLoggedExpression = true;
+            _loggedExpression = face;
+            Debug.Log(FaceEmotion.FormatLog(face));
         }
 
         bool IsPaused()
@@ -229,8 +394,32 @@ namespace AICompanion.Avatar
 
         void LateUpdate()
         {
+            UpdateWalkFacing(Time.deltaTime);
+            UpdateGestureLayerWeight();
             AdvanceFace(Time.deltaTime);
             ApplyFace(DisplayedFace());
+        }
+
+        /// <summary>
+        /// The gesture layer has an Empty state with no motion and writeDefaultValues off,
+        /// so it keeps the last gesture pose unless its weight is released. Fade the weight
+        /// to zero while Empty is active, which hands the body back to the base layer.
+        /// </summary>
+        void UpdateGestureLayerWeight()
+        {
+            if (_animator == null || _animator.layerCount <= AvatarAnimatorLayers.Gestures)
+                return;
+
+            var info = _animator.GetCurrentAnimatorStateInfo(AvatarAnimatorLayers.Gestures);
+            var empty = info.IsName(AvatarAnimatorStates.Empty);
+            var current = _animator.GetLayerWeight(AvatarAnimatorLayers.Gestures);
+            var target = empty ? 0f : 1f;
+            if (Mathf.Abs(current - target) < 0.001f)
+                return;
+
+            _animator.SetLayerWeight(
+                AvatarAnimatorLayers.Gestures,
+                Mathf.MoveTowards(current, target, Time.deltaTime * 6f));
         }
 
         void BindAnimator(GameObject instance)
@@ -256,7 +445,7 @@ namespace AICompanion.Avatar
                 return;
             }
 
-            animator.runtimeAnimatorController = controller;
+            animator.runtimeAnimatorController = ResolveController();
             CacheParameters(animator);
         }
 
@@ -291,6 +480,51 @@ namespace AICompanion.Avatar
                 root.Rotate(0f, yaw, 0f, Space.World);
         }
 
+        /// <summary>
+        /// The shared controller, or an override controller when the local avatar
+        /// selection names replacement clips. Overrides are matched by base clip name,
+        /// so a local walk clip replaces the CC0 walk without touching the repository.
+        /// </summary>
+        RuntimeAnimatorController ResolveController()
+        {
+            var source = selection;
+            if (source == null)
+            {
+                var mount = GetComponent<AvatarMount>();
+                if (mount != null)
+                    source = mount.Selection;
+            }
+
+            var overrides = source != null ? source.animationOverrides : null;
+            if (overrides == null || overrides.Length == 0)
+                return controller;
+
+            var baseClips = controller.animationClips;
+            var pairs = new List<KeyValuePair<AnimationClip, AnimationClip>>(overrides.Length);
+            for (var i = 0; i < overrides.Length; i++)
+            {
+                var entry = overrides[i];
+                if (entry == null || entry.clip == null || string.IsNullOrWhiteSpace(entry.clipName))
+                    continue;
+
+                for (var c = 0; c < baseClips.Length; c++)
+                {
+                    var baseClip = baseClips[c];
+                    if (baseClip == null || baseClip.name != entry.clipName)
+                        continue;
+
+                    pairs.Add(new KeyValuePair<AnimationClip, AnimationClip>(baseClip, entry.clip));
+                    break;
+                }
+            }
+
+            if (pairs.Count == 0)
+                return controller;
+
+            var overrideController = new AnimatorOverrideController(controller);
+            overrideController.ApplyOverrides(pairs);
+            return overrideController;
+        }
         void CacheParameters(Animator animator)
         {
             var parameters = animator.parameters;
@@ -303,6 +537,10 @@ namespace AICompanion.Avatar
                     _hasEmotion = true;
                 else if (parameter.name == AvatarAnimatorParameters.EmotionIntensity && parameter.type == AnimatorControllerParameterType.Float)
                     _hasIntensity = true;
+                else if (parameter.name == AvatarAnimatorParameters.Walking && parameter.type == AnimatorControllerParameterType.Bool)
+                    _hasWalking = true;
+                else if (parameter.name == AvatarAnimatorParameters.Falling && parameter.type == AnimatorControllerParameterType.Bool)
+                    _hasFalling = true;
             }
         }
 
@@ -311,12 +549,10 @@ namespace AICompanion.Avatar
             if (_animator == null)
                 return;
 
-            if (_hasTalking)
-                _animator.SetBool(TalkingHash, _model.IsTalking);
-            if (_hasEmotion)
-                _animator.SetInteger(EmotionHash, AvatarAnimatorStates.BodyParameter(_model.Emotion));
-            if (_hasIntensity)
-                _animator.SetFloat(IntensityHash, _model.EmotionIntensity);
+            // Talking and emotions are face-only performances. Writing the Emotion parameter
+            // switched the base layer to a body clip, and that is where the floating and the
+            // swimming arms came from. The face and the portrait show the emotion; the body
+            // stays in Idle, in Walk, or in whatever the gesture layer is playing.
         }
 
         static ShapeBinding[] BindShapes(GameObject instance, AvatarDescriptor descriptor)
@@ -339,6 +575,9 @@ namespace AICompanion.Avatar
             }
 
             var found = new List<ShapeBinding>(32);
+            var boundNames = new List<KeyValuePair<ExpressionPreset, string>>(32);
+            var unclassified = 0;
+            var unclassifiedSample = new List<string>(8);
             var renderers = instance.GetComponentsInChildren<SkinnedMeshRenderer>(true);
             for (var r = 0; r < renderers.Length; r++)
             {
@@ -359,8 +598,14 @@ namespace AICompanion.Avatar
                     if (preset == ExpressionPreset.None && LipSyncTargetSelection.TryClassifyMouth(shapeName, out var mouth))
                         preset = mouth;
                     if (preset == ExpressionPreset.None)
+                    {
+                        unclassified++;
+                        if (unclassifiedSample.Count < 8)
+                            unclassifiedSample.Add(shapeName);
                         continue;
+                    }
 
+                    boundNames.Add(new KeyValuePair<ExpressionPreset, string>(preset, shapeName));
                     found.Add(new ShapeBinding
                     {
                         Renderer = renderer,
@@ -370,7 +615,36 @@ namespace AICompanion.Avatar
                 }
             }
 
+            LogCoverage(boundNames, unclassified, unclassifiedSample);
             return found.Count == 0 ? NoBindings : found.ToArray();
+        }
+
+        static void LogCoverage(List<KeyValuePair<ExpressionPreset, string>> boundNames, int unclassified, List<string> unclassifiedSample)
+        {
+            var bound = new HashSet<ExpressionPreset>();
+            for (var i = 0; i < boundNames.Count; i++)
+                bound.Add(boundNames[i].Key);
+
+            Debug.Log(ExpressionCoverage.FormatBound(boundNames));
+            Debug.Log(ExpressionCoverage.FormatUnclassified(unclassified, unclassifiedSample));
+
+            var library = ExpressionPresetLibrary.Active;
+            var emotions = new[]
+            {
+                Emotion.Happy,
+                Emotion.Sad,
+                Emotion.Surprised,
+                Emotion.Thinking,
+                Emotion.Embarrassed,
+                Emotion.Shy,
+                Emotion.Flustered,
+                Emotion.Concerned
+            };
+            for (var i = 0; i < emotions.Length; i++)
+            {
+                var emotion = emotions[i];
+                Debug.Log(ExpressionCoverage.Format(emotion, library.Get(emotion), bound));
+            }
         }
 
         void AdvanceFace(float deltaTime)
@@ -398,8 +672,9 @@ namespace AICompanion.Avatar
             var procedural = handsMouth
                 ? EmotionFace.ProceduralTalkScale(_talkAmount, ownership)
                 : _talkAmount;
+            var faceEmotion = FaceEmotion.Resolve(_expressionName, _model.Emotion);
             var target = EmotionFace.Combine(
-                EmotionFace.EmotionPose(_model.Emotion, _model.EmotionIntensity),
+                EmotionFace.EmotionPose(faceEmotion, _model.EmotionIntensity),
                 EmotionFace.TalkPose(_talkTime, procedural));
             _face = EmotionFace.Approach(_face, target, deltaTime, EmotionFace.BlendSeconds);
         }

@@ -61,10 +61,11 @@ namespace AICompanion.Editor.AnimationDirector
         }
 
         /// <summary>
-        /// The starter set: one row per Animator state the project ships today, four
-        /// gesture rows that wait for their clips, and four face-only emotions.
-        /// Gesture and face rows have no animatorState or clip, so a lookup on
-        /// them only yields an emotion and prompt text.
+        /// The starter set: one row per Animator state the project ships. The four
+        /// gestures, the walk loop, and the turn all carry a state and a clip, so a cue
+        /// that names one of them plays the animation instead of falling back.
+        /// Portrait rows keep the body on Idle or a base emotion. The portrait name
+        /// drives the 2D still and, when it names a face preset, the 3D face.
         /// </summary>
         public static List<AnimationEntry> StarterEntries()
         {
@@ -75,16 +76,47 @@ namespace AICompanion.Editor.AnimationDirector
                 Entry("sad", "downcast, sympathetic reaction", Emotion.Sad, 0.7f, string.Empty, "Sad", "Sad", 2f, "mood", "negative"),
                 Entry("surprised", "short startled reaction", Emotion.Surprised, 0.9f, string.Empty, "Surprised", "Surprised", 1f, "mood", "reaction"),
                 Entry("thinking", "considering something with mild uncertainty", Emotion.Thinking, 0.6f, string.Empty, "Thinking", "Thinking", 2f, "mood", "thinking"),
-                Entry("talk", "speaking loop while the reply audio plays", Emotion.Neutral, 0.3f, string.Empty, "Talk", "Talk", 1f, "speech", "loop"),
-                Entry("wave_hello", "friendly hello wave", Emotion.Happy, 0.7f, "wave", string.Empty, string.Empty, 0f, "greeting", "friendly"),
-                Entry("nod_yes", "agreeing nod", Emotion.Neutral, 0.4f, "nod", string.Empty, string.Empty, 0f, "agreement", "confirmation"),
-                Entry("shrug", "uncertain shrug with no strong feeling", Emotion.Neutral, 0.4f, "shrug", string.Empty, string.Empty, 0f, "uncertain", "neutral"),
-                Entry("laugh", "short laugh at something funny", Emotion.Happy, 0.9f, "laugh", string.Empty, string.Empty, 0f, "amused", "funny"),
-                Entry("embarrassed", "strong blush, eyes lowered, small tense mouth", Emotion.Embarrassed, 0.9f, string.Empty, string.Empty, string.Empty, 0f, "mood", "blush"),
-                Entry("shy", "light blush, lowered eyes, small smile", Emotion.Shy, 0.55f, string.Empty, string.Empty, string.Empty, 0f, "mood", "blush"),
-                Entry("flustered", "strong blush with an open mouth", Emotion.Flustered, 0.9f, string.Empty, string.Empty, string.Empty, 0f, "mood", "blush"),
-                Entry("concerned", "worried, inner brows raised, little blush", Emotion.Concerned, 0.7f, string.Empty, string.Empty, string.Empty, 0f, "mood", "worried"),
+                Entry("wave_hello", "friendly hello wave", Emotion.Happy, 0.7f, "wave", "Wave", "Wave", 1.4f, "greeting", "friendly"),
+                Entry("nod_yes", "agreeing nod", Emotion.Neutral, 0.4f, "nod", "Nod", "Nod", 1f, "agreement", "confirmation"),
+                Entry("shrug", "uncertain shrug with no strong feeling", Emotion.Neutral, 0.4f, "shrug", "Shrug", "Shrug", 1.3f, "uncertain", "neutral"),
+                Entry("laugh", "short laugh at something funny", Emotion.Happy, 0.9f, "laugh", "Laugh", "Laugh", 1.4f, "amused", "funny"),
+                Entry("walk", "walk along the desktop when asked to walk, move, come here, or go left or right", Emotion.Neutral, 0.5f, "walk", "Walk", "Walk", 1f, "locomotion", "loop"),
+                Entry("turn_around", "turn around in place to look behind", Emotion.Neutral, 0.5f, "turn", "Turn180", "Turn180", 0.9f, "turn", "orientation"),
+                Entry("stop", "stop and stand still when asked to stop, wait, or stay", Emotion.Neutral, 0.3f, "stop", string.Empty, string.Empty, 1f, "movement", "still"),
+
+                // Portrait expressions. The body stays put. The last argument is the still
+                // the 2D panel shows, and the name the 3D face resolves when it knows it.
+                PortraitEntry("concerned", "worried about you or about something you said", Emotion.Neutral, 0.5f, "Idle", "Idle", 2f, "concerned", "care", "worried"),
+                PortraitEntry("embarrassed", "flustered and embarrassed by a compliment", Emotion.Neutral, 0.6f, "Idle", "Idle", 2f, "embarrassed", "shy", "compliment"),
+                PortraitEntry("shy", "shy and looking away", Emotion.Neutral, 0.5f, "Idle", "Idle", 2f, "shy", "quiet", "soft"),
+                PortraitEntry("flustered", "flustered, blushing, lost for words", Emotion.Neutral, 0.7f, "Idle", "Idle", 2f, "flustered", "blush", "tease"),
+                PortraitEntry("embarrassed_worried", "embarrassed and worried at the same time", Emotion.Sad, 0.5f, "Sad", "Sad", 2f, "embarrassed_worried", "mixed", "care"),
+                PortraitEntry("pouty", "playfully pouting about something", Emotion.Sad, 0.45f, "Sad", "Sad", 2f, "angry", "pout", "playful"),
+                PortraitEntry("teasing", "smug, teasing, knowing smile", Emotion.Happy, 0.6f, "Happy", "Happy", 2f, "teasing", "flirt", "smug"),
+                PortraitEntry("excited", "excited and delighted", Emotion.Happy, 0.9f, "Happy", "Happy", 2f, "excited", "joy", "hype"),
+                PortraitEntry("loving", "warm, affectionate and loving", Emotion.Happy, 0.8f, "Happy", "Happy", 2f, "loving", "affection", "warm"),
+                PortraitEntry("sleepy", "sleepy and tired", Emotion.Neutral, 0.3f, "Idle", "Idle", 2f, "sleepy", "late", "tired"),
             };
+        }
+
+        /// <summary>
+        /// A row whose drawn expression is a portrait name. The body is not cross-faded.
+        /// The portrait name picks the still, and the 3D face reads that same name.
+        /// </summary>
+        private static AnimationEntry PortraitEntry(
+            string id,
+            string description,
+            Emotion emotion,
+            float intensity,
+            string animatorState,
+            string clipName,
+            float durationSeconds,
+            string portrait,
+            params string[] tags)
+        {
+            var entry = Entry(id, description, emotion, intensity, string.Empty, animatorState, clipName, durationSeconds, tags);
+            entry.portrait = portrait;
+            return entry;
         }
 
         private static AnimationEntry Entry(

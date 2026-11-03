@@ -101,6 +101,9 @@ namespace AICompanion.Overlay
         public bool IsCompanionVisible => _companionVisible;
         public IWindowChrome Chrome => _chrome;
 
+        /// <summary>True while the user drags the window. Desktop presence pauses then.</summary>
+        public bool IsDragging => _dragging;
+
         public void StartCompanion()
         {
             if (_started)

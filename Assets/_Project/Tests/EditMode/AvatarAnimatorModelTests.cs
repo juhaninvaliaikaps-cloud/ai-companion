@@ -117,7 +117,9 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("m_HasExitTime: 0", controller);
             StringAssert.Contains("m_BlendingMode: 1", controller);
             StringAssert.Contains("m_DefaultWeight: 1", controller);
-            Assert.IsFalse(controller.Contains("m_WriteDefaultValues: 1"));
+            // Base emotion states must write every muscle so a walk or fall pose cannot leak
+            // into a mood. AnimatorBakeTests checks every state; this keeps the asset honest.
+            StringAssert.Contains("m_WriteDefaultValues: 1", controller);
 
             Assert.IsTrue(controller.Contains(MetaGuid(Path.Combine(root, "Idle.anim"))));
             Assert.IsTrue(controller.Contains(MetaGuid(Path.Combine(root, "Talk.anim"))));

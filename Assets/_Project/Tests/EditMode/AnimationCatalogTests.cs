@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.IO;
 using AICompanion.AnimationDirector;
 using AICompanion.Core;
 using NUnit.Framework;
@@ -124,18 +123,15 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void StarterCatalogAsset_HasTheStarterEntriesWithResolvedClips()
+        public void StarterCatalogAsset_HasTwelveValidEntriesWithResolvedClips()
         {
             AnimationClipCatalog catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>(CatalogPath);
             Assert.IsNotNull(catalog, "Missing catalog asset at " + CatalogPath);
-            Assert.AreEqual(14, catalog.Entries.Count);
+            Assert.AreEqual(22, catalog.Entries.Count);
 
             Assert.IsTrue(catalog.Validate(out List<string> problems), string.Join("\n", problems));
-            Assert.AreEqual(14, catalog.BuildPromptList().Split('\n').Length);
-
-            Assert.IsTrue(catalog.TryGetByEmotion(Emotion.Embarrassed, out AnimationEntry embarrassed));
-            Assert.IsFalse(embarrassed.HasAnimatorState);
-            Assert.IsFalse(embarrassed.HasGesture);
+            Assert.AreEqual(22, catalog.BuildPromptList().Split('\n').Length);
+            Assert.IsFalse(catalog.TryGetById("talk", out _), "Talking is face-only, so the body talk row stays out of the catalog.");
 
             Assert.IsTrue(catalog.TryGetById("idle", out AnimationEntry idle));
             Assert.IsNotNull(idle.clip, "The idle row lost its clip reference.");
@@ -143,18 +139,24 @@ namespace AICompanion.Tests.EditMode
 
             Assert.IsTrue(catalog.TryGetByGesture("wave", out AnimationEntry wave));
             Assert.AreEqual("wave_hello", wave.id);
+            Assert.IsNotNull(wave.clip, "The wave row lost its clip reference.");
+            Assert.AreEqual("Wave", wave.animatorState);
 
-            string controller = File.ReadAllText(Path.Combine(Application.dataPath, "_Project/Animations/Companion.controller"));
-            for (int i = 0; i < catalog.Entries.Count; i++)
-            {
-                AnimationEntry entry = catalog.Entries[i];
-                if (entry == null || !entry.HasAnimatorState)
-                {
-                    continue;
-                }
+            Assert.IsTrue(catalog.TryGetByGesture("walk", out AnimationEntry walk));
+            Assert.AreEqual("Walk", walk.animatorState);
+            StringAssert.Contains("walk along the desktop", walk.description);
+            Assert.IsTrue(catalog.TryGetByGesture("stop", out AnimationEntry stop));
+            Assert.AreEqual("stop", stop.id);
+            Assert.IsTrue(catalog.TryGetByGesture("turn", out AnimationEntry turn));
+            Assert.AreEqual("Turn180", turn.animatorState);
 
-                StringAssert.Contains("m_Name: " + entry.animatorState, controller, entry.id);
-            }
+            Assert.IsTrue(catalog.TryGetById("embarrassed", out AnimationEntry embarrassed));
+            Assert.AreEqual("embarrassed", embarrassed.portrait);
+            Assert.AreEqual(Emotion.Neutral, embarrassed.emotion);
+            Assert.IsTrue(catalog.TryGetById("shy", out AnimationEntry shy));
+            Assert.AreEqual("shy", shy.portrait);
+            Assert.IsTrue(catalog.TryGetById("flustered", out AnimationEntry flustered));
+            Assert.AreEqual("flustered", flustered.portrait);
         }
 
         private AnimationClipCatalog NewCatalog(params AnimationEntry[] entries)

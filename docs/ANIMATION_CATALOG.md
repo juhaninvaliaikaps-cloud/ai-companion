@@ -19,6 +19,7 @@ A JSON file would need its own parser and a path lookup at runtime. The catalog 
 | `intensity` | 0 to 1. Clamped by the cue, validated here. |
 | `gesture` | The gesture name a cue may carry, for example `wave`. Empty for a pure emotion row. |
 | `animatorState` | The Animator state name the director will cross-fade to. Empty while the clip does not exist. |
+| `portrait` | Optional 2D expression name. Empty when the emotion name is enough. The 3D face reads it too. |
 | `clip` | Optional direct reference, used for authoring and for the inspector. The director addresses states by name. |
 | `durationSeconds` | Planned length. `0` means the clip is not ready yet. |
 
@@ -26,7 +27,7 @@ A row may have a gesture and no state, or a state and no gesture. Both are valid
 
 ## Starter entries
 
-Fourteen rows ship with the project: six for the Animator states the controller already has (`idle`, `happy`, `sad`, `surprised`, `thinking`, `talk`), four gestures that wait for their clips (`wave_hello`, `nod_yes`, `shrug`, `laugh`), and four face-only emotions (`embarrassed`, `shy`, `flustered`, `concerned`). The gesture rows and the face-only rows have an empty `animatorState` and a null `clip`. The face weights for those emotions live in [EXPRESSIONS.md](EXPRESSIONS.md), not in a new controller state.
+Twenty-two rows ship with the project. Five base emotions (`idle`, `happy`, `sad`, `surprised`, `thinking`), six gestures with an Animator state and a clip (`wave_hello`, `nod_yes`, `shrug`, `laugh`, `walk`, `turn_around`), `stop`, and ten portrait expressions (`concerned`, `embarrassed`, `shy`, `flustered`, `embarrassed_worried`, `pouty`, `teasing`, `excited`, `loving`, `sleepy`). Gesture rows play on the gesture layer of `Companion.controller`; see [ANIMATION_DIRECTOR.md](ANIMATION_DIRECTOR.md). Talking is face-only, so there is no `talk` row. A portrait row's `portrait` field is the 2D still and the name the 3D face resolves. The face weights live in [EXPRESSIONS.md](EXPRESSIONS.md), not in a new controller state.
 
 **AI Companion > Animation Catalog > Rebuild Starter Catalog** rewrites the asset from `AnimationCatalogMenu.StarterEntries()`, which is where the starter rows are defined in code. Use it after an accidental delete. It also reloads clips from `Assets/_Project/Animations`, so a renamed clip shows up as a null reference on the row instead of a silent mismatch.
 

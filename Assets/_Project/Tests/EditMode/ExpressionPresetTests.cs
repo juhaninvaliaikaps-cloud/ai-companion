@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using AICompanion.Avatar;
 using AICompanion.Core;
@@ -205,6 +206,91 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("Blush: no head bone, overlay skipped", BlushOverlay.FormatLog(true, false, false, false));
             Assert.AreEqual("Blush: no material, overlay skipped", BlushOverlay.FormatLog(true, false, true, false));
             Assert.AreEqual("Blush: procedural overlay", BlushOverlay.FormatLog(true, false, true, true));
+        }
+
+        [Test]
+        public void Classify_ResolvesMmdVroidAndPrefixedNames()
+        {
+            Assert.AreEqual(ExpressionPreset.Joy, ExpressionPresetMap.Classify("にこり"));
+            Assert.AreEqual(ExpressionPreset.Joy, ExpressionPresetMap.Classify("にっこり"));
+            Assert.AreEqual(ExpressionPreset.EyeSquint, ExpressionPresetMap.Classify("笑い"));
+            Assert.AreEqual(ExpressionPreset.BrowInnerUp, ExpressionPresetMap.Classify("眉困り"));
+            Assert.AreEqual(ExpressionPreset.Sorrow, ExpressionPresetMap.Classify("困る"));
+            Assert.AreEqual(ExpressionPreset.Angry, ExpressionPresetMap.Classify("怒り"));
+            Assert.AreEqual(ExpressionPreset.Surprised, ExpressionPresetMap.Classify("びっくり"));
+            Assert.AreEqual(ExpressionPreset.Blink, ExpressionPresetMap.Classify("まばたき左"));
+            Assert.AreEqual(ExpressionPreset.Blush, ExpressionPresetMap.Classify("照れ"));
+            Assert.AreEqual(ExpressionPreset.Aa, ExpressionPresetMap.Classify("あ"));
+            Assert.AreEqual(ExpressionPreset.EyeLookDown, ExpressionPresetMap.Classify("下"));
+            Assert.AreEqual(ExpressionPreset.Sorrow, ExpressionPresetMap.Classify("Fcl_BRW_Sorrow"));
+            Assert.AreEqual(ExpressionPreset.Angry, ExpressionPresetMap.Classify("Fcl_MTH_Angry"));
+            Assert.AreEqual(ExpressionPreset.EyeSquint, ExpressionPresetMap.Classify("Fcl_EYE_Joy"));
+            Assert.AreEqual(ExpressionPreset.Surprised, ExpressionPresetMap.Classify("Fcl_EYE_Surprised"));
+            Assert.AreEqual(ExpressionPreset.Joy, ExpressionPresetMap.Classify("M_Joy"));
+            Assert.AreEqual(ExpressionPreset.Sorrow, ExpressionPresetMap.Classify("M_Sorrow"));
+            Assert.AreEqual(ExpressionPreset.Sorrow, ExpressionPresetMap.Classify("mouthFrownLeft"));
+            Assert.AreEqual(ExpressionPreset.BrowInnerUp, ExpressionPresetMap.Classify("browInnerUp"));
+            Assert.AreEqual(ExpressionPreset.EyeLookDown, ExpressionPresetMap.Classify("eyesLookDown"));
+            Assert.AreEqual(ExpressionPreset.Sorrow, ExpressionPresetMap.Classify("eCTRLFrown"));
+            Assert.AreEqual(ExpressionPreset.Oh, ExpressionPresetMap.Classify("eCTRLMouthFunnel"));
+            Assert.AreEqual(ExpressionPreset.BrowInnerUp, ExpressionPresetMap.Classify("eCTRLBrowsUp"));
+            Assert.AreEqual(ExpressionPreset.None, ExpressionPresetMap.Classify("Fcl_HA_Fung1"));
+            Assert.AreEqual(ExpressionPreset.None, ExpressionPresetMap.Classify("tongueOut"));
+            Assert.AreEqual(ExpressionPreset.None, ExpressionPresetMap.Classify("dangerous"));
+            Assert.IsFalse(BlinkShapeSelection.IsBlinkName("下"));
+            Assert.IsFalse(BlinkShapeSelection.IsBlinkName("eyeLookDownLeft"));
+        }
+
+        [Test]
+        public void FaceEmotion_PortraitNameWinsOverANeutralBodyEmotion()
+        {
+            Assert.AreEqual(Emotion.Embarrassed, FaceEmotion.Resolve("embarrassed", Emotion.Neutral));
+            Assert.AreEqual(Emotion.Shy, FaceEmotion.Resolve("shy", Emotion.Neutral));
+            Assert.AreEqual(Emotion.Flustered, FaceEmotion.Resolve("flustered", Emotion.Neutral));
+            Assert.AreEqual(Emotion.Concerned, FaceEmotion.Resolve("worried", Emotion.Neutral));
+            Assert.AreEqual(Emotion.Embarrassed, FaceEmotion.Resolve("embarrassed_worried", Emotion.Sad));
+            Assert.AreEqual(Emotion.Embarrassed, FaceEmotion.Resolve("embarrassed-worried", Emotion.Sad));
+            Assert.AreEqual(Emotion.Sad, FaceEmotion.Resolve("angry", Emotion.Neutral));
+            Assert.AreEqual(Emotion.Sad, FaceEmotion.Resolve(string.Empty, Emotion.Sad));
+            Assert.AreEqual(Emotion.Happy, FaceEmotion.Resolve("teasing", Emotion.Happy));
+            Assert.AreEqual(Emotion.Surprised, FaceEmotion.Resolve(null, Emotion.Surprised));
+            Assert.AreEqual("Expression: embarrassed", FaceEmotion.FormatLog(Emotion.Embarrassed));
+            Assert.AreEqual("Expression: sad", FaceEmotion.FormatLog(Emotion.Sad));
+        }
+
+        [Test]
+        public void Coverage_ReportsFoundAndMissingChannels()
+        {
+            var path = Path.Combine(Application.dataPath, "_Project/Resources/ExpressionPresets.json");
+            var library = ExpressionPresetLibrary.Parse(File.ReadAllText(path));
+            var bound = new HashSet<ExpressionPreset>
+            {
+                ExpressionPreset.Sorrow,
+                ExpressionPreset.Angry
+            };
+
+            Assert.AreEqual(
+                "Expressions: sad -> 2/3 shapes found, missing eyeLookDown",
+                ExpressionCoverage.Format(Emotion.Sad, library.Get(Emotion.Sad), bound));
+
+            bound.Add(ExpressionPreset.EyeLookDown);
+            Assert.AreEqual(
+                "Expressions: sad -> 3/3 shapes found",
+                ExpressionCoverage.Format(Emotion.Sad, library.Get(Emotion.Sad), bound));
+
+            var names = new List<KeyValuePair<ExpressionPreset, string>>
+            {
+                new KeyValuePair<ExpressionPreset, string>(ExpressionPreset.Joy, "mouthSmileLeft"),
+                new KeyValuePair<ExpressionPreset, string>(ExpressionPreset.Joy, "にこり"),
+                new KeyValuePair<ExpressionPreset, string>(ExpressionPreset.Blush, "照れ")
+            };
+            Assert.AreEqual(
+                "Expressions: bound joy=mouthSmileLeft, にこり; blush=照れ",
+                ExpressionCoverage.FormatBound(names));
+            Assert.AreEqual("Expressions: bound none", ExpressionCoverage.FormatBound(null));
+            Assert.AreEqual(
+                "Expressions: unclassified 4, sample tongueOut, hair",
+                ExpressionCoverage.FormatUnclassified(4, new[] { "tongueOut", "hair" }));
         }
     }
 }

@@ -21,13 +21,16 @@ namespace AICompanion.AnimationDirector
         public float Intensity { get; }
         public string EntryId { get; }
 
+        /// <summary>Portrait expression name for this decision, empty when the emotion name is enough.</summary>
+        public string Portrait { get; }
+
         /// <summary>
         /// True when the cue named a gesture row that has no Animator state yet.
         /// The row's emotion is still applied. Gesture clips are a later task.
         /// </summary>
         public bool GestureLacksState { get; }
 
-        public DirectorDecision(DirectorAction action, string stateName, Emotion emotion, float intensity, string entryId, bool gestureLacksState = false)
+        public DirectorDecision(DirectorAction action, string stateName, Emotion emotion, float intensity, string entryId, bool gestureLacksState = false, string portrait = null)
         {
             Action = action;
             StateName = stateName ?? string.Empty;
@@ -35,6 +38,7 @@ namespace AICompanion.AnimationDirector
             Intensity = AnimationCue.ClampIntensity(intensity);
             EntryId = entryId ?? string.Empty;
             GestureLacksState = gestureLacksState;
+            Portrait = portrait != null ? portrait.Trim() : string.Empty;
         }
     }
 
@@ -158,7 +162,8 @@ namespace AICompanion.AnimationDirector
                             entry.animatorState.Trim(),
                             entry.emotion,
                             entry.intensity,
-                            entry.id);
+                            entry.id,
+                            portrait: entry.portrait);
                     }
 
                     return new DirectorDecision(
@@ -167,7 +172,8 @@ namespace AICompanion.AnimationDirector
                         entry.emotion,
                         entry.intensity,
                         entry.id,
-                        entry.HasGesture);
+                        entry.HasGesture,
+                        entry.portrait);
                 }
 
                 return Neutral();

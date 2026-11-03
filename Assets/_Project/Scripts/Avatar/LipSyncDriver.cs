@@ -119,10 +119,28 @@ namespace AICompanion.Avatar
             var rms = 0f;
             var viseme = MouthViseme.Rest;
             var source = Source();
-            if (source != null && source.isPlaying && TryRead(source, tuning.SilenceThreshold, out rms))
+            var fromAudio = source != null && source.isPlaying && TryRead(source, tuning.SilenceThreshold, out rms);
+            if (fromAudio)
+            {
                 viseme = LipSyncMath.Estimate(_spectrum, HzPerBin(), rms, tuning.SilenceThreshold);
+            }
+            else if (TalkingWithoutAudio())
+            {
+                // With no TTS key there is no audio to analyse. Open and close the mouth at a
+                // speech-like rate so talking reads from the face alone, over any body clip.
+                var phase = Time.unscaledTime * Mathf.PI * 2f * 4.2f;
+                rms = 0.35f + 0.35f * Mathf.Abs(Mathf.Sin(phase));
+                viseme = Mathf.Sin(phase * 0.5f) >= 0f ? MouthViseme.A : MouthViseme.O;
+            }
 
             _frame = LipSyncMath.Advance(_frame, rms, viseme, deltaTime, tuning);
+        }
+
+        bool TalkingWithoutAudio()
+        {
+            if (_face == null)
+                _face = GetComponent<AvatarAnimationController>();
+            return _face != null && _face.IsTalking;
         }
 
         void ApplyTargets()

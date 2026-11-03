@@ -91,6 +91,20 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void BaseUrl_RoundTripsAndFallsBackWhenUnsafe()
+        {
+            var settings = CompanionSettings.CreateDefault();
+            settings.BaseUrl = "https://api.deepseek.com/v1";
+
+            var loaded = CompanionSettingsJson.Parse(CompanionSettingsJson.Write(settings), SettingsLegacyPrefs.None);
+            Assert.AreEqual("https://api.deepseek.com/v1", loaded.BaseUrl);
+
+            settings.BaseUrl = "https://user:xai-secretsecret@evil.test/v1";
+            settings.Normalize();
+            Assert.AreEqual(ChatDefaults.BaseUrl, settings.BaseUrl);
+        }
+
+        [Test]
         public void Save_WritesAUserFileAndReadsItBack()
         {
             var directory = Path.Combine(Path.GetTempPath(), "leia-settings-" + Guid.NewGuid().ToString("N"));
