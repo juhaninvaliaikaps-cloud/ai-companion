@@ -580,8 +580,7 @@ namespace AICompanion.Settings
             var tabRows = (TabLabels.Length + 2) / 3;
             bodyRect.offsetMax = new Vector2(-8f, -(34f + tabRows * 26f + 4f));
             var scroll = body.AddComponent<ScrollRect>();
-            scroll.horizontal = false;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
+            SettingsScroll.Apply(scroll);
             var viewport = new GameObject("Viewport");
             viewport.transform.SetParent(body.transform, false);
             var viewportRect = viewport.AddComponent<RectTransform>();
@@ -658,21 +657,23 @@ namespace AICompanion.Settings
         void BuildAi()
         {
             Note("Text changes apply when you leave the field. The API key is stored in the secret store, never in settings.json.");
+            AddLabel("Active now: " + ActiveModelText());
             var grok = _settings.ProviderId == ChatDefaults.GrokId;
-            AddButton(grok ? "Provider: Grok (selected)" : "Use Grok", () =>
+            var localActive = !VoiceRoute.UsesCloudTts(_settings.PrivateMode, _settings.ProviderId);
+            AddButton(ProviderButton("Grok", grok, localActive), () =>
             {
                 _settings.ProviderId = ChatDefaults.GrokId;
                 ApplyLive();
                 _rebuild = true;
             });
-            AddButton(!grok ? "Provider: local Ollama (selected)" : "Use local Ollama", () =>
+            AddButton(ProviderButton("Local Ollama", !grok, !localActive), () =>
             {
                 _settings.ProviderId = ChatDefaults.LocalId;
                 ApplyLive();
                 _rebuild = true;
             });
             if (_settings.PrivateMode)
-                Note("Private mode is on. Chat goes to the local model only. This provider is remembered for when private mode is off.");
+                Note("Private mode is on. Chat and voice stay on the local model. The choice above is remembered for when private mode is off.");
             AddField("Grok model", _settings.Model, false, value =>
             {
                 _settings.Model = value;
@@ -739,11 +740,15 @@ namespace AICompanion.Settings
 
         void BuildVoice()
         {
+            AddLabel("Active now: " + ActiveModelText());
+            var cloudVoice = VoiceRoute.UsesCloudTts(_settings.PrivateMode, _settings.ProviderId);
+            Note(cloudVoice
+                ? "Voice follows chat. Grok replies use the cloud voice."
+                : "Voice follows chat. Local and private replies use Piper and are not sent to cloud TTS.");
             AddToggle("Speak replies", _settings.TtsEnabled, value => _settings.TtsEnabled = value);
-            var piper = string.Equals(_settings.TtsProvider, "piper", System.StringComparison.OrdinalIgnoreCase);
-            AddToggle(piper ? "Local voice: Piper (selected)" : "Use local voice (Piper)", piper, value =>
+            AddField("Cloud voice (Grok)", _settings.VoiceId, false, value =>
             {
-                _settings.TtsProvider = value ? "piper" : "xai";
+                _settings.VoiceId = value;
                 ApplyLive();
             });
             AddField("Piper exe", _settings.PiperExe, false, value =>
@@ -756,12 +761,7 @@ namespace AICompanion.Settings
                 _settings.PiperVoice = value;
                 ApplyLive();
             });
-            Note("Piper speaks offline with no API key. Point it at piper.exe and a .onnx voice.");
-            AddField("Voice", _settings.VoiceId, false, value =>
-            {
-                _settings.VoiceId = value;
-                ApplyLive();
-            });
+            Note("Piper speaks offline with no API key. Point it at piper.exe and a .onnx voice. A blank persona voice keeps these.");
             AddField("TTS language", _settings.TtsLanguage, false, value =>
             {
                 _settings.TtsLanguage = value;
@@ -796,7 +796,7 @@ namespace AICompanion.Settings
                 ApplyLive();
             });
             Note("Placeholder. Wake word is not in this build.");
-            Note("Placeholder. There is no local TTS voice yet. Private mode keeps replies off cloud TTS.");
+            Note("Local and private replies use Piper only. Cloud TTS does not receive them.");
             Note("Placeholder. The voice agent is not in this build. Private mode blocks it.");
         }
 

@@ -104,9 +104,9 @@ namespace AICompanion.Voice
 
         void EnsureProvider()
         {
-            var desired = voiceSettings != null && string.Equals(voiceSettings.provider, PiperTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase)
-                ? PiperTtsProvider.Id
-                : "xai";
+            var desired = VoiceRoute.ProviderFor(PrivateMode(), chatSettings != null ? chatSettings.providerId : null);
+            if (voiceSettings != null && !string.Equals(voiceSettings.provider, desired, System.StringComparison.OrdinalIgnoreCase))
+                voiceSettings.provider = desired;
 
             if (_provider == null || !string.Equals(_provider.ProviderId, desired, System.StringComparison.OrdinalIgnoreCase))
                 RefreshProvider();

@@ -47,9 +47,11 @@ The endpoint is `POST https://api.x.ai/v1/tts` with `text`, `voice_id`, `languag
 
 ## Privacy
 
-When `ChatSettings.providerId` is `local` (the Ollama path, including adult or private replies), reply text is **not** sent to cloud TTS. `SpeechPolicy` skips speaking. Nothing is queued and no note is added on every message.
+Voice follows the chat that is actually running. Grok replies use the cloud voice id. Local chat, and private mode, use Piper. `VoiceRoute` chooses that. Local and private reply text is not sent to cloud TTS.
 
-Turn on **Allow Cloud Tts For Local Replies** on the voice asset only if those replies should leave the machine. The default is off. Grok and any other non-local provider may be spoken when the voice asset is enabled and mute is off.
+When `ChatSettings.providerId` is `local` and the voice provider is still the cloud one, `SpeechPolicy` skips speaking unless the voice asset explicitly allows cloud speech for a local model. Private mode never allows that. With the route above, local and private replies are on Piper instead, so they can be spoken on this PC.
+
+Grok replies may use cloud TTS when the voice asset is enabled and mute is off. The asset flag **Allow Cloud Tts For Local Replies** does not send local or private replies to xAI; those stay on Piper.
 
 **Private mode** in Settings forces the local Ollama path. While it is on, cloud TTS, the voice agent, and Uthana stay blocked even if cloud TTS for local replies is allowed. The default is off, so the public Grok path is unchanged.
 

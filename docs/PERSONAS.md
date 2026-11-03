@@ -46,8 +46,8 @@ Version 1. Unknown fields are ignored. A missing or broken file is skipped.
 | `displayName` | Name in the picker and the setup name while this persona is active. |
 | `personality` | System prompt. `systemPrompt` is accepted as the same field. Empty uses the setup name and relationship. |
 | `speakingStyle` | Added under `Speaking style:` after the personality. |
-| `piperVoiceId` | Piper voice id, for example `en_US-lessac-medium`. Resolved to a `.onnx` next to the current Piper voice or `piper.exe`. This is an id only. There is no voice plug-in. |
-| `cloudVoiceId` | xAI voice id, for example `eve`. `voiceId` is accepted as the same field. |
+| `piperVoiceId` | Piper voice id used when chat is local or private, for example `en_US-lessac-medium`. Resolved to a `.onnx` next to the current Piper voice or `piper.exe`. This is an id only. There is no voice plug-in. |
+| `cloudVoiceId` | xAI voice id used when chat is Grok, for example `eve`. `voiceId` is accepted as the same field. |
 | `providerId` | `grok` or `local`. `ollama` means `local`. `xai` means `grok`. |
 | `model` | Model name for that provider. A Grok id such as `grok-4.7`, or a local Ollama tag. |
 | `avatarSource` | `auto`, `local`, `vrm`, or `fbx`. |
@@ -71,7 +71,9 @@ A local persona can point at an Ollama tag instead of Grok:
 }
 ```
 
-That model tag is an example of the field. The model file is not in this repository, and this persona is not one of the built-ins. Private mode still sends chat only to the local provider, even when the persona names Grok.
+That model tag is an example of the field. The model file is not in this repository, and this persona is not one of the built-ins. Private mode still sends chat only to the local provider, even when the persona names Grok. The badge and **Settings → AI** show the model that is actually running, including the local name when private mode forces it.
+
+Voice follows that same choice. Grok replies use `cloudVoiceId`. Local and private replies use `piperVoiceId` and are not sent to cloud TTS. A blank voice id keeps the current voice.
 
 ## What a blank field does
 

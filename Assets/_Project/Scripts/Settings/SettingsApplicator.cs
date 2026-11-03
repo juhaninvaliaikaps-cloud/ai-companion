@@ -28,13 +28,16 @@ namespace AICompanion.Settings
                 var voice = speaker.RuntimeVoice;
                 if (voice != null)
                 {
+                    var route = VoiceRoute.ProviderFor(settings.PrivateMode, settings.ProviderId);
+                    settings.TtsProvider = route;
                     voice.enabled = settings.TtsEnabled;
                     voice.voiceId = settings.VoiceId;
                     voice.language = settings.TtsLanguage;
-            voice.provider = settings.TtsProvider;
-            voice.piperExe = settings.PiperExe;
-            voice.piperVoice = settings.PiperVoice;
+                    voice.provider = route;
+                    voice.piperExe = settings.PiperExe;
+                    voice.piperVoice = settings.PiperVoice;
                     voice.volume = settings.Volume;
+                    speaker.RefreshProvider();
                 }
 
                 speaker.SetMuted(settings.Muted);

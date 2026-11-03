@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using AICompanion.AI;
+using AICompanion.Voice;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,6 +17,10 @@ namespace AICompanion.Settings
         {
             var catalog = PersonaCatalog.LoadDefault(Folder());
             Note("Built-ins ship with the app. Edits save outside the repo.");
+            AddLabel("Active now: " + ActiveModelText());
+            Note(VoiceRoute.UsesCloudTts(_settings.PrivateMode, _settings.ProviderId)
+                ? "Cloud voice is used while chat is Grok."
+                : "Piper is used while chat is local or private. That audio stays on this PC.");
             Note("Cue instructions are added after the persona on every reply.");
             var active = _settings.PersonaId ?? string.Empty;
             AddButton(string.IsNullOrEmpty(active) ? "Setup name (active)" : "Use setup name", ClearActivePersona);
@@ -46,13 +51,14 @@ namespace AICompanion.Settings
             AddField("Display name", persona.DisplayName, false, value => SaveActive(idFixed, item => item.DisplayName = value));
             AddArea("Personality", persona.Personality, 78f, PersonaDefinition.MaxPersonalityLength, value => SaveActive(idFixed, item => item.Personality = value));
             AddArea("Speaking style", persona.SpeakingStyle, 52f, PersonaDefinition.MaxSpeakingStyleLength, value => SaveActive(idFixed, item => item.SpeakingStyle = value));
-            AddField("Piper voice id", persona.PiperVoiceId, false, value => SaveActive(idFixed, item => item.PiperVoiceId = value));
-            AddField("Cloud voice id", persona.CloudVoiceId, false, value => SaveActive(idFixed, item => item.CloudVoiceId = value));
+            AddField("Piper voice id (local)", persona.PiperVoiceId, false, value => SaveActive(idFixed, item => item.PiperVoiceId = value));
+            AddField("Cloud voice id (Grok)", persona.CloudVoiceId, false, value => SaveActive(idFixed, item => item.CloudVoiceId = value));
+            Note("Blank voice, model, or avatar keeps the current one.");
             AddButton(PersonaChoiceLabel("Grok", persona.ProviderId, ChatDefaults.GrokId), () => SaveActive(idFixed, item => item.ProviderId = ChatDefaults.GrokId));
             AddButton(PersonaChoiceLabel("Local Ollama", persona.ProviderId, ChatDefaults.LocalId), () => SaveActive(idFixed, item => item.ProviderId = ChatDefaults.LocalId));
             AddButton(string.IsNullOrEmpty(persona.ProviderId) ? "Leave provider unchanged (selected)" : "Leave provider unchanged", () => SaveActive(idFixed, item => item.ProviderId = string.Empty));
             AddField("Model name", persona.Model, false, value => SaveActive(idFixed, item => item.Model = value));
-            Note("Blank voice, model, or avatar keeps the current one.");
+            Note("That name is the Grok model, or the local Ollama tag, for the provider above.");
             AddButton(PersonaChoiceLabel("Avatar auto", persona.AvatarSource, AvatarSourceNames.Auto), () => SaveActive(idFixed, item => item.AvatarSource = AvatarSourceNames.Auto));
             AddButton(PersonaChoiceLabel("Avatar local", persona.AvatarSource, AvatarSourceNames.Local), () => SaveActive(idFixed, item => item.AvatarSource = AvatarSourceNames.Local));
             AddButton(PersonaChoiceLabel("Avatar VRM", persona.AvatarSource, AvatarSourceNames.Vrm), () => SaveActive(idFixed, item => item.AvatarSource = AvatarSourceNames.Vrm));
@@ -62,6 +68,19 @@ namespace AICompanion.Settings
             Note("A missing portrait folder uses the standard portraits folder.");
             if (current.UserFile)
                 AddButton(current.BuiltIn ? "Delete saved copy" : "Delete persona", DeleteActivePersona);
+        }
+
+        string ActiveModelText()
+        {
+            var effective = OutboundPrivacy.ChatProviderId(_settings.PrivateMode, _settings.ProviderId);
+            return ActiveChatLabel.Format(effective, _settings.PrivateMode, _settings.Model, _settings.LocalModel);
+        }
+
+        static string ProviderButton(string name, bool remembered, bool overridden)
+        {
+            if (!remembered)
+                return name;
+            return overridden ? name + " (remembered)" : name + " (active)";
         }
 
         void AddPersonaButton(PersonaEntry entry, string activeId)
