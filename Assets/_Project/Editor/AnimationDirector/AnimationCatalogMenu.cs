@@ -72,10 +72,10 @@ namespace AICompanion.Editor.AnimationDirector
             return new List<AnimationEntry>
             {
                 Entry("idle", "calm resting pose; the director returns here when nothing else plays", Emotion.Neutral, 0.2f, string.Empty, "Idle", "Idle", 2f, "mood", "idle"),
-                Entry("happy", "use for good news, a joke, or a warm greeting. Not the default", Emotion.Happy, 0.8f, string.Empty, "Happy", "Happy", 2f, "mood", "positive"),
-                Entry("sad", "use for sympathy, disappointment, bad news, or a let-down", Emotion.Sad, 0.7f, string.Empty, "Sad", "Sad", 2f, "mood", "negative"),
-                Entry("surprised", "use for a sudden reveal, shock, or something unexpected", Emotion.Surprised, 0.9f, string.Empty, "Surprised", "Surprised", 1f, "mood", "reaction"),
-                Entry("thinking", "use when working something out, pausing, or unsure", Emotion.Thinking, 0.6f, string.Empty, "Thinking", "Thinking", 2f, "mood", "thinking"),
+                Entry("happy", "use for good news, a joke, or a warm greeting. Not the default", Emotion.Happy, 0.8f, string.Empty, string.Empty, string.Empty, 2f, "mood", "positive"),
+                Entry("sad", "use for sympathy, disappointment, bad news, or a let-down", Emotion.Sad, 0.7f, string.Empty, string.Empty, string.Empty, 2f, "mood", "negative"),
+                Entry("surprised", "use for a sudden reveal, shock, or something unexpected", Emotion.Surprised, 0.9f, string.Empty, string.Empty, string.Empty, 1f, "mood", "reaction"),
+                Entry("thinking", "use when working something out, pausing, or unsure", Emotion.Thinking, 0.6f, string.Empty, string.Empty, string.Empty, 2f, "mood", "thinking"),
                 Entry("wave_hello", "friendly hello wave", Emotion.Happy, 0.7f, "wave", "Wave", "Wave", 1.4f, "greeting", "friendly"),
                 Entry("nod_yes", "agreeing nod", Emotion.Neutral, 0.4f, "nod", "Nod", "Nod", 1f, "agreement", "confirmation"),
                 Entry("shrug", "uncertain shrug with no strong feeling", Emotion.Neutral, 0.4f, "shrug", "Shrug", "Shrug", 1.3f, "uncertain", "neutral"),
@@ -84,7 +84,7 @@ namespace AICompanion.Editor.AnimationDirector
                 Entry("turn_around", "turn around in place to look behind", Emotion.Neutral, 0.5f, "turn", "Turn180", "Turn180", 0.9f, "turn", "orientation"),
                 PriorityRow(Entry("wave_bye", "friendly goodbye wave", Emotion.Happy, 0.7f, "wave_bye", "Wave", "Wave", 1.4f, "greeting", "goodbye"), 1),
                 Entry("nod_no", "shaking the head no", Emotion.Neutral, 0.4f, "nod_no", "Nod", "Nod", 1f, "disagreement", "no"),
-                Entry("sigh", "a quiet sigh", Emotion.Sad, 0.5f, string.Empty, "Sad", "Sad", 2f, "sigh", "tired"),
+                Entry("sigh", "a quiet sigh", Emotion.Sad, 0.5f, string.Empty, string.Empty, string.Empty, 2f, "sigh", "tired"),
                 Entry("stop", "stop and stand still when asked to stop, wait, or stay", Emotion.Neutral, 0.3f, "stop", string.Empty, string.Empty, 1f, "movement", "still"),
 
                 // Portrait expressions. The body stays put. The last argument is the still
@@ -93,11 +93,11 @@ namespace AICompanion.Editor.AnimationDirector
                 PortraitEntry("embarrassed", "use when a compliment or being caught out makes her blush hard", Emotion.Neutral, 0.6f, "Idle", "Idle", 2f, "embarrassed", "shy", "compliment"),
                 PortraitEntry("shy", "use when she is quiet and looking away, with a small smile and a light blush", Emotion.Neutral, 0.5f, "Idle", "Idle", 2f, "shy", "quiet", "soft"),
                 PortraitEntry("flustered", "use when she is lost for words or overwhelmed, blushing with an open mouth", Emotion.Neutral, 0.7f, "Idle", "Idle", 2f, "flustered", "blush", "tease"),
-                PortraitEntry("embarrassed_worried", "use when she is embarrassed and worried at the same time", Emotion.Sad, 0.5f, "Sad", "Sad", 2f, "embarrassed_worried", "mixed", "care"),
-                PortraitEntry("pouty", "use for playful annoyance or a pout. Write emotion sad, or gesture pouty", Emotion.Sad, 0.45f, "Sad", "Sad", 2f, "angry", "pout", "playful"),
-                PortraitEntry("teasing", "use for a smug, knowing, teasing smile", Emotion.Happy, 0.6f, "Happy", "Happy", 2f, "teasing", "flirt", "smug"),
-                PortraitEntry("excited", "use when she is delighted and energetic, more than a plain happy smile", Emotion.Happy, 0.9f, "Happy", "Happy", 2f, "excited", "joy", "hype"),
-                PortraitEntry("loving", "use when she is warm, affectionate, or loving", Emotion.Happy, 0.8f, "Happy", "Happy", 2f, "loving", "affection", "warm"),
+                PortraitEntry("embarrassed_worried", "use when she is embarrassed and worried at the same time", Emotion.Sad, 0.5f, "Idle", "Idle", 2f, "embarrassed_worried", "mixed", "care"),
+                PortraitEntry("pouty", "use for playful annoyance or a pout. Write emotion sad, or gesture pouty", Emotion.Sad, 0.45f, "Idle", "Idle", 2f, "angry", "pout", "playful"),
+                PortraitEntry("teasing", "use for a smug, knowing, teasing smile", Emotion.Happy, 0.6f, "Idle", "Idle", 2f, "teasing", "flirt", "smug"),
+                PortraitEntry("excited", "use when she is delighted and energetic, more than a plain happy smile", Emotion.Happy, 0.9f, "Idle", "Idle", 2f, "excited", "joy", "hype"),
+                PortraitEntry("loving", "use when she is warm, affectionate, or loving", Emotion.Happy, 0.8f, "Idle", "Idle", 2f, "loving", "affection", "warm"),
                 PortraitEntry("sleepy", "use when she is tired or ready for bed", Emotion.Neutral, 0.3f, "Idle", "Idle", 2f, "sleepy", "late", "tired"),
                 // Laughing is a portrait. The 3D face uses happy. There is no body clip, so the smile stays face-only.
                 PortraitFace("laughing", "laughing, open smile on the portrait while the body stays still", Emotion.Happy, 0.9f, "laughing", "amused", "laugh"),

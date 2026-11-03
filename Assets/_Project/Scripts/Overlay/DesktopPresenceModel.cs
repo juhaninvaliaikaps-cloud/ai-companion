@@ -97,6 +97,7 @@ namespace AICompanion.Overlay
         readonly float _minWalk;
         readonly float _maxWalk;
         readonly bool _wanderByIdle;
+        bool _placed;
 
         DesktopWorkArea _area;
         int _windowWidth;
@@ -189,9 +190,13 @@ namespace AICompanion.Overlay
             if (Math.Abs(clamped - _footOffsetPx) < 0.5f)
                 return;
 
+            // Move her by the same amount the ground moved, so the soles stay planted
+            // instead of snapping up in one frame when the walk pose changes the offset.
+            var before = GroundY;
             _footOffsetPx = clamped;
+            var after = GroundY;
             if (State != PresenceState.Falling)
-                _y = GroundY;
+                _y += after - before;
         }
 
         public void SetWindowSize(int width, int height)
@@ -211,6 +216,19 @@ namespace AICompanion.Overlay
 
             _area = area;
             _x = ClampX(_x);
+
+            // The first work area is where she is placed, not dropped: without this she
+            // spawned above the ground and fell onto the taskbar on every launch.
+            if (!_placed)
+            {
+                _placed = true;
+                _y = GroundY;
+                _verticalVelocity = 0f;
+                State = PresenceState.Idle;
+                _timer = NextPause();
+                return;
+            }
+
             if (_y > GroundY)
                 _y = GroundY;
 

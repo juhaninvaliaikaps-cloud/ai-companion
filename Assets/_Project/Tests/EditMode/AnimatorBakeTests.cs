@@ -1,3 +1,4 @@
+using AICompanion.Core;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
@@ -15,7 +16,7 @@ namespace AICompanion.Tests.EditMode
         const string ClipsPath = "Assets/_Project/Animations/";
 
         static readonly string[] OneShotClips = { "Wave", "Nod", "Shrug", "Laugh", "Turn180" };
-        static readonly string[] LoopingClips = { "Idle", "Talk", "Happy", "Sad", "Surprised", "Thinking", "Walk", "Fall" };
+        static readonly string[] LoopingClips = { "Idle", "Walk", "Fall" };
 
         static AnimatorController LoadController()
         {
@@ -69,9 +70,9 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void EveryEmotionClipWritesTheArmsSoTheyCannotTpose()
+        public void TheIdleClipWritesTheArmsSoTheyCannotTpose()
         {
-            var emotions = new[] { "Idle", "Happy", "Sad", "Surprised", "Thinking" };
+            var emotions = new[] { "Idle" };
             for (var i = 0; i < emotions.Length; i++)
             {
                 var clip = LoadClip(emotions[i]);
@@ -96,19 +97,20 @@ namespace AICompanion.Tests.EditMode
         public void TheUpperBodyLayerHasAnAvatarMask()
         {
             var controller = LoadController();
-            Assert.GreaterOrEqual(controller.layers.Length, 4, "The upper body gesture layer is missing.");
-            Assert.AreEqual(AnimatorLayerBlendingMode.Override, controller.layers[3].blendingMode);
-            Assert.IsNotNull(controller.layers[3].avatarMask, "The upper body layer has no avatar mask.");
+            Assert.Greater(controller.layers.Length, AvatarAnimatorLayers.UpperBody, "The upper body gesture layer is missing.");
+            Assert.AreEqual(AnimatorLayerBlendingMode.Override, controller.layers[AvatarAnimatorLayers.UpperBody].blendingMode);
+            Assert.IsNotNull(controller.layers[AvatarAnimatorLayers.UpperBody].avatarMask, "The upper body layer has no avatar mask.");
+            Assert.IsNull(controller.layers[AvatarAnimatorLayers.Gestures].avatarMask, "The walk layer must not carry the upper body mask; it hides her legs.");
         }
 
         [Test]
         public void GesturesLiveOnTheUpperBodyLayer()
         {
             var controller = LoadController();
-            Assert.GreaterOrEqual(controller.layers.Length, 4);
+            Assert.Greater(controller.layers.Length, AvatarAnimatorLayers.UpperBody);
 
             var names = new System.Collections.Generic.List<string>();
-            var states = controller.layers[3].stateMachine.states;
+            var states = controller.layers[AvatarAnimatorLayers.UpperBody].stateMachine.states;
             for (var i = 0; i < states.Length; i++)
                 names.Add(states[i].state.name);
 
@@ -119,7 +121,7 @@ namespace AICompanion.Tests.EditMode
             Assert.Contains("Laugh", names);
 
             var body = new System.Collections.Generic.List<string>();
-            var bodyStates = controller.layers[2].stateMachine.states;
+            var bodyStates = controller.layers[AvatarAnimatorLayers.Gestures].stateMachine.states;
             for (var i = 0; i < bodyStates.Length; i++)
                 body.Add(bodyStates[i].state.name);
 

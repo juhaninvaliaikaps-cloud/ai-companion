@@ -35,8 +35,8 @@ MonoBehaviour:
     intensity: 0.8
     portrait: 
     gesture: 
-    animatorState: Happy
-    clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
+    animatorState: 
+    clip: {fileID: 0}
     durationSeconds: 2
     priority: 0
   - id: sad
@@ -48,8 +48,8 @@ MonoBehaviour:
     intensity: 0.7
     portrait: 
     gesture: 
-    animatorState: Sad
-    clip: {fileID: 7400000, guid: 76130b703857e9ae665b1a99dc74df20, type: 2}
+    animatorState: 
+    clip: {fileID: 0}
     durationSeconds: 2
     priority: 0
   - id: surprised
@@ -61,8 +61,8 @@ MonoBehaviour:
     intensity: 0.9
     portrait: 
     gesture: 
-    animatorState: Surprised
-    clip: {fileID: 7400000, guid: 9498dbf0abc8e09fa6bd2cd0a916d890, type: 2}
+    animatorState: 
+    clip: {fileID: 0}
     durationSeconds: 1
     priority: 0
   - id: thinking
@@ -74,8 +74,8 @@ MonoBehaviour:
     intensity: 0.6
     portrait: 
     gesture: 
-    animatorState: Thinking
-    clip: {fileID: 7400000, guid: 6105ee95016d6963d0148253f6e4286a, type: 2}
+    animatorState: 
+    clip: {fileID: 0}
     durationSeconds: 2
     priority: 0
   - id: wave_hello
@@ -191,8 +191,8 @@ MonoBehaviour:
     intensity: 0.5
     portrait: 
     gesture: 
-    animatorState: Sad
-    clip: {fileID: 7400000, guid: 76130b703857e9ae665b1a99dc74df20, type: 2}
+    animatorState: 
+    clip: {fileID: 0}
     durationSeconds: 2
     priority: 0
   - id: stop
@@ -269,8 +269,8 @@ MonoBehaviour:
     intensity: 0.5
     portrait: embarrassed_worried
     gesture: 
-    animatorState: Sad
-    clip: {fileID: 7400000, guid: 76130b703857e9ae665b1a99dc74df20, type: 2}
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
     priority: 0
   - id: pouty
@@ -282,8 +282,8 @@ MonoBehaviour:
     intensity: 0.45
     portrait: angry
     gesture: 
-    animatorState: Sad
-    clip: {fileID: 7400000, guid: 76130b703857e9ae665b1a99dc74df20, type: 2}
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
     priority: 0
   - id: teasing
@@ -295,8 +295,8 @@ MonoBehaviour:
     intensity: 0.6
     portrait: teasing
     gesture: 
-    animatorState: Happy
-    clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
     priority: 0
   - id: excited
@@ -308,8 +308,8 @@ MonoBehaviour:
     intensity: 0.9
     portrait: excited
     gesture: 
-    animatorState: Happy
-    clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
     priority: 0
   - id: loving
@@ -321,8 +321,8 @@ MonoBehaviour:
     intensity: 0.8
     portrait: loving
     gesture: 
-    animatorState: Happy
-    clip: {fileID: 7400000, guid: 569cb2828c2b45ce55233070369aa341, type: 2}
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
     priority: 0
   - id: sleepy
