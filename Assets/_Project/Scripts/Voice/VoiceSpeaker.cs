@@ -271,6 +271,9 @@ namespace AICompanion.Voice
             if (_requestInFlight)
             {
                 var limit = voiceSettings != null && voiceSettings.timeoutSeconds > 0f ? voiceSettings.timeoutSeconds : 20f;
+                // Kokoro loads its model on the first request, which takes about 17 s here.
+                if (voiceSettings != null && string.Equals(voiceSettings.provider, KokoroTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+                    limit = Mathf.Max(limit, 150f);
                 if (Time.realtimeSinceStartup - _requestStartedAt > limit + 1f)
                 {
                     var screen = ChatErrors.TimedOut("the voice");
