@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Threading;
 using AICompanion.AI;
+using AICompanion.AnimationDirector;
 using AICompanion.Core;
 using AICompanion.Memory;
 using Director = AICompanion.AnimationDirector.AnimationDirector;
@@ -288,10 +289,11 @@ namespace AICompanion.UI
                 _speech.BeginUtterance();
             }
 
-            var prompt = settings.systemPrompt;
+            var suffix = string.Empty;
             var director = GetComponent<Director>();
             if (director != null)
-                prompt += director.SystemPromptSuffix;
+                suffix = director.SystemPromptSuffix;
+            var prompt = DirectorPrompt.Append(settings.systemPrompt, suffix);
             var temperature = settings.temperature;
             var maxTokens = settings.maxTokens;
             Dispatch(provider, text, prompt, temperature, maxTokens, _cancel.Token);

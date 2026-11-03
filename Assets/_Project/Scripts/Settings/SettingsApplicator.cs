@@ -111,10 +111,22 @@ namespace AICompanion.Settings
 
         public static void ApplyPersona(AICompanion.AI.ChatSettings chat, CompanionSettings settings)
         {
+            ApplyPersona(chat, settings, null);
+        }
+
+        public static void ApplyPersona(AICompanion.AI.ChatSettings chat, CompanionSettings settings, string settingsFolder)
+        {
             if (chat == null || settings == null)
                 return;
 
-            chat.systemPrompt = CompanionPersona.Build(settings.CompanionName, settings.Relationship);
+            if (string.IsNullOrWhiteSpace(settings.PersonaId))
+            {
+                chat.systemPrompt = CompanionPersona.Build(settings.CompanionName, settings.Relationship);
+                return;
+            }
+
+            var folder = string.IsNullOrEmpty(settingsFolder) ? PersonaRuntime.DefaultSettingsFolder() : settingsFolder;
+            chat.systemPrompt = PersonaRuntime.SystemPrompt(settings, PersonaCatalog.LoadDefault(folder));
         }
 
         static KeyCode ParseKey(string name)

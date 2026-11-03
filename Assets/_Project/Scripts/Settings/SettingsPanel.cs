@@ -35,10 +35,11 @@ namespace AICompanion.Settings
             Voice = 2,
             Controls = 3,
             Overlay = 4,
-            Privacy = 5
+            Privacy = 5,
+            Persona = 6
         }
 
-        static readonly string[] TabLabels = { "AI", "Avatar", "Voice", "Controls", "Overlay", "Privacy" };
+        static readonly string[] TabLabels = { "AI", "Avatar", "Voice", "Controls", "Overlay", "Privacy", "Persona" };
 
         readonly List<InputField> _fields = new List<InputField>();
         readonly List<Image> _tabImages = new List<Image>();
@@ -95,6 +96,8 @@ namespace AICompanion.Settings
             var tray = GetComponent<CompanionTray>();
             if (!exists && tray != null)
                 _settings.StartWithWindows = tray.Menu.StartWithWindows;
+
+            PersonaRuntime.ApplySelected(_settings, Folder());
 
             _applying = true;
             try
@@ -574,7 +577,8 @@ namespace AICompanion.Settings
             bodyRect.anchorMin = new Vector2(0f, 0f);
             bodyRect.anchorMax = new Vector2(1f, 1f);
             bodyRect.offsetMin = new Vector2(8f, 28f);
-            bodyRect.offsetMax = new Vector2(-8f, -90f);
+            var tabRows = (TabLabels.Length + 2) / 3;
+            bodyRect.offsetMax = new Vector2(-8f, -(34f + tabRows * 26f + 4f));
             var scroll = body.AddComponent<ScrollRect>();
             scroll.horizontal = false;
             scroll.movementType = ScrollRect.MovementType.Clamped;
@@ -634,6 +638,9 @@ namespace AICompanion.Settings
                     break;
                 case Tab.Privacy:
                     BuildPrivacy();
+                    break;
+                case Tab.Persona:
+                    BuildPersona();
                     break;
                 default:
                     BuildAi();
