@@ -24,6 +24,9 @@ namespace AICompanion.Core
         public const int Base = 0;
         public const int Talk = 1;
         public const int Gestures = 2;
+
+        /// <summary>Upper-body gestures on their own masked layer, so they can run over Walk.</summary>
+        public const int UpperBody = 3;
     }
 
     /// <summary>
