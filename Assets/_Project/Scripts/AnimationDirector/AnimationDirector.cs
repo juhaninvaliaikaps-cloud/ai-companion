@@ -97,6 +97,11 @@ namespace AICompanion.AnimationDirector
             if (!CompanionPause.ReactionsAllowed(_suppressed))
                 return;
 
+            // Walk and stop are not catalog clips. Handling them first keeps a walk row
+            // with an Animator state from playing an on-the-spot loop instead of moving.
+            if (TryHandleMovement(cue))
+                return;
+
             if (_model == null || !IsAlive(_animator) || !IsAlive(_states))
             {
                 Resolve();
@@ -107,9 +112,6 @@ namespace AICompanion.AnimationDirector
                 Debug.Log(AnimationDirectorLog.MissingCatalog(cue));
                 return;
             }
-
-            if (TryHandleMovement(cue))
-                return;
 
             var decision = _model.Decide(cue);
             var played = Apply(decision);
@@ -123,28 +125,65 @@ namespace AICompanion.AnimationDirector
         /// </summary>
         bool TryHandleMovement(AnimationCue cue)
         {
-            var token = cue.Gesture == null ? string.Empty : cue.Gesture.Trim().ToLowerInvariant();
+            var token = cue.Gesture == null ? string.Empty : cue.Gesture.Trim();
+            var direction = cue.Direction;
+            AnimationCueParser.NormalizeMovementCue(ref token, ref direction);
             if (token != WalkCue && token != StopCue)
                 return false;
 
-            if (_walk == null)
-                _walk = GetComponent<IWalkRequest>();
-            if (_walk == null)
-                return false;
+            var walk = ResolveWalk();
+            if (walk == null)
+            {
+                Debug.Log("Walk: no IWalkRequest found");
+                return true;
+            }
 
             if (token == WalkCue)
             {
-                var direction = UnityEngine.Random.value < 0.5f ? -1f : 1f;
-                _walk.RequestWalk(direction, WalkRequestSeconds);
+                if (direction == 0f)
+                    direction = UnityEngine.Random.value < 0.5f ? -1f : 1f;
+                walk.RequestWalk(direction, WalkRequestSeconds);
                 Debug.Log("AnimationDirector: cue walk -> requested");
             }
             else
             {
-                _walk.RequestStop();
+                walk.RequestStop();
                 Debug.Log("AnimationDirector: cue stop -> requested");
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// The presence is added to the overlay host after the scene loads. In Main that
+        /// host is this object. A split setup is found by the interface, and a miss is
+        /// not cached, so a presence that appears later still receives the next cue.
+        /// </summary>
+        IWalkRequest ResolveWalk()
+        {
+            if (IsAlive(_walk))
+                return _walk;
+
+            _walk = null;
+            var local = GetComponent<IWalkRequest>();
+            if (IsAlive(local))
+            {
+                _walk = local;
+                return _walk;
+            }
+
+            var behaviours = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                var candidate = behaviours[i] as IWalkRequest;
+                if (!IsAlive(candidate))
+                    continue;
+
+                _walk = candidate;
+                return _walk;
+            }
+
+            return null;
         }
 
         public void PlayNeutral()

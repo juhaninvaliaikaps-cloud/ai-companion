@@ -16,7 +16,8 @@ That sounds fun. Let's go!
 | --- | --- | --- |
 | `emotion` | One of `neutral`, `happy`, `sad`, `surprised`, `thinking`. Unknown values make the cue invalid. | `neutral` |
 | `intensity` | 0 to 1. Clamped by `AnimationCue`. | `0.6` |
-| `gesture` | A catalog id (`wave_hello`) or that row's gesture name (`wave`). The director tries the id first. An unknown value is still parsed; the director then plays neutral. | none |
+| `gesture` | A catalog id (`wave_hello`) or that row's gesture name (`wave`). The director tries the id first. An unknown value is still parsed; the director then plays neutral. `walk` and `stop` are not clips: they ask the desktop presence to move or stand. | none |
+| `direction` | `left` or `right`, only meaningful with `gesture="walk"`. Omitted means she picks a side. `walk_left` / `walk_right` fill the same side when the attribute is missing. | none |
 
 The parser is `AnimationCueParser` in `AICompanion.Core`. It returns the visible text with every cue tag removed and a `CueParseStatus` of `None`, `Parsed`, or `Invalid`. Quotes may be double or single. An invalid or unclosed tag is still stripped. Text that follows a closed tag is kept. A word such as `<animations>` is not a cue tag.
 
@@ -59,12 +60,12 @@ The cue is applied when the reply finishes, which is when the tag has arrived. S
 
 ## Tests
 
-`AnimationCueParserTests`, `CueStreamFilterTests`, `AnimationDirectorTests`, and `CueTranscriptTests` cover the tag format, split chunks, a later `<`, text after a closed tag, catalog ids, the console line, and the sealed transcript. They run in EditMode and need no Animator. The system-prompt test checks that `SystemPromptSuffix` still contains `AnimationCueParser.Instruction` and the `<animation ... />` example.
+`AnimationCueParserTests`, `CueStreamFilterTests`, `AnimationDirectorTests`, and `CueTranscriptTests` cover the tag format, split chunks, a later `<`, text after a closed tag, catalog ids, the console line, and the sealed transcript. They run in EditMode and need no Animator. The system-prompt test checks that `SystemPromptSuffix` still contains `AnimationCueParser.Instruction` and the `<animation ... />` example. `WalkRequestWiringTests` feeds a parsed reply to `AnimationDirector` and checks that `DesktopPresence` moves, sets the locomotion flag, and does not play the catalog Walk clip.
 
 ## Limits
 
 - The gesture clips are procedural muscle curves, not motion capture: stylised, no finger articulation, and the walk is on the spot because root motion stays off.
-- `walk` and `turn_around` have catalog rows, but nothing emits them from chat yet. The cue carries one gesture and the model chooses it, so asking to walk depends on prompt wording.
+- `walk` moves the overlay window. The prompt tells the model to emit it when asked to walk, including `direction="left"` for "walk to the left". The on-the-spot Walk clip is the locomotion bool, not a catalog cross-fade. `turn_around` is still only a catalog row.
 - Gestures live on layer 2, an override layer with `writeDefaultValues` off, so the base layer emotion transitions cannot interrupt them. The same layer carries Walk and Fall, driven by the `Walking` and `Falling` bools, and `GestureActivity` fades the procedural sway while either is active.
 - The cue is one tag for the whole reply. Per-sentence cues would need a different streaming contract.
 - `speech` and the cue are independent: a muted or failed utterance still changes the face, because the cue arrives with the text rather than with the audio.

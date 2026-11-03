@@ -104,6 +104,7 @@ namespace AICompanion.Tests.EditMode
 
             Assert.IsTrue(catalog.Validate(out List<string> problems), string.Join("\n", problems));
             Assert.AreEqual(22, catalog.BuildPromptList().Split('\n').Length);
+            Assert.IsFalse(catalog.TryGetById("talk", out _), "Talking is face-only, so the body talk row stays out of the catalog.");
 
             Assert.IsTrue(catalog.TryGetById("idle", out AnimationEntry idle));
             Assert.IsNotNull(idle.clip, "The idle row lost its clip reference.");
@@ -116,6 +117,9 @@ namespace AICompanion.Tests.EditMode
 
             Assert.IsTrue(catalog.TryGetByGesture("walk", out AnimationEntry walk));
             Assert.AreEqual("Walk", walk.animatorState);
+            StringAssert.Contains("walk along the desktop", walk.description);
+            Assert.IsTrue(catalog.TryGetByGesture("stop", out AnimationEntry stop));
+            Assert.AreEqual("stop", stop.id);
             Assert.IsTrue(catalog.TryGetByGesture("turn", out AnimationEntry turn));
             Assert.AreEqual("Turn180", turn.animatorState);
         }
