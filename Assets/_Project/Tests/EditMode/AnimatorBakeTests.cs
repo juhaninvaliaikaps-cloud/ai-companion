@@ -100,6 +100,7 @@ namespace AICompanion.Tests.EditMode
             Assert.Greater(controller.layers.Length, AvatarAnimatorLayers.UpperBody, "The upper body gesture layer is missing.");
             Assert.AreEqual(AnimatorLayerBlendingMode.Override, controller.layers[AvatarAnimatorLayers.UpperBody].blendingMode);
             Assert.IsNotNull(controller.layers[AvatarAnimatorLayers.UpperBody].avatarMask, "The upper body layer has no avatar mask.");
+            Assert.IsNull(controller.layers[AvatarAnimatorLayers.Gestures].avatarMask, "The walk layer must not carry the upper body mask; it hides her legs.");
         }
 
         [Test]

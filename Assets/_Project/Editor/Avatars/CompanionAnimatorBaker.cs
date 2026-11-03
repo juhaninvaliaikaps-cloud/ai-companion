@@ -383,6 +383,26 @@ namespace AICompanion.Editor.Avatars
                 layers = controller.layers;
             }
 
+            // The mask belongs to the upper layer only. An earlier bake left a copy on the
+            // gesture layer back when the indices were different, which masked out her legs and
+            // made the walk clip move only the arms.
+            if (layers.Length > AvatarAnimatorLayers.Gestures)
+            {
+                var gesture = layers[AvatarAnimatorLayers.Gestures];
+                if (gesture.avatarMask != null)
+                {
+                    gesture.avatarMask = null;
+                    layers[AvatarAnimatorLayers.Gestures] = gesture;
+                }
+            }
+
+            var baseLayer = layers[AvatarAnimatorLayers.Base];
+            if (baseLayer.avatarMask != null)
+            {
+                baseLayer.avatarMask = null;
+                layers[AvatarAnimatorLayers.Base] = baseLayer;
+            }
+
             var upper = layers[AvatarAnimatorLayers.UpperBody];
             upper.blendingMode = AnimatorLayerBlendingMode.Override;
             upper.defaultWeight = 1f;
