@@ -34,6 +34,11 @@ namespace AICompanion.Settings
             voice.provider = settings.TtsProvider;
             voice.piperExe = settings.PiperExe;
             voice.piperVoice = settings.PiperVoice;
+            voice.kokoroPython = settings.KokoroPython;
+            voice.kokoroScript = settings.KokoroScript;
+            voice.kokoroModel = settings.KokoroModel;
+            voice.kokoroVoices = settings.KokoroVoices;
+            voice.kokoroVoice = settings.KokoroVoice;
                     voice.volume = settings.Volume;
                 }
 

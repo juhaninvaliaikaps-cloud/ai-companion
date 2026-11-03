@@ -104,9 +104,14 @@ namespace AICompanion.Voice
 
         void EnsureProvider()
         {
-            var desired = voiceSettings != null && string.Equals(voiceSettings.provider, PiperTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase)
-                ? PiperTtsProvider.Id
-                : "xai";
+            var desired = "xai";
+            if (voiceSettings != null)
+            {
+                if (string.Equals(voiceSettings.provider, PiperTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+                    desired = PiperTtsProvider.Id;
+                else if (string.Equals(voiceSettings.provider, KokoroTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+                    desired = KokoroTtsProvider.Id;
+            }
 
             if (_provider == null || !string.Equals(_provider.ProviderId, desired, System.StringComparison.OrdinalIgnoreCase))
                 RefreshProvider();
@@ -124,6 +129,25 @@ namespace AICompanion.Voice
                     timeout);
             }
 
+            if (string.Equals(mode, KokoroTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+            {
+                var session = new KokoroProcessSession(
+                    voiceSettings.kokoroPython,
+                    voiceSettings.kokoroScript,
+                    voiceSettings.kokoroModel,
+                    voiceSettings.kokoroVoices,
+                    voiceSettings.kokoroVoice,
+                    timeout);
+                return new KokoroTtsProvider(
+                    voiceSettings.kokoroPython,
+                    voiceSettings.kokoroScript,
+                    voiceSettings.kokoroModel,
+                    voiceSettings.kokoroVoices,
+                    voiceSettings.kokoroVoice,
+                    session,
+                    timeout);
+            }
+
             return new XaiTtsProvider(new EnvironmentApiKeySource(), new UnityTtsTransport(this), timeout);
         }
 
@@ -134,6 +158,10 @@ namespace AICompanion.Voice
 
         void OnDestroy()
         {
+            var disposable = _provider as System.IDisposable;
+            if (disposable != null)
+                disposable.Dispose();
+
             _alive = false;
             _turn.Cancel();
             SilencePlayback();

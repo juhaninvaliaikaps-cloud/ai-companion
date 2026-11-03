@@ -51,6 +51,11 @@ namespace AICompanion.Settings
         public string TtsProvider = "xai";
         public string PiperExe = string.Empty;
         public string PiperVoice = string.Empty;
+        public string KokoroPython = string.Empty;
+        public string KokoroScript = string.Empty;
+        public string KokoroModel = string.Empty;
+        public string KokoroVoices = string.Empty;
+        public string KokoroVoice = "af_heart";
         public float Volume = 1f;
         public bool Muted;
         public bool SttEnabled = true;
@@ -94,6 +99,11 @@ namespace AICompanion.Settings
         TtsProvider = CleanToken(TtsProvider, "xai", 16);
         PiperExe = CleanToken(PiperExe, string.Empty, 260);
         PiperVoice = CleanToken(PiperVoice, string.Empty, 260);
+        KokoroPython = CleanToken(KokoroPython, string.Empty, 260);
+        KokoroScript = CleanToken(KokoroScript, string.Empty, 260);
+        KokoroModel = CleanToken(KokoroModel, string.Empty, 260);
+        KokoroVoices = CleanToken(KokoroVoices, string.Empty, 260);
+        KokoroVoice = CleanToken(KokoroVoice, "af_heart", 32);
             if (float.IsNaN(Volume) || float.IsInfinity(Volume) || Volume < 0f)
                 Volume = 0f;
             if (Volume > 1f)
@@ -328,6 +338,16 @@ namespace AICompanion.Settings
                 settings.PiperExe = text;
             if (TryString(json, "piperVoice", out text))
                 settings.PiperVoice = text;
+            if (TryString(json, "kokoroPython", out text))
+                settings.KokoroPython = text;
+            if (TryString(json, "kokoroScript", out text))
+                settings.KokoroScript = text;
+            if (TryString(json, "kokoroModel", out text))
+                settings.KokoroModel = text;
+            if (TryString(json, "kokoroVoices", out text))
+                settings.KokoroVoices = text;
+            if (TryString(json, "kokoroVoice", out text))
+                settings.KokoroVoice = text;
             if (TryNumber(json, "volume", out number))
                 settings.Volume = (float)number;
             if (TryBool(json, "muted", out flag))
@@ -389,6 +409,11 @@ namespace AICompanion.Settings
             String(sb, "ttsProvider", source.TtsProvider);
             String(sb, "piperExe", source.PiperExe);
             String(sb, "piperVoice", source.PiperVoice);
+            String(sb, "kokoroPython", source.KokoroPython);
+            String(sb, "kokoroScript", source.KokoroScript);
+            String(sb, "kokoroModel", source.KokoroModel);
+            String(sb, "kokoroVoices", source.KokoroVoices);
+            String(sb, "kokoroVoice", source.KokoroVoice);
             Number(sb, "volume", source.Volume, false);
             Bool(sb, "muted", source.Muted);
             Bool(sb, "sttEnabled", source.SttEnabled);
