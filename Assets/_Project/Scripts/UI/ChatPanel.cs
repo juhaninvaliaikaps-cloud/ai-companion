@@ -276,9 +276,14 @@ namespace AICompanion.UI
             if (_conversation == null || _conversation.IsBusy || string.IsNullOrWhiteSpace(text))
                 return false;
 
-            if (_registry == null || settings == null || !_registry.TryGet(settings.providerId, out var provider))
+            var privacy = GetComponent<IPrivacyMode>();
+            var privateMode = privacy != null && privacy.PrivateMode;
+            var providerId = settings != null ? settings.providerId : string.Empty;
+            if (privateMode)
+                providerId = ChatDefaults.LocalId;
+            if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
             {
-                var message = ChatErrors.UnknownProvider(settings != null ? settings.providerId : string.Empty);
+                var message = ChatErrors.UnknownProvider(providerId);
                 _conversation.AddSystem(message);
                 Debug.Log("Chat error: " + message);
                 RefreshTranscript(true);
@@ -291,8 +296,14 @@ namespace AICompanion.UI
             BindSpeech();
             if (_speech != null)
             {
+                var local = privateMode || ActiveChatLabel.IsLocal(providerId);
                 _speech.Cancel();
-                _speech.BeginUtterance();
+                _speech.BeginUtterance(new SpeechOrigin
+                {
+                    ChatProviderId = local ? ChatDefaults.LocalId : providerId,
+                    Model = local ? settings.localModel : settings.model,
+                    Private = privateMode
+                });
             }
 
             var suffix = string.Empty;

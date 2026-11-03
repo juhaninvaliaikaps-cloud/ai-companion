@@ -5,8 +5,8 @@ namespace AICompanion.Voice
 {
     /// <summary>
     /// Decides whether reply text may leave the machine.
-    /// The local chat provider is the adult-content path, so cloud TTS stays off
-    /// unless the voice asset explicitly allows it.
+    /// Local and private replies never use cloud TTS. Piper is allowed because it
+    /// stays on this machine.
     /// </summary>
     public static class SpeechPolicy
     {
@@ -35,7 +35,7 @@ namespace AICompanion.Voice
 
             var provider = chat != null && chat.providerId != null ? chat.providerId.Trim() : string.Empty;
             if (provider.Length > 0 && string.Equals(provider, ChatDefaults.LocalId, StringComparison.OrdinalIgnoreCase))
-                return voice.allowCloudTtsForLocalReplies;
+                return false;
             return true;
         }
     }

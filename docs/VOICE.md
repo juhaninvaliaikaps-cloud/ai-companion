@@ -47,11 +47,18 @@ The endpoint is `POST https://api.x.ai/v1/tts` with `text`, `voice_id`, `languag
 
 ## Privacy
 
-Voice follows the chat that is actually running. Grok replies use the cloud voice id. Local chat, and private mode, use Piper. `VoiceRoute` chooses that. Local and private reply text is not sent to cloud TTS.
+Voice follows the chat that is about to answer. `ChatPanel` passes that provider into `VoiceSpeaker.BeginUtterance` for every send, so a switch in Settings takes effect on the next reply without a restart. Grok replies use the cloud voice id. Local chat, and private mode, use Piper. A blank Piper file falls back to `en_US-lessac-medium.onnx` beside `piper.exe`. If that file is missing, the reply is not sent to cloud TTS.
 
-When `ChatSettings.providerId` is `local` and the voice provider is still the cloud one, `SpeechPolicy` skips speaking unless the voice asset explicitly allows cloud speech for a local model. Private mode never allows that. With the route above, local and private replies are on Piper instead, so they can be spoken on this PC.
+Each reply logs one line before any audio request:
 
-Grok replies may use cloud TTS when the voice asset is enabled and mute is off. The asset flag **Allow Cloud Tts For Local Replies** does not send local or private replies to xAI; those stay on Piper.
+```text
+Voice route: provider=Local model=llama3.2 private=true engine=Piper voice=en_US-lessac-medium
+Voice route: provider=Grok model=grok-4.7 private=false engine=xAI voice=eve
+```
+
+A sentence then logs `engine=Piper` or `engine=xAI`. `audio/pcm` and `24000 Hz` are the cloud engine. Piper does not use that request.
+
+Grok replies may use cloud TTS when the voice asset is enabled and mute is off. Local and private replies never do, even if **Allow Cloud Tts For Local Replies** is on.
 
 **Private mode** in Settings forces the local Ollama path. While it is on, cloud TTS, the voice agent, and Uthana stay blocked even if cloud TTS for local replies is allowed. The default is off, so the public Grok path is unchanged.
 

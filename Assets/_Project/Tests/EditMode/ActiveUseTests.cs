@@ -1,8 +1,11 @@
+using System.IO;
 using AICompanion.AI;
+using AICompanion.Core;
 using AICompanion.Settings;
 using AICompanion.Voice;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace AICompanion.Tests.EditMode
 {
@@ -67,6 +70,98 @@ namespace AICompanion.Tests.EditMode
             {
                 Object.DestroyImmediate(chat);
                 Object.DestroyImmediate(voice);
+            }
+        }
+
+        [Test]
+        public void Utterance_LocalAndPrivateStayOnPiperEvenWhenTheVoiceFileIsBlank()
+        {
+            var voice = ScriptableObject.CreateInstance<VoiceSettings>();
+            try
+            {
+                voice.voiceId = "eve";
+                voice.provider = VoiceRoute.Cloud;
+                voice.allowCloudTtsForLocalReplies = true;
+                voice.piperVoice = string.Empty;
+                voice.piperExe = string.Empty;
+
+                var local = VoiceUtterance.Decide(new SpeechOrigin
+                {
+                    ChatProviderId = ChatDefaults.LocalId,
+                    Model = ExampleLocalModel,
+                    Private = false
+                }, voice, _ => false);
+                Assert.IsFalse(local.UsesCloudTts);
+                Assert.AreEqual(PiperTtsProvider.Id, local.EngineId);
+                Assert.AreEqual(VoiceUtterance.DefaultPiperVoiceId, local.Voice);
+                StringAssert.Contains("provider=Local", local.LogLine());
+                StringAssert.Contains("engine=Piper", local.LogLine());
+                StringAssert.Contains("model=" + ExampleLocalModel, local.LogLine());
+                StringAssert.DoesNotContain("engine=xAI", local.LogLine());
+
+                var forced = VoiceUtterance.Decide(new SpeechOrigin
+                {
+                    ChatProviderId = ChatDefaults.GrokId,
+                    Model = "llama3.2",
+                    Private = true
+                }, voice, _ => false);
+                Assert.IsTrue(forced.Private);
+                Assert.AreEqual("Piper", forced.Engine);
+                Assert.IsFalse(forced.UsesCloudTts);
+                Assert.AreEqual("Voice route: provider=Local model=llama3.2 private=true engine=Piper voice=" + VoiceUtterance.DefaultPiperVoiceId, forced.LogLine());
+
+                var root = Path.Combine(Path.GetTempPath(), "leia-piper-default");
+                var onnx = Path.Combine(root, VoiceUtterance.DefaultPiperVoiceId + ".onnx");
+                voice.piperExe = Path.Combine(root, "piper.exe");
+                var resolved = VoiceUtterance.Decide(new SpeechOrigin
+                {
+                    ChatProviderId = ChatDefaults.LocalId,
+                    Model = "llama3.2",
+                    Private = false
+                }, voice, path => string.Equals(path, onnx, System.StringComparison.OrdinalIgnoreCase));
+                Assert.AreEqual(onnx, resolved.PiperPath);
+                Assert.AreEqual(VoiceUtterance.DefaultPiperVoiceId, resolved.Voice);
+            }
+            finally
+            {
+                Object.DestroyImmediate(voice);
+            }
+        }
+
+        [Test]
+        public void Speaker_SwitchesEngineWhenTheReplyOriginChanges()
+        {
+            var host = new GameObject("voice-route");
+            var speaker = host.AddComponent<VoiceSpeaker>();
+            try
+            {
+                speaker.StartCompanion();
+                var grok = "Voice route: provider=Grok model=grok-4.7 private=false engine=xAI voice=eve";
+                LogAssert.Expect(LogType.Log, grok);
+                speaker.BeginUtterance(new SpeechOrigin
+                {
+                    ChatProviderId = ChatDefaults.GrokId,
+                    Model = "grok-4.7",
+                    Private = false
+                });
+                Assert.AreEqual(VoiceRoute.Cloud, speaker.ActiveEngineId);
+                Assert.AreEqual("eve", speaker.RuntimeVoice.voiceId);
+
+                var local = "Voice route: provider=Local model=llama3.2 private=true engine=Piper voice=" + VoiceUtterance.DefaultPiperVoiceId;
+                LogAssert.Expect(LogType.Log, local);
+                speaker.BeginUtterance(new SpeechOrigin
+                {
+                    ChatProviderId = ChatDefaults.GrokId,
+                    Model = "llama3.2",
+                    Private = true
+                });
+                Assert.AreEqual(PiperTtsProvider.Id, speaker.ActiveEngineId);
+                Assert.AreEqual(PiperTtsProvider.Id, speaker.RuntimeVoice.provider);
+                Assert.AreNotEqual(VoiceRoute.Cloud, speaker.ActiveEngineId);
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
             }
         }
     }

@@ -167,7 +167,7 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void Policy_SkipsCloudTtsForTheLocalProviderUnlessAllowed()
+        public void Policy_NeverSendsLocalRepliesToCloudTts()
         {
             var chat = ScriptableObject.CreateInstance<ChatSettings>();
             var voice = ScriptableObject.CreateInstance<VoiceSettings>();
@@ -179,7 +179,7 @@ namespace AICompanion.Tests.EditMode
                 Assert.IsFalse(SpeechPolicy.ShouldSpeak(chat, voice, false));
 
                 voice.allowCloudTtsForLocalReplies = true;
-                Assert.IsTrue(SpeechPolicy.ShouldSpeak(chat, voice, false));
+                Assert.IsFalse(SpeechPolicy.ShouldSpeak(chat, voice, false));
 
                 chat.providerId = "LOCAL";
                 voice.allowCloudTtsForLocalReplies = false;
