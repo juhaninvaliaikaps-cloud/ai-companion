@@ -28,6 +28,21 @@ namespace AICompanion.Voice
         /// <summary>Full path to the Piper .onnx voice model.</summary>
         public string piperVoice = string.Empty;
 
+        /// <summary>Python interpreter that has kokoro-onnx installed.</summary>
+        public string kokoroPython = string.Empty;
+
+        /// <summary>Full path to kokoro_server.py.</summary>
+        public string kokoroScript = string.Empty;
+
+        /// <summary>Full path to kokoro-v1.0.onnx.</summary>
+        public string kokoroModel = string.Empty;
+
+        /// <summary>Full path to voices-v1.0.bin.</summary>
+        public string kokoroVoices = string.Empty;
+
+        /// <summary>Kokoro voice name, for example af_heart.</summary>
+        public string kokoroVoice = "af_heart";
+
         public VoiceSettings RuntimeCopy()
         {
             var copy = CreateInstance<VoiceSettings>();
@@ -43,6 +58,11 @@ namespace AICompanion.Voice
             copy.provider = provider;
             copy.piperExe = piperExe;
             copy.piperVoice = piperVoice;
+            copy.kokoroPython = kokoroPython;
+            copy.kokoroScript = kokoroScript;
+            copy.kokoroModel = kokoroModel;
+            copy.kokoroVoices = kokoroVoices;
+            copy.kokoroVoice = kokoroVoice;
             return copy;
         }
     }

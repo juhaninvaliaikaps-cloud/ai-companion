@@ -81,6 +81,7 @@ namespace AICompanion.Voice
             EnsureSource();
             var timeout = voiceSettings.timeoutSeconds <= 0f ? 20f : voiceSettings.timeoutSeconds;
             _provider = BuildProvider(timeout);
+            PrewarmProvider();
         }
 
         /// <summary>
@@ -100,16 +101,31 @@ namespace AICompanion.Voice
                 ? voiceSettings.timeoutSeconds
                 : 20f;
             _provider = BuildProvider(timeout);
+            PrewarmProvider();
         }
 
         void EnsureProvider()
         {
-            var desired = voiceSettings != null && string.Equals(voiceSettings.provider, PiperTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase)
-                ? PiperTtsProvider.Id
-                : "xai";
+            var desired = "xai";
+            if (voiceSettings != null)
+            {
+                if (string.Equals(voiceSettings.provider, PiperTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+                    desired = PiperTtsProvider.Id;
+                else if (string.Equals(voiceSettings.provider, KokoroTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+                    desired = KokoroTtsProvider.Id;
+            }
 
             if (_provider == null || !string.Equals(_provider.ProviderId, desired, System.StringComparison.OrdinalIgnoreCase))
                 RefreshProvider();
+        }
+
+        void PrewarmProvider()
+        {
+            // Kokoro loads a 310 MB model on first use, so start it with the app when the
+            // user has already chosen it. Other providers load nothing.
+            var kokoro = _provider as KokoroTtsProvider;
+            if (kokoro != null)
+                kokoro.Prewarm();
         }
 
         ITtsProvider BuildProvider(float timeout)
@@ -124,6 +140,28 @@ namespace AICompanion.Voice
                     timeout);
             }
 
+            if (string.Equals(mode, KokoroTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+            {
+                // The first request loads a 310 MB model, which takes about 17 s on this
+                // machine. A 20 s voice timeout cut it off, so give the process a floor.
+                var kokoroTimeout = Mathf.Max(timeout, 120f);
+                var session = new KokoroProcessSession(
+                    voiceSettings.kokoroPython,
+                    voiceSettings.kokoroScript,
+                    voiceSettings.kokoroModel,
+                    voiceSettings.kokoroVoices,
+                    voiceSettings.kokoroVoice,
+                    kokoroTimeout);
+                return new KokoroTtsProvider(
+                    voiceSettings.kokoroPython,
+                    voiceSettings.kokoroScript,
+                    voiceSettings.kokoroModel,
+                    voiceSettings.kokoroVoices,
+                    voiceSettings.kokoroVoice,
+                    session,
+                    timeout);
+            }
+
             return new XaiTtsProvider(new EnvironmentApiKeySource(), new UnityTtsTransport(this), timeout);
         }
 
@@ -134,6 +172,10 @@ namespace AICompanion.Voice
 
         void OnDestroy()
         {
+            var disposable = _provider as System.IDisposable;
+            if (disposable != null)
+                disposable.Dispose();
+
             _alive = false;
             _turn.Cancel();
             SilencePlayback();
@@ -240,6 +282,9 @@ namespace AICompanion.Voice
             if (_requestInFlight)
             {
                 var limit = voiceSettings != null && voiceSettings.timeoutSeconds > 0f ? voiceSettings.timeoutSeconds : 20f;
+                // Kokoro loads its model on the first request, which takes about 17 s here.
+                if (voiceSettings != null && string.Equals(voiceSettings.provider, KokoroTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+                    limit = Mathf.Max(limit, 150f);
                 if (Time.realtimeSinceStartup - _requestStartedAt > limit + 1f)
                 {
                     var screen = ChatErrors.TimedOut("the voice");

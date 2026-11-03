@@ -26,7 +26,8 @@ namespace AICompanion.Voice
 
             // The offline Piper voice never leaves the machine, so the cloud rules below do
             // not apply to it. Without this a local chat model silenced speech entirely.
-            var localVoice = string.Equals(voice.provider, PiperTtsProvider.Id, StringComparison.OrdinalIgnoreCase);
+            var localVoice = string.Equals(voice.provider, PiperTtsProvider.Id, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(voice.provider, KokoroTtsProvider.Id, StringComparison.OrdinalIgnoreCase);
             if (localVoice)
                 return true;
 

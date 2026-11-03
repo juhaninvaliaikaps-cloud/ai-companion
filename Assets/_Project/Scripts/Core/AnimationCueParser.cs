@@ -209,7 +209,8 @@ namespace AICompanion.Core
                 int end;
                 string body;
                 bool closed;
-                if (!TryReadTag(slice, i, out end, out body, out closed))
+                if (!TryReadTag(slice, i, out end, out body, out closed) &&
+                    !TryReadLooseTag(slice, i, out end, out body, out closed))
                 {
                     builder.Append(slice[i]);
                     i++;
@@ -276,33 +277,27 @@ namespace AICompanion.Core
             return text.Length;
         }
 
+        static readonly string[] HoldMarkers = { "<animation", "<emotion=", "<gesture=", "<intensity=", "<direction=" };
+
         static bool IsHoldPoint(string text, int index)
         {
             var remaining = text.Length - index;
-            var compare = remaining < Marker.Length ? remaining : Marker.Length;
-            for (var i = 0; i < compare; i++)
+            for (var m = 0; m < HoldMarkers.Length; m++)
             {
-                if (char.ToLowerInvariant(text[index + i]) != Marker[i])
+                var marker = HoldMarkers[m];
+                var compare = remaining < marker.Length ? remaining : marker.Length;
+                var matches = true;
+                for (var i = 0; i < compare; i++)
                 {
-                    return false;
+                    if (char.ToLowerInvariant(text[index + i]) != marker[i])
+                    {
+                        matches = false;
+                        break;
+                    }
                 }
-            }
 
-            if (remaining < Marker.Length)
-            {
-                return true;
-            }
-
-            if (index + Marker.Length < text.Length && !IsBoundary(text[index + Marker.Length]))
-            {
-                return false;
-            }
-
-            var close = text.IndexOf('>', index + Marker.Length);
-            var next = text.IndexOf('<', index + 1);
-            if (close < 0 || (next >= 0 && next < close))
-            {
-                return true;
+                if (matches)
+                    return remaining < marker.Length;
             }
 
             return false;
@@ -341,6 +336,52 @@ namespace AICompanion.Core
             end = close + 1;
             body = text.Substring(index + Marker.Length, close - (index + Marker.Length));
             return true;
+        }
+
+        /// <summary>
+        /// Small models sometimes drop the tag name and write
+        /// <c>&lt;emotion="happy" gesture="wave" /&gt;</c>. Accept any tag whose body opens
+        /// with a cue attribute, so a sloppy model cannot swallow her reply.
+        /// </summary>
+        static bool TryReadLooseTag(string text, int index, out int end, out string body, out bool closed)
+        {
+            end = index;
+            body = string.Empty;
+            closed = false;
+
+            var close = text.IndexOf('>', index + 1);
+            var next = text.IndexOf('<', index + 1);
+            if (close < 0 || (next >= 0 && next < close))
+            {
+                // Unclosed: only hold it back while it still looks like a cue tag.
+                var tail = text.Substring(index + 1);
+                end = text.Length;
+                closed = false;
+                return LooksLikeCueStart(tail);
+            }
+
+            var inner = text.Substring(index + 1, close - index - 1);
+            if (!LooksLikeCueStart(inner))
+                return false;
+
+            end = close + 1;
+            body = inner;
+            closed = true;
+            return true;
+        }
+
+        static readonly string[] LooseStarts = { "emotion=", "gesture=", "intensity=", "direction=" };
+
+        static bool LooksLikeCueStart(string text)
+        {
+            var trimmed = text.TrimStart();
+            for (var i = 0; i < LooseStarts.Length; i++)
+            {
+                if (trimmed.StartsWith(LooseStarts[i], StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
         }
 
         static bool TryReadCue(string body, out AnimationCue cue)

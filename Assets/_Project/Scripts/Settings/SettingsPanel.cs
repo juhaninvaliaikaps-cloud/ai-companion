@@ -749,6 +749,37 @@ namespace AICompanion.Settings
                 _settings.PiperVoice = value;
                 ApplyLive();
             });
+            var kokoro = string.Equals(_settings.TtsProvider, "kokoro", System.StringComparison.OrdinalIgnoreCase);
+            AddToggle(kokoro ? "Kokoro voice (selected)" : "Use Kokoro voice", kokoro, value =>
+            {
+                _settings.TtsProvider = value ? "kokoro" : "xai";
+                ApplyLive();
+            });
+            AddField("Kokoro python", _settings.KokoroPython, false, value =>
+            {
+                _settings.KokoroPython = value;
+                ApplyLive();
+            });
+            AddField("Kokoro script", _settings.KokoroScript, false, value =>
+            {
+                _settings.KokoroScript = value;
+                ApplyLive();
+            });
+            AddField("Kokoro model", _settings.KokoroModel, false, value =>
+            {
+                _settings.KokoroModel = value;
+                ApplyLive();
+            });
+            AddField("Kokoro voices", _settings.KokoroVoices, false, value =>
+            {
+                _settings.KokoroVoices = value;
+                ApplyLive();
+            });
+            AddField("Kokoro voice", _settings.KokoroVoice, false, value =>
+            {
+                _settings.KokoroVoice = value;
+                ApplyLive();
+            });
             Note("Piper speaks offline with no API key. Point it at piper.exe and a .onnx voice.");
             AddField("Voice", _settings.VoiceId, false, value =>
             {
