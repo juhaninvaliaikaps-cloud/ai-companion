@@ -2,7 +2,7 @@
 
 The 3D face cannot show every expression. An optional drawn portrait sits in a rounded frame beside her head and follows that point on screen. It is off until you turn it on.
 
-Press **F9** to cycle the portrait expressions without a model reply: concerned, embarrassed, shy, flustered, embarrassed_worried, angry, teasing, excited, loving, sleepy, happy, laughing, then neutral. The console logs `Expression preview: <name>`.
+Press **F9** to cycle the portrait expressions without a model reply and without sending chat: concerned, embarrassed, shy, flustered, embarrassed_worried, angry, teasing, excited, loving, sleepy, happy, laughing, then neutral. Each stop stays on that expression and cycles its blink and talk frames, so you can check `sad_talk` while sad without her speaking. The console logs `Expression preview: <name>`. **F9** does not open the chat panel and does not send a greeting.
 
 **Settings → Avatar → Show expression portrait.** The switch is `showExpressionPortrait` in `settings.json`. The default is off. Empty pixels outside the frame still click through. The frame itself catches clicks so the desktop under the picture is not pressed by accident.
 
@@ -121,7 +121,8 @@ The other names are already in the map. An unknown name uses neutral.
 ## Motion
 
 - Blink, when both blink frames are on disk: open → half → closed → half → open. Each frame holds 40–60 ms. The gap is 2–6 s. About one blink in five plays twice. A missing blink file stays on the still.
-- Talk, when the expression has a talk frame on disk and she is speaking: the open and talk frames follow lip-sync loudness (`IMouthDriver.MouthOverride`). If that level never moves, they take turns on a short random hold. A missing talk file stays on the still.
+- Talk uses the talk frame from the expression she is holding (`sad_talk` while sad, `concerned_talk` while concerned). It does not switch to `neutral_talk` or `smile_talk` just because audio starts. The open and talk frames follow lip-sync loudness (`IMouthDriver.MouthOverride`). If that level never moves, they take turns on a short random hold. A missing talk file stays on the still.
+- The expression holds for the whole utterance. A neutral cue that arrives before the audio, or a quiet gap between clips, keeps the current set. About 1.5 seconds after she is quiet and the cue is neutral, the hold releases. A new non-neutral expression replaces it immediately. **F9** preview flaps blink and talk on the cycled expression without starting that utterance.
 - Changing emotion crossfades for 150–250 ms. If `transitions` has `from->to` with `inBetween`, that image holds the middle of the fade. Blink and talk wait until the fade finishes.
 
-The portrait prefers the expression name from the animation director (`IExpressionHint`) and otherwise uses `IAvatarAnimator.Emotion`. It does not parse chat and it does not edit `Companion.controller`.
+The portrait uses the expression name from the animation director (`IExpressionHint`) when that name is set, and `IAvatarAnimator.Emotion` otherwise. During an utterance it keeps the expression already on screen when the live cue is neutral. It does not parse chat and it does not edit `Companion.controller`.

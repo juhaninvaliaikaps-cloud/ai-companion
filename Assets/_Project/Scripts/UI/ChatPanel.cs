@@ -20,7 +20,6 @@ namespace AICompanion.UI
     public sealed class ChatPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IAvatarDoubleClick, ISpeechNotes, IChatSubmitter, IChatWindow
     {
         const string OpenPref = "ai-companion.chat-open";
-        const string HelloPrompt = "Say hello in one short sentence.";
 
         [SerializeField] ChatSettings settings;
         [SerializeField] float sideGap = ChatPanelPlacement.DefaultGap;
@@ -198,9 +197,6 @@ namespace AICompanion.UI
             if (Input.GetKeyDown(KeyCode.F10))
                 SetVisible(!_visible, !_visible);
 
-            if (Input.GetKeyDown(KeyCode.F9) && !DebugInputGuard.IsBlocked(KeyCode.F9))
-                QuickSend();
-
             if (Input.GetKeyDown(KeyCode.Escape))
             {
                 if (_conversation != null && _conversation.IsBusy)
@@ -244,19 +240,6 @@ namespace AICompanion.UI
             if (!_started)
                 StartCompanion();
             SetVisible(true, true);
-        }
-
-        void QuickSend()
-        {
-            if (!_visible)
-                SetVisible(true, false);
-
-            var draft = _input != null ? _input.text : string.Empty;
-            var text = string.IsNullOrWhiteSpace(draft) ? HelloPrompt : draft;
-            if (!TrySend(text))
-                return;
-            if (_input != null && !string.IsNullOrWhiteSpace(draft))
-                _input.text = string.Empty;
         }
 
         void SubmitDraft(string text)

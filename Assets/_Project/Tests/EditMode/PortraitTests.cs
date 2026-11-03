@@ -407,6 +407,38 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void TalkingUsesTheCurrentExpressionsTalkAndBlinkFrames()
+        {
+            var library = PortraitLibrary.FromFileNames(new[]
+            {
+                "neutral_open.png",
+                "neutral_blink_half.png",
+                "neutral_blink_closed.png",
+                "neutral_talk.png",
+                "10_sad.png",
+                "sad_blink_half.png",
+                "sad_blink_closed.png",
+                "sad_talk.png"
+            });
+            var map = PortraitMap.CreateDefaults();
+            var held = string.Empty;
+            var quiet = 0f;
+            var emotion = PortraitHold.ResolveUtterance("sad", ref held, false, 0f, ref quiet);
+            emotion = PortraitHold.ResolveUtterance("neutral", ref held, false, 0.4f, ref quiet);
+            emotion = PortraitHold.ResolveUtterance("neutral", ref held, true, 2f, ref quiet);
+            Assert.AreEqual("sad", emotion);
+
+            var director = new PortraitDirector();
+            var talk = director.Tick(0f, emotion, true, false, 0f, map, library, 0f, 0f, 1f, 0f, 0.5f);
+            Assert.AreEqual("sad_talk.png", talk.Front);
+            Assert.AreNotEqual("neutral_talk.png", talk.Front);
+
+            var blink = director.Tick(2f, emotion, true, false, 0f, map, library, 0f, 0f, 1f, 0f, 0.5f);
+            Assert.AreEqual("sad_blink_half.png", blink.Front);
+            Assert.AreNotEqual("neutral_talk.png", blink.Front);
+        }
+
+        [Test]
         public void Override_ReplacesDefaultFramesAndLeavesTheRest()
         {
             const string json = "{"

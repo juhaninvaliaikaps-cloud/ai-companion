@@ -30,6 +30,8 @@ namespace AICompanion.Settings
         IAvatarAnimator _animator;
         Component _mouthObject;
         IMouthDriver _mouth;
+        Component _speechObject;
+        ISpeechOutput _speech;
         Canvas _canvas;
         GameObject _canvasObject;
         RectTransform _frame;
@@ -57,6 +59,8 @@ namespace AICompanion.Settings
         bool _placed;
         bool? _preferLeft;
         string _heldExpression = string.Empty;
+        float _quietFor;
+        PortraitPreview _preview;
         bool _shown;
         bool _logged;
 
@@ -115,16 +119,42 @@ namespace AICompanion.Settings
                 return;
             }
 
-            var emotion = AnimatorAlive() ? ExpressionName() : "neutral";
+            var live = AnimatorAlive() ? ExpressionName() : "neutral";
             var amplitude = 0f;
             var hasAmplitude = MouthAlive();
             if (hasAmplitude)
                 amplitude = _mouth.MouthOverride;
-            var speaking = AnimatorAlive() && _animator.IsTalking;
+            var mouthSpeaking = AnimatorAlive() && _animator.IsTalking;
             if (hasAmplitude && amplitude >= PortraitTalkMotion.AmplitudeThreshold)
-                speaking = true;
+                mouthSpeaking = true;
+            var uttered = mouthSpeaking || SpeechInFlight() || (_chat != null && _chat.TranscriptBusy);
+            var hint = _animator as IExpressionHint;
+            var hintName = hint != null && hint.ExpressionName != null ? hint.ExpressionName : string.Empty;
+            var face = AnimatorAlive() ? _animator.Emotion : Emotion.Neutral;
+            var previewKey = Input.GetKeyDown(KeyCode.F9) && !DebugInputGuard.IsBlocked(KeyCode.F9);
+            _preview = _preview.Tick(previewKey, hintName, face, uttered);
 
-            emotion = PortraitHold.Resolve(emotion, ref _heldExpression, speaking);
+            var emotion = live;
+            var speaking = mouthSpeaking;
+            if (_preview.Active)
+            {
+                emotion = _preview.Expression;
+                if (string.Equals(emotion, "neutral", StringComparison.OrdinalIgnoreCase))
+                {
+                    _heldExpression = string.Empty;
+                    _quietFor = 0f;
+                }
+                else
+                    PortraitHold.ResolveUtterance(emotion, ref _heldExpression, false, 0f, ref _quietFor);
+
+                speaking = true;
+                hasAmplitude = false;
+                amplitude = 0f;
+            }
+            else
+            {
+                emotion = PortraitHold.ResolveUtterance(live, ref _heldExpression, uttered, delta, ref _quietFor);
+            }
 
             var view = _director.Tick(
                 delta,
@@ -193,6 +223,18 @@ namespace AICompanion.Settings
                 _mouth = mouth;
                 _mouthObject = mouth as Component;
             }
+
+            if (!SpeechAlive())
+            {
+                var speech = GetComponent<ISpeechOutput>();
+                _speech = speech;
+                _speechObject = speech as Component;
+            }
+        }
+
+        bool SpeechInFlight()
+        {
+            return SpeechAlive() && _speech.IsSpeaking;
         }
 
         bool WantsPortrait()
@@ -208,6 +250,11 @@ namespace AICompanion.Settings
         bool MouthAlive()
         {
             return _mouth != null && _mouthObject != null;
+        }
+
+        bool SpeechAlive()
+        {
+            return _speech != null && _speechObject != null;
         }
 
         void OnAvatarChanged(AvatarPreference preference)

@@ -27,7 +27,7 @@ namespace AICompanion.Settings
                 new HotkeyEntry("F6", "Mute speech"),
                 new HotkeyEntry("F7", "Cycle avatar"),
                 new HotkeyEntry("F8", "Toggle always on top"),
-                new HotkeyEntry("F9", "Quick send"),
+                new HotkeyEntry("F9", "Cycle expression preview"),
                 new HotkeyEntry("F10", "Show or hide chat"),
                 new HotkeyEntry("F12", "Show or hide settings"),
                 new HotkeyEntry(ptt + " hold", "Push to talk"),
