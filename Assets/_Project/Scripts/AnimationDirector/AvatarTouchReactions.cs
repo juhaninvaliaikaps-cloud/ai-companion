@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using AICompanion.Avatar;
 using AICompanion.Core;
@@ -7,8 +8,9 @@ namespace AICompanion.AnimationDirector
 {
     /// <summary>
     /// Turns clicks on her silhouette into small reactions: a face change, a gesture and a
-    /// blush, driven by a <see cref="TouchZoneSet"/>. Clicks over UI and the window drag keep
-    /// working because the overlay only dispatches when the pointer is on her body.
+    /// blush, driven by a <see cref="TouchZoneSet"/>. A hand can also be dragged with IK while
+    /// the button stays down. Clicks over UI and the window drag keep working because the
+    /// overlay only dispatches when the pointer is on her body.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class AvatarTouchReactions : MonoBehaviour, IAvatarTouch
@@ -17,15 +19,19 @@ namespace AICompanion.AnimationDirector
         [SerializeField] Camera avatarCamera;
 
         readonly List<TouchZoneProbe> _probes = new List<TouchZoneProbe>(8);
-        TouchCooldown _cooldown = new TouchCooldown(1.5f);
+        readonly TouchCooldown _cooldown = new TouchCooldown(1.5f);
         Animator _animator;
         AnimationDirector _director;
         AvatarAnimationController _controller;
+        AvatarHandIk _ik;
         TouchZone _held;
+        TouchZone _dragging;
+        AvatarIKGoal _dragGoal;
+        float _dragDepth;
         bool _touching;
 
         /// <summary>Raised with the zone id after a reaction, so the chat can react in words.</summary>
-        public event System.Action<string> Touched;
+        public event Action<string> Touched;
 
         void Awake()
         {
@@ -68,6 +74,12 @@ namespace AICompanion.AnimationDirector
             get { return _held != null ? _held.id : null; }
         }
 
+        /// <summary>The hand zone being dragged with IK, or null.</summary>
+        public string DraggingZoneId
+        {
+            get { return _dragging != null ? _dragging.id : null; }
+        }
+
         public void OnAvatarTouch(Vector2 screenPosition)
         {
             Resolve();
@@ -93,15 +105,61 @@ namespace AICompanion.AnimationDirector
 
             if (zone.hold)
                 _held = zone;
+
+            if (zone.drag)
+                BeginHandDrag(zone);
         }
 
         public void OnAvatarRelease()
         {
-            if (!_touching)
-                return;
-
+            EndHandDrag();
             _touching = false;
             _held = null;
+        }
+
+        void Update()
+        {
+            if (_dragging == null || _ik == null || avatarCamera == null)
+                return;
+
+            var pointer = (Vector3)Input.mousePosition;
+            pointer.z = _dragDepth;
+            _ik.MoveTo(avatarCamera.ScreenToWorldPoint(pointer));
+        }
+
+        void BeginHandDrag(TouchZone zone)
+        {
+            if (_animator == null)
+                return;
+
+            var bone = _animator.GetBoneTransform(zone.bone);
+            if (bone == null)
+                return;
+
+            if (_ik == null)
+                _ik = _animator.GetComponent<AvatarHandIk>();
+            if (_ik == null)
+                _ik = _animator.gameObject.AddComponent<AvatarHandIk>();
+
+            _dragGoal = zone.bone == HumanBodyBones.LeftHand ? AvatarIKGoal.LeftHand : AvatarIKGoal.RightHand;
+            _dragDepth = avatarCamera.WorldToScreenPoint(bone.position).z;
+            if (_dragDepth < 0.1f)
+                _dragDepth = 0.1f;
+
+            _ik.Begin(_dragGoal, bone.position);
+            _dragging = zone;
+            Debug.Log("Touch: dragging " + zone.id);
+        }
+
+        void EndHandDrag()
+        {
+            if (_dragging == null)
+                return;
+
+            if (_ik != null)
+                _ik.Release();
+
+            _dragging = null;
         }
 
         void React(TouchZone zone)
@@ -135,7 +193,8 @@ namespace AICompanion.AnimationDirector
                 if (bone == null)
                     continue;
 
-                var screen = avatarCamera.WorldToScreenPoint(bone.position);
+                var world = zone.localOffset == Vector3.zero ? bone.position : bone.TransformPoint(zone.localOffset);
+                var screen = avatarCamera.WorldToScreenPoint(world);
                 if (screen.z <= 0f)
                     continue;
 

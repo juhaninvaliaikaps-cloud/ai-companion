@@ -19,47 +19,129 @@ MonoBehaviour:
     emotion: 1
     intensity: 0.6
     gesture: nod_yes
-    expression: happy
     blush: 0.35
     cooldownSeconds: 1.5
     hold: 0
+    expression: happy
+    localOffset: {x: 0, y: 0.02, z: 0}
+    drag: 0
+  - id: hair
+    bone: 10
+    radiusPixels: 52
+    emotion: 0
+    intensity: 0.4
+    gesture: nod_yes
+    blush: 0.15
+    cooldownSeconds: 1.5
+    hold: 0
+    expression: 
+    localOffset: {x: 0, y: 0.1, z: 0.01}
+    drag: 0
+  - id: cheek
+    bone: 10
+    radiusPixels: 34
+    emotion: 1
+    intensity: 0.5
+    gesture: 
+    blush: 0.65
+    cooldownSeconds: 2
+    hold: 0
+    expression: flustered
+    localOffset: {x: 0.055, y: 0, z: 0.075}
+    drag: 0
   - id: hand_left
     bone: 17
     radiusPixels: 44
     emotion: 1
     intensity: 0.7
     gesture: 
-    expression: shy
     blush: 0.5
     cooldownSeconds: 1
     hold: 1
+    expression: shy
+    localOffset: {x: 0, y: 0, z: 0}
+    drag: 1
   - id: hand_right
     bone: 18
     radiusPixels: 44
     emotion: 1
     intensity: 0.7
     gesture: 
-    expression: shy
     blush: 0.5
     cooldownSeconds: 1
     hold: 1
+    expression: shy
+    localOffset: {x: 0, y: 0, z: 0}
+    drag: 1
+  - id: forearm_left
+    bone: 15
+    radiusPixels: 40
+    emotion: 1
+    intensity: 0.4
+    gesture: 
+    blush: 0.3
+    cooldownSeconds: 2
+    hold: 0
+    expression: shy
+    localOffset: {x: 0, y: 0, z: 0}
+    drag: 0
+  - id: forearm_right
+    bone: 16
+    radiusPixels: 40
+    emotion: 1
+    intensity: 0.4
+    gesture: 
+    blush: 0.3
+    cooldownSeconds: 2
+    hold: 0
+    expression: shy
+    localOffset: {x: 0, y: 0, z: 0}
+    drag: 0
   - id: shoulder_left
     bone: 11
     radiusPixels: 46
     emotion: 0
     intensity: 0.4
     gesture: shrug
-    expression: 
     blush: 0.2
     cooldownSeconds: 2
     hold: 0
+    expression: 
+    localOffset: {x: 0, y: 0, z: 0}
+    drag: 0
   - id: shoulder_right
     bone: 12
     radiusPixels: 46
     emotion: 0
     intensity: 0.4
     gesture: shrug
-    expression: 
     blush: 0.2
     cooldownSeconds: 2
     hold: 0
+    expression: 
+    localOffset: {x: 0, y: 0, z: 0}
+    drag: 0
+  - id: back
+    bone: 8
+    radiusPixels: 54
+    emotion: 3
+    intensity: 0.5
+    gesture: 
+    blush: 0.2
+    cooldownSeconds: 2.5
+    hold: 0
+    expression: 
+    localOffset: {x: 0, y: 0, z: -0.12}
+    drag: 0
+  - id: side
+    bone: 0
+    radiusPixels: 46
+    emotion: 3
+    intensity: 0.6
+    gesture: 
+    blush: 0.25
+    cooldownSeconds: 2.5
+    hold: 0
+    expression: 
+    localOffset: {x: 0.14, y: 0.02, z: 0}
+    drag: 0

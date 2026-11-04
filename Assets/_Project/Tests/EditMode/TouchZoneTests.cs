@@ -23,6 +23,11 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(TouchChatSignal.HandText, TouchChatSignal.Prompt("hand_left"));
             Assert.AreEqual(TouchChatSignal.HandText, TouchChatSignal.Prompt("hand_right"));
             Assert.AreEqual(TouchChatSignal.ShoulderText, TouchChatSignal.Prompt("shoulder_right"));
+            Assert.AreEqual(TouchChatSignal.HairText, TouchChatSignal.Prompt("hair"));
+            Assert.AreEqual(TouchChatSignal.CheekText, TouchChatSignal.Prompt("cheek"));
+            Assert.AreEqual(TouchChatSignal.ForearmText, TouchChatSignal.Prompt("forearm_left"));
+            Assert.AreEqual(TouchChatSignal.BackText, TouchChatSignal.Prompt("back"));
+            Assert.AreEqual(TouchChatSignal.SideText, TouchChatSignal.Prompt("side"));
             Assert.AreEqual(TouchChatSignal.GenericText, TouchChatSignal.Prompt("unknown"));
             Assert.AreEqual(TouchChatSignal.GenericText, TouchChatSignal.Prompt(null));
         }

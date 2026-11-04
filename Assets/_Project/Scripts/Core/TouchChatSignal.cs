@@ -9,6 +9,11 @@ namespace AICompanion.Core
         public const string HeadText = "*Someone gently pats your head.*";
         public const string HandText = "*Someone takes your hand and holds it.*";
         public const string ShoulderText = "*Someone touches your shoulder.*";
+        public const string HairText = "*Someone strokes your hair.*";
+        public const string CheekText = "*Someone cups your cheek.*";
+        public const string ForearmText = "*Someone runs a hand along your arm.*";
+        public const string BackText = "*Someone touches your back.*";
+        public const string SideText = "*Someone pokes your side.*";
         public const string GenericText = "*Someone touches you.*";
 
         public static string Prompt(string zoneId)
@@ -23,6 +28,16 @@ namespace AICompanion.Core
                 return HandText;
             if (id == "shoulder_left" || id == "shoulder_right" || id == "shoulder")
                 return ShoulderText;
+            if (id == "hair")
+                return HairText;
+            if (id == "cheek" || id == "face")
+                return CheekText;
+            if (id == "forearm_left" || id == "forearm_right" || id == "forearm")
+                return ForearmText;
+            if (id == "back")
+                return BackText;
+            if (id == "side" || id == "waist")
+                return SideText;
             return GenericText;
         }
 
