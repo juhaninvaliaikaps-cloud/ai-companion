@@ -21,7 +21,9 @@ Data lives in `Assets/_Project/Resources/TouchZones.asset` (`TouchZoneSet`): id,
 
 ## Hand drag
 
-Pressing a hand begins an IK drag (`AvatarHandIk` on the Animator object, because Unity only calls `OnAnimatorIK` there). The hand follows the pointer on a plane at the depth where it was grabbed, the IK weight eases in and out (8 per second), and releasing lets the animation take over again. The click reaction still fires on press, so the drag also produces a shy portrait and blush.
+Pressing a hand begins an IK drag (`AvatarHandIk` on the Animator object, because Unity only calls `OnAnimatorIK` there). The hand follows the pointer on a plane at the depth where it was grabbed, the IK weight eases in and out, and releasing lets the animation take over again.
+
+The target is clamped by `HandReachLimit` to a volume a human arm can actually reach: no further than about 95 percent of the shoulder-elbow-hand length, never behind the shoulder plane, never above the head or below the hips, and not far past the shoulder sideways. The clamp runs in the avatar local space and updates every frame, so it follows her when she turns or walks. Without it the pointer could pull the hand anywhere, which read like a helicopter rotor.
 
 ## How it hooks in
 
