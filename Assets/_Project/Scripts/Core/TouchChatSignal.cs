@@ -34,6 +34,8 @@ namespace AICompanion.Core
                 return CheekText;
             if (id == "forearm_left" || id == "forearm_right" || id == "forearm")
                 return ForearmText;
+            if (id == "belly")
+                return GenericText;
             if (id == "back")
                 return BackText;
             if (id == "side" || id == "waist")

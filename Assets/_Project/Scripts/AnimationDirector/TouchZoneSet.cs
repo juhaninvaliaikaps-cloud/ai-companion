@@ -34,6 +34,12 @@ namespace AICompanion.AnimationDirector
 
         /// <summary>True lets the pointer drag this hand with IK while the button stays down.</summary>
         public bool drag;
+
+        /// <summary>
+        /// True makes this zone a handle: pressing it does nothing but move the window. It never
+        /// reacts, so a user can always grab her somewhere without triggering a touch.
+        /// </summary>
+        public bool passive;
     }
 
     /// <summary>
@@ -164,6 +170,20 @@ namespace AICompanion.AnimationDirector
                     expression = string.Empty,
                     blush = 0.2f,
                     cooldownSeconds = 2f,
+                },
+                new TouchZone
+                {
+                    id = "belly",
+                    bone = HumanBodyBones.Spine,
+                    localOffset = new Vector3(0f, 0.06f, 0.07f),
+                    radiusPixels = 48f,
+                    emotion = Emotion.Neutral,
+                    intensity = 0f,
+                    gesture = string.Empty,
+                    expression = string.Empty,
+                    blush = 0f,
+                    cooldownSeconds = 0f,
+                    passive = true,
                 },
                 new TouchZone
                 {

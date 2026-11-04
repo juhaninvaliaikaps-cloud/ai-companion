@@ -99,6 +99,11 @@ namespace AICompanion.AnimationDirector
             if (zone == null)
                 return false;
 
+            // A passive zone is a handle for moving the window: no reaction, no consume, so the
+            // overlay drags her exactly as if the pointer were on an empty part of the window.
+            if (zone.passive)
+                return false;
+
             _pressZone = zone;
             _pressScreen = screenPosition;
             _pressed = true;

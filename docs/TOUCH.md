@@ -14,6 +14,7 @@ Zones are humanoid bones plus an optional local offset, so they follow whichever
 | `hand_left` / `hand_right` | Left/RightHand | **yes** | shy portrait, hold, IK drag |
 | `forearm_left` / `forearm_right` | LowerArm | | shy portrait, light blush |
 | `shoulder_left` / `shoulder_right` | Shoulder | | shrug |
+| `belly` | Spine + belly offset | | **handle only**: moves the window, never reacts |
 | `back` | Chest + back offset | | surprised |
 | `side` | Hips + side offset | | surprised "poke" |
 
@@ -44,3 +45,10 @@ Full suite: **468 tests, 467 passed** (only the known Whisper Windows path failu
 - Mood/affection gating and a real hand-holding pose (holding keeps the reaction; the IK drag is separate).
 - A voiced line triggered *only* by touch — the model answers through the normal reply path instead.
 - Adult-only content packs: the asset format supports extra zones, but that content is not part of this work.
+
+
+## Moving her without triggering a touch
+
+`belly` is a **passive** zone: pressing it does not react, does not consume the press and does
+not raise a chat line. The overlay handles it exactly like the empty window, so it is the safe
+place to grab and move her. Any zone can be made a handle by setting `passive` in the asset.

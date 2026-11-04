@@ -1,3 +1,4 @@
+using AICompanion.AnimationDirector;
 using AICompanion.Core;
 using NUnit.Framework;
 using UnityEngine;
@@ -14,6 +15,26 @@ namespace AICompanion.Tests.EditMode
                 new TouchZoneProbe("hand_left", new Vector2(-60f, 0f), 30f),
                 new TouchZoneProbe("hand_right", new Vector2(60f, 0f), 30f),
             };
+        }
+
+        [Test]
+        public void TheBellyIsAPassiveMoveHandle()
+        {
+            var set = TouchZoneSet.CreateDefault();
+            TouchZone belly = null;
+            TouchZone head = null;
+            for (var i = 0; i < set.zones.Length; i++)
+            {
+                if (set.zones[i].id == "belly")
+                    belly = set.zones[i];
+                if (set.zones[i].id == "head")
+                    head = set.zones[i];
+            }
+
+            Assert.IsNotNull(belly, "The default set needs a belly handle.");
+            Assert.IsTrue(belly.passive);
+            Assert.IsFalse(belly.drag);
+            Assert.IsFalse(head.passive, "The head must still react.");
         }
 
         [Test]
