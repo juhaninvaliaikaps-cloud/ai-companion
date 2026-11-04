@@ -42,7 +42,7 @@ namespace AICompanion.Voice
             _scriptPath = Clean(scriptPath);
             _modelPath = Clean(modelPath);
             _voicesPath = Clean(voicesPath);
-            _voice = string.IsNullOrWhiteSpace(voice) ? "af_heart" : voice.Trim();
+            _voice = VoiceUtterance.KokoroVoiceName(voice);
             _session = session;
             _timeoutSeconds = timeoutSeconds <= 0f ? 60f : timeoutSeconds;
         }
@@ -155,7 +155,7 @@ namespace AICompanion.Voice
             ScriptPath = scriptPath;
             ModelPath = modelPath;
             VoicesPath = voicesPath;
-            _voice = string.IsNullOrWhiteSpace(voice) ? "af_heart" : voice.Trim();
+            _voice = VoiceUtterance.KokoroVoiceName(voice);
             _timeoutSeconds = timeoutSeconds <= 0f ? 60f : timeoutSeconds;
         }
 

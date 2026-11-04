@@ -28,18 +28,33 @@ namespace AICompanion.Settings
                 var voice = speaker.RuntimeVoice;
                 if (voice != null)
                 {
+                    // Privacy still forces a local voice for a local or private chat, but an
+                    // explicitly chosen local voice (Piper or Kokoro) is respected as is.
+                    var route = VoiceRoute.ProviderFor(settings.PrivateMode, settings.ProviderId);
+                    if (string.Equals(settings.TtsProvider, PiperTtsProvider.Id, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(settings.TtsProvider, KokoroTtsProvider.Id, StringComparison.OrdinalIgnoreCase))
+                    {
+                        route = settings.TtsProvider;
+                    }
+                    else if (string.Equals(route, VoiceRoute.Local, StringComparison.OrdinalIgnoreCase))
+                    {
+                        route = PiperTtsProvider.Id;
+                    }
+
+                    settings.TtsProvider = route;
                     voice.enabled = settings.TtsEnabled;
                     voice.voiceId = settings.VoiceId;
                     voice.language = settings.TtsLanguage;
-            voice.provider = settings.TtsProvider;
-            voice.piperExe = settings.PiperExe;
-            voice.piperVoice = settings.PiperVoice;
-            voice.kokoroPython = settings.KokoroPython;
-            voice.kokoroScript = settings.KokoroScript;
-            voice.kokoroModel = settings.KokoroModel;
-            voice.kokoroVoices = settings.KokoroVoices;
-            voice.kokoroVoice = settings.KokoroVoice;
+                    voice.provider = route;
+                    voice.piperExe = settings.PiperExe;
+                    voice.piperVoice = settings.PiperVoice;
+                    voice.kokoroPython = settings.KokoroPython;
+                    voice.kokoroScript = settings.KokoroScript;
+                    voice.kokoroModel = settings.KokoroModel;
+                    voice.kokoroVoices = settings.KokoroVoices;
+                    voice.kokoroVoice = settings.KokoroVoice;
                     voice.volume = settings.Volume;
+                    speaker.RefreshProvider();
                 }
 
                 speaker.SetMuted(settings.Muted);
@@ -116,10 +131,22 @@ namespace AICompanion.Settings
 
         public static void ApplyPersona(AICompanion.AI.ChatSettings chat, CompanionSettings settings)
         {
+            ApplyPersona(chat, settings, null);
+        }
+
+        public static void ApplyPersona(AICompanion.AI.ChatSettings chat, CompanionSettings settings, string settingsFolder)
+        {
             if (chat == null || settings == null)
                 return;
 
-            chat.systemPrompt = CompanionPersona.Build(settings.CompanionName, settings.Relationship);
+            if (string.IsNullOrWhiteSpace(settings.PersonaId))
+            {
+                chat.systemPrompt = CompanionPersona.Build(settings.CompanionName, settings.Relationship);
+                return;
+            }
+
+            var folder = string.IsNullOrEmpty(settingsFolder) ? PersonaRuntime.DefaultSettingsFolder() : settingsFolder;
+            chat.systemPrompt = PersonaRuntime.SystemPrompt(settings, PersonaCatalog.LoadDefault(folder));
         }
 
         static KeyCode ParseKey(string name)

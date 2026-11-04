@@ -21,7 +21,7 @@ That sounds fun. Let's go!
 
 The parser is `AnimationCueParser` in `AICompanion.Core`. It returns the visible text with every cue tag removed and a `CueParseStatus` of `None`, `Parsed`, or `Invalid`. Quotes may be double or single. An invalid or unclosed tag is still stripped. Text that follows a closed tag is kept. A word such as `<animations>` is not a cue tag.
 
-The reminder text sent to the model is `AnimationCueParser.Instruction`, and the catalog rows come from `AnimationClipCatalog.BuildPromptList()`. `AnimationDirector.SystemPromptSuffix` joins the two; `ChatPanel` appends it to `ChatSettings.systemPrompt` before each request.
+The reminder text sent to the model is `AnimationCueParser.Instruction`, and the catalog rows come from `AnimationClipCatalog.BuildPromptList()`. `AnimationDirector.SystemPromptSuffix` joins the two. `ChatPanel` appends that suffix through `DirectorPrompt.Append` before each request, after whatever persona text is active, so a custom persona cannot drop the cue.
 
 ## Nothing leaks while streaming
 

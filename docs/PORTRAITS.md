@@ -16,6 +16,8 @@ On a typical Windows account that is `C:\Users\<you>\AppData\Roaming\ProjectLeia
 
 If that `portraits` folder is missing, the player looks in `Application.persistentDataPath\ProjectLeia\portraits` (the same fallback settings use when the roaming profile path is empty). If neither folder exists, or the neutral open image is missing, the frame stays hidden and the Console logs one warning.
 
+A persona can name another folder (`portraitFolder` in the persona file, also stored on `settings.json` when the folder exists). Switching persona points the frame at that set without a restart. A blank path, or a folder that is not on disk, uses the standard portraits folder above. See [PERSONAS.md](PERSONAS.md).
+
 The sheets are different sizes (448×504 and 320×360, and anything else you add). Each image is scaled to fit inside the frame and keeps its aspect ratio.
 
 ## File names

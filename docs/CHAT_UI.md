@@ -4,7 +4,7 @@ The panel is the session transcript for the companion. It sits to the left of th
 
 The full transcript stays on screen for the session. Each request sends the system prompt plus the earlier user and companion turns, dropping the oldest turns once there are more than 12 messages or about 4000 characters. System notes (errors, an empty reply, a saved key) stay on screen and are not sent back to the model.
 
-The system prompt lives on `ChatSettings.systemPrompt`. The default is a short, friendly, PG desktop companion. Adult or private mode is a later local-model feature and is not part of this panel.
+The system prompt lives on `ChatSettings.systemPrompt`. A persona selected in Settings replaces it. With no persona, it is the setup name and relationship, and the default with no name is a short, friendly, PG desktop companion. `ChatPanel` then appends the director cue instructions. Adult or private mode is a later local-model feature and is not part of this panel.
 
 ## Hotkeys
 

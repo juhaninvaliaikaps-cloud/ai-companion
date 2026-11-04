@@ -61,7 +61,7 @@ The extraction call goes to the active provider. In private mode that is the loc
 `MemoryChatProvider` wraps every provider the factory registers (`ChatProviderFactory.Create(..., decorator)`) and only touches `ChatRequest.SystemPrompt`:
 
 ```text
-<existing system prompt: the setup wizard persona plus the animation catalog>
+<existing system prompt: the selected persona, or the setup name, plus the animation catalog and cue instructions>
 
 What you remember from earlier sessions:
 - Likes coffee with oat milk
@@ -70,7 +70,7 @@ What you remember from earlier sessions:
 
 Messages, model, temperature, and token limit are copied unchanged. When nothing matches, the original request instance is returned untouched.
 
-The persona text itself comes from the first-run wizard (`SettingsApplicator.ApplyPersona` builds it from `CompanionSettings`). `MemoryRuntime` therefore passes no persona into the decorator: the two layers would otherwise restate the same name and mood. `MemoryChatProvider` still accepts a `PersonalityStore` for callers that have no wizard prompt, which is what the persona test exercises.
+The persona text comes from the selected persona file when `personaId` is set, and otherwise from the first-run wizard (`SettingsApplicator.ApplyPersona`). The director cue instructions are already on that prompt before memories are added. `MemoryRuntime` passes no extra persona into the decorator: the two layers would otherwise restate the same name and mood. `MemoryChatProvider` still accepts a `PersonalityStore` for callers that have no wizard prompt, which is what the persona test exercises. See [PERSONAS.md](PERSONAS.md).
 
 ## Private mode
 

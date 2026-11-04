@@ -47,6 +47,7 @@ namespace AICompanion.Settings
         string _appData = string.Empty;
         string _persistent = string.Empty;
         string _folder;
+        string _requested;
         string _backPath;
         string _midPath;
         string _frontPath;
@@ -242,6 +243,13 @@ namespace AICompanion.Settings
             return _settings != null && _settings.CurrentSettings != null && _settings.CurrentSettings.ShowExpressionPortrait;
         }
 
+        string RequestedPortraitFolder()
+        {
+            if (_settings == null || _settings.CurrentSettings == null)
+                return string.Empty;
+            return _settings.CurrentSettings.PortraitFolder ?? string.Empty;
+        }
+
         bool AnimatorAlive()
         {
             return _animator != null && _animatorObject != null;
@@ -265,14 +273,17 @@ namespace AICompanion.Settings
 
         void Refresh(bool force, float delta)
         {
+            EnsurePaths();
+            var requested = RequestedPortraitFolder();
+            var requestChanged = !string.Equals(requested, _requested, StringComparison.Ordinal);
             _refreshIn -= delta;
-            if (!force && _refreshIn > 0f && _map != null)
+            if (!force && !requestChanged && _refreshIn > 0f && _map != null)
                 return;
 
             _refreshIn = RefreshSeconds;
-            EnsurePaths();
-            var folder = PortraitFolders.Resolve(_appData, _persistent, Directory.Exists);
-            if (!string.Equals(folder, _folder, StringComparison.Ordinal))
+            _requested = requested;
+            var folder = PortraitFolders.Select(requested, _appData, _persistent, Directory.Exists);
+            if (!string.Equals(folder, _folder, StringComparison.OrdinalIgnoreCase))
             {
                 _folder = folder;
                 _mapStamp = -1;

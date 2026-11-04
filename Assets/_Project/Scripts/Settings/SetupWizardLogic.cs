@@ -216,6 +216,8 @@ namespace AICompanion.Settings
                 case Personality:
                     settings.CompanionName = CompanionPersona.DefaultName;
                     settings.Relationship = RelationshipStyles.Friend;
+                    settings.PersonaId = string.Empty;
+                    settings.PortraitFolder = string.Empty;
                     break;
             }
 
@@ -251,6 +253,8 @@ namespace AICompanion.Settings
 
             settings.CompanionName = name ?? string.Empty;
             settings.Relationship = relationship;
+            settings.PersonaId = string.Empty;
+            settings.PortraitFolder = string.Empty;
             settings.Normalize();
         }
 
