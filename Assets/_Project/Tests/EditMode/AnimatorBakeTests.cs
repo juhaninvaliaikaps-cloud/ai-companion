@@ -94,6 +94,13 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void TheBaseLayerHasAnIkPassForTheHandDrag()
+        {
+            var controller = LoadController();
+            Assert.IsTrue(controller.layers[0].iKPass, "The touch drag needs an IK pass on the base layer.");
+        }
+
+        [Test]
         public void TheUpperBodyLayerHasAnAvatarMask()
         {
             var controller = LoadController();
