@@ -58,7 +58,8 @@ namespace AICompanion.Core
         /// </summary>
         public static float ApplyDrag(float yawDegrees, float deltaPixels)
         {
-            return WrapDegrees(yawDegrees + DragDelta(deltaPixels));
+            // The idle limit lives in one place; today it is the full 360 degree turntable.
+            return IdleYawPolicy.Clamp(yawDegrees + DragDelta(deltaPixels));
         }
 
         public static float WrapDegrees(float degrees)
