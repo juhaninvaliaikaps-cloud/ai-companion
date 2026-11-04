@@ -356,7 +356,7 @@ namespace AICompanion.Voice
             EnsureProvider();
             if (_provider == null || !CompanionPause.SpeechAllowed(_muted, _suppressed))
                 return;
-            if (BlocksCloud(_origin) && !string.Equals(_provider.ProviderId, PiperTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+            if (BlocksCloud(_origin) && !VoiceRoute.IsLocalEngine(_provider.ProviderId))
             {
                 Debug.Log(VoiceUtterance.Decide(_origin, voiceSettings, System.IO.File.Exists).LogLine() + " blocked=cloud");
                 return;
@@ -381,7 +381,7 @@ namespace AICompanion.Voice
         {
             try
             {
-                if (BlocksCloud(_origin) && (_provider == null || !string.Equals(_provider.ProviderId, PiperTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase)))
+                if (BlocksCloud(_origin) && (_provider == null || !VoiceRoute.IsLocalEngine(_provider.ProviderId)))
                 {
                     Debug.Log(VoiceUtterance.Decide(_origin, voiceSettings, System.IO.File.Exists).LogLine() + " blocked=cloud");
                     _requestInFlight = false;

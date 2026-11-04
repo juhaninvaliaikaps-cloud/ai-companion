@@ -24,5 +24,19 @@ namespace AICompanion.Voice
         {
             return string.Equals(ProviderFor(privateMode, chatProviderId), Cloud, StringComparison.OrdinalIgnoreCase);
         }
+
+        /// <summary>
+        /// True for every engine that keeps audio on this machine. Piper and Kokoro are both
+        /// local; only the cloud engine may be blocked for local or private replies.
+        /// </summary>
+        public static bool IsLocalEngine(string providerId)
+        {
+            var id = providerId == null ? string.Empty : providerId.Trim();
+            if (id.Length == 0)
+                return false;
+
+            return string.Equals(id, PiperTtsProvider.Id, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(id, KokoroTtsProvider.Id, StringComparison.OrdinalIgnoreCase);
+        }
     }
 }

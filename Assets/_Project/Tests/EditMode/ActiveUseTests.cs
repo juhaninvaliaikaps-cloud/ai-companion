@@ -31,6 +31,26 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void ALocalVoiceCanBePiperOrKokoroOnly()
+        {
+            Assert.IsTrue(VoiceRoute.IsLocalEngine(PiperTtsProvider.Id));
+            Assert.IsTrue(VoiceRoute.IsLocalEngine("KOKORO"));
+            Assert.IsFalse(VoiceRoute.IsLocalEngine(VoiceRoute.Cloud));
+            Assert.IsFalse(VoiceRoute.IsLocalEngine(null));
+            Assert.IsFalse(VoiceRoute.IsLocalEngine(string.Empty));
+        }
+
+        [Test]
+        public void AKokoroVoiceMustBeAVoiceNameNotAPath()
+        {
+            Assert.AreEqual("af_heart", VoiceUtterance.KokoroVoiceName("af_heart"));
+            Assert.AreEqual("af_bella", VoiceUtterance.KokoroVoiceName("  af_bella  "));
+            Assert.AreEqual(VoiceUtterance.DefaultKokoroVoiceId, VoiceUtterance.KokoroVoiceName(@"E:\Tools\tts\kokoro-v1.0.onnx"));
+            Assert.AreEqual(VoiceUtterance.DefaultKokoroVoiceId, VoiceUtterance.KokoroVoiceName("kokoro"));
+            Assert.AreEqual(VoiceUtterance.DefaultKokoroVoiceId, VoiceUtterance.KokoroVoiceName(null));
+        }
+
+        [Test]
         public void VoiceRoute_UsesPiperForLocalAndPrivateAndCloudForGrok()
         {
             Assert.AreEqual(VoiceRoute.Cloud, VoiceRoute.ProviderFor(false, ChatDefaults.GrokId));

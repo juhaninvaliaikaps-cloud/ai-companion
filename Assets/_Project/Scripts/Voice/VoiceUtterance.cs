@@ -68,7 +68,7 @@ namespace AICompanion.Voice
             {
                 plan.Engine = "Kokoro";
                 plan.EngineId = KokoroTtsProvider.Id;
-                plan.Voice = string.IsNullOrWhiteSpace(voice.kokoroVoice) ? DefaultKokoroVoiceId : voice.kokoroVoice.Trim();
+                plan.Voice = KokoroVoiceName(voice.kokoroVoice);
                 return plan;
             }
 
@@ -80,6 +80,34 @@ namespace AICompanion.Voice
         }
 
         public const string DefaultKokoroVoiceId = "af_heart";
+
+        /// <summary>
+        /// Kokoro voice ids look like af_heart. A path pasted into the persona field must not
+        /// reach the engine, so anything that is not that shape falls back to the default.
+        /// </summary>
+        public static string KokoroVoiceName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return DefaultKokoroVoiceId;
+
+            var trimmed = value.Trim();
+            if (trimmed.Length > 32)
+                return DefaultKokoroVoiceId;
+
+            var underscore = trimmed.IndexOf('_');
+            if (underscore != 2)
+                return DefaultKokoroVoiceId;
+
+            for (var i = 0; i < trimmed.Length; i++)
+            {
+                var c = trimmed[i];
+                var ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
+                if (!ok)
+                    return DefaultKokoroVoiceId;
+            }
+
+            return trimmed;
+        }
 
         public static bool KokoroReady(VoiceSettings voice, Func<string, bool> fileExists)
         {
