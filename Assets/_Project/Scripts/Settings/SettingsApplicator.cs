@@ -19,6 +19,10 @@ namespace AICompanion.Settings
 
             AICompanion.Memory.MemoryRuntime.SwitchPersona(settings.PersonaId);
 
+            var touch = host.GetComponent<AICompanion.AnimationDirector.AvatarTouchReactions>();
+            if (touch != null)
+                touch.enabled = settings.TouchReactions;
+
             var chat = host.GetComponent<ChatPanel>();
             if (chat != null)
                 ApplyChat(chat.RuntimeChat, settings, provider);

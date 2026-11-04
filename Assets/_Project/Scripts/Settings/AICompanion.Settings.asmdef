@@ -9,6 +9,7 @@
         "AICompanion.Voice",
         "AICompanion.Avatar",
         "AICompanion.Memory",
+        "AICompanion.AnimationDirector",
         "UnityEngine.UI",
         "UnityEngine.ImageConversionModule",
         "UnityEngine.UnityWebRequestModule"

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using AICompanion.AnimationDirector;
 using AICompanion.Core;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -91,6 +92,7 @@ namespace AICompanion.Overlay
         bool _shownRotating;
         bool _rotateReady;
         float _lastSilhouetteClick = -1f;
+        bool _touchPressed;
         bool _companionVisible = true;
 
         public bool IsTopmost => _topmost;
@@ -118,6 +120,7 @@ namespace AICompanion.Overlay
             _windowScale = PlayerPrefs.GetFloat(OverlayWindowSize.ScalePrefKey, 1f);
             EnsureCameraFrame();
             TintAvatar();
+            EnsureTouchReactions();
             Application.runInBackground = true;
             QualitySettings.vSyncCount = 0;
             ApplyFrameRate(activeFrameRate);
@@ -173,6 +176,9 @@ namespace AICompanion.Overlay
 
             if (leftDown && onSilhouette && !overUi)
             {
+                NotifyAvatarTouch(unityScreen);
+                _touchPressed = true;
+
                 if (AvatarDoubleClick.IsSecond(_lastSilhouetteClick, Time.unscaledTime))
                 {
                     _lastSilhouetteClick = -1f;
@@ -182,6 +188,12 @@ namespace AICompanion.Overlay
                 {
                     _lastSilhouetteClick = Time.unscaledTime;
                 }
+            }
+
+            if (_touchPressed && !leftHeld)
+            {
+                _touchPressed = false;
+                NotifyAvatarRelease();
             }
 
             if (!_yawDrag && leftDown && AvatarRotateMode.ShouldRotateInsteadOfMovingWindow(_rotating, onSilhouette, overUi))
@@ -626,6 +638,48 @@ namespace AICompanion.Overlay
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Touch reactions are optional and data-driven. The component is added here so a
+        /// scene refresh cannot lose the reference; the zone set comes from Resources and a
+        /// missing asset simply leaves the feature off.
+        /// </summary>
+        void EnsureTouchReactions()
+        {
+            var touch = GetComponent<AvatarTouchReactions>();
+            if (touch == null)
+                touch = gameObject.AddComponent<AvatarTouchReactions>();
+
+            var zones = Resources.Load<TouchZoneSet>("TouchZones");
+            if (zones != null)
+                touch.SetZones(zones);
+        }
+
+        void NotifyAvatarTouch(Vector2 screenPosition)
+        {
+            if (_behaviours == null)
+                _behaviours = GetComponents<MonoBehaviour>();
+
+            for (var i = 0; i < _behaviours.Length; i++)
+            {
+                var listener = _behaviours[i] as IAvatarTouch;
+                if (listener != null)
+                    listener.OnAvatarTouch(screenPosition);
+            }
+        }
+
+        void NotifyAvatarRelease()
+        {
+            if (_behaviours == null)
+                _behaviours = GetComponents<MonoBehaviour>();
+
+            for (var i = 0; i < _behaviours.Length; i++)
+            {
+                var listener = _behaviours[i] as IAvatarTouch;
+                if (listener != null)
+                    listener.OnAvatarRelease();
+            }
         }
 
         void NotifyAvatarDoubleClick()

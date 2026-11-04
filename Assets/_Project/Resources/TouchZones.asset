@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a1b2c3d4e5f60718293a4b5c6d7e037, type: 3}
+  m_Name: TouchZones
+  m_EditorClassIdentifier: AICompanion.AnimationDirector::AICompanion.AnimationDirector.TouchZoneSet
+  zones:
+  - id: head
+    bone: 10
+    radiusPixels: 58
+    emotion: 1
+    intensity: 0.6
+    gesture: nod_yes
+    blush: 0.35
+    cooldownSeconds: 1.5
+    hold: 0
+  - id: hand_left
+    bone: 17
+    radiusPixels: 44
+    emotion: 1
+    intensity: 0.7
+    gesture: 
+    blush: 0.5
+    cooldownSeconds: 1
+    hold: 1
+  - id: hand_right
+    bone: 18
+    radiusPixels: 44
+    emotion: 1
+    intensity: 0.7
+    gesture: 
+    blush: 0.5
+    cooldownSeconds: 1
+    hold: 1
+  - id: shoulder_left
+    bone: 11
+    radiusPixels: 46
+    emotion: 0
+    intensity: 0.4
+    gesture: shrug
+    blush: 0.2
+    cooldownSeconds: 2
+    hold: 0
+  - id: shoulder_right
+    bone: 12
+    radiusPixels: 46
+    emotion: 0
+    intensity: 0.4
+    gesture: shrug
+    blush: 0.2
+    cooldownSeconds: 2
+    hold: 0
