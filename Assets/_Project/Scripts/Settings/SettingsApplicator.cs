@@ -17,6 +17,8 @@ namespace AICompanion.Settings
             settings.Normalize();
             var provider = AICompanion.Voice.OutboundPrivacy.ChatProviderId(settings.PrivateMode, settings.ProviderId);
 
+            AICompanion.Memory.MemoryRuntime.SwitchPersona(settings.PersonaId);
+
             var chat = host.GetComponent<ChatPanel>();
             if (chat != null)
                 ApplyChat(chat.RuntimeChat, settings, provider);
