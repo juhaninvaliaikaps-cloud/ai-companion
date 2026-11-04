@@ -38,11 +38,6 @@ namespace AICompanion.UI
         Text _transcript;
         Text _actionLabel;
         Text _muteLabel;
-        Text _modelBadge;
-        string _badgeProvider = string.Empty;
-        string _badgeGrok = string.Empty;
-        string _badgeLocal = string.Empty;
-        bool _badgePrivate;
         Text _micLabel;
         Image _micImage;
         ISpeechOutput _speech;
@@ -232,7 +227,6 @@ namespace AICompanion.UI
                 _actionLabel.text = busy || speaking ? "Stop" : "Send";
             RefreshMuteLabel();
             RefreshMic();
-            RefreshModelBadge();
             if (_input != null && _conversation != null)
                 _input.interactable = !busy;
 
@@ -526,34 +520,6 @@ namespace AICompanion.UI
 
             _speech.SetMuted(!_speech.IsMuted);
             RefreshMuteLabel();
-        }
-
-        void RefreshModelBadge()
-        {
-            if (_modelBadge == null || settings == null)
-                return;
-
-            var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = privacy != null && privacy.PrivateMode;
-            var provider = settings.providerId ?? string.Empty;
-            var grok = settings.model ?? string.Empty;
-            var local = settings.localModel ?? string.Empty;
-            if (_modelBadge.text.Length > 0
-                && privateMode == _badgePrivate
-                && string.Equals(provider, _badgeProvider, StringComparison.Ordinal)
-                && string.Equals(grok, _badgeGrok, StringComparison.Ordinal)
-                && string.Equals(local, _badgeLocal, StringComparison.Ordinal))
-                return;
-
-            _badgePrivate = privateMode;
-            _badgeProvider = provider;
-            _badgeGrok = grok;
-            _badgeLocal = local;
-            var localNow = privateMode || ActiveChatLabel.IsLocal(provider);
-            _modelBadge.color = localNow
-                ? new Color(0.72f, 0.90f, 0.78f, 0.96f)
-                : new Color(0.98f, 0.86f, 0.62f, 0.96f);
-            _modelBadge.text = ActiveChatLabel.Format(provider, privateMode, grok, local);
         }
 
         void RefreshMuteLabel()
@@ -886,17 +852,6 @@ namespace AICompanion.UI
             _canvasObject.AddComponent<GraphicRaycaster>();
             EnsureEventSystem();
             EnsureCamera();
-
-            _modelBadge = CreateText(_canvasObject.transform, font, 13, TextAnchor.UpperLeft, string.Empty);
-            _modelBadge.rectTransform.anchorMin = new Vector2(0f, 1f);
-            _modelBadge.rectTransform.anchorMax = new Vector2(0f, 1f);
-            _modelBadge.rectTransform.pivot = new Vector2(0f, 1f);
-            _modelBadge.rectTransform.anchoredPosition = new Vector2(12f, -104f);
-            _modelBadge.rectTransform.sizeDelta = new Vector2(460f, 36f);
-            _modelBadge.horizontalOverflow = HorizontalWrapMode.Wrap;
-            _modelBadge.verticalOverflow = VerticalWrapMode.Truncate;
-            _modelBadge.raycastTarget = false;
-            RefreshModelBadge();
 
             _panel = new GameObject("ChatPanel");
             _panel.transform.SetParent(_canvasObject.transform, false);
