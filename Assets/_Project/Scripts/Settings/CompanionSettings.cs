@@ -243,11 +243,50 @@ namespace AICompanion.Settings
             return Path.Combine(folder, SettingsFileName);
         }
 
-        public static string HistoryFile(string folder)
+        /// <summary>
+        /// One transcript per persona, so two characters never share a conversation. An empty
+        /// persona keeps the original single file, which is also the setup-name transcript.
+        /// </summary>
+        public static string HistoryFile(string folder, string personaId)
         {
             if (string.IsNullOrEmpty(folder))
                 return null;
-            return Path.Combine(folder, HistoryFileName);
+
+            var id = HistoryId(personaId);
+            if (string.IsNullOrEmpty(id))
+                return Path.Combine(folder, HistoryFileName);
+            return Path.Combine(folder, "chat-history-" + id + ".json");
+        }
+
+        public static string HistoryId(string personaId)
+        {
+            if (string.IsNullOrWhiteSpace(personaId))
+                return string.Empty;
+
+            var trimmed = personaId.Trim();
+            var sb = new System.Text.StringBuilder(trimmed.Length);
+            for (var i = 0; i < trimmed.Length && sb.Length < 40; i++)
+            {
+                var c = char.ToLowerInvariant(trimmed[i]);
+                if (char.IsWhiteSpace(c))
+                {
+                    if (sb.Length > 0 && sb[sb.Length - 1] != '-')
+                        sb.Append('-');
+                    continue;
+                }
+
+                var ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_';
+                if (!ok)
+                    continue;
+                sb.Append(c);
+            }
+
+            return sb.ToString();
+        }
+
+        public static string HistoryFile(string folder)
+        {
+            return HistoryFile(folder, string.Empty);
         }
 
         public static string PersonasFolder(string folder)

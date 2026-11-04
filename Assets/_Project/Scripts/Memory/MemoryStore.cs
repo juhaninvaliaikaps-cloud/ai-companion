@@ -29,10 +29,50 @@ namespace AICompanion.Memory
             return null;
         }
 
-        public static string MemoryFile()
+        /// <summary>
+        /// One memory file per persona, so facts told to one character are not repeated by
+        /// another. An empty persona keeps the original memory.json.
+        /// </summary>
+        public static string MemoryFile(string personaId)
         {
             var folder = Folder();
-            return folder == null ? null : Path.Combine(folder, MemoryFileName);
+            if (folder == null)
+                return null;
+
+            var id = MemoryId(personaId);
+            if (string.IsNullOrEmpty(id))
+                return Path.Combine(folder, MemoryFileName);
+            return Path.Combine(folder, "memory-" + id + ".json");
+        }
+
+        public static string MemoryId(string personaId)
+        {
+            if (string.IsNullOrWhiteSpace(personaId))
+                return string.Empty;
+
+            var trimmed = personaId.Trim();
+            var sb = new System.Text.StringBuilder(trimmed.Length);
+            for (var i = 0; i < trimmed.Length && sb.Length < 40; i++)
+            {
+                var c = char.ToLowerInvariant(trimmed[i]);
+                if (char.IsWhiteSpace(c))
+                {
+                    if (sb.Length > 0 && sb[sb.Length - 1] != '-')
+                        sb.Append('-');
+                    continue;
+                }
+
+                var ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_';
+                if (ok)
+                    sb.Append(c);
+            }
+
+            return sb.ToString();
+        }
+
+        public static string MemoryFile()
+        {
+            return MemoryFile(string.Empty);
         }
 
         public static string PersonalityFile()
@@ -111,6 +151,11 @@ namespace AICompanion.Memory
         public static MemoryStore CreateDefault()
         {
             return Load(MemoryPaths.MemoryFile());
+        }
+
+        public static MemoryStore CreateDefault(string personaId)
+        {
+            return Load(MemoryPaths.MemoryFile(personaId));
         }
 
         public MemoryEntry AddFact(string text, bool privateMode, bool core = false)

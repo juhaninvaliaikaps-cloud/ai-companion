@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using AICompanion.AI;
+using AICompanion.UI;
 using AICompanion.Voice;
 using UnityEngine;
 using UnityEngine.UI;
@@ -22,6 +23,7 @@ namespace AICompanion.Settings
                 ? "Cloud voice is used while chat is Grok."
                 : "A local voice is used while chat is local or private: Piper, or Kokoro when you picked it. That audio stays on this PC.");
             Note("Cue instructions are added after the persona on every reply.");
+            Note("Each persona keeps its own chat history, so switching characters starts a different conversation.");
             var active = _settings.PersonaId ?? string.Empty;
             AddButton(string.IsNullOrEmpty(active) ? "Setup name (active)" : "Use setup name", ClearActivePersona);
 
@@ -103,7 +105,7 @@ namespace AICompanion.Settings
                 return;
             }
 
-            _settings.PersonaId = persona.Id;
+            SwitchPersonaHistory(persona.Id);
             var beforeVoice = _settings.PiperVoice;
             PersonaApply.Overlay(_settings, persona, File.Exists, Directory.Exists);
             ApplyLive();
@@ -188,9 +190,35 @@ namespace AICompanion.Settings
             ClearActivePersona();
         }
 
+        /// <summary>
+        /// Keeps conversations apart: the transcript of the old persona is saved under its own
+        /// id, then the new persona's transcript is loaded (or the chat starts empty).
+        /// </summary>
+        void SwitchPersonaHistory(string newId)
+        {
+            var oldId = _settings.PersonaId;
+            if (string.Equals(oldId ?? string.Empty, newId ?? string.Empty, StringComparison.Ordinal))
+            {
+                _settings.PersonaId = newId;
+                return;
+            }
+
+            if (_settings.ChatHistory)
+                SaveHistory();
+
+            _settings.PersonaId = newId;
+
+            var chat = GetComponent<ChatPanel>();
+            if (chat != null)
+                chat.ClearTranscript();
+
+            if (_settings.ChatHistory)
+                LoadHistory();
+        }
+
         void ClearActivePersona()
         {
-            _settings.PersonaId = string.Empty;
+            SwitchPersonaHistory(string.Empty);
             _settings.PortraitFolder = string.Empty;
             ApplyLive();
             _rebuild = true;

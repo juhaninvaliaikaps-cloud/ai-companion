@@ -175,6 +175,28 @@ namespace AICompanion.Memory
             }
         }
 
+        static string _personaId = string.Empty;
+
+        /// <summary>
+        /// Switches which persona's memory is used. Called whenever settings are applied, so
+        /// facts told to Lola stay with Lola. The previous store is already saved on every
+        /// change, so nothing is lost.
+        /// </summary>
+        public static void SwitchPersona(string personaId)
+        {
+            var id = personaId == null ? string.Empty : personaId.Trim();
+            lock (Gate)
+            {
+                if (_store != null && string.Equals(id, _personaId, StringComparison.Ordinal))
+                    return;
+
+                _personaId = id;
+                _store = MemoryStore.CreateDefault(id);
+                _personality = PersonalityStore.CreateDefault();
+                _decorator = new MemoryChatDecorator(_store);
+            }
+        }
+
         static void Ensure()
         {
             if (_store != null)
@@ -185,7 +207,7 @@ namespace AICompanion.Memory
                 if (_store != null)
                     return;
 
-                _store = MemoryStore.CreateDefault();
+                _store = MemoryStore.CreateDefault(_personaId);
                 _personality = PersonalityStore.CreateDefault();
 
                 // The persona wording in the prompt belongs to the setup wizard

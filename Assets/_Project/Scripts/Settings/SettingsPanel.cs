@@ -424,7 +424,7 @@ namespace AICompanion.Settings
 
         void LoadHistory()
         {
-            var path = SettingsLocations.HistoryFile(Folder());
+            var path = SettingsLocations.HistoryFile(Folder(), _settings != null ? _settings.PersonaId : string.Empty);
             if (string.IsNullOrEmpty(path) || !File.Exists(path))
                 return;
 
@@ -451,7 +451,7 @@ namespace AICompanion.Settings
             if (chat == null)
                 return;
 
-            var path = SettingsLocations.HistoryFile(Folder());
+            var path = SettingsLocations.HistoryFile(Folder(), _settings != null ? _settings.PersonaId : string.Empty);
             if (string.IsNullOrEmpty(path))
                 return;
 
@@ -1001,7 +1001,7 @@ namespace AICompanion.Settings
 
         void ConfirmClear()
         {
-            var path = SettingsLocations.HistoryFile(Folder());
+            var path = SettingsLocations.HistoryFile(Folder(), _settings != null ? _settings.PersonaId : string.Empty);
             try
             {
                 if (!string.IsNullOrEmpty(path) && File.Exists(path))

@@ -31,6 +31,31 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void EachPersonaKeepsItsOwnTranscriptFile()
+        {
+            var folder = @"C:\Users\Test\AppData\Roaming\ProjectLeia";
+            Assert.AreEqual(Path.Combine(folder, "chat-history.json"), SettingsLocations.HistoryFile(folder, string.Empty));
+            Assert.AreEqual(Path.Combine(folder, "chat-history-lola.json"), SettingsLocations.HistoryFile(folder, "Lola"));
+            Assert.AreEqual(Path.Combine(folder, "chat-history-lola.json"), SettingsLocations.HistoryFile(folder, "  lola  "));
+            Assert.AreEqual(Path.Combine(folder, "chat-history-leia-2.json"), SettingsLocations.HistoryFile(folder, "Leia 2"));
+            Assert.AreEqual(Path.Combine(folder, "chat-history.json"), SettingsLocations.HistoryFile(folder, null));
+            Assert.AreEqual(Path.Combine(folder, "chat-history.json"), SettingsLocations.HistoryFile(folder, "   "));
+            Assert.AreEqual(string.Empty, SettingsLocations.HistoryId("..."));
+        }
+
+        [Test]
+        public void TwoPersonasGetDifferentTranscriptFiles()
+        {
+            var folder = Path.GetTempPath();
+            var lola = SettingsLocations.HistoryFile(folder, "lola");
+            var leia = SettingsLocations.HistoryFile(folder, "leia");
+            var setup = SettingsLocations.HistoryFile(folder, string.Empty);
+            Assert.AreNotEqual(lola, leia);
+            Assert.AreNotEqual(lola, setup);
+            Assert.AreNotEqual(leia, setup);
+        }
+
+        [Test]
         public void ALocalVoiceCanBePiperOrKokoroOnly()
         {
             Assert.IsTrue(VoiceRoute.IsLocalEngine(PiperTtsProvider.Id));

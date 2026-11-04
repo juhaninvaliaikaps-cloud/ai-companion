@@ -32,6 +32,37 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void EachPersonaGetsItsOwnMemoryFile()
+        {
+            var folder = MemoryPaths.Folder();
+            if (string.IsNullOrEmpty(folder))
+                Assert.Ignore("No per-user folder on this machine.");
+
+            Assert.AreEqual(Path.Combine(folder, "memory.json"), MemoryPaths.MemoryFile(string.Empty));
+            Assert.AreEqual(Path.Combine(folder, "memory.json"), MemoryPaths.MemoryFile(null));
+            Assert.AreEqual(Path.Combine(folder, "memory-lola.json"), MemoryPaths.MemoryFile("Lola"));
+            Assert.AreEqual(Path.Combine(folder, "memory-lola.json"), MemoryPaths.MemoryFile("  lola  "));
+            Assert.AreEqual(Path.Combine(folder, "memory-leia-2.json"), MemoryPaths.MemoryFile("Leia 2"));
+            Assert.AreEqual(string.Empty, MemoryPaths.MemoryId("..."));
+        }
+
+        [Test]
+        public void TwoPersonasDoNotShareFacts()
+        {
+            var lolaPath = Path.Combine(_dir, "memory-lola.json");
+            var leiaPath = Path.Combine(_dir, "memory-leia.json");
+
+            var lola = MemoryStore.Load(lolaPath);
+            lola.AddFact("Lola likes rainy days", privateMode: false);
+
+            var leia = MemoryStore.Load(leiaPath);
+            Assert.AreEqual(0, leia.Count);
+
+            Assert.AreEqual(1, MemoryStore.Load(lolaPath).Count);
+            Assert.AreEqual(0, MemoryStore.Load(leiaPath).Count);
+        }
+
+        [Test]
         public void AddFact_WritesAFileAndReloadsIt()
         {
             var store = MemoryStore.Load(_path);
