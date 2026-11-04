@@ -9,8 +9,11 @@ namespace AICompanion.Core
     /// </summary>
     public interface IAvatarTouch
     {
-        /// <summary>Left button pressed on her silhouette, in Unity screen space.</summary>
-        void OnAvatarTouch(Vector2 screenPosition);
+        /// <summary>
+        /// Left button pressed on her silhouette, in Unity screen space. Return true to consume
+        /// the press so the overlay does not start a window drag; a hand grab does exactly that.
+        /// </summary>
+        bool OnAvatarTouch(Vector2 screenPosition);
 
         /// <summary>The left button was released after touching her.</summary>
         void OnAvatarRelease();

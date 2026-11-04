@@ -7,30 +7,34 @@ using UnityEngine;
 namespace AICompanion.AnimationDirector
 {
     /// <summary>
-    /// Turns clicks on her silhouette into small reactions: a face change, a gesture and a
-    /// blush, driven by a <see cref="TouchZoneSet"/>. A hand can also be dragged with IK while
-    /// the button stays down. Clicks over UI and the window drag keep working because the
-    /// overlay only dispatches when the pointer is on her body.
+    /// Turns clicks on her silhouette into small reactions: a face change, a gesture, a blush
+    /// and a line the model can answer. The reaction fires on release, so a quick press is a
+    /// touch while pressing and moving a hand starts an IK drag instead. Clicks over UI and the
+    /// window drag keep working because the overlay only dispatches when the pointer is on her.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class AvatarTouchReactions : MonoBehaviour, IAvatarTouch
     {
+        /// <summary>Pixels of pointer travel that turn a hand press into a drag.</summary>
+        public const float DragThresholdPixels = 8f;
+
         [SerializeField] TouchZoneSet zoneSet;
         [SerializeField] Camera avatarCamera;
 
-        readonly List<TouchZoneProbe> _probes = new List<TouchZoneProbe>(8);
+        readonly List<TouchZoneProbe> _probes = new List<TouchZoneProbe>(12);
         readonly TouchCooldown _cooldown = new TouchCooldown(1.5f);
         Animator _animator;
         AnimationDirector _director;
         AvatarAnimationController _controller;
         AvatarHandIk _ik;
-        TouchZone _held;
+        TouchZone _pressZone;
         TouchZone _dragging;
+        Vector2 _pressScreen;
         AvatarIKGoal _dragGoal;
         float _dragDepth;
-        bool _touching;
+        bool _pressed;
 
-        /// <summary>Raised with the zone id after a reaction, so the chat can react in words.</summary>
+        /// <summary>Raised with the zone id when a touch reaction plays, so the chat can react in words.</summary>
         public event Action<string> Touched;
 
         void Awake()
@@ -68,58 +72,76 @@ namespace AICompanion.AnimationDirector
             zoneSet = set;
         }
 
-        /// <summary>The zone that is currently held down, or null.</summary>
-        public string HeldZoneId
-        {
-            get { return _held != null ? _held.id : null; }
-        }
-
         /// <summary>The hand zone being dragged with IK, or null.</summary>
         public string DraggingZoneId
         {
             get { return _dragging != null ? _dragging.id : null; }
         }
 
-        public void OnAvatarTouch(Vector2 screenPosition)
+        /// <summary>
+        /// Only hand zones consume the press, so the window does not move while a hand is being
+        /// grabbed. Every other zone lets the overlay behave exactly as before.
+        /// </summary>
+        public bool OnAvatarTouch(Vector2 screenPosition)
         {
             Resolve();
+            _pressed = false;
+            _pressZone = null;
             if (zoneSet == null || zoneSet.zones == null || _animator == null || avatarCamera == null)
-                return;
+                return false;
 
             BuildProbes();
             string id;
             if (!TouchZonePicker.TryPick(_probes, screenPosition, out id))
-                return;
+                return false;
 
             var zone = Find(id);
             if (zone == null)
-                return;
+                return false;
 
-            var now = Time.unscaledTime;
-            if (!_cooldown.Ready(zone.id, now))
-                return;
-
-            _cooldown.Mark(zone.id, now, zone.cooldownSeconds);
-            React(zone);
-            _touching = true;
-
-            if (zone.hold)
-                _held = zone;
-
-            if (zone.drag)
-                BeginHandDrag(zone);
+            _pressZone = zone;
+            _pressScreen = screenPosition;
+            _pressed = true;
+            return zone.drag;
         }
 
         public void OnAvatarRelease()
         {
-            EndHandDrag();
-            _touching = false;
-            _held = null;
+            if (_dragging != null)
+            {
+                // A drag is not a touch: the hand was moved, not patted.
+                EndHandDrag();
+                _pressed = false;
+                _pressZone = null;
+                return;
+            }
+
+            if (_pressed && _pressZone != null)
+                ReactIfReady(_pressZone);
+
+            _pressed = false;
+            _pressZone = null;
         }
 
         void Update()
         {
-            if (_dragging == null || _ik == null || avatarCamera == null)
+            if (_dragging != null)
+            {
+                MoveHand();
+                return;
+            }
+
+            if (!_pressed || _pressZone == null || !_pressZone.drag || avatarCamera == null)
+                return;
+
+            var travel = Vector2.Distance((Vector2)Input.mousePosition, _pressScreen);
+            if (travel >= DragThresholdPixels)
+                BeginHandDrag(_pressZone);
+        }
+
+        void MoveHand()
+        {
+            if (_ik == null || avatarCamera == null)
                 return;
 
             var pointer = (Vector3)Input.mousePosition;
@@ -162,18 +184,25 @@ namespace AICompanion.AnimationDirector
             _dragging = null;
         }
 
+        void ReactIfReady(TouchZone zone)
+        {
+            var now = Time.unscaledTime;
+            if (!_cooldown.Ready(zone.id, now))
+                return;
+
+            _cooldown.Mark(zone.id, now, zone.cooldownSeconds);
+            React(zone);
+        }
+
         void React(TouchZone zone)
         {
             if (_director != null)
                 _director.Play(new AnimationCue(zone.emotion, zone.intensity, zone.gesture, 0f, zone.expression));
 
             if (_controller != null)
-            {
-                var seconds = zone.hold ? 2.5f : 1.5f;
-                _controller.AddTouchBlush(zone.blush, seconds);
-            }
+                _controller.AddTouchBlush(zone.blush, 1.5f);
 
-            Debug.Log("Touch: " + zone.id + (zone.hold ? " (hold)" : string.Empty));
+            Debug.Log("Touch: " + zone.id);
 
             if (Touched != null)
                 Touched(zone.id);

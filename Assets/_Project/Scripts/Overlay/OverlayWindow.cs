@@ -93,6 +93,7 @@ namespace AICompanion.Overlay
         bool _rotateReady;
         float _lastSilhouetteClick = -1f;
         bool _touchPressed;
+        bool _touchConsumed;
         bool _companionVisible = true;
 
         public bool IsTopmost => _topmost;
@@ -176,7 +177,7 @@ namespace AICompanion.Overlay
 
             if (leftDown && onSilhouette && !overUi)
             {
-                NotifyAvatarTouch(unityScreen);
+                _touchConsumed = NotifyAvatarTouch(unityScreen);
                 _touchPressed = true;
 
                 if (AvatarDoubleClick.IsSecond(_lastSilhouetteClick, Time.unscaledTime))
@@ -193,10 +194,11 @@ namespace AICompanion.Overlay
             if (_touchPressed && !leftHeld)
             {
                 _touchPressed = false;
+                _touchConsumed = false;
                 NotifyAvatarRelease();
             }
 
-            if (!_yawDrag && leftDown && AvatarRotateMode.ShouldRotateInsteadOfMovingWindow(_rotating, onSilhouette, overUi))
+            if (!_yawDrag && !_touchConsumed && leftDown && AvatarRotateMode.ShouldRotateInsteadOfMovingWindow(_rotating, onSilhouette, overUi))
             {
                 _yawDrag = true;
                 _yawPointerX = unityScreen.x;
@@ -219,7 +221,7 @@ namespace AICompanion.Overlay
                 }
             }
 
-            if (!_dragging && !_yawDrag && WindowDragGate.ShouldStart(leftDown, onSilhouette, overPanel, overOtherUi) && _chrome.TryGetWindowPosition(out var origin) && _chrome.TryGetScreenCursor(out var cursor))
+            if (!_dragging && !_yawDrag && !_touchConsumed && WindowDragGate.ShouldStart(leftDown, onSilhouette, overPanel, overOtherUi) && _chrome.TryGetWindowPosition(out var origin) && _chrome.TryGetScreenCursor(out var cursor))
             {
                 _dragging = true;
                 _drag = new WindowDrag(origin, cursor);
@@ -656,17 +658,20 @@ namespace AICompanion.Overlay
                 touch.SetZones(zones);
         }
 
-        void NotifyAvatarTouch(Vector2 screenPosition)
+        bool NotifyAvatarTouch(Vector2 screenPosition)
         {
             if (_behaviours == null)
                 _behaviours = GetComponents<MonoBehaviour>();
 
+            var consumed = false;
             for (var i = 0; i < _behaviours.Length; i++)
             {
                 var listener = _behaviours[i] as IAvatarTouch;
-                if (listener != null)
-                    listener.OnAvatarTouch(screenPosition);
+                if (listener != null && listener.OnAvatarTouch(screenPosition))
+                    consumed = true;
             }
+
+            return consumed;
         }
 
         void NotifyAvatarRelease()
