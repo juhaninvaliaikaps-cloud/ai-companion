@@ -97,6 +97,10 @@ jobs:
           # the whole job red even though all 457 EditMode tests passed. CI runs EditMode;
           # PlayMode runs locally, or manually through workflow_dispatch.
           testMode: ${{ inputs.testMode || 'editmode' }}
+          # EditMode does not need a graphics device. The container defaults to software
+          # OpenGL (llvmpipe), and the editor was killed with exit 137 while reloading Mono
+          # assemblies under that memory pressure.
+          customParameters: '-nographics'
           cliVersion: v0.1.72
           # Explicit empty: the input defaults to the job token, and with it the action
           # creates a second check run with this name that stays neutral, so the PR showed
