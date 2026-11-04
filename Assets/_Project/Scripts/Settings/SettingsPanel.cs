@@ -734,6 +734,8 @@ namespace AICompanion.Settings
                 SetStatus("Rotation reset.");
             });
             Note("Reset faces the current avatar toward the camera. It applies immediately.");
+            AddToggle("Touch reactions", _settings.TouchReactions, value => _settings.TouchReactions = value);
+            Note("Clicks on her head, hands and shoulders give a small reaction. Holding a hand keeps it. It never blocks window dragging or the chat panel.");
             AddToggle("Look at cursor", _settings.CursorLookAt, value => _settings.CursorLookAt = value);
             Note("Eyes and head follow the desktop cursor. They ease back when it is still or far away.");
         }

@@ -71,6 +71,9 @@ namespace AICompanion.Settings
         public bool StartWithWindows;
         public bool Paused;
         public bool ChatHistory;
+
+        /// <summary>Click reactions on her body: blush, faces and gestures.</summary>
+        public bool TouchReactions = true;
         public bool PrivateMode;
         public string CompanionName = string.Empty;
         public string Relationship = RelationshipStyles.Friend;
@@ -433,6 +436,8 @@ namespace AICompanion.Settings
                 settings.Paused = flag;
             if (TryBool(json, "chatHistory", out flag))
                 settings.ChatHistory = flag;
+            if (TryBool(json, "touchReactions", out flag))
+                settings.TouchReactions = flag;
             if (TryBool(json, "privateMode", out flag))
                 settings.PrivateMode = flag;
             if (TryString(json, "companionName", out text))
@@ -489,6 +494,7 @@ namespace AICompanion.Settings
             Bool(sb, "startWithWindows", source.StartWithWindows);
             Bool(sb, "paused", source.Paused);
             Bool(sb, "chatHistory", source.ChatHistory);
+        Bool(sb, "touchReactions", source.TouchReactions);
             Bool(sb, "privateMode", source.PrivateMode);
             String(sb, "companionName", source.CompanionName);
             String(sb, "relationship", source.Relationship);

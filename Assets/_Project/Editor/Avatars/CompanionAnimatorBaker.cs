@@ -155,6 +155,7 @@ namespace AICompanion.Editor.Avatars
             if (controller != null)
             {
                 PruneDeadParts(controller);
+                EnsureIkPass(controller);
                 EnsureGestureLayer(controller, clips);
                 EnsureUpperBodyLayer(controller, clips);
                 EnsureBaseDefaults(controller);
@@ -170,6 +171,27 @@ namespace AICompanion.Editor.Avatars
             }
 
             CreateController(clips);
+        }
+
+        /// <summary>
+        /// The touch drag needs OnAnimatorIK, and Unity only calls that for layers with an IK
+        /// pass. Existing controllers were baked without it, so turn it on for the base layer.
+        /// </summary>
+        static bool EnsureIkPass(AnimatorController controller)
+        {
+            var layers = controller.layers;
+            if (layers == null || layers.Length == 0)
+                return false;
+
+            var baseLayer = layers[0];
+            if (baseLayer.iKPass)
+                return false;
+
+            baseLayer.iKPass = true;
+            layers[0] = baseLayer;
+            controller.layers = layers;
+            EditorUtility.SetDirty(controller);
+            return true;
         }
 
         /// <summary>
@@ -565,6 +587,13 @@ namespace AICompanion.Editor.Avatars
             idle.motion = byName["Idle"];
             idle.writeDefaultValues = true;
             baseMachine.defaultState = idle;
+
+            // The touch drag needs OnAnimatorIK on a layer with an IK pass.
+            var layers = controller.layers;
+            var baseLayer = layers[0];
+            baseLayer.iKPass = true;
+            layers[0] = baseLayer;
+            controller.layers = layers;
         }
 
         /// <summary>

@@ -824,7 +824,36 @@ namespace AICompanion.Avatar
                 renderer.SetBlendShapeWeight(bindings[i].Index, weight);
             }
 
-            _blush.SetIntensity(pose.Blush);
+            _blush.SetIntensity(Mathf.Clamp01(pose.Blush + TouchBlush()));
+        }
+
+        float _touchBlush;
+        float _touchBlushUntil;
+
+        /// <summary>
+        /// A short blush from a touch reaction. It fades linearly and adds to the pose blush, so
+        /// an emotion that already blushes stays consistent.
+        /// </summary>
+        public void AddTouchBlush(float amount, float seconds)
+        {
+            // Additive so holding longer deepens the blush; a single call still behaves as one.`r`n            _touchBlush = Mathf.Clamp01(_touchBlush + amount);
+            _touchBlushUntil = Time.unscaledTime + Mathf.Max(0.1f, seconds);
+        }
+
+        float TouchBlush()
+        {
+            if (_touchBlush <= 0f)
+                return 0f;
+
+            var left = _touchBlushUntil - Time.unscaledTime;
+            if (left <= 0f)
+            {
+                _touchBlush = 0f;
+                return 0f;
+            }
+
+            var fade = Mathf.Clamp01(left / 0.75f);
+            return _touchBlush * fade;
         }
 
         void AttachBlush()

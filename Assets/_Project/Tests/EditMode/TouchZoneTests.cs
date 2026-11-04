@@ -1,0 +1,146 @@
+using AICompanion.AnimationDirector;
+using AICompanion.Core;
+using NUnit.Framework;
+using UnityEngine;
+
+namespace AICompanion.Tests.EditMode
+{
+    public class TouchZoneTests
+    {
+        static TouchZoneProbe[] Zones()
+        {
+            return new[]
+            {
+                new TouchZoneProbe("head", new Vector2(0f, 100f), 40f),
+                new TouchZoneProbe("hand_left", new Vector2(-60f, 0f), 30f),
+                new TouchZoneProbe("hand_right", new Vector2(60f, 0f), 30f),
+            };
+        }
+
+        [Test]
+        public void TheBellyIsAPassiveMoveHandle()
+        {
+            var set = TouchZoneSet.CreateDefault();
+            TouchZone belly = null;
+            TouchZone head = null;
+            for (var i = 0; i < set.zones.Length; i++)
+            {
+                if (set.zones[i].id == "belly")
+                    belly = set.zones[i];
+                if (set.zones[i].id == "head")
+                    head = set.zones[i];
+            }
+
+            Assert.IsNotNull(belly, "The default set needs a belly handle.");
+            Assert.IsTrue(belly.passive);
+            Assert.IsFalse(belly.drag);
+            Assert.IsFalse(head.passive, "The head must still react.");
+        }
+
+        [Test]
+        public void ATouchSignalReadsLikeSomethingThatHappened()
+        {
+            Assert.AreEqual(TouchChatSignal.HeadText, TouchChatSignal.Prompt("head"));
+            Assert.AreEqual(TouchChatSignal.HandText, TouchChatSignal.Prompt("hand_left"));
+            Assert.AreEqual(TouchChatSignal.HandText, TouchChatSignal.Prompt("hand_right"));
+            Assert.AreEqual(TouchChatSignal.ShoulderText, TouchChatSignal.Prompt("shoulder_right"));
+            Assert.AreEqual(TouchChatSignal.HairText, TouchChatSignal.Prompt("hair"));
+            Assert.AreEqual(TouchChatSignal.CheekText, TouchChatSignal.Prompt("cheek"));
+            Assert.AreEqual(TouchChatSignal.ForearmText, TouchChatSignal.Prompt("forearm_left"));
+            Assert.AreEqual(TouchChatSignal.BackText, TouchChatSignal.Prompt("back"));
+            Assert.AreEqual(TouchChatSignal.SideText, TouchChatSignal.Prompt("side"));
+            Assert.AreEqual(TouchChatSignal.GenericText, TouchChatSignal.Prompt("unknown"));
+            Assert.AreEqual(TouchChatSignal.GenericText, TouchChatSignal.Prompt(null));
+        }
+
+        [Test]
+        public void TakingTheHandHasItsOwnLineToo()
+        {
+            Assert.AreEqual(TouchChatSignal.HoldStartText, TouchChatSignal.HoldStartPrompt("hand_left"));
+            Assert.AreEqual(TouchChatSignal.HoldStartText, TouchChatSignal.HoldStartPrompt("hand_right"));
+            Assert.AreEqual(TouchChatSignal.GenericText, TouchChatSignal.HoldStartPrompt("shoulder_left"));
+            Assert.AreEqual(TouchChatSignal.HoldStartText, TouchChatSignal.HoldStartPrompt(null));
+        }
+
+        [Test]
+        public void LettingGoOfAHeldHandHasItsOwnLine()
+        {
+            Assert.AreEqual(TouchChatSignal.HoldText, TouchChatSignal.HoldPrompt("hand_left"));
+            Assert.AreEqual(TouchChatSignal.HoldText, TouchChatSignal.HoldPrompt("hand_right"));
+            Assert.AreEqual(TouchChatSignal.GenericText, TouchChatSignal.HoldPrompt("head"));
+        }
+
+        [Test]
+        public void OnlyHandsAreHoldZones()
+        {
+            Assert.IsTrue(TouchChatSignal.IsHoldZone("hand_left"));
+            Assert.IsTrue(TouchChatSignal.IsHoldZone("hand_right"));
+            Assert.IsFalse(TouchChatSignal.IsHoldZone("head"));
+            Assert.IsFalse(TouchChatSignal.IsHoldZone("shoulder_left"));
+        }
+
+        [Test]
+        public void AClickInsideAZonePicksIt()
+        {
+            string id;
+            Assert.IsTrue(TouchZonePicker.TryPick(Zones(), new Vector2(5f, 105f), out id));
+            Assert.AreEqual("head", id);
+        }
+
+        [Test]
+        public void TheNearestZoneWins()
+        {
+            // Between the two hands but closer to the right one.
+            string id;
+            Assert.IsTrue(TouchZonePicker.TryPick(new[]
+            {
+                new TouchZoneProbe("hand_left", new Vector2(-40f, 0f), 100f),
+                new TouchZoneProbe("hand_right", new Vector2(40f, 0f), 100f),
+            }, new Vector2(30f, 0f), out id));
+            Assert.AreEqual("hand_right", id);
+        }
+
+        [Test]
+        public void AClickOutsideEveryZoneHitsNothing()
+        {
+            string id;
+            Assert.IsFalse(TouchZonePicker.TryPick(Zones(), new Vector2(500f, 500f), out id));
+            Assert.IsNull(id);
+        }
+
+        [Test]
+        public void AZoneWithoutARadiusIsIgnored()
+        {
+            string id;
+            Assert.IsFalse(TouchZonePicker.TryPick(new[]
+            {
+                new TouchZoneProbe("broken", Vector2.zero, 0f),
+            }, Vector2.zero, out id));
+        }
+
+        [Test]
+        public void ACooldownBlocksTheSameZoneUntilItExpires()
+        {
+            var cooldown = new TouchCooldown(1.5f);
+
+            Assert.IsTrue(cooldown.Ready("head", 0f));
+            cooldown.Mark("head", 0f, 0f);
+            Assert.IsFalse(cooldown.Ready("head", 0.5f));
+            Assert.IsTrue(cooldown.Ready("head", 1.6f));
+
+            // Another zone is unaffected.
+            Assert.IsTrue(cooldown.Ready("hand_left", 0.5f));
+        }
+
+        [Test]
+        public void AZoneCanOverrideTheCooldown()
+        {
+            var cooldown = new TouchCooldown(1.5f);
+            cooldown.Mark("head", 0f, 4f);
+
+            Assert.IsFalse(cooldown.Ready("head", 2f));
+            Assert.IsTrue(cooldown.Ready("head", 4.1f));
+            Assert.IsTrue(cooldown.Ready("other", 0.1f));
+        }
+    }
+}
