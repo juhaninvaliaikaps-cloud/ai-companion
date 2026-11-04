@@ -61,9 +61,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: Library
-          key: Library-6000.6.6f1-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectVersion.txt') }}
+          # The player build job caches a Windows Library. Restoring that into this Linux
+          # container made Unity convert it and the process was killed (exit 137, out of
+          # memory), so the test cache gets its own key prefix.
+          key: Library-tests-6000.6.6f1-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectVersion.txt') }}
           restore-keys: |
-            Library-6000.6.6f1-
+            Library-tests-6000.6.6f1-
 
       - name: Run Unity tests
         if: steps.license.outputs.skip != 'true'
