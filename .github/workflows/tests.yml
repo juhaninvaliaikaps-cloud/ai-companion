@@ -5,6 +5,17 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
+    inputs:
+      testMode:
+        description: 'Test mode. editmode is the CI default; playmode needs a display and is usually local.'
+        required: false
+        default: editmode
+        type: choice
+        options:
+          - editmode
+          - playmode
+          - all
 
 permissions:
   contents: read
@@ -50,9 +61,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: Library
-          key: Library-6000.6.6f1-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectVersion.txt') }}
+          # The player build job caches a Windows Library. Restoring that into this Linux
+          # container made Unity convert it and the process was killed (exit 137, out of
+          # memory), so the test cache gets its own key prefix.
+          key: Library-tests-6000.6.6f1-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectVersion.txt') }}
           restore-keys: |
-            Library-6000.6.6f1-
+            Library-tests-6000.6.6f1-
 
       - name: Run Unity tests
         if: steps.license.outputs.skip != 'true'
@@ -79,9 +93,15 @@ jobs:
           customImage: unityci/editor:ubuntu-6000.6.6f1-base-3
           # playmode, then editmode, in this container, after one activation.
           # The action returns the Personal seat when the step ends.
-          testMode: all
+          # PlayMode produced no results file inside the container (no display), which made
+          # the whole job red even though all 457 EditMode tests passed. CI runs EditMode;
+          # PlayMode runs locally, or manually through workflow_dispatch.
+          testMode: ${{ inputs.testMode || 'editmode' }}
           cliVersion: v0.1.72
-          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          # Explicit empty: the input defaults to the job token, and with it the action
+          # creates a second check run with this name that stays neutral, so the PR showed
+          # NEUTRAL even when the job passed. The env token above still covers rate limits.
+          githubToken: ''
           checkName: EditMode and PlayMode tests
 
       - name: Upload test results
