@@ -43,6 +43,18 @@ namespace AICompanion.Core
             return GenericText;
         }
 
+        public const string HoldText = "*Someone holds your hand for a while, then lets go.*";
+
+        /// <summary>The line sent when a hand drag ends, so holding reads as holding.</summary>
+        public static string HoldPrompt(string zoneId)
+        {
+            if (string.IsNullOrWhiteSpace(zoneId))
+                return HoldText;
+
+            var id = zoneId.Trim().ToLowerInvariant();
+            return id == "hand_left" || id == "hand_right" || id == "hand" ? HoldText : GenericText;
+        }
+
         public static bool IsHoldZone(string zoneId)
         {
             if (string.IsNullOrWhiteSpace(zoneId))

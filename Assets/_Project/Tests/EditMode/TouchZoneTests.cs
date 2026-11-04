@@ -54,6 +54,14 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void LettingGoOfAHeldHandHasItsOwnLine()
+        {
+            Assert.AreEqual(TouchChatSignal.HoldText, TouchChatSignal.HoldPrompt("hand_left"));
+            Assert.AreEqual(TouchChatSignal.HoldText, TouchChatSignal.HoldPrompt("hand_right"));
+            Assert.AreEqual(TouchChatSignal.GenericText, TouchChatSignal.HoldPrompt("head"));
+        }
+
+        [Test]
         public void OnlyHandsAreHoldZones()
         {
             Assert.IsTrue(TouchChatSignal.IsHoldZone("hand_left"));

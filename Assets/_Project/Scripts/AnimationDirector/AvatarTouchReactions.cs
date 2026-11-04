@@ -33,9 +33,13 @@ namespace AICompanion.AnimationDirector
         AvatarIKGoal _dragGoal;
         float _dragDepth;
         bool _pressed;
+        float _blushTickAt;
 
         /// <summary>Raised with the zone id when a touch reaction plays, so the chat can react in words.</summary>
         public event Action<string> Touched;
+
+        /// <summary>Raised when a hand drag ends, so holding the hand reads as a hold.</summary>
+        public event Action<string> HandHeld;
 
         void Awake()
         {
@@ -114,10 +118,11 @@ namespace AICompanion.AnimationDirector
         {
             if (_dragging != null)
             {
-                // A drag is not a touch: the hand was moved, not patted.
+                var held = _dragging;
                 EndHandDrag();
                 _pressed = false;
                 _pressZone = null;
+                ReactHandHeld(held);
                 return;
             }
 
@@ -152,6 +157,12 @@ namespace AICompanion.AnimationDirector
             var pointer = (Vector3)Input.mousePosition;
             pointer.z = _dragDepth;
             _ik.MoveTo(avatarCamera.ScreenToWorldPoint(pointer));
+
+            if (_controller != null && Time.unscaledTime >= _blushTickAt)
+            {
+                _controller.AddTouchBlush(0.12f, 2.5f);
+                _blushTickAt = Time.unscaledTime + 0.35f;
+            }
         }
 
         void BeginHandDrag(TouchZone zone)
@@ -175,6 +186,14 @@ namespace AICompanion.AnimationDirector
 
             _ik.Begin(_dragGoal, bone.position);
             _dragging = zone;
+            _blushTickAt = Time.unscaledTime;
+
+            // Holding a hand starts the same shy reaction a click would, then the blush deepens.
+            if (_director != null)
+                _director.Play(new AnimationCue(zone.emotion, zone.intensity, string.Empty, 0f, zone.expression));
+            if (_controller != null)
+                _controller.AddTouchBlush(0.15f, 2.5f);
+
             Debug.Log("Touch: dragging " + zone.id);
         }
 
@@ -187,6 +206,23 @@ namespace AICompanion.AnimationDirector
                 _ik.Release();
 
             _dragging = null;
+        }
+
+        /// <summary>Letting go of a dragged hand still reacts: a deeper blush and a hold line.</summary>
+        void ReactHandHeld(TouchZone zone)
+        {
+            if (zone == null)
+                return;
+
+            if (_director != null)
+                _director.Play(new AnimationCue(zone.emotion, zone.intensity, string.Empty, 0f, zone.expression));
+            if (_controller != null)
+                _controller.AddTouchBlush(0.35f, 2f);
+
+            Debug.Log("Touch: released " + zone.id);
+
+            if (HandHeld != null)
+                HandHeld(zone.id);
         }
 
         void ReactIfReady(TouchZone zone)

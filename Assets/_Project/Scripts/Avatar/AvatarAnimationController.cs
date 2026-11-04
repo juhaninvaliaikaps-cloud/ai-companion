@@ -836,7 +836,7 @@ namespace AICompanion.Avatar
         /// </summary>
         public void AddTouchBlush(float amount, float seconds)
         {
-            _touchBlush = Mathf.Clamp01(Mathf.Max(_touchBlush, amount));
+            // Additive so holding longer deepens the blush; a single call still behaves as one.`r`n            _touchBlush = Mathf.Clamp01(_touchBlush + amount);
             _touchBlushUntil = Time.unscaledTime + Mathf.Max(0.1f, seconds);
         }
 

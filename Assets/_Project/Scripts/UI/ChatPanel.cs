@@ -168,7 +168,10 @@ namespace AICompanion.UI
         void OnDestroy()
         {
             if (_touch != null)
+            {
                 _touch.Touched -= OnTouched;
+                _touch.HandHeld -= OnHandHeld;
+            }
             _alive = false;
             DebugInputGuard.SetTextFieldFocused(false);
             if (_cancel != null)
@@ -265,6 +268,8 @@ namespace AICompanion.UI
 
             _touch.Touched -= OnTouched;
             _touch.Touched += OnTouched;
+            _touch.HandHeld -= OnHandHeld;
+            _touch.HandHeld += OnHandHeld;
         }
 
         void OnTouched(string zoneId)
@@ -273,6 +278,15 @@ namespace AICompanion.UI
                 return;
 
             SubmitUserText(TouchChatSignal.Prompt(zoneId));
+        }
+
+        /// <summary>A dragged hand that is finally let go reads as a held hand, not a pat.</summary>
+        void OnHandHeld(string zoneId)
+        {
+            if (_conversation == null || _conversation.IsBusy)
+                return;
+
+            SubmitUserText(TouchChatSignal.HoldPrompt(zoneId));
         }
 
         void SubmitDraft(string text)
