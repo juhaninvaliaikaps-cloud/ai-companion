@@ -24,6 +24,9 @@ namespace AICompanion.AnimationDirector
         TouchZone _held;
         bool _touching;
 
+        /// <summary>Raised with the zone id after a reaction, so the chat can react in words.</summary>
+        public event System.Action<string> Touched;
+
         void Awake()
         {
             Resolve();
@@ -104,7 +107,7 @@ namespace AICompanion.AnimationDirector
         void React(TouchZone zone)
         {
             if (_director != null)
-                _director.Play(new AnimationCue(zone.emotion, zone.intensity, zone.gesture));
+                _director.Play(new AnimationCue(zone.emotion, zone.intensity, zone.gesture, 0f, zone.expression));
 
             if (_controller != null)
             {
@@ -113,6 +116,9 @@ namespace AICompanion.AnimationDirector
             }
 
             Debug.Log("Touch: " + zone.id + (zone.hold ? " (hold)" : string.Empty));
+
+            if (Touched != null)
+                Touched(zone.id);
         }
 
         void BuildProbes()

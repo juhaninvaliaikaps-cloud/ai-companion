@@ -19,6 +19,7 @@ MonoBehaviour:
     emotion: 1
     intensity: 0.6
     gesture: nod_yes
+    expression: happy
     blush: 0.35
     cooldownSeconds: 1.5
     hold: 0
@@ -28,6 +29,7 @@ MonoBehaviour:
     emotion: 1
     intensity: 0.7
     gesture: 
+    expression: shy
     blush: 0.5
     cooldownSeconds: 1
     hold: 1
@@ -37,6 +39,7 @@ MonoBehaviour:
     emotion: 1
     intensity: 0.7
     gesture: 
+    expression: shy
     blush: 0.5
     cooldownSeconds: 1
     hold: 1
@@ -46,6 +49,7 @@ MonoBehaviour:
     emotion: 0
     intensity: 0.4
     gesture: shrug
+    expression: 
     blush: 0.2
     cooldownSeconds: 2
     hold: 0
@@ -55,6 +59,7 @@ MonoBehaviour:
     emotion: 0
     intensity: 0.4
     gesture: shrug
+    expression: 
     blush: 0.2
     cooldownSeconds: 2
     hold: 0

@@ -148,6 +148,7 @@ namespace AICompanion.UI
 
             _started = true;
             settings = settings != null ? settings.RuntimeCopy() : ScriptableObject.CreateInstance<ChatSettings>();
+            BindTouchReactions();
 
             _conversation = new ChatConversation();
             _exchange = new ChatExchange(_conversation);
@@ -171,6 +172,8 @@ namespace AICompanion.UI
 
         void OnDestroy()
         {
+            if (_touch != null)
+                _touch.Touched -= OnTouched;
             _alive = false;
             DebugInputGuard.SetTextFieldFocused(false);
             if (_cancel != null)
@@ -247,6 +250,35 @@ namespace AICompanion.UI
             if (!_started)
                 StartCompanion();
             SetVisible(true, true);
+        }
+
+        AvatarTouchReactions _touch;
+
+        /// <summary>
+        /// A touch reaches the model as something that happened to her, so she can answer in
+        /// words with her own cue instead of only playing a local animation.
+        /// </summary>
+        void BindTouchReactions()
+        {
+            if (_touch != null)
+                return;
+
+            _touch = GetComponent<AvatarTouchReactions>();
+            if (_touch == null)
+                _touch = FindFirstObjectByType<AvatarTouchReactions>();
+            if (_touch == null)
+                return;
+
+            _touch.Touched -= OnTouched;
+            _touch.Touched += OnTouched;
+        }
+
+        void OnTouched(string zoneId)
+        {
+            if (_conversation == null || _conversation.IsBusy)
+                return;
+
+            SubmitUserText(TouchChatSignal.Prompt(zoneId));
         }
 
         void SubmitDraft(string text)

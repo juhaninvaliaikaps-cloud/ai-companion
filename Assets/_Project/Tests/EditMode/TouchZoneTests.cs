@@ -17,6 +17,26 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void ATouchSignalReadsLikeSomethingThatHappened()
+        {
+            Assert.AreEqual(TouchChatSignal.HeadText, TouchChatSignal.Prompt("head"));
+            Assert.AreEqual(TouchChatSignal.HandText, TouchChatSignal.Prompt("hand_left"));
+            Assert.AreEqual(TouchChatSignal.HandText, TouchChatSignal.Prompt("hand_right"));
+            Assert.AreEqual(TouchChatSignal.ShoulderText, TouchChatSignal.Prompt("shoulder_right"));
+            Assert.AreEqual(TouchChatSignal.GenericText, TouchChatSignal.Prompt("unknown"));
+            Assert.AreEqual(TouchChatSignal.GenericText, TouchChatSignal.Prompt(null));
+        }
+
+        [Test]
+        public void OnlyHandsAreHoldZones()
+        {
+            Assert.IsTrue(TouchChatSignal.IsHoldZone("hand_left"));
+            Assert.IsTrue(TouchChatSignal.IsHoldZone("hand_right"));
+            Assert.IsFalse(TouchChatSignal.IsHoldZone("head"));
+            Assert.IsFalse(TouchChatSignal.IsHoldZone("shoulder_left"));
+        }
+
+        [Test]
         public void AClickInsideAZonePicksIt()
         {
             string id;

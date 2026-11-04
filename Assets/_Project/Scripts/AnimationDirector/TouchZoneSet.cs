@@ -18,6 +18,9 @@ namespace AICompanion.AnimationDirector
         public Emotion emotion = Emotion.Happy;
         public float intensity = 0.6f;
         public string gesture = string.Empty;
+
+        /// <summary>Portrait name for the 2D frame, for example happy or shy. Empty keeps the emotion portrait.</summary>
+        public string expression = string.Empty;
         public float blush = 0.35f;
 
         /// <summary>Seconds before this zone can react again.</summary>
@@ -49,6 +52,7 @@ namespace AICompanion.AnimationDirector
                     emotion = Emotion.Happy,
                     intensity = 0.6f,
                     gesture = "nod_yes",
+                    expression = "happy",
                     blush = 0.35f,
                     cooldownSeconds = 1.5f,
                 },
@@ -60,6 +64,7 @@ namespace AICompanion.AnimationDirector
                     emotion = Emotion.Happy,
                     intensity = 0.7f,
                     gesture = string.Empty,
+                    expression = "shy",
                     blush = 0.5f,
                     cooldownSeconds = 1f,
                     hold = true,
@@ -72,6 +77,7 @@ namespace AICompanion.AnimationDirector
                     emotion = Emotion.Happy,
                     intensity = 0.7f,
                     gesture = string.Empty,
+                    expression = "shy",
                     blush = 0.5f,
                     cooldownSeconds = 1f,
                     hold = true,
@@ -84,6 +90,7 @@ namespace AICompanion.AnimationDirector
                     emotion = Emotion.Neutral,
                     intensity = 0.4f,
                     gesture = "shrug",
+                    expression = string.Empty,
                     blush = 0.2f,
                     cooldownSeconds = 2f,
                 },
@@ -95,6 +102,7 @@ namespace AICompanion.AnimationDirector
                     emotion = Emotion.Neutral,
                     intensity = 0.4f,
                     gesture = "shrug",
+                    expression = string.Empty,
                     blush = 0.2f,
                     cooldownSeconds = 2f,
                 },
