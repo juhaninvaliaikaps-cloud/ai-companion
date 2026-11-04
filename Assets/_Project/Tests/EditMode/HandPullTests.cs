@@ -49,6 +49,15 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void ALeadKeepsFollowingBelowTheStartThreshold()
+        {
+            // 0.9 of reach: too short to start, long enough to keep leading once walking.
+            var point = Shoulder + new Vector3(Reach * 0.9f, 0f, 0f);
+            Assert.AreEqual(0, HandPull.WalkDirection(point, Shoulder, Reach, HandPull.StretchFactor));
+            Assert.AreEqual(1, HandPull.WalkDirection(point, Shoulder, Reach, 0.85f));
+        }
+
+        [Test]
         public void AZeroReachNeverWalks()
         {
             Assert.AreEqual(0, HandPull.WalkDirection(Shoulder + Vector3.right, Shoulder, 0f));

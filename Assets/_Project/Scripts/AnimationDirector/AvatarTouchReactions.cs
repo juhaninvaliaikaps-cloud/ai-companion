@@ -235,7 +235,10 @@ namespace AICompanion.AnimationDirector
 
             var armLength = Vector3.Distance(shoulder.position, lower.position) + Vector3.Distance(lower.position, hand.position);
             var maxReach = Mathf.Max(0.05f, armLength * 0.95f);
-            var direction = HandPull.WalkDirection(requestedLocal, shoulderLocal, maxReach);
+            // Start at the edge, but keep following with a lower threshold: walking towards the
+            // pointer shortens the pull, and without hysteresis she would stop after one step.
+            var keepFactor = _walkDirection != 0 ? 0.85f : HandPull.StretchFactor;
+            var direction = HandPull.WalkDirection(requestedLocal, shoulderLocal, maxReach, keepFactor);
 
             var now = Time.unscaledTime;
             if (direction == 0)
