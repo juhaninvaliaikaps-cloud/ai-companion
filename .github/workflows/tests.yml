@@ -98,9 +98,10 @@ jobs:
           # PlayMode runs locally, or manually through workflow_dispatch.
           testMode: ${{ inputs.testMode || 'editmode' }}
           cliVersion: v0.1.72
-          # No githubToken: the action would create a second check run with this name and
-          # leave it neutral, so the PR showed NEUTRAL even when the job passed. The job
-          # status is the check. The env token above still covers GitHub rate limits.
+          # Explicit empty: the input defaults to the job token, and with it the action
+          # creates a second check run with this name that stays neutral, so the PR showed
+          # NEUTRAL even when the job passed. The env token above still covers rate limits.
+          githubToken: ''
           checkName: EditMode and PlayMode tests
 
       - name: Upload test results
