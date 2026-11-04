@@ -86,8 +86,6 @@ namespace AICompanion.Tests.EditMode
             Assert.IsFalse(model.TryApplyDebugKey(KeyCode.F7));
             Assert.IsFalse(model.TryApplyDebugKey(KeyCode.F8));
             Assert.AreEqual(Emotion.Neutral, model.Emotion);
-            StringAssert.DoesNotContain("F7", AvatarAnimatorModel.DebugHint);
-            StringAssert.DoesNotContain("F8", AvatarAnimatorModel.DebugHint);
         }
 
         [Test]

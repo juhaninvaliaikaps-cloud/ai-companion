@@ -20,10 +20,6 @@ namespace AICompanion.Overlay
     [DisallowMultipleComponent]
     public sealed class OverlayWindow : MonoBehaviour, ICompanionStartup, ITypingFocus, IDesktopWindow, ICompanionVisibility, IScreenCursor
     {
-        const string TopmostOnLabel = "Topmost on   F8";
-        const string TopmostOffLabel = "Topmost off  F8";
-        static readonly Rect PanelRect = new Rect(8f, 8f, 360f, 108f);
-        static GUIStyle _rotateStyle;
         static readonly Color AvatarTint = new Color(0.95f, 0.45f, 0.62f, 1f);
 
         [SerializeField] Renderer placeholderAvatar;
@@ -59,8 +55,6 @@ namespace AICompanion.Overlay
         int _appliedWidth = -1;
         int _appliedHeight = -1;
         AvatarCameraFrame _frame;
-        int _shownSizePct = -1;
-        int _shownZoomPct = -1;
         int _warmup;
         float _idleFor;
         int _appliedRate = -1;
@@ -77,20 +71,8 @@ namespace AICompanion.Overlay
         PointerEventData _pointer;
         EventSystem _pointerSystem;
         readonly List<RaycastResult> _uiHits = new List<RaycastResult>(4);
-        int _fpsFrames;
-        float _fpsTimer;
-        string _fpsText = "--";
         MonoBehaviour[] _behaviours;
-        IAvatarAnimator _animator;
         IAvatarTurntable _turntable;
-        string _emotionText = "";
-        Emotion _shownEmotion;
-        float _shownIntensity = -1f;
-        bool _shownTalking;
-        bool _emotionReady;
-        string _rotateText = AvatarRotateMode.OffLabel;
-        bool _shownRotating;
-        bool _rotateReady;
         float _lastSilhouetteClick = -1f;
         bool _touchPressed;
         bool _touchConsumed;
@@ -143,7 +125,8 @@ namespace AICompanion.Overlay
 
             EnsureChrome();
             bool inside = TryReadPointer(out var unityScreen, out var screenCursor);
-            bool overPanel = inside && OverlayPointerMath.IsInsideTopLeftRect(PanelRect, unityScreen, Screen.height);
+            // The debug bar is gone, so nothing above her is captured any more.
+            bool overPanel = false;
             bool overDebug = inside && IsOverDebugPanel(unityScreen);
             bool eventUi = inside && IsOverUi(unityScreen);
             bool overOtherUi = overDebug || eventUi;
@@ -263,7 +246,6 @@ namespace AICompanion.Overlay
                 _idleFor += Time.unscaledDeltaTime;
 
             ApplyFrameRate(OverlayFrameRate.Choose(_idleFor, idleAfterSeconds, activeFrameRate, idleFrameRate));
-            AccumulateFps();
 
             if (_warmup > 0 && _chrome.IsSupported)
             {
@@ -285,21 +267,6 @@ namespace AICompanion.Overlay
                 _chrome.SetWindowVisible(false);
         }
 
-        void OnGUI()
-        {
-            if (!_started)
-                return;
-
-            RefreshEmotionLabel();
-            RefreshRotateLabel();
-            var line = RotateStyle();
-            GUI.Box(PanelRect, GUIContent.none);
-            GUI.Label(new Rect(12f, 10f, 336f, 18f), _topmost ? TopmostOnLabel : TopmostOffLabel, line);
-            GUI.Label(new Rect(12f, 28f, 336f, 18f), _fpsText, line);
-            GUI.Label(new Rect(12f, 46f, 336f, 18f), _emotionText, line);
-            GUI.Label(new Rect(12f, 64f, 336f, 18f), AvatarAnimatorModel.DebugHint, line);
-            GUI.Label(new Rect(12f, 82f, 336f, 18f), _rotateText, line);
-        }
 
         void OnDestroy()
         {
@@ -763,18 +730,6 @@ namespace AICompanion.Overlay
             return Input.GetMouseButton(2);
         }
 
-        static GUIStyle RotateStyle()
-        {
-            if (_rotateStyle == null)
-            {
-                _rotateStyle = new GUIStyle(GUI.skin.label);
-                _rotateStyle.wordWrap = false;
-                _rotateStyle.clipping = TextClipping.Clip;
-            }
-
-            return _rotateStyle;
-        }
-
         void QueueAlphaSample(bool inside, bool outsideSlack, Vector2Int pixel)
         {
             if (!SilhouetteHit.ShouldSample(inside, outsideSlack, _sampleRoutineRunning))
@@ -825,61 +780,6 @@ namespace AICompanion.Overlay
 
             _appliedRate = rate;
             Application.targetFrameRate = rate;
-        }
-
-        void RefreshEmotionLabel()
-        {
-            if (_animator == null)
-                _animator = GetComponent<IAvatarAnimator>();
-            if (_animator == null)
-            {
-                if (_emotionText.Length != 0)
-                    _emotionText = string.Empty;
-                return;
-            }
-
-            var emotion = _animator.Emotion;
-            var intensity = _animator.EmotionIntensity;
-            var talking = _animator.IsTalking;
-            if (_emotionReady && emotion == _shownEmotion && talking == _shownTalking && intensity == _shownIntensity)
-                return;
-
-            _emotionReady = true;
-            _shownEmotion = emotion;
-            _shownIntensity = intensity;
-            _shownTalking = talking;
-            _emotionText = AvatarAnimatorModel.FormatLabel(emotion, intensity, talking);
-        }
-
-        void RefreshRotateLabel()
-        {
-            int sizePct = Mathf.RoundToInt(_windowScale * 100f);
-            int zoomPct = _frame != null && _frame.ShownZoom > 0.01f
-                ? Mathf.Max(1, Mathf.RoundToInt(_frame.ShownZoom * 100f))
-                : 0;
-            if (_rotateReady && _shownRotating == _rotating && _shownSizePct == sizePct && _shownZoomPct == zoomPct)
-                return;
-
-            _rotateReady = true;
-            _shownRotating = _rotating;
-            _shownSizePct = sizePct;
-            _shownZoomPct = zoomPct;
-            _rotateText = AvatarRotateMode.Format(_rotating) + "   Size " + sizePct + "%";
-            if (zoomPct > 1)
-                _rotateText += "   Zoom " + zoomPct + "%";
-        }
-
-        void AccumulateFps()
-        {
-            _fpsFrames++;
-            _fpsTimer += Time.unscaledDeltaTime;
-            if (_fpsTimer < 0.5f)
-                return;
-
-            int fps = Mathf.RoundToInt(_fpsFrames / _fpsTimer);
-            _fpsText = fps.ToString() + " fps";
-            _fpsFrames = 0;
-            _fpsTimer = 0f;
         }
 
         void TintAvatar()
