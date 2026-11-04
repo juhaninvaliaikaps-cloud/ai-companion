@@ -170,6 +170,7 @@ namespace AICompanion.UI
             if (_touch != null)
             {
                 _touch.Touched -= OnTouched;
+                _touch.HandHoldStarted -= OnHandHoldStarted;
                 _touch.HandHeld -= OnHandHeld;
             }
             _alive = false;
@@ -268,6 +269,8 @@ namespace AICompanion.UI
 
             _touch.Touched -= OnTouched;
             _touch.Touched += OnTouched;
+            _touch.HandHoldStarted -= OnHandHoldStarted;
+            _touch.HandHoldStarted += OnHandHoldStarted;
             _touch.HandHeld -= OnHandHeld;
             _touch.HandHeld += OnHandHeld;
         }
@@ -278,6 +281,15 @@ namespace AICompanion.UI
                 return;
 
             SubmitUserText(TouchChatSignal.Prompt(zoneId));
+        }
+
+        /// <summary>Sent when the hand drag begins, so she can react to being held right away.</summary>
+        void OnHandHoldStarted(string zoneId)
+        {
+            if (_conversation == null || _conversation.IsBusy)
+                return;
+
+            SubmitUserText(TouchChatSignal.HoldStartPrompt(zoneId));
         }
 
         /// <summary>A dragged hand that is finally let go reads as a held hand, not a pat.</summary>

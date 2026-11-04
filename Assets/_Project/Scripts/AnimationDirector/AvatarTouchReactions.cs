@@ -38,6 +38,9 @@ namespace AICompanion.AnimationDirector
         /// <summary>Raised with the zone id when a touch reaction plays, so the chat can react in words.</summary>
         public event Action<string> Touched;
 
+        /// <summary>Raised when a hand drag starts, so she knows the hand is being held.</summary>
+        public event Action<string> HandHoldStarted;
+
         /// <summary>Raised when a hand drag ends, so holding the hand reads as a hold.</summary>
         public event Action<string> HandHeld;
 
@@ -195,6 +198,10 @@ namespace AICompanion.AnimationDirector
                 _controller.AddTouchBlush(0.15f, 2.5f);
 
             Debug.Log("Touch: dragging " + zone.id);
+
+            // Tell the model while it is still happening, not only when the hand is released.
+            if (HandHoldStarted != null)
+                HandHoldStarted(zone.id);
         }
 
         void EndHandDrag()

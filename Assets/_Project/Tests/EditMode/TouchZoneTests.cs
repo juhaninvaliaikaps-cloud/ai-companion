@@ -54,6 +54,15 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void TakingTheHandHasItsOwnLineToo()
+        {
+            Assert.AreEqual(TouchChatSignal.HoldStartText, TouchChatSignal.HoldStartPrompt("hand_left"));
+            Assert.AreEqual(TouchChatSignal.HoldStartText, TouchChatSignal.HoldStartPrompt("hand_right"));
+            Assert.AreEqual(TouchChatSignal.GenericText, TouchChatSignal.HoldStartPrompt("shoulder_left"));
+            Assert.AreEqual(TouchChatSignal.HoldStartText, TouchChatSignal.HoldStartPrompt(null));
+        }
+
+        [Test]
         public void LettingGoOfAHeldHandHasItsOwnLine()
         {
             Assert.AreEqual(TouchChatSignal.HoldText, TouchChatSignal.HoldPrompt("hand_left"));

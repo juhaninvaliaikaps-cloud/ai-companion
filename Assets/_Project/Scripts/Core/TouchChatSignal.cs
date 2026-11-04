@@ -44,6 +44,7 @@ namespace AICompanion.Core
         }
 
         public const string HoldText = "*Someone holds your hand for a while, then lets go.*";
+        public const string HoldStartText = "*Someone takes your hand and holds it.*";
 
         /// <summary>The line sent when a hand drag ends, so holding reads as holding.</summary>
         public static string HoldPrompt(string zoneId)
@@ -53,6 +54,16 @@ namespace AICompanion.Core
 
             var id = zoneId.Trim().ToLowerInvariant();
             return id == "hand_left" || id == "hand_right" || id == "hand" ? HoldText : GenericText;
+        }
+
+        /// <summary>The line sent when a hand drag starts, so she reacts while it is happening.</summary>
+        public static string HoldStartPrompt(string zoneId)
+        {
+            if (string.IsNullOrWhiteSpace(zoneId))
+                return HoldStartText;
+
+            var id = zoneId.Trim().ToLowerInvariant();
+            return id == "hand_left" || id == "hand_right" || id == "hand" ? HoldStartText : GenericText;
         }
 
         public static bool IsHoldZone(string zoneId)
