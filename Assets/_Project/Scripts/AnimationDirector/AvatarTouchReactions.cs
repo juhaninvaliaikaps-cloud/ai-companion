@@ -34,6 +34,10 @@ namespace AICompanion.AnimationDirector
         float _dragDepth;
         bool _pressed;
         float _blushTickAt;
+        IWalkRequest _walk;
+        int _walkDirection;
+        float _walkRefreshAt;
+        Vector3 _ikTarget;
 
         /// <summary>Raised with the zone id when a touch reaction plays, so the chat can react in words.</summary>
         public event Action<string> Touched;
@@ -72,6 +76,8 @@ namespace AICompanion.AnimationDirector
                 _controller = UnityEngine.Object.FindFirstObjectByType<AvatarAnimationController>();
             if (avatarCamera == null)
                 avatarCamera = Camera.main;
+            if (_walk == null)
+                _walk = FindWalkRequest();
         }
 
         public void SetZones(TouchZoneSet set)
@@ -159,13 +165,16 @@ namespace AICompanion.AnimationDirector
 
             var pointer = (Vector3)Input.mousePosition;
             pointer.z = _dragDepth;
-            _ik.MoveTo(avatarCamera.ScreenToWorldPoint(pointer));
+            _ikTarget = avatarCamera.ScreenToWorldPoint(pointer);
+            _ik.MoveTo(_ikTarget);
 
             if (_controller != null && Time.unscaledTime >= _blushTickAt)
             {
                 _controller.AddTouchBlush(0.12f, 2.5f);
                 _blushTickAt = Time.unscaledTime + 0.35f;
             }
+
+            UpdatePullWalk();
         }
 
         void BeginHandDrag(TouchZone zone)
@@ -204,6 +213,76 @@ namespace AICompanion.AnimationDirector
                 HandHoldStarted(zone.id);
         }
 
+        /// <summary>
+        /// Pulling a hand past her sideways reach leads her: she walks that way until you stop
+        /// pulling or let go. Walking uses the same IWalkRequest the director uses.
+        /// </summary>
+        void UpdatePullWalk()
+        {
+            if (_dragging == null || _animator == null || _walk == null)
+                return;
+
+            var left = _dragGoal == AvatarIKGoal.LeftHand;
+            var shoulder = _animator.GetBoneTransform(left ? HumanBodyBones.LeftUpperArm : HumanBodyBones.RightUpperArm);
+            var lower = _animator.GetBoneTransform(left ? HumanBodyBones.LeftLowerArm : HumanBodyBones.RightLowerArm);
+            var hand = _animator.GetBoneTransform(left ? HumanBodyBones.LeftHand : HumanBodyBones.RightHand);
+            if (shoulder == null || lower == null || hand == null)
+                return;
+
+            var root = _animator.transform;
+            var shoulderLocal = root.InverseTransformPoint(shoulder.position);
+            var requestedLocal = root.InverseTransformPoint(_ikTarget);
+
+            var armLength = Vector3.Distance(shoulder.position, lower.position) + Vector3.Distance(lower.position, hand.position);
+            var maxReach = Mathf.Max(0.05f, armLength * 0.95f);
+            var direction = HandPull.WalkDirection(requestedLocal, shoulderLocal, maxReach);
+
+            var now = Time.unscaledTime;
+            if (direction == 0)
+            {
+                if (_walkDirection != 0)
+                {
+                    _walkDirection = 0;
+                    _walk.RequestStop();
+                }
+
+                return;
+            }
+
+            var changed = direction != _walkDirection;
+            var expired = now >= _walkRefreshAt;
+            if (!changed && !expired)
+                return;
+
+            _walkDirection = direction;
+            _walkRefreshAt = now + 0.4f;
+            _walk.RequestWalk(direction, 0.6f);
+
+            if (changed)
+                Debug.Log("Touch: leading her " + (direction < 0 ? "left" : "right"));
+        }
+
+        IWalkRequest FindWalkRequest()
+        {
+            var behaviours = GetComponents<MonoBehaviour>();
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                var request = behaviours[i] as IWalkRequest;
+                if (request != null)
+                    return request;
+            }
+
+            var all = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+            for (var i = 0; i < all.Length; i++)
+            {
+                var request = all[i] as IWalkRequest;
+                if (request != null)
+                    return request;
+            }
+
+            return null;
+        }
+
         void EndHandDrag()
         {
             if (_dragging == null)
@@ -211,6 +290,12 @@ namespace AICompanion.AnimationDirector
 
             if (_ik != null)
                 _ik.Release();
+
+            if (_walkDirection != 0 && _walk != null)
+            {
+                _walkDirection = 0;
+                _walk.RequestStop();
+            }
 
             _dragging = null;
         }
