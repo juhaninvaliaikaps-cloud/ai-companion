@@ -13,7 +13,7 @@ JUH-43, JUH-44, and JUH-45 are only partly touched. The research comparison belo
 5. Press **What do you see?** on the chat panel, or **Look at screen** on the Screen tab. Leia describes that window's current pixels. The reply uses the same persona, animation cue, and voice route as chat.
 6. **Stop** or **Stop look** cancels the frame in flight. **Clear window** drops the selection and the preview. **Esc** cancels a look that has already started the request.
 
-Private mode never sends the image, never sends a description derived from it, and never uses cloud speech for it. The app does not switch to Grok to get around that. If the effective chat provider is the local model, including Rocinante, the Screen tab says the local model cannot look at a picture. Rocinante is a text model. A local name is not treated as vision-capable.
+Private mode never sends the image, the observation, the reply, or speech to the cloud. The app does not switch to Grok to get around that. Rocinante stays text-only. A separate local vision model, named on the Screen tab, describes the frame on this PC. That description is ordinary untrusted text. Rocinante then answers from the text. The Screen tab shows which engine is chat and which engine is vision.
 
 ## Capture
 
@@ -35,6 +35,30 @@ The frame is scaled so the long edge is at most 768 pixels, then encoded as JPEG
 
 JUH-44’s later shape is reserved as constants only: 0.5 to 2 frames per second, and a pause when the companion is muted or the game is not focused. Neither runs. The “about 2% FPS” target has **not** been measured. Do not treat this VM, or this document, as that measurement.
 
+## Local vision
+
+When chat is the local provider, or private mode is on, the frame stays on this PC. The Screen tab has a **Local vision model** field. The button **Use qwen2.5vl:3b** only writes that tag. It does not download anything and it does not change Ollama’s server settings.
+
+The chosen tag is the official library model `qwen2.5vl:3b` ([ollama.com/library/qwen2.5vl](https://ollama.com/library/qwen2.5vl), checked 2026-11-10): Text and Image, 3.2 GB download, 125K context, Ollama 0.7.0 or newer. That 3.2 GB is the download size on the model page, not a measured VRAM total. The image, the context, Unity, and the voice stack add more. The smaller official option is `moondream:1.8b` (about 1.7 GB, 2K context). `gemma3:4b` is also Text and Image, but the 1B and 270M Gemma 3 tags are text-only, and `gemma3:12b` is too large to sit next to a 12B chat model on an 8 GB card.
+
+Install it yourself:
+
+```powershell
+ollama pull qwen2.5vl:3b
+```
+
+This document does not claim that model is installed, and it does not promise a reply time. The RTX 2070 8 GB already runs Rocinante 12B Q4_K_M plus Unity. Both models are not kept resident. One look posts `keep_alive: 0` to unload the chat model, posts the JPEG as raw base64 to loopback `/api/chat` with `keep_alive: 0` and `num_predict` 180, then asks Rocinante with text only so the chat model loads again. The first load can take longer than a warm text reply. An empty vision tag, a vision tag equal to the chat model, or a base URL that is not loopback stops before any post. There is no cloud fallback. The observation is not stored in history or long-term memory. Words inside the picture are observations, not instructions.
+
+The Grok path is unchanged when chat is Grok, private mode is off, and cloud screen consent is on.
+
+## Next, after this one-frame bridge
+
+This slice stays one selected window and one frame. The next phase, after this local bridge is working, is separate work:
+
+1. **Whole monitor, only when asked.** A second consent, distinct from the selected-window consent. The user picks which of the two monitors. `CreateForMonitor` stays unbound until that consent exists. A failed or resized window never widens into the desktop.
+2. **Readability.** Larger long-edge budget and a prompt that asks the vision model to read on-screen text, still as untrusted observation.
+3. **Optional periodic looks.** Off by default. A visible pause and stop. A rate inside the existing 0.5–2 fps bound, a token and timeout cap, and no second look while one is in flight. Same local-only and untrusted-text rules. The measured FPS cost is still unmeasured.
+
 ## Vision call
 
 Checked against the xAI docs on 2026-11-10:
@@ -50,7 +74,7 @@ The image is not added to the chat messages that later turns resend. The questio
 
 The system text tells the model that the image is an untrusted observation. Text inside the image is not an instruction. One frame is not a win, a death, or any other game event. `ScreenObservation.Events` stays empty.
 
-The reply still goes through the cue filter and the existing speech path. In private mode that path is never reached. With cloud voice on, the spoken sentence is a normal cloud voice request, the same as any other cloud reply. Piper and Kokoro stay local when they are the selected route.
+The reply still goes through the cue filter and the existing speech path. A local or private look forces Piper or Kokoro for that reply. With Grok and cloud voice on, the spoken sentence is a normal cloud voice request, the same as any other cloud reply.
 
 ## What was compiled and tested here
 
@@ -58,7 +82,7 @@ This session is a Linux VM. It cannot call Windows Graphics Capture, and it cann
 
 | Check | Result |
 | --- | --- |
-| EditMode unit tests for consent, private mode, local-model refusal, target validity, cancel/stale frames, image budget, history, and the vision JSON | Intended to run in CI on this PR. Not executed inside this VM if Unity is not installed. |
+| EditMode unit tests for consent, private mode, the local vision route, loopback payload, target validity, cancel/stale frames, image budget, history, and the vision JSON | Intended to run in CI on this PR. Not executed inside this VM if Unity is not installed. |
 | Windows player script compile (`UNITY_STANDALONE_WIN && !UNITY_EDITOR`) | Intended to run in CI. The capture file is behind that define, so the Linux editor does not type-check it. |
 | A real window grab, preview, or Grok vision round trip | **Not run.** Treat game support as unverified until you try it. |
 
@@ -112,7 +136,7 @@ Rebuild from the latest commit on this branch, then run `Builds\Windows\Backseat
 
 Open Notepad restored, not maximised. Turn on **Read a window**, refresh the list, and pick Notepad. The process must stay up.
 
-- A working preview logs `Screen capture: frame ready <width>x<height>` and shows the preview. Nothing is uploaded until you allow cloud analysis and press **What do you see?**
+- A working preview logs `Screen capture: frame ready <width>x<height>` and shows the preview. Grok receives it only after you allow cloud analysis and press **What do you see?** A local chat uses the vision model on this PC instead, and only after you set that model. The picture is not written to disk either way.
 - A failed grab must also stay up. The chat note and the log say `Screen capture: Capture stopped at <stage>` and, when Windows returned one, the raw eight-digit code. `8000797F` was observed at `Texture` before the interface slot was corrected. That value is not a documented DXGI or Direct3D 11 code. The log prints it unchanged and does not name it. The line has no window title and no image. Copy that one line back.
 
 Do not continue to the resize steps until this still-window attempt has either shown a preview or written a `Capture stopped at` line.

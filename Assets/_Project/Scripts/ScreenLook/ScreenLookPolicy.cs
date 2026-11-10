@@ -10,22 +10,36 @@ namespace AICompanion.ScreenLook
         public bool AllowCloud;
         public string EffectiveProviderId;
         public string CloudModel;
+        public string ChatModel;
+        public string LocalVisionModel;
         public bool Busy;
         public bool Automatic;
         public bool MonitorRequested;
         public WindowTarget Target;
     }
 
+    public enum ScreenLookRoute
+    {
+        None = 0,
+        Cloud = 1,
+        Local = 2
+    }
+
     public readonly struct ScreenLookDecision
     {
         public bool AllowPreview { get; }
-        public bool AllowSend { get; }
+        public ScreenLookRoute Route { get; }
         public string Message { get; }
 
-        public ScreenLookDecision(bool allowPreview, bool allowSend, string message)
+        public bool AllowSend
+        {
+            get { return Route != ScreenLookRoute.None; }
+        }
+
+        public ScreenLookDecision(bool allowPreview, ScreenLookRoute route, string message)
         {
             AllowPreview = allowPreview;
-            AllowSend = allowSend;
+            Route = route;
             Message = message ?? string.Empty;
         }
     }
@@ -52,43 +66,55 @@ namespace AICompanion.ScreenLook
         public const string Blank = "The capture was empty or black. Protected and exclusive fullscreen windows often do this. Nothing was sent.";
         public const string CaptureFailed = "That window could not be captured. Exclusive fullscreen, a protected window, or a closed window can do this. Nothing was sent.";
         public const string PlayerOnly = "Window capture runs in the Windows player. This session cannot grab another window.";
+        public const string MissingLocalVision = "No local vision model is set. The text model does not read pictures. Set one under Settings, Screen. Nothing was sent, and the app did not switch to a cloud model.";
 
         public static ScreenLookDecision Evaluate(ScreenLookInput input)
         {
             input = input ?? new ScreenLookInput();
             if (!input.FeatureEnabled)
-                return new ScreenLookDecision(false, false, FeatureOff);
+                return new ScreenLookDecision(false, ScreenLookRoute.None, FeatureOff);
             if (input.Busy)
-                return new ScreenLookDecision(false, false, Busy);
+                return new ScreenLookDecision(false, ScreenLookRoute.None, Busy);
             if (input.Automatic && !ScreenLookSchedule.AutomaticSamplingEnabled)
-                return new ScreenLookDecision(false, false, AutomaticRefused);
+                return new ScreenLookDecision(false, ScreenLookRoute.None, AutomaticRefused);
             if (input.MonitorRequested && !CapturePlan.MonitorCaptureAllowed)
-                return new ScreenLookDecision(false, false, MonitorRefused);
+                return new ScreenLookDecision(false, ScreenLookRoute.None, MonitorRefused);
 
             var validity = WindowTargetRules.Check(input.Target);
             if (validity == TargetValidity.Missing)
-                return new ScreenLookDecision(false, false, NeedWindow);
+                return new ScreenLookDecision(false, ScreenLookRoute.None, NeedWindow);
             if (validity == TargetValidity.Desktop)
-                return new ScreenLookDecision(false, false, DesktopRefused);
+                return new ScreenLookDecision(false, ScreenLookRoute.None, DesktopRefused);
             if (validity == TargetValidity.OwnProcess)
-                return new ScreenLookDecision(false, false, OwnWindow);
+                return new ScreenLookDecision(false, ScreenLookRoute.None, OwnWindow);
             if (validity == TargetValidity.Closed)
-                return new ScreenLookDecision(false, false, Closed);
+                return new ScreenLookDecision(false, ScreenLookRoute.None, Closed);
             if (validity == TargetValidity.Minimized)
-                return new ScreenLookDecision(false, false, Minimized);
+                return new ScreenLookDecision(false, ScreenLookRoute.None, Minimized);
 
-            if (input.PrivateMode || !input.AllowCloud)
-                return new ScreenLookDecision(true, false, VisionCapability.PrivateRefusal);
+            var localChat = input.PrivateMode
+                || !input.AllowCloud
+                || string.Equals(input.EffectiveProviderId, ChatDefaults.LocalId, System.StringComparison.OrdinalIgnoreCase);
+            if (localChat)
+                return LocalRoute(input.LocalVisionModel, input.ChatModel);
 
-            var local = string.Equals(input.EffectiveProviderId, ChatDefaults.LocalId, System.StringComparison.OrdinalIgnoreCase);
-            if (local)
-                return new ScreenLookDecision(true, false, VisionCapability.LocalRefusal);
             if (!VisionCapability.CloudModelAcceptsImages(input.CloudModel))
-                return new ScreenLookDecision(true, false, VisionCapability.ModelRefusal);
+                return new ScreenLookDecision(true, ScreenLookRoute.None, VisionCapability.ModelRefusal);
             if (!input.CloudConsent)
-                return new ScreenLookDecision(true, false, ConsentRequired);
+                return new ScreenLookDecision(true, ScreenLookRoute.None, ConsentRequired);
 
-            return new ScreenLookDecision(true, true, string.Empty);
+            return new ScreenLookDecision(true, ScreenLookRoute.Cloud, string.Empty);
+        }
+
+        static ScreenLookDecision LocalRoute(string visionModel, string chatModel)
+        {
+            var vision = visionModel == null ? string.Empty : visionModel.Trim();
+            var chat = chatModel == null ? string.Empty : chatModel.Trim();
+            if (vision.Length == 0)
+                return new ScreenLookDecision(true, ScreenLookRoute.None, MissingLocalVision);
+            if (chat.Length > 0 && string.Equals(vision, chat, System.StringComparison.OrdinalIgnoreCase))
+                return new ScreenLookDecision(true, ScreenLookRoute.None, LocalVisionExchange.SameAsChat);
+            return new ScreenLookDecision(true, ScreenLookRoute.Local, string.Empty);
         }
     }
 }

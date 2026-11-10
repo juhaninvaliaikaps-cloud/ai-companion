@@ -26,6 +26,7 @@ namespace AICompanion.Tests.EditMode
             Assert.IsFalse(settings.PrivateMode);
             Assert.IsFalse(settings.ScreenLookEnabled);
             Assert.IsFalse(settings.ScreenCloudConsent);
+            Assert.AreEqual(string.Empty, settings.LocalVisionModel);
             Assert.IsFalse(settings.ChatHistory);
             Assert.IsTrue(settings.HideTaskbarButton);
             Assert.AreEqual(OverlayFrameRate.Idle, settings.IdleFrameRate);

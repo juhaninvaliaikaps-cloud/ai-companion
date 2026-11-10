@@ -24,6 +24,7 @@ namespace AICompanion.Settings
         Texture2D _preview;
         bool _waitingForChat;
         bool _alive = true;
+        CancellationTokenSource _visionCancel;
         int _activeGeneration;
 
         public int Revision { get; private set; }
@@ -122,6 +123,8 @@ namespace AICompanion.Settings
         public void Stop()
         {
             WindowCapture.CancelActive();
+            if (_visionCancel != null)
+                _visionCancel.Cancel();
             var sendInFlight = _waitingForChat;
             _gate.Cancel();
             _waitingForChat = false;
@@ -272,7 +275,7 @@ namespace AICompanion.Settings
             }
 
             var decision = ScreenLookPolicy.Evaluate(BuildInput());
-            if (!decision.AllowSend)
+            if (decision.Route == ScreenLookRoute.None)
             {
                 _gate.Leave(generation);
                 Wipe(frame);
@@ -306,6 +309,13 @@ namespace AICompanion.Settings
             }
 
             Log(true, width, height, null);
+
+            if (decision.Route == ScreenLookRoute.Local)
+            {
+                Wipe(frame);
+                RunLocalVision(generation, jpeg);
+                return;
+            }
 
             if (!_gate.IsCurrent(generation))
             {
@@ -399,6 +409,8 @@ namespace AICompanion.Settings
                 AllowCloud = OutboundPrivacy.AllowsCloudVision(privateMode),
                 EffectiveProviderId = OutboundPrivacy.ChatProviderId(privateMode, selected),
                 CloudModel = current != null ? current.Model : ChatDefaults.Model,
+                ChatModel = current != null ? current.LocalModel : ChatDefaults.LocalModel,
+                LocalVisionModel = current != null ? current.LocalVisionModel : string.Empty,
                 Busy = false,
                 Automatic = false,
                 MonitorRequested = false,
@@ -410,6 +422,80 @@ namespace AICompanion.Settings
         {
             var settings = GetComponent<SettingsPanel>();
             return settings != null && settings.CurrentSettings != null && settings.CurrentSettings.ScreenLookEnabled;
+        }
+
+        async void RunLocalVision(int generation, byte[] jpeg)
+        {
+            var cts = new CancellationTokenSource();
+            _visionCancel = cts;
+            var panel = GetComponent<SettingsPanel>();
+            var current = panel != null ? panel.CurrentSettings : null;
+            var vision = current != null ? current.LocalVisionModel : string.Empty;
+            Touch("Vision engine: " + vision + " on this PC. The chat model is not reading the picture.");
+            try
+            {
+                var timeout = current != null ? current.TimeoutSeconds : ChatDefaults.TimeoutSeconds;
+                if (timeout < 30f)
+                    timeout = 30f;
+                if (timeout > 180f)
+                    timeout = 180f;
+                var result = await LocalVisionExchange.Run(
+                    new UnityChatTransport(this),
+                    current != null ? current.LocalBaseUrl : ChatDefaults.LocalBaseUrl,
+                    current != null ? current.LocalModel : ChatDefaults.LocalModel,
+                    vision,
+                    jpeg,
+                    timeout,
+                    cts.Token);
+                if (!_alive)
+                    return;
+                if (!_gate.IsCurrent(generation) || cts.IsCancellationRequested || result.Cancelled)
+                {
+                    _gate.Leave(generation);
+                    var cancelled = string.IsNullOrEmpty(result.Message) ? "Look cancelled. Nothing was sent." : result.Message;
+                    Note(cancelled);
+                    Touch(cancelled);
+                    Log(false, 0, 0, cancelled);
+                    return;
+                }
+
+                if (!result.Ok)
+                {
+                    _gate.Leave(generation);
+                    Note(result.Message);
+                    Touch(result.Message);
+                    Log(false, 0, 0, result.Message);
+                    return;
+                }
+
+                var chat = GetComponent<ChatPanel>();
+                _waitingForChat = chat != null && chat.SubmitTextObservation(result.Observation);
+                if (!_waitingForChat)
+                {
+                    _gate.Leave(generation);
+                    Touch("The local text model did not start. Nothing was sent to the cloud.");
+                    return;
+                }
+
+                Touch("Chat engine is replying from the local text model. The picture stayed on this PC.");
+            }
+            catch (Exception ex)
+            {
+                if (_gate.IsCurrent(generation))
+                    _gate.Leave(generation);
+                var message = CaptureDiagnostics.Stopped(ex.GetType().Name, 0);
+                Note(message);
+                Touch(message);
+                Log(false, 0, 0, message);
+            }
+            finally
+            {
+                if (jpeg != null && jpeg.Length > 0)
+                    Array.Clear(jpeg, 0, jpeg.Length);
+                if (_visionCancel == cts)
+                    _visionCancel = null;
+                cts.Dispose();
+            }
         }
 
         void Log(bool ok, int width, int height, string error)

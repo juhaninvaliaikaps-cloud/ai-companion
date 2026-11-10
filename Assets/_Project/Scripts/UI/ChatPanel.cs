@@ -362,6 +362,46 @@ namespace AICompanion.UI
             return true;
         }
 
+        /// <summary>
+        /// Text-only follow-up after a local vision model has already described the window.
+        /// The image is not attached. The turn stays out of history and memory.
+        /// </summary>
+        public bool SubmitTextObservation(string observation)
+        {
+            if (!_alive || string.IsNullOrWhiteSpace(observation))
+                return false;
+            if (!_started)
+                StartCompanion();
+            if (!_visible)
+                SetVisible(true, false);
+            if (_conversation == null || _conversation.IsBusy)
+                return false;
+
+            var privacy = GetComponent<IPrivacyMode>();
+            var privateMode = privacy != null && privacy.PrivateMode;
+            var providerId = ChatDefaults.LocalId;
+            if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
+            {
+                _conversation.AddSystem(ChatErrors.UnknownProvider(providerId));
+                RefreshTranscript(true);
+                return false;
+            }
+
+            if (_cancel != null)
+                _cancel.Dispose();
+            _cancel = new CancellationTokenSource();
+            BeginSpeech(true, providerId);
+            var prompt = VisionPrompt.AppendLocalChat(DirectorPrompt.Append(settings.systemPrompt, DirectorSuffix()));
+            var options = new ChatTurnOptions
+            {
+                SingleTurn = true,
+                Ephemeral = true,
+                BlockCloud = true
+            };
+            Dispatch(provider, VisionPrompt.LocalObservationTurn(observation), prompt, settings.temperature, settings.maxTokens, _cancel.Token, options, false);
+            return true;
+        }
+
         static bool OutboundAllowsVision(bool privateMode)
         {
             return !privateMode;

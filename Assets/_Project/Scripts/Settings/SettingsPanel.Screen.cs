@@ -1,3 +1,4 @@
+using AICompanion.AI;
 using AICompanion.ScreenLook;
 using UnityEngine;
 using UnityEngine.UI;
@@ -53,8 +54,28 @@ namespace AICompanion.Settings
                 ApplyLive();
                 _rebuild = true;
             });
-            if (_settings.PrivateMode)
-                NoteBlock("Private mode is on. Images stay on this PC, and cloud speech stays off. The local model cannot look at a picture.");
+            var localChat = _settings.PrivateMode || _settings.ProviderId == ChatDefaults.LocalId;
+            NoteBlock("Chat engine: " + (localChat ? "local text (" + _settings.LocalModel + ")" : "Grok (" + _settings.Model + ")")
+                + ". Vision engine: " + (localChat
+                    ? (string.IsNullOrEmpty(_settings.LocalVisionModel) ? "not set" : _settings.LocalVisionModel + " on this PC")
+                    : "Grok after cloud consent")
+                + ".");
+            AddField("Local vision model", _settings.LocalVisionModel, false, value =>
+            {
+                _settings.LocalVisionModel = value;
+                ApplyLive();
+            });
+            AddButton("Use qwen2.5vl:3b", () =>
+            {
+                _settings.LocalVisionModel = OllamaVision.RecommendedTag;
+                ApplyLive();
+                _rebuild = true;
+            });
+            NoteBlock("The vision model and the chat model are different. Rocinante stays text-only. Install the vision model yourself with " + OllamaVision.PullCommand + ". One frame loads it, then unloads it, then the text model loads for the reply. A smaller tag is " + OllamaVision.SmallerTag + ". This screen does not download models or change Ollama's server settings.");
+            if (localChat && _settings.PrivateMode)
+                NoteBlock("Private mode uses that local vision model, then the local text model. The image, the observation, the reply, and speech stay on this PC. There is no cloud fallback.");
+            else if (localChat)
+                NoteBlock("This chat stays on this PC. The selected window goes to the local vision model, then the text model replies. Allowing cloud screen analysis does not send this frame.");
             else if (!_settings.ScreenCloudConsent)
                 NoteBlock("Cloud screen analysis is off. What do you see? will not send a frame until you allow it.");
             else

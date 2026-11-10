@@ -81,6 +81,12 @@ namespace AICompanion.Settings
         /// </summary>
         public bool ScreenCloudConsent;
 
+        /// <summary>
+        /// Ollama tag for the vision model. Empty until the user sets one.
+        /// The text chat model is a different field and is not assumed to read images.
+        /// </summary>
+        public string LocalVisionModel = string.Empty;
+
         public string CompanionName = string.Empty;
         public string Relationship = RelationshipStyles.Friend;
 
@@ -108,6 +114,7 @@ namespace AICompanion.Settings
             Model = CleanToken(Model, ChatDefaults.Model, MaxModelLength);
             BaseUrl = CleanUrl(BaseUrl, ChatDefaults.BaseUrl);
             LocalModel = CleanToken(LocalModel, ChatDefaults.LocalModel, MaxModelLength);
+            LocalVisionModel = CleanToken(LocalVisionModel, string.Empty, MaxModelLength);
             LocalBaseUrl = CleanUrl(LocalBaseUrl, ChatDefaults.LocalBaseUrl);
             if (float.IsNaN(TimeoutSeconds) || float.IsInfinity(TimeoutSeconds) || TimeoutSeconds < 1f || TimeoutSeconds > 300f)
                 TimeoutSeconds = ChatDefaults.TimeoutSeconds;
@@ -448,6 +455,8 @@ namespace AICompanion.Settings
                 settings.ScreenLookEnabled = flag;
             if (TryBool(json, "screenCloudConsent", out flag))
                 settings.ScreenCloudConsent = flag;
+            if (TryString(json, "localVisionModel", out text))
+                settings.LocalVisionModel = text;
             if (TryString(json, "companionName", out text))
                 settings.CompanionName = text;
             if (TryString(json, "relationship", out text))
@@ -505,6 +514,7 @@ namespace AICompanion.Settings
             Bool(sb, "privateMode", source.PrivateMode);
             Bool(sb, "screenLookEnabled", source.ScreenLookEnabled);
             Bool(sb, "screenCloudConsent", source.ScreenCloudConsent);
+            String(sb, "localVisionModel", source.LocalVisionModel);
             String(sb, "companionName", source.CompanionName);
             String(sb, "relationship", source.Relationship);
             String(sb, "personaId", source.PersonaId);
