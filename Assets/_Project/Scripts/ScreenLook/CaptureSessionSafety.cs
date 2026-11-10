@@ -37,19 +37,39 @@ namespace AICompanion.ScreenLook
     }
 
     /// <summary>
+    /// Slots and IIDs shared with the Windows capture backend. Tests lock these
+    /// so a WinRT offset is not used on an IUnknown interface.
+    /// </summary>
+    public static class CaptureAbi
+    {
+        public static readonly Guid DxgiAccessIid = new Guid("A9B3D012-3DF2-4EE3-B8D1-8695F457D3C1");
+        public static readonly Guid Texture2DIid = new Guid("6f15aaf2-d208-4e89-9ab4-489535d34f9c");
+
+        /// <summary>
+        /// IDirect3DDxgiInterfaceAccess derives from IUnknown. QueryInterface,
+        /// AddRef, and Release occupy slots 0-2. GetInterface is slot 3.
+        /// Slot 6 is the first method of an IInspectable interface and is not this call.
+        /// </summary>
+        public const int DxgiGetInterfaceSlot = 3;
+    }
+
+    /// <summary>
     /// Failure text for Player.log and the chat note. Stages and HRESULTs only.
     /// Window titles and pixels do not belong in these strings.
     /// </summary>
     public static class CaptureDiagnostics
     {
-        public static string Stopped(string stage, int hresult)
+        public static string Stopped(string stage, int hresult, bool nullPointer = false)
         {
             var name = string.IsNullOrEmpty(stage) ? "Unknown" : stage.Trim();
-            if (name.Length > 40)
-                name = name.Substring(0, 40);
-            if (hresult >= 0)
-                return "Capture stopped at " + name + ". Nothing was sent.";
-            return "Capture stopped at " + name + " (" + unchecked((uint)hresult).ToString("X8") + "). Nothing was sent.";
+            if (name.Length > 48)
+                name = name.Substring(0, 48);
+            var detail = string.Empty;
+            if (hresult < 0)
+                detail = " (" + unchecked((uint)hresult).ToString("X8") + ")";
+            if (nullPointer)
+                detail += " null pointer";
+            return "Capture stopped at " + name + detail + ". Nothing was sent.";
         }
 
         public static string Ready(int width, int height)

@@ -29,8 +29,8 @@ namespace AICompanion.ScreenLook
         static readonly Guid ItemIid = new Guid("79C3F95B-31F7-4EC2-A464-632EF5D30760");
         static readonly Guid PoolStatics2Iid = new Guid("589B103F-6BBC-5DF5-A991-02E28B3B66D5");
         static readonly Guid SessionStaticsIid = new Guid("2224A540-5974-49AA-B232-0882536F4CB5");
-        static readonly Guid DxgiAccessIid = new Guid("A9B3D012-3DF2-4EE3-B8D1-8695F457D3C1");
-        static readonly Guid Texture2DIid = new Guid("6f15aaf2-d208-4e89-9ab4-489535d34f9c");
+        static readonly Guid DxgiAccessIid = CaptureAbi.DxgiAccessIid;
+        static readonly Guid Texture2DIid = CaptureAbi.Texture2DIid;
         static readonly Guid DxgiDeviceIid = new Guid("54ec77fa-1377-44e6-8c32-88fd5f44c84c");
         static readonly Guid ClosableIid = new Guid("30D5A829-7FA4-4026-83BB-D75BAE4EA99E");
 
@@ -207,9 +207,9 @@ namespace AICompanion.ScreenLook
                 if (hr < 0 || access == IntPtr.Zero)
                     return Stopped("DxgiAccess", hr);
                 var textureIid = Texture2DIid;
-                hr = Fn<GetInterfaceFn>(access, 6)(access, ref textureIid, out texture);
+                hr = Fn<GetInterfaceFn>(access, CaptureAbi.DxgiGetInterfaceSlot)(access, ref textureIid, out texture);
                 if (hr < 0 || texture == IntPtr.Zero)
-                    return Stopped("Texture", hr);
+                    return Stopped("Texture.GetInterface", hr, texture == IntPtr.Zero);
 
                 Fn<GetDescFn>(texture, 10)(texture, out var desc);
                 if (!CaptureDiagnostics.Matches(width, height, desc.Width, desc.Height))
@@ -315,9 +315,9 @@ namespace AICompanion.ScreenLook
             return width > 0 && height > 0;
         }
 
-        static CapturedWindowFrame Stopped(string stage, int hr)
+        static CapturedWindowFrame Stopped(string stage, int hr, bool nullPointer = false)
         {
-            return CapturedWindowFrame.Fail(CaptureDiagnostics.Stopped(stage, hr));
+            return CapturedWindowFrame.Fail(CaptureDiagnostics.Stopped(stage, hr, nullPointer));
         }
 
         static int Activate(string className, Guid iid, out IntPtr factory)

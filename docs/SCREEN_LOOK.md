@@ -113,7 +113,7 @@ Rebuild from the latest commit on this branch, then run `Builds\Windows\Backseat
 Open Notepad restored, not maximised. Turn on **Read a window**, refresh the list, and pick Notepad. The process must stay up.
 
 - A working preview logs `Screen capture: frame ready <width>x<height>` and shows the preview. Nothing is uploaded until you allow cloud analysis and press **What do you see?**
-- A failed grab must also stay up. The chat note and the log say `Screen capture: Capture stopped at <stage>` and, when Windows returned one, an eight-digit code such as `80070057`. That line has no window title and no image. Copy that one line back.
+- A failed grab must also stay up. The chat note and the log say `Screen capture: Capture stopped at <stage>` and, when Windows returned one, the raw eight-digit code. `8000797F` was observed at `Texture` before the interface slot was corrected. That value is not a documented DXGI or Direct3D 11 code. The log prints it unchanged and does not name it. The line has no window title and no image. Copy that one line back.
 
 Do not continue to the resize steps until this still-window attempt has either shown a preview or written a `Capture stopped at` line.
 

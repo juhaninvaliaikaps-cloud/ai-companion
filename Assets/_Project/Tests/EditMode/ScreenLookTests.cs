@@ -305,6 +305,18 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("Nothing was sent", failed);
             Assert.IsFalse(failed.Contains("Notepad"));
             Assert.IsFalse(failed.Contains("data:image"));
+
+            Assert.AreEqual(3, CaptureAbi.DxgiGetInterfaceSlot);
+            Assert.AreEqual(new Guid("A9B3D012-3DF2-4EE3-B8D1-8695F457D3C1"), CaptureAbi.DxgiAccessIid);
+            Assert.AreEqual(new Guid("6f15aaf2-d208-4e89-9ab4-489535d34f9c"), CaptureAbi.Texture2DIid);
+            var texture = CaptureDiagnostics.Stopped("Texture.GetInterface", unchecked((int)0x8000797F), true);
+            StringAssert.Contains("Texture.GetInterface", texture);
+            StringAssert.Contains("8000797F", texture);
+            StringAssert.Contains("null pointer", texture);
+            StringAssert.Contains("Nothing was sent", texture);
+            Assert.IsFalse(texture.Contains("Notepad"));
+            Assert.IsFalse(texture.Contains("data:image"));
+            Assert.IsFalse(texture.Contains("E_INVALIDARG"));
             var ready = CaptureDiagnostics.LogLine(true, 800, 600, null);
             StringAssert.Contains("frame ready 800x600", ready);
             Assert.IsFalse(ready.Contains("data:image"));
@@ -315,6 +327,8 @@ namespace AICompanion.Tests.EditMode
         {
             var source = File.ReadAllText(Path.Combine(Application.dataPath, "_Project", "Scripts", "ScreenLook", "WindowsGraphicsCapture.cs"));
             StringAssert.Contains("CreateForWindow", source);
+            StringAssert.Contains("CaptureAbi.DxgiGetInterfaceSlot", source);
+            Assert.IsFalse(source.Contains("GetInterfaceFn>(access, 6)"));
             Assert.IsFalse(source.Contains("CreateForMonitor"));
             Assert.IsFalse(source.Contains("BitBlt"));
             Assert.IsFalse(source.Contains("ReadProcessMemory"));
