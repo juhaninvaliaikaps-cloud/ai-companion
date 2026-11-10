@@ -31,7 +31,7 @@ Documented limits, not yet tried on a game PC:
 - The companion’s own process is excluded.
 - Game anti-cheat behaviour is **not verified**. Some games dislike overlays even when the capture itself is a supported read-only OS API. This build does not try to hide from them.
 
-The frame is scaled so the long edge is at most 768 pixels, then encoded as JPEG at quality 70, 55, or 40. Anything still over 400 KB is dropped and not sent. Windows larger than 4K are refused. One look at a time. A newer look or a cancel drops the older frame. The capture work runs off the Unity thread. The encoded image is cleared after the request body is built and is not written to a file.
+A cloud frame is scaled so the long edge is at most 768 pixels, then encoded as JPEG at quality 70, 55, or 40. Anything still over 400 KB is dropped and not sent. A local frame uses a 1280 long edge, nearest-pixel sampling, and JPEG quality 85, 75, or 60, up to 1.5 MB. Nearest-pixel sampling avoids averaging small text into a blur. It does not make `qwen2.5vl:3b` able to read every sentence. If the model cannot read the words, it is told to say so instead of guessing. The name in the window list is the Windows title, not text read from the picture. Windows larger than 4K are refused. One look at a time. A newer look or a cancel drops the older frame. The capture work runs off the Unity thread. The encoded image is cleared after the request body is built and is not written to a file.
 
 JUH-44’s later shape is reserved as constants only: 0.5 to 2 frames per second, and a pause when the companion is muted or the game is not focused. Neither runs. The “about 2% FPS” target has **not** been measured. Do not treat this VM, or this document, as that measurement.
 
@@ -49,7 +49,7 @@ ollama pull qwen2.5vl:3b
 
 This document does not claim that model is installed, and it does not promise a reply time. The RTX 2070 8 GB already runs Rocinante 12B Q4_K_M plus Unity. Both models are not kept resident. One look posts `keep_alive: 0` to unload the chat model, posts the JPEG as raw base64 to loopback `/api/chat` with `keep_alive: 0` and `num_predict` 180, then asks Rocinante with text only so the chat model loads again. The first load can take longer than a warm text reply. An empty vision tag, a vision tag equal to the chat model, or a base URL that is not loopback stops before any post. There is no cloud fallback. The observation is not stored in history or long-term memory. Words inside the picture are observations, not instructions.
 
-The Grok path is unchanged when chat is Grok, private mode is off, and cloud screen consent is on.
+Cloud screen analysis can stay off. Private mode, a local chat provider, or a vision model with that switch off all use the local route. The image is not sent to Grok on that route. Grok is used only when chat is Grok, private mode is off, and cloud screen consent is on. An empty vision reply does not ask Rocinante to invent what was on screen.
 
 ## Next, after this one-frame bridge
 
@@ -136,7 +136,7 @@ Rebuild from the latest commit on this branch, then run `Builds\Windows\Backseat
 
 Open Notepad restored, not maximised. Turn on **Read a window**, refresh the list, and pick Notepad. The process must stay up.
 
-- A working preview logs `Screen capture: frame ready <width>x<height>` and shows the preview. Grok receives it only after you allow cloud analysis and press **What do you see?** A local chat uses the vision model on this PC instead, and only after you set that model. The picture is not written to disk either way.
+- A working preview logs `Screen capture: frame ready <width>x<height>` and shows the preview. With **Private mode** or **Local Ollama** and a vision model set, leave **Allow cloud screen analysis** off and press **What do you see?** once. The button stays available. Player.log should contain `Screen look: route=local`, `cloudConsent=0`, `imageAttached=0`, and `observationChars=` with a number. It should not contain the sentence from Notepad. The window list name is the Windows title. A reply that cannot quote the sentence is an unread picture, not proof the title was read from the pixels. Grok is used only when chat is Grok, private mode is off, and cloud screen analysis is on.
 - A failed grab must also stay up. The chat note and the log say `Screen capture: Capture stopped at <stage>` and, when Windows returned one, the raw eight-digit code. `8000797F` was observed at `Texture` before the interface slot was corrected. That value is not a documented DXGI or Direct3D 11 code. The log prints it unchanged and does not name it. The line has no window title and no image. Copy that one line back.
 
 Do not continue to the resize steps until this still-window attempt has either shown a preview or written a `Capture stopped at` line.

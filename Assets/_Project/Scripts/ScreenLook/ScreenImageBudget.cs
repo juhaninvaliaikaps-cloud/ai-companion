@@ -9,9 +9,21 @@ namespace AICompanion.ScreenLook
     public static class ScreenImageBudget
     {
         public const int MaxEdge = 768;
+        public const int LocalMaxEdge = 1280;
+        public const int LocalMaxBytes = 1536 * 1024;
         public static readonly int[] Qualities = { 70, 55, 40 };
+        public static readonly int[] LocalQualities = { 85, 75, 60 };
 
         public static void Downscale(byte[] bgra, int width, int height, int stride, out byte[] pixels, out int dstWidth, out int dstHeight)
+        {
+            Downscale(bgra, width, height, stride, out pixels, out dstWidth, out dstHeight, MaxEdge, false);
+        }
+
+        /// <summary>
+        /// sharp picks one source pixel instead of averaging the block. Averaging
+        /// smears small window text. It does not make the vision model able to read it.
+        /// </summary>
+        public static void Downscale(byte[] bgra, int width, int height, int stride, out byte[] pixels, out int dstWidth, out int dstHeight, int maxEdge, bool sharp)
         {
             pixels = null;
             dstWidth = 0;
@@ -20,9 +32,11 @@ namespace AICompanion.ScreenLook
                 return;
             if (stride < width * 4)
                 stride = width * 4;
+            if (maxEdge < 1)
+                maxEdge = MaxEdge;
 
             var longEdge = width > height ? width : height;
-            var scale = longEdge <= MaxEdge ? 1 : (longEdge + MaxEdge - 1) / MaxEdge;
+            var scale = longEdge <= maxEdge ? 1 : (longEdge + maxEdge - 1) / maxEdge;
             dstWidth = Math.Max(1, width / scale);
             dstHeight = Math.Max(1, height / scale);
             pixels = new byte[dstWidth * dstHeight * 4];
@@ -60,9 +74,27 @@ namespace AICompanion.ScreenLook
                         }
                     }
 
-                    if (count == 0)
-                        count = 1;
                     var o = (y * dstWidth + x) * 4;
+                    if (sharp || count == 0)
+                    {
+                        var sx = srcX0 + Math.Max(0, (srcX1 - srcX0) / 2);
+                        var sy = srcY0 + Math.Max(0, (srcY1 - srcY0) / 2);
+                        if (sx >= width)
+                            sx = width - 1;
+                        if (sy >= height)
+                            sy = height - 1;
+                        var i = sy * stride + sx * 4;
+                        if (i + 3 < bgra.Length)
+                        {
+                            pixels[o] = bgra[i];
+                            pixels[o + 1] = bgra[i + 1];
+                            pixels[o + 2] = bgra[i + 2];
+                            pixels[o + 3] = bgra[i + 3];
+                        }
+
+                        continue;
+                    }
+
                     pixels[o] = (byte)(b / count);
                     pixels[o + 1] = (byte)(g / count);
                     pixels[o + 2] = (byte)(r / count);
@@ -122,16 +154,25 @@ namespace AICompanion.ScreenLook
 
         public static byte[] FitJpeg(Func<int, byte[]> encodeAtQuality, out int qualityUsed)
         {
+            return FitJpeg(encodeAtQuality, out qualityUsed, AICompanion.AI.VisionCapability.MaxImageBytes, Qualities);
+        }
+
+        public static byte[] FitJpeg(Func<int, byte[]> encodeAtQuality, out int qualityUsed, int maxBytes, int[] qualities)
+        {
             qualityUsed = 0;
             if (encodeAtQuality == null)
                 return null;
+            if (qualities == null || qualities.Length == 0)
+                qualities = Qualities;
+            if (maxBytes < 1)
+                maxBytes = AICompanion.AI.VisionCapability.MaxImageBytes;
 
-            for (var i = 0; i < Qualities.Length; i++)
+            for (var i = 0; i < qualities.Length; i++)
             {
                 byte[] bytes;
                 try
                 {
-                    bytes = encodeAtQuality(Qualities[i]);
+                    bytes = encodeAtQuality(qualities[i]);
                 }
                 catch (Exception)
                 {
@@ -140,8 +181,8 @@ namespace AICompanion.ScreenLook
 
                 if (!IsJpeg(bytes))
                     continue;
-                qualityUsed = Qualities[i];
-                if (bytes.Length <= AICompanion.AI.VisionCapability.MaxImageBytes)
+                qualityUsed = qualities[i];
+                if (bytes.Length <= maxBytes)
                     return bytes;
             }
 

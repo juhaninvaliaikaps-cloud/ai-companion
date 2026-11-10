@@ -19,6 +19,7 @@ namespace AICompanion.Settings
     public sealed class ScreenLookController : MonoBehaviour, IScreenLook, IOverlayKeepAwake
     {
         readonly ScreenLookGate _gate = new ScreenLookGate();
+        readonly ScreenLookInput _buttonInput = new ScreenLookInput();
         readonly Queue<Action> _main = new Queue<Action>();
         WindowTarget _selected;
         Texture2D _preview;
@@ -30,6 +31,10 @@ namespace AICompanion.Settings
         public int Revision { get; private set; }
 
         public bool IsBusy => _gate.Busy || _waitingForChat;
+
+        public bool SendEnabled { get; private set; }
+
+        public bool LookButtonInteractable => ScreenLookPolicy.LookButtonInteractable(SendEnabled, IsBusy);
 
         public bool KeepFrameRateActive => IsBusy;
 
@@ -44,6 +49,7 @@ namespace AICompanion.Settings
         void Update()
         {
             Drain();
+            RefreshSendEnabled();
             if (!_waitingForChat)
                 return;
 
@@ -80,6 +86,14 @@ namespace AICompanion.Settings
 
             var input = BuildInput();
             var decision = ScreenLookPolicy.Evaluate(input);
+            Debug.Log(CaptureDiagnostics.RouteLine(
+                decision.Route.ToString(),
+                decision.SendButtonEnabled,
+                input.CloudConsent,
+                input.PrivateMode,
+                input.EffectiveProviderId,
+                input.LocalVisionModel,
+                input.ChatModel));
             if (!decision.AllowSend)
             {
                 Note(decision.Message);
@@ -285,7 +299,9 @@ namespace AICompanion.Settings
                 return;
             }
 
-            ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out var small, out var width, out var height);
+            var localFrame = decision.Route == ScreenLookRoute.Local;
+            var maxEdge = localFrame ? ScreenImageBudget.LocalMaxEdge : ScreenImageBudget.MaxEdge;
+            ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out var small, out var width, out var height, maxEdge, true);
             Wipe(frame);
             if (small == null || ScreenImageBudget.LooksBlank(small, width, height))
             {
@@ -298,7 +314,9 @@ namespace AICompanion.Settings
 
             var rgba = ScreenImageBudget.BgraTopDownToRgbaBottomUp(small, width, height);
             ApplyTexture(rgba, width, height);
-            var jpeg = ScreenImageBudget.FitJpeg(quality => EncodeJpeg(rgba, width, height, quality), out _);
+            var jpeg = localFrame
+                ? ScreenImageBudget.FitJpeg(quality => EncodeJpeg(rgba, width, height, quality), out _, ScreenImageBudget.LocalMaxBytes, ScreenImageBudget.LocalQualities)
+                : ScreenImageBudget.FitJpeg(quality => EncodeJpeg(rgba, width, height, quality), out _);
             if (jpeg == null)
             {
                 _gate.Leave(generation);
@@ -309,6 +327,7 @@ namespace AICompanion.Settings
             }
 
             Log(true, width, height, null);
+            Debug.Log(CaptureDiagnostics.FrameLine(decision.Route.ToString(), width, height, jpeg.Length));
 
             if (decision.Route == ScreenLookRoute.Local)
             {
@@ -335,6 +354,7 @@ namespace AICompanion.Settings
             var title = _selected != null ? _selected.Title : string.Empty;
             _waitingForChat = true;
             var started = chat != null && chat.SubmitObservation(attachment, title);
+            Debug.Log(CaptureDiagnostics.ChatLine("grok", true, "jpegBytes", jpeg.Length, started));
             if (!started)
             {
                 attachment.Wipe();
@@ -369,7 +389,9 @@ namespace AICompanion.Settings
 
         void ShowPreview(CapturedWindowFrame frame)
         {
-            ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out var small, out var width, out var height);
+            var local = ScreenLookPolicy.UseLocalVision(BuildInput());
+            var edge = local ? ScreenImageBudget.LocalMaxEdge : ScreenImageBudget.MaxEdge;
+            ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out var small, out var width, out var height, edge, true);
             if (small == null)
                 return;
             ApplyTexture(ScreenImageBudget.BgraTopDownToRgbaBottomUp(small, width, height), width, height);
@@ -395,27 +417,51 @@ namespace AICompanion.Settings
             _preview.Apply(false, false);
         }
 
+        public ScreenLookDecision CurrentDecision()
+        {
+            return ScreenLookPolicy.Evaluate(BuildInput());
+        }
+
+        public bool PlansLocalVision()
+        {
+            return ScreenLookPolicy.UseLocalVision(BuildInput());
+        }
+
         ScreenLookInput BuildInput()
+        {
+            var input = new ScreenLookInput();
+            Fill(input);
+            return input;
+        }
+
+        void RefreshSendEnabled()
+        {
+            Fill(_buttonInput);
+            var send = ScreenLookPolicy.Evaluate(_buttonInput).SendButtonEnabled;
+            if (send == SendEnabled)
+                return;
+            SendEnabled = send;
+            Revision++;
+        }
+
+        void Fill(ScreenLookInput input)
         {
             var settings = GetComponent<SettingsPanel>();
             var current = settings != null ? settings.CurrentSettings : null;
             var privateMode = current != null && current.PrivateMode;
             var selected = current != null ? current.ProviderId : ChatDefaults.GrokId;
-            return new ScreenLookInput
-            {
-                FeatureEnabled = current != null && current.ScreenLookEnabled,
-                CloudConsent = current != null && current.ScreenCloudConsent,
-                PrivateMode = privateMode,
-                AllowCloud = OutboundPrivacy.AllowsCloudVision(privateMode),
-                EffectiveProviderId = OutboundPrivacy.ChatProviderId(privateMode, selected),
-                CloudModel = current != null ? current.Model : ChatDefaults.Model,
-                ChatModel = current != null ? current.LocalModel : ChatDefaults.LocalModel,
-                LocalVisionModel = current != null ? current.LocalVisionModel : string.Empty,
-                Busy = false,
-                Automatic = false,
-                MonitorRequested = false,
-                Target = _selected
-            };
+            input.FeatureEnabled = current != null && current.ScreenLookEnabled;
+            input.CloudConsent = current != null && current.ScreenCloudConsent;
+            input.PrivateMode = privateMode;
+            input.AllowCloud = OutboundPrivacy.AllowsCloudVision(privateMode);
+            input.EffectiveProviderId = OutboundPrivacy.ChatProviderId(privateMode, selected);
+            input.CloudModel = current != null ? current.Model : ChatDefaults.Model;
+            input.ChatModel = current != null ? current.LocalModel : ChatDefaults.LocalModel;
+            input.LocalVisionModel = current != null ? current.LocalVisionModel : string.Empty;
+            input.Busy = false;
+            input.Automatic = false;
+            input.MonitorRequested = false;
+            input.Target = _selected;
         }
 
         bool Enabled()
@@ -449,6 +495,8 @@ namespace AICompanion.Settings
                     cts.Token);
                 if (!_alive)
                     return;
+                var observationChars = result.Observation == null ? 0 : result.Observation.Length;
+                Debug.Log(CaptureDiagnostics.VisionLine(result.StatusCode, result.Ok, result.Cancelled, result.Cancelled ? 0 : observationChars));
                 if (!_gate.IsCurrent(generation) || cts.IsCancellationRequested || result.Cancelled)
                 {
                     _gate.Leave(generation);
@@ -458,18 +506,19 @@ namespace AICompanion.Settings
                     Log(false, 0, 0, cancelled);
                     return;
                 }
-
-                if (!result.Ok)
+                if (!result.Ok || !VisionPrompt.HasObservation(result.Observation))
                 {
                     _gate.Leave(generation);
-                    Note(result.Message);
-                    Touch(result.Message);
-                    Log(false, 0, 0, result.Message);
+                    var failed = result.Ok ? "The local vision model returned no description. Nothing was sent to the cloud." : result.Message;
+                    Note(failed);
+                    Touch(failed);
+                    Log(false, 0, 0, failed);
                     return;
                 }
 
                 var chat = GetComponent<ChatPanel>();
                 _waitingForChat = chat != null && chat.SubmitTextObservation(result.Observation);
+                Debug.Log(CaptureDiagnostics.ChatLine("local", false, "observationChars", observationChars, _waitingForChat));
                 if (!_waitingForChat)
                 {
                     _gate.Leave(generation);

@@ -1239,10 +1239,11 @@ namespace AICompanion.Settings
             Place(label.rectTransform, height);
         }
 
-        void AddButton(string label, Action action)
+        GameObject AddButton(string label, Action action)
         {
             var button = CreateButton(_body, label, action);
             Place(button.GetComponent<RectTransform>(), 26f);
+            return button;
         }
 
         InputField AddField(string placeholder, string value, bool password, Action<string> onEnd)

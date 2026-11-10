@@ -8,6 +8,14 @@ namespace AICompanion.Core
     {
         bool IsBusy { get; }
 
+        /// <summary>
+        /// True when a new look is allowed. Cloud consent is not required for a local vision model.
+        /// </summary>
+        bool SendEnabled { get; }
+
+        /// <summary>True while a look can be started, or while one is running so Stop still works.</summary>
+        bool LookButtonInteractable { get; }
+
         string StatusText { get; }
 
         void RequestLook();

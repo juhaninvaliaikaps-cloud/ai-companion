@@ -38,6 +38,7 @@ namespace AICompanion.UI
         Text _transcript;
         Text _actionLabel;
         Text _lookLabel;
+        Button _lookButton;
         Text _muteLabel;
         Text _modelBadge;
         string _badgeProvider = string.Empty;
@@ -238,6 +239,12 @@ namespace AICompanion.UI
             {
                 var look = GetComponent<IScreenLook>();
                 _lookLabel.text = look != null && look.IsBusy ? "Stop look" : "What do you see?";
+                if (_lookButton != null)
+                {
+                    var interactable = look == null || look.LookButtonInteractable;
+                    if (_lookButton.interactable != interactable)
+                        _lookButton.interactable = interactable;
+                }
             }
             RefreshMuteLabel();
             RefreshMic();
@@ -368,7 +375,7 @@ namespace AICompanion.UI
         /// </summary>
         public bool SubmitTextObservation(string observation)
         {
-            if (!_alive || string.IsNullOrWhiteSpace(observation))
+            if (!_alive || !VisionPrompt.HasObservation(observation))
                 return false;
             if (!_started)
                 StartCompanion();
@@ -1090,7 +1097,8 @@ namespace AICompanion.UI
             actionRect.sizeDelta = new Vector2(64f, 22f);
             _actionLabel = action.GetComponentInChildren<Text>();
 
-            var look = CreateButton(_panel.transform, font, "What do you see?", OnLookClick);
+            _lookButton = CreateButton(_panel.transform, font, "What do you see?", OnLookClick);
+            var look = _lookButton.gameObject;
             var lookRect = look.GetComponent<RectTransform>();
             lookRect.anchorMin = new Vector2(0f, 1f);
             lookRect.anchorMax = new Vector2(1f, 1f);

@@ -55,11 +55,15 @@ namespace AICompanion.Settings
                 _rebuild = true;
             });
             var localChat = _settings.PrivateMode || _settings.ProviderId == ChatDefaults.LocalId;
+            var decision = look != null ? look.CurrentDecision() : new ScreenLookDecision(false, ScreenLookRoute.None, string.Empty);
+            var plansLocal = look != null && look.PlansLocalVision();
+            var visionEngine = plansLocal
+                ? (string.IsNullOrEmpty(_settings.LocalVisionModel) ? "not set" : _settings.LocalVisionModel + " on this PC")
+                : decision.Route == ScreenLookRoute.Cloud
+                    ? "Grok after cloud consent"
+                    : "not sending";
             NoteBlock("Chat engine: " + (localChat ? "local text (" + _settings.LocalModel + ")" : "Grok (" + _settings.Model + ")")
-                + ". Vision engine: " + (localChat
-                    ? (string.IsNullOrEmpty(_settings.LocalVisionModel) ? "not set" : _settings.LocalVisionModel + " on this PC")
-                    : "Grok after cloud consent")
-                + ".");
+                + ". Vision engine: " + visionEngine + ".");
             AddField("Local vision model", _settings.LocalVisionModel, false, value =>
             {
                 _settings.LocalVisionModel = value;
@@ -72,14 +76,16 @@ namespace AICompanion.Settings
                 _rebuild = true;
             });
             NoteBlock("The vision model and the chat model are different. Rocinante stays text-only. Install the vision model yourself with " + OllamaVision.PullCommand + ". One frame loads it, then unloads it, then the text model loads for the reply. A smaller tag is " + OllamaVision.SmallerTag + ". This screen does not download models or change Ollama's server settings.");
-            if (localChat && _settings.PrivateMode)
-                NoteBlock("Private mode uses that local vision model, then the local text model. The image, the observation, the reply, and speech stay on this PC. There is no cloud fallback.");
-            else if (localChat)
-                NoteBlock("This chat stays on this PC. The selected window goes to the local vision model, then the text model replies. Allowing cloud screen analysis does not send this frame.");
-            else if (!_settings.ScreenCloudConsent)
-                NoteBlock("Cloud screen analysis is off. What do you see? will not send a frame until you allow it.");
-            else
+            if (decision.Route == ScreenLookRoute.Local)
+                NoteBlock("What do you see? uses the local vision model with cloud screen analysis off. The image, the observation, the reply, and speech stay on this PC. There is no cloud fallback. qwen2.5vl:3b is not a guarantee that small text can be read.");
+            else if (decision.Route == ScreenLookRoute.Cloud)
                 NoteBlock("Cloud screen analysis is allowed for the window you select. It does not include the rest of the desktop.");
+            else if (decision.Message == ScreenLookPolicy.ConsentRequired)
+                NoteBlock("Cloud screen analysis is off, and no local vision model is set. What do you see? stays off until you set one or turn cloud screen analysis on.");
+            else if (localChat && _settings.PrivateMode)
+                NoteBlock("Private mode uses that local vision model, then the local text model. The image stays on this PC. There is no cloud fallback.");
+            else if (!string.IsNullOrEmpty(decision.Message))
+                NoteBlock(decision.Message);
 
             if (look == null)
             {
@@ -108,16 +114,19 @@ namespace AICompanion.Settings
             if (look.Selected == null)
                 Note("No window selected.");
             else
-                Note("Selected: " + WindowLabel(look.Selected));
+                Note("Selected: " + WindowLabel(look.Selected) + ". That name is the window title from Windows, not text read from the picture.");
 
             AddPreview(look);
-            AddButton("Look at screen", () =>
+            var lookButton = AddButton("Look at screen", () =>
             {
                 if (look.IsBusy)
                     look.Stop();
                 else
                     look.RequestLook();
             });
+            var lookWidget = lookButton != null ? lookButton.GetComponent<Button>() : null;
+            if (lookWidget != null)
+                lookWidget.interactable = ScreenLookPolicy.LookButtonInteractable(decision.SendButtonEnabled, look.IsBusy);
             AddButton(look.IsBusy ? "Stop" : "Stop look", () => look.Stop());
             AddButton("Clear window", () => look.ClearSelection());
             NoteBlock("Stop cancels the current frame. Clear window drops the selection and the preview. Game support, exclusive fullscreen, and the performance target are not verified in this build.");

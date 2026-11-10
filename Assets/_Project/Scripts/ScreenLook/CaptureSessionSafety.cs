@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 
 namespace AICompanion.ScreenLook
@@ -126,6 +127,91 @@ namespace AICompanion.ScreenLook
         public static bool AllowsUpload(bool nativeOk, bool sizeChanged, bool cancelled, bool windowClosed, bool minimized)
         {
             return nativeOk && !sizeChanged && !cancelled && !windowClosed && !minimized;
+        }
+
+        public static string RouteLine(string route, bool send, bool cloudConsent, bool privateMode, string providerId, string visionModel, string chatModel)
+        {
+            return "Screen look: route=" + Token(route)
+                + " send=" + Bit(send)
+                + " cloudConsent=" + Bit(cloudConsent)
+                + " private=" + Bit(privateMode)
+                + " provider=" + ProviderToken(providerId)
+                + " vision=" + ModelToken(visionModel)
+                + " chat=" + ModelToken(chatModel);
+        }
+
+        public static string FrameLine(string route, int width, int height, int jpegBytes)
+        {
+            if (width < 0)
+                width = 0;
+            if (height < 0)
+                height = 0;
+            if (jpegBytes < 0)
+                jpegBytes = 0;
+            return "Screen look: frame route=" + Token(route)
+                + " pixels=" + width.ToString() + "x" + height.ToString()
+                + " jpegBytes=" + jpegBytes.ToString();
+        }
+
+        public static string VisionLine(int statusCode, bool ok, bool cancelled, int observationChars)
+        {
+            if (observationChars < 0)
+                observationChars = 0;
+            return "Screen look: localVision status=" + statusCode.ToString()
+                + " ok=" + Bit(ok)
+                + " cancelled=" + Bit(cancelled)
+                + " observationChars=" + observationChars.ToString();
+        }
+
+        public static string ChatLine(string provider, bool imageAttached, string measure, int amount, bool started)
+        {
+            if (amount < 0)
+                amount = 0;
+            var name = measure == "jpegBytes" ? "jpegBytes" : "observationChars";
+            return "Screen look: chat provider=" + ProviderToken(provider)
+                + " imageAttached=" + Bit(imageAttached)
+                + " " + name + "=" + amount.ToString()
+                + " started=" + Bit(started);
+        }
+
+        static string Bit(bool value)
+        {
+            return value ? "1" : "0";
+        }
+
+        static string ProviderToken(string providerId)
+        {
+            if (string.Equals(providerId, "local", StringComparison.OrdinalIgnoreCase))
+                return "local";
+            if (string.Equals(providerId, "grok", StringComparison.OrdinalIgnoreCase))
+                return "grok";
+            return "other";
+        }
+
+        static string ModelToken(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return "unset";
+            var sb = new StringBuilder();
+            for (var i = 0; i < value.Length && sb.Length < 48; i++)
+            {
+                var c = value[i];
+                if (c < 0x20 || c == '"' || c == '\'' )
+                    continue;
+                sb.Append(c);
+            }
+
+            return sb.Length == 0 ? "unset" : sb.ToString();
+        }
+
+        static string Token(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return "none";
+            var name = value.Trim().ToLowerInvariant();
+            if (name != "local" && name != "cloud" && name != "none")
+                return "none";
+            return name;
         }
 
         static bool Fits(int width, int height)

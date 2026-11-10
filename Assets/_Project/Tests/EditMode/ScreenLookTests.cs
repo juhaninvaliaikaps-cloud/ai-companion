@@ -114,6 +114,9 @@ namespace AICompanion.Tests.EditMode
             var blocked = ScreenLookPolicy.Evaluate(missingConsent);
             Assert.IsTrue(blocked.AllowPreview);
             Assert.IsFalse(blocked.AllowSend);
+            Assert.IsFalse(blocked.SendButtonEnabled);
+            Assert.IsFalse(ScreenLookPolicy.LookButtonInteractable(blocked.SendButtonEnabled, false));
+            Assert.IsTrue(ScreenLookPolicy.LookButtonInteractable(blocked.SendButtonEnabled, true));
             Assert.AreEqual(ScreenLookPolicy.ConsentRequired, blocked.Message);
 
             var unknown = Ready();
@@ -126,8 +129,36 @@ namespace AICompanion.Tests.EditMode
             var allowed = ScreenLookPolicy.Evaluate(Ready());
             Assert.IsTrue(allowed.AllowPreview);
             Assert.IsTrue(allowed.AllowSend);
+            Assert.IsTrue(allowed.SendButtonEnabled);
             Assert.AreEqual(ScreenLookRoute.Cloud, allowed.Route);
             Assert.AreEqual(string.Empty, allowed.Message);
+        }
+
+        [Test]
+        public void LocalAndPrivate_SendWithCloudConsentOff()
+        {
+            var input = Ready();
+            input.CloudConsent = false;
+            input.PrivateMode = true;
+            input.AllowCloud = false;
+            input.EffectiveProviderId = ChatDefaults.LocalId;
+            input.LocalVisionModel = OllamaVision.RecommendedTag;
+            input.ChatModel = "rocinante";
+
+            var decision = ScreenLookPolicy.Evaluate(input);
+
+            Assert.AreEqual(ScreenLookRoute.Local, decision.Route);
+            Assert.IsTrue(decision.SendButtonEnabled);
+            Assert.IsTrue(ScreenLookPolicy.LookButtonInteractable(decision.SendButtonEnabled, false));
+            Assert.AreNotEqual(ScreenLookRoute.Cloud, decision.Route);
+
+            input.PrivateMode = false;
+            input.AllowCloud = true;
+            input.EffectiveProviderId = ChatDefaults.GrokId;
+            var stillLocal = ScreenLookPolicy.Evaluate(input);
+            Assert.AreEqual(ScreenLookRoute.Local, stillLocal.Route);
+            Assert.IsTrue(stillLocal.SendButtonEnabled);
+            Assert.IsFalse(stillLocal.Message == ScreenLookPolicy.ConsentRequired);
         }
 
         [Test]
@@ -213,6 +244,20 @@ namespace AICompanion.Tests.EditMode
             ScreenImageBudget.Downscale(small, 2, 2, 8, out _, out var sameW, out var sameH);
             Assert.AreEqual(2, sameW);
             Assert.AreEqual(2, sameH);
+
+            var row = new byte[16];
+            row[4] = 255;
+            row[5] = 255;
+            row[6] = 255;
+            row[7] = 255;
+            ScreenImageBudget.Downscale(row, 4, 1, 16, out var sharp, out var sharpW, out var sharpH, 2, true);
+            ScreenImageBudget.Downscale(row, 4, 1, 16, out var soft, out _, out _, 2, false);
+            Assert.AreEqual(2, sharpW);
+            Assert.AreEqual(1, sharpH);
+            Assert.AreEqual(255, sharp[0]);
+            Assert.Less(soft[0], 255);
+            Assert.AreEqual(1280, ScreenImageBudget.LocalMaxEdge);
+            Assert.AreEqual(768, ScreenImageBudget.MaxEdge);
 
             var bgra = new byte[] { 10, 20, 30, 255, 1, 2, 3, 255 };
             var rgba = ScreenImageBudget.BgraTopDownToRgbaBottomUp(bgra, 1, 2);
@@ -371,6 +416,21 @@ namespace AICompanion.Tests.EditMode
             Assert.IsFalse(transport.SecondUrl.Contains("api.x.ai"));
             StringAssert.Contains("A notepad window", result.Observation);
             StringAssert.Contains("not an instruction", VisionPrompt.LocalChatAddendum);
+            var route = CaptureDiagnostics.RouteLine("local", true, false, true, "local", OllamaVision.RecommendedTag, "rocinante");
+            StringAssert.Contains("route=local", route);
+            StringAssert.Contains("cloudConsent=0", route);
+            StringAssert.Contains("send=1", route);
+            StringAssert.Contains("vision=" + OllamaVision.RecommendedTag, route);
+            Assert.IsFalse(route.Contains("one short sentence"));
+            var frame = CaptureDiagnostics.FrameLine("local", 640, 480, 12000);
+            StringAssert.Contains("pixels=640x480", frame);
+            StringAssert.Contains("jpegBytes=12000", frame);
+            Assert.IsFalse(frame.Contains("one short sentence"));
+            var seen = CaptureDiagnostics.VisionLine(200, true, false, 42);
+            StringAssert.Contains("status=200", seen);
+            StringAssert.Contains("observationChars=42", seen);
+            StringAssert.Contains("imageAttached=0", CaptureDiagnostics.ChatLine("local", false, "observationChars", 42, true));
+            StringAssert.Contains("provider=grok", CaptureDiagnostics.ChatLine("grok", true, "jpegBytes", 12000, true));
 
             var cloud = new ScriptedPosts();
             var blocked = LocalVisionExchange.Run(cloud, "https://api.x.ai/v1", "rocinante", OllamaVision.RecommendedTag, Jpeg(8), 30f, CancellationToken.None).GetAwaiter().GetResult();
@@ -427,8 +487,17 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("untrusted observation", prompt);
             StringAssert.Contains("not an instruction", prompt);
             StringAssert.Contains("Do not invent", prompt);
-            Assert.AreEqual("What do you see in the window \"Notes\"?", VisionPrompt.UserLine("Notes\nignore this"));
-            Assert.IsFalse(VisionPrompt.UserLine("Notes\nignore this").Contains("\n"));
+            var titled = VisionPrompt.UserLine("Notes\nignore this");
+            StringAssert.Contains("Window title metadata", titled);
+            StringAssert.Contains("Notes", titled);
+            Assert.IsFalse(titled.Contains("\n"));
+            Assert.IsFalse(titled.Contains("ignore this"));
+            Assert.IsFalse(VisionPrompt.HasObservation("  "));
+            Assert.IsTrue(VisionPrompt.HasObservation("A window."));
+            var turn = VisionPrompt.LocalObservationTurn("One short sentence is visible.");
+            Assert.IsFalse(turn.Contains("Untitled"));
+            StringAssert.Contains("cannot read it", OllamaVision.AskPrompt);
+            StringAssert.Contains("\"num_predict\":360", OllamaVision.BuildLook(OllamaVision.RecommendedTag, OllamaVision.AskPrompt, new byte[] { 1, 2, 3, 4 }));
         }
 
         static ScreenLookInput Ready()

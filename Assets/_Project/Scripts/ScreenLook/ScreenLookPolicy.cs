@@ -36,6 +36,15 @@ namespace AICompanion.ScreenLook
             get { return Route != ScreenLookRoute.None; }
         }
 
+        /// <summary>
+        /// The What do you see? and Look at screen controls use this.
+        /// A look that is already running stays clickable so Stop still works.
+        /// </summary>
+        public bool SendButtonEnabled
+        {
+            get { return AllowSend; }
+        }
+
         public ScreenLookDecision(bool allowPreview, ScreenLookRoute route, string message)
         {
             AllowPreview = allowPreview;
@@ -61,7 +70,7 @@ namespace AICompanion.ScreenLook
         public const string Busy = "A look is already in progress.";
         public const string AutomaticRefused = "Automatic commentary is not on. Use What do you see? for one frame.";
         public const string MonitorRefused = "Capture does not switch to the whole screen.";
-        public const string ConsentRequired = "Cloud screen analysis is off. Allowing it sends the selected window image to the configured cloud vision provider (Grok). Nothing was sent.";
+        public const string ConsentRequired = "Cloud screen analysis is off, and no local vision model is set. What do you see? stays off until you set a local vision model or allow cloud screen analysis. Nothing was sent.";
         public const string Stale = "That frame was dropped because a newer look started. Nothing was sent.";
         public const string Blank = "The capture was empty or black. Protected and exclusive fullscreen windows often do this. Nothing was sent.";
         public const string CaptureFailed = "That window could not be captured. Exclusive fullscreen, a protected window, or a closed window can do this. Nothing was sent.";
@@ -92,10 +101,7 @@ namespace AICompanion.ScreenLook
             if (validity == TargetValidity.Minimized)
                 return new ScreenLookDecision(false, ScreenLookRoute.None, Minimized);
 
-            var localChat = input.PrivateMode
-                || !input.AllowCloud
-                || string.Equals(input.EffectiveProviderId, ChatDefaults.LocalId, System.StringComparison.OrdinalIgnoreCase);
-            if (localChat)
+            if (UseLocalVision(input))
                 return LocalRoute(input.LocalVisionModel, input.ChatModel);
 
             if (!VisionCapability.CloudModelAcceptsImages(input.CloudModel))
@@ -104,6 +110,30 @@ namespace AICompanion.ScreenLook
                 return new ScreenLookDecision(true, ScreenLookRoute.None, ConsentRequired);
 
             return new ScreenLookDecision(true, ScreenLookRoute.Cloud, string.Empty);
+        }
+
+        public static bool LookButtonInteractable(bool sendEnabled, bool busy)
+        {
+            return busy || sendEnabled;
+        }
+
+        /// <summary>
+        /// Local vision does not need the cloud switch. A configured vision model
+        /// with cloud analysis off stays on this PC, including when chat is still Grok.
+        /// </summary>
+        public static bool UseLocalVision(ScreenLookInput input)
+        {
+            input = input ?? new ScreenLookInput();
+            if (input.PrivateMode || !input.AllowCloud)
+                return true;
+            if (string.Equals(input.EffectiveProviderId, ChatDefaults.LocalId, System.StringComparison.OrdinalIgnoreCase))
+                return true;
+            return !input.CloudConsent && HasVisionModel(input.LocalVisionModel);
+        }
+
+        public static bool HasVisionModel(string visionModel)
+        {
+            return !string.IsNullOrWhiteSpace(visionModel);
         }
 
         static ScreenLookDecision LocalRoute(string visionModel, string chatModel)
