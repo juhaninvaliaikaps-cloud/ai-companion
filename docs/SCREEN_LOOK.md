@@ -104,14 +104,29 @@ Copy-Item "$backup.meta" "$avatar.meta" -Force
 
 Do not commit `AvatarSelection.asset` if the only difference is your local avatar. `Builds/` is gitignored.
 
-Then run `Builds\Windows\BackseatCatgirl.exe`:
+The Linux VM cannot run this player, so a native crash here is not reproduced and is not claimed fixed. CI script compile does not prove the capture objects are freed safely.
 
-1. Confirm **Screen** starts off and the window list is empty until you turn **Read a window** on.
-2. Pick Notepad or a browser, not a game. The preview should match that window and nothing else.
-3. With cloud analysis off, **What do you see?** should refuse and the log should not show an image or a description.
-4. Turn private mode on and try again. It should refuse, stay on the local model, and not call Grok.
-5. Turn private mode off, allow cloud analysis, and use a key whose model is `grok-4.7`. One description should show in chat, with her usual cue and voice. The history file under `%APPDATA%\ProjectLeia` should not contain the image or that description.
-6. Minimise the window, close it, and try a borderless game and an exclusive-fullscreen game. Failures should be notes, not a desktop screenshot.
-7. **Stop look** during the request should cancel it. A second click while one look is running should not start another upload.
+Rebuild from the latest commit on this branch, then run `Builds\Windows\BackseatCatgirl.exe`. Quit any older `BackseatCatgirl.exe` first. The player log is `%USERPROFILE%\AppData\LocalLow\AI Companion\Backseat Catgirl\Player.log`.
 
-The player log is `%USERPROFILE%\AppData\LocalLow\AI Companion\Backseat Catgirl\Player.log`. A capture HRESULT is printed as eight hex digits on the failure note. The log should not contain `data:image` or the JPEG.
+### 1. A still Notepad window
+
+Open Notepad restored, not maximised. Turn on **Read a window**, refresh the list, and pick Notepad. The process must stay up.
+
+- A working preview logs `Screen capture: frame ready <width>x<height>` and shows the preview. Nothing is uploaded until you allow cloud analysis and press **What do you see?**
+- A failed grab must also stay up. The chat note and the log say `Screen capture: Capture stopped at <stage>` and, when Windows returned one, an eight-digit code such as `80070057`. That line has no window title and no image. Copy that one line back.
+
+Do not continue to the resize steps until this still-window attempt has either shown a preview or written a `Capture stopped at` line.
+
+### 2. Then change the window
+
+With the same Notepad selected, and after each step, ask for a new preview. The process must stay running. A failed step is a `Capture stopped at` note, not a desktop image and not an upload.
+
+1. Maximise Notepad, then restore it.
+2. Drag a corner to resize it.
+3. Minimise it, then restore it.
+4. Close it.
+5. Press **Stop** while a preview or a look is in progress.
+
+Cloud analysis stays off for this pass. If the still-window preview worked, turn cloud analysis on once and press **What do you see?** on the restored Notepad. One description in chat is enough. The log should not contain `data:image`.
+
+If it still dies, the useful artifact is the debugger exception line (module and message, as with the `LIST_ENTRY` report) plus the last few `Screen capture:` lines from Player.log. A screenshot and the chat history are not needed.

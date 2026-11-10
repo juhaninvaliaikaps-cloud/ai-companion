@@ -110,9 +110,9 @@ namespace AICompanion.Settings
                 {
                     frame = WindowCapture.CaptureWindow(target);
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    frame = CapturedWindowFrame.Fail(ScreenLookPolicy.CaptureFailed);
+                    frame = CapturedWindowFrame.Fail(CaptureDiagnostics.Stopped(ex.GetType().Name, 0));
                 }
 
                 Post(() => OnLookFrame(generation, frame));
@@ -121,6 +121,7 @@ namespace AICompanion.Settings
 
         public void Stop()
         {
+            WindowCapture.CancelActive();
             var sendInFlight = _waitingForChat;
             _gate.Cancel();
             _waitingForChat = false;
@@ -191,7 +192,16 @@ namespace AICompanion.Settings
             Touch("Capturing a local preview.");
             ThreadPool.QueueUserWorkItem(_ =>
             {
-                var frame = WindowCapture.CaptureWindow(target);
+                CapturedWindowFrame frame;
+                try
+                {
+                    frame = WindowCapture.CaptureWindow(target);
+                }
+                catch (Exception ex)
+                {
+                    frame = CapturedWindowFrame.Fail(CaptureDiagnostics.Stopped(ex.GetType().Name, 0));
+                }
+
                 Post(() => OnPreviewFrame(generation, frame));
             });
         }
@@ -214,6 +224,7 @@ namespace AICompanion.Settings
             if (!_gate.IsCurrent(generation))
             {
                 Wipe(frame);
+                Log(false, 0, 0, CaptureDiagnostics.Stopped("Stale", 0));
                 return;
             }
 
@@ -223,10 +234,12 @@ namespace AICompanion.Settings
                 Wipe(frame);
                 Note(frame.Error);
                 Touch(frame.Error);
+                Log(false, 0, 0, frame.Error);
                 return;
             }
 
             ShowPreview(frame);
+            Log(true, frame.Width, frame.Height, null);
             Wipe(frame);
             Touch("Preview is local only. Nothing has been sent.");
         }
@@ -242,16 +255,19 @@ namespace AICompanion.Settings
             if (!_gate.IsCurrent(generation))
             {
                 Wipe(frame);
+                Log(false, 0, 0, CaptureDiagnostics.Stopped("Stale", 0));
                 Note(ScreenLookPolicy.Stale);
                 return;
             }
 
-            if (!frame.Ok)
+            if (!frame.Ok || !CaptureDiagnostics.AllowsUpload(frame.Ok, false, false, false, false))
             {
                 _gate.Leave(generation);
                 Wipe(frame);
-                Note(string.IsNullOrEmpty(frame.Error) ? ScreenLookPolicy.CaptureFailed : frame.Error);
-                Touch(string.IsNullOrEmpty(frame.Error) ? ScreenLookPolicy.CaptureFailed : frame.Error);
+                var message = string.IsNullOrEmpty(frame.Error) ? CaptureDiagnostics.Stopped("Frame", 0) : frame.Error;
+                Note(message);
+                Touch(message);
+                Log(false, 0, 0, message);
                 return;
             }
 
@@ -262,6 +278,7 @@ namespace AICompanion.Settings
                 Wipe(frame);
                 Note(decision.Message);
                 Touch(decision.Message);
+                Log(false, 0, 0, decision.Message);
                 return;
             }
 
@@ -272,6 +289,7 @@ namespace AICompanion.Settings
                 _gate.Leave(generation);
                 Note(ScreenLookPolicy.Blank);
                 Touch(ScreenLookPolicy.Blank);
+                Log(false, 0, 0, ScreenLookPolicy.Blank);
                 return;
             }
 
@@ -283,8 +301,11 @@ namespace AICompanion.Settings
                 _gate.Leave(generation);
                 Note(VisionCapability.PayloadRefusal);
                 Touch(VisionCapability.PayloadRefusal);
+                Log(false, 0, 0, VisionCapability.PayloadRefusal);
                 return;
             }
+
+            Log(true, width, height, null);
 
             if (!_gate.IsCurrent(generation))
             {
@@ -309,7 +330,9 @@ namespace AICompanion.Settings
                 attachment.Wipe();
                 _waitingForChat = false;
                 _gate.Leave(generation);
-                Touch(chat == null ? ScreenLookPolicy.PlayerOnly : "Look did not start. Nothing was sent.");
+                var message = chat == null ? ScreenLookPolicy.PlayerOnly : "Look did not start. Nothing was sent.";
+                Touch(message);
+                Log(false, 0, 0, message);
                 return;
             }
 
@@ -387,6 +410,11 @@ namespace AICompanion.Settings
         {
             var settings = GetComponent<SettingsPanel>();
             return settings != null && settings.CurrentSettings != null && settings.CurrentSettings.ScreenLookEnabled;
+        }
+
+        void Log(bool ok, int width, int height, string error)
+        {
+            Debug.Log(CaptureDiagnostics.LogLine(ok, width, height, error));
         }
 
         void Note(string message)

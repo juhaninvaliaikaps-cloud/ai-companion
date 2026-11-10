@@ -19,7 +19,6 @@ namespace AICompanion.ScreenLook
         const int DwmCloaked = 14;
         const uint BgraSupport = 0x20;
         const int DriverHardware = 1;
-        const int DriverWarp = 5;
         const uint SdkVersion = 7;
         const int FormatBgra = 87;
         const int UsageStaging = 3;
@@ -30,7 +29,6 @@ namespace AICompanion.ScreenLook
         static readonly Guid ItemIid = new Guid("79C3F95B-31F7-4EC2-A464-632EF5D30760");
         static readonly Guid PoolStatics2Iid = new Guid("589B103F-6BBC-5DF5-A991-02E28B3B66D5");
         static readonly Guid SessionStaticsIid = new Guid("2224A540-5974-49AA-B232-0882536F4CB5");
-        static readonly Guid Session2Iid = new Guid("2C39AE40-7D2E-5044-804E-8B6799D4CF9E");
         static readonly Guid DxgiAccessIid = new Guid("A9B3D012-3DF2-4EE3-B8D1-8695F457D3C1");
         static readonly Guid Texture2DIid = new Guid("6f15aaf2-d208-4e89-9ab4-489535d34f9c");
         static readonly Guid DxgiDeviceIid = new Guid("54ec77fa-1377-44e6-8c32-88fd5f44c84c");
@@ -38,7 +36,14 @@ namespace AICompanion.ScreenLook
 
         static readonly EnumWindowsProc EnumThunk = OnEnum;
         static readonly List<WindowTarget> Enumerated = new List<WindowTarget>(64);
+        static readonly object CaptureLock = new object();
         static int _ownProcess;
+        static int _abort;
+
+        public static void CancelActive()
+        {
+            Interlocked.Exchange(ref _abort, 1);
+        }
 
         public static bool IsSupported => true;
 
@@ -85,24 +90,32 @@ namespace AICompanion.ScreenLook
             if (WindowTarget.IsShellClass(className) || hwnd == GetShellWindow() || hwnd == GetDesktopWindow())
                 return CapturedWindowFrame.Fail(ScreenLookPolicy.DesktopRefused);
 
+            if (!Monitor.TryEnter(CaptureLock, 3000))
+                return CapturedWindowFrame.Fail(CaptureDiagnostics.Stopped("Busy", 0));
+
             try
             {
                 return Grab(hwnd);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return CapturedWindowFrame.Fail(ScreenLookPolicy.CaptureFailed);
+                return CapturedWindowFrame.Fail(CaptureDiagnostics.Stopped(ex.GetType().Name, 0));
+            }
+            finally
+            {
+                Monitor.Exit(CaptureLock);
             }
         }
 
         static CapturedWindowFrame Grab(IntPtr hwnd)
         {
+            var epoch = Volatile.Read(ref _abort);
             var hrInit = RoInitialize(1);
             if (hrInit < 0 && unchecked((uint)hrInit) != 0x80010106)
-                return FailHr(hrInit);
+                return Stopped("RoInitialize", hrInit);
 
             if (!QuerySupported())
-                return CapturedWindowFrame.Fail("Windows Graphics Capture is not available on this PC. It needs Windows 10 version 1903 or later. Nothing was sent.");
+                return CapturedWindowFrame.Fail(CaptureDiagnostics.Stopped("NotSupported", 0));
 
             IntPtr device = IntPtr.Zero;
             IntPtr context = IntPtr.Zero;
@@ -119,79 +132,88 @@ namespace AICompanion.ScreenLook
             IntPtr texture = IntPtr.Zero;
             IntPtr staging = IntPtr.Zero;
             var mapped = false;
+            var life = new CaptureLifetime();
+            var width = 0;
+            var height = 0;
 
             try
             {
                 var hr = CreateDevice(out device, out context);
-                if (hr < 0)
-                    return FailHr(hr);
+                if (hr < 0 || device == IntPtr.Zero || context == IntPtr.Zero)
+                    return Stopped("CreateDevice", hr);
                 hr = Query(device, DxgiDeviceIid, out dxgi);
-                if (hr < 0)
-                    return FailHr(hr);
+                if (hr < 0 || dxgi == IntPtr.Zero)
+                    return Stopped("DxgiDevice", hr);
                 hr = CreateDirect3D11DeviceFromDXGIDevice(dxgi, out winrtDevice);
                 if (hr < 0 || winrtDevice == IntPtr.Zero)
-                    return FailHr(hr);
+                    return Stopped("WinrtDevice", hr);
 
                 hr = Activate("Windows.Graphics.Capture.GraphicsCaptureItem", ItemInteropIid, out itemFactory);
-                if (hr < 0)
-                    return FailHr(hr);
+                if (hr < 0 || itemFactory == IntPtr.Zero)
+                    return Stopped("ItemFactory", hr);
                 var itemIid = ItemIid;
                 hr = Fn<CreateForWindowFn>(itemFactory, 3)(itemFactory, hwnd, ref itemIid, out item);
                 if (hr < 0 || item == IntPtr.Zero)
-                    return FailHr(hr);
+                    return Stopped("CreateItem", hr);
 
+                if (!TryClientSize(hwnd, out var clientW, out var clientH))
+                    return Stopped("ClientSize", 0);
                 var sizeHr = Fn<GetSizeFn>(item, 7)(item, out var size);
-                if (sizeHr < 0 || size.Width <= 0 || size.Height <= 0)
-                    return CapturedWindowFrame.Fail(ScreenLookPolicy.Minimized);
-                if ((long)size.Width * size.Height > 3840L * 2160L)
-                    return CapturedWindowFrame.Fail("That window is larger than 4K. Nothing was sent.");
+                if (!CaptureDiagnostics.TryChooseSize(sizeHr, size.Width, size.Height, clientW, clientH, out width, out height))
+                    return Stopped("ItemSize", sizeHr);
 
                 hr = Activate("Windows.Graphics.Capture.Direct3D11CaptureFramePool", PoolStatics2Iid, out poolFactory);
-                if (hr < 0)
-                    return FailHr(hr);
-                hr = Fn<CreateFreeThreadedFn>(poolFactory, 6)(poolFactory, winrtDevice, FormatBgra, 2, size, out pool);
+                if (hr < 0 || poolFactory == IntPtr.Zero)
+                    return Stopped("PoolFactory", hr);
+                var poolSize = new SizeInt32 { Width = width, Height = height };
+                hr = Fn<CreateFreeThreadedFn>(poolFactory, 6)(poolFactory, winrtDevice, FormatBgra, 2, poolSize, out pool);
                 if (hr < 0 || pool == IntPtr.Zero)
-                    return FailHr(hr);
+                    return Stopped("CreatePool", hr);
                 hr = Fn<CreateSessionFn>(pool, 10)(pool, item, out session);
                 if (hr < 0 || session == IntPtr.Zero)
-                    return FailHr(hr);
-
-                if (Query(session, Session2Iid, out var session2) >= 0 && session2 != IntPtr.Zero)
-                {
-                    Fn<PutBoolFn>(session2, 7)(session2, 0);
-                    Release(ref session2);
-                }
+                    return Stopped("CreateSession", hr);
 
                 hr = Fn<StartFn>(session, 6)(session);
                 if (hr < 0)
-                    return FailHr(hr);
+                    return Stopped("StartCapture", hr);
 
-                for (var i = 0; i < 30 && frame == IntPtr.Zero; i++)
+                for (var i = 0; i < 40 && frame == IntPtr.Zero; i++)
                 {
-                    Fn<TryFrameFn>(pool, 7)(pool, out frame);
+                    if (Volatile.Read(ref _abort) != epoch)
+                        return Stopped("Cancelled", 0);
+                    if (!IsWindow(hwnd))
+                        return Stopped("WindowClosed", 0);
+                    if (IsIconic(hwnd))
+                        return Stopped("Minimized", 0);
+                    if (!TryClientSize(hwnd, out var nowW, out var nowH) || CaptureDiagnostics.SizeChanged(clientW, clientH, nowW, nowH))
+                        return Stopped("WindowResized", 0);
+
+                    var frameHr = Fn<TryFrameFn>(pool, 7)(pool, out frame);
+                    if (frameHr < 0)
+                        return Stopped("WaitFrame", frameHr);
                     if (frame == IntPtr.Zero)
-                        Thread.Sleep(50);
+                        Thread.Sleep(15);
                 }
 
                 if (frame == IntPtr.Zero)
-                    return CapturedWindowFrame.Fail(ScreenLookPolicy.CaptureFailed);
+                    return Stopped("WaitFrame", 0);
+                if (!CaptureDiagnostics.AllowsUpload(true, false, Volatile.Read(ref _abort) != epoch, !IsWindow(hwnd), IsIconic(hwnd)))
+                    return Stopped(Volatile.Read(ref _abort) != epoch ? "Cancelled" : "WindowClosed", 0);
 
                 hr = Fn<GetSurfaceFn>(frame, 6)(frame, out surface);
                 if (hr < 0 || surface == IntPtr.Zero)
-                    return FailHr(hr);
+                    return Stopped("FrameSurface", hr);
                 hr = Query(surface, DxgiAccessIid, out access);
-                if (hr < 0)
-                    return FailHr(hr);
+                if (hr < 0 || access == IntPtr.Zero)
+                    return Stopped("DxgiAccess", hr);
                 var textureIid = Texture2DIid;
                 hr = Fn<GetInterfaceFn>(access, 6)(access, ref textureIid, out texture);
                 if (hr < 0 || texture == IntPtr.Zero)
-                    return FailHr(hr);
+                    return Stopped("Texture", hr);
 
                 Fn<GetDescFn>(texture, 10)(texture, out var desc);
-                if (desc.Width <= 0 || desc.Height <= 0)
-                    return CapturedWindowFrame.Fail(ScreenLookPolicy.CaptureFailed);
-                if ((long)desc.Width * desc.Height > 3840L * 2160L)
-                    return CapturedWindowFrame.Fail("That window is larger than 4K. Nothing was sent.");
+                if (!CaptureDiagnostics.Matches(width, height, desc.Width, desc.Height))
+                    return Stopped("TextureSize", 0);
 
                 var stagingDesc = desc;
                 stagingDesc.MipLevels = 1;
@@ -204,15 +226,15 @@ namespace AICompanion.ScreenLook
                 stagingDesc.MiscFlags = 0;
                 hr = Fn<CreateTextureFn>(device, 5)(device, ref stagingDesc, IntPtr.Zero, out staging);
                 if (hr < 0 || staging == IntPtr.Zero)
-                    return FailHr(hr);
+                    return Stopped("StagingTexture", hr);
 
                 Fn<CopyFn>(context, 47)(context, staging, texture);
                 hr = Fn<MapFn>(context, 14)(context, staging, 0, MapRead, 0, out var mappedBox);
                 if (hr < 0 || mappedBox.Data == IntPtr.Zero)
-                    return FailHr(hr);
+                    return Stopped("Map", hr);
                 mapped = true;
                 if (mappedBox.RowPitch < desc.Width * 4)
-                    return CapturedWindowFrame.Fail(ScreenLookPolicy.CaptureFailed);
+                    return Stopped("MapPitch", 0);
 
                 var bgra = new byte[desc.Width * desc.Height * 4];
                 for (var y = 0; y < desc.Height; y++)
@@ -241,9 +263,10 @@ namespace AICompanion.ScreenLook
                 Release(ref texture);
                 Release(ref access);
                 Release(ref surface);
-                CloseAndRelease(ref frame);
-                CloseAndRelease(ref session);
-                CloseAndRelease(ref pool);
+                life.TryClose(
+                    () => Release(ref frame),
+                    () => CloseAndRelease(ref session),
+                    () => CloseAndRelease(ref pool));
                 Release(ref item);
                 Release(ref poolFactory);
                 Release(ref itemFactory);
@@ -278,12 +301,23 @@ namespace AICompanion.ScreenLook
 
         static int CreateDevice(out IntPtr device, out IntPtr context)
         {
-            var hr = D3D11CreateDevice(IntPtr.Zero, DriverHardware, IntPtr.Zero, BgraSupport, IntPtr.Zero, 0, SdkVersion, out device, out _, out context);
-            if (hr >= 0 && device != IntPtr.Zero)
-                return hr;
-            Release(ref context);
-            Release(ref device);
-            return D3D11CreateDevice(IntPtr.Zero, DriverWarp, IntPtr.Zero, BgraSupport, IntPtr.Zero, 0, SdkVersion, out device, out _, out context);
+            return D3D11CreateDevice(IntPtr.Zero, DriverHardware, IntPtr.Zero, BgraSupport, IntPtr.Zero, 0, SdkVersion, out device, out _, out context);
+        }
+
+        static bool TryClientSize(IntPtr hwnd, out int width, out int height)
+        {
+            width = 0;
+            height = 0;
+            if (!GetClientRect(hwnd, out var rect))
+                return false;
+            width = rect.Right - rect.Left;
+            height = rect.Bottom - rect.Top;
+            return width > 0 && height > 0;
+        }
+
+        static CapturedWindowFrame Stopped(string stage, int hr)
+        {
+            return CapturedWindowFrame.Fail(CaptureDiagnostics.Stopped(stage, hr));
         }
 
         static int Activate(string className, Guid iid, out IntPtr factory)
@@ -312,23 +346,24 @@ namespace AICompanion.ScreenLook
 
         static void CloseAndRelease(ref IntPtr com)
         {
-            if (com == IntPtr.Zero)
+            var ptr = com;
+            com = IntPtr.Zero;
+            if (ptr == IntPtr.Zero)
                 return;
-            IntPtr closable;
-            if (Query(com, ClosableIid, out closable) >= 0 && closable != IntPtr.Zero)
-            {
-                try
-                {
-                    Fn<StartFn>(closable, 6)(closable);
-                }
-                catch (Exception)
-                {
-                }
 
-                Release(ref closable);
+            IntPtr closable = IntPtr.Zero;
+            try
+            {
+                if (Query(ptr, ClosableIid, out closable) >= 0 && closable != IntPtr.Zero)
+                    Fn<StartFn>(closable, 6)(closable);
+            }
+            catch (Exception)
+            {
             }
 
-            Release(ref com);
+            Release(ref closable);
+            var leftover = ptr;
+            Release(ref leftover);
         }
 
         static void Release(ref IntPtr com)
@@ -344,13 +379,6 @@ namespace AICompanion.ScreenLook
             }
 
             com = IntPtr.Zero;
-        }
-
-        static CapturedWindowFrame FailHr(int hr)
-        {
-            if (hr >= 0)
-                return CapturedWindowFrame.Fail(ScreenLookPolicy.CaptureFailed);
-            return CapturedWindowFrame.Fail(ScreenLookPolicy.CaptureFailed + " (" + unchecked((uint)hr).ToString("X8") + ")");
         }
 
         static int OnEnum(IntPtr hwnd, IntPtr lparam)
@@ -522,9 +550,6 @@ namespace AICompanion.ScreenLook
         delegate int IsSupportedFn(IntPtr self, out int supported);
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-        delegate int PutBoolFn(IntPtr self, int value);
-
-        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         delegate void GetDescFn(IntPtr self, out TextureDesc desc);
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
@@ -553,6 +578,9 @@ namespace AICompanion.ScreenLook
 
         [DllImport("user32.dll")]
         static extern bool GetWindowRect(IntPtr hwnd, out RectInt rect);
+
+        [DllImport("user32.dll")]
+        static extern bool GetClientRect(IntPtr hwnd, out RectInt rect);
 
         [DllImport("user32.dll")]
         static extern uint GetWindowThreadProcessId(IntPtr hwnd, out int processId);

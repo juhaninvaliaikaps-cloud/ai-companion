@@ -53,6 +53,13 @@ namespace AICompanion.ScreenLook
 #endif
         }
 
+        public static void CancelActive()
+        {
+#if UNITY_EDITOR_WIN || (UNITY_STANDALONE_WIN && !UNITY_EDITOR)
+            WindowsGraphicsCaptureBackend.CancelActive();
+#endif
+        }
+
         public static CapturedWindowFrame CaptureWindow(WindowTarget target)
         {
             if (!CapturePlan.TryForWindow(target, out var hwnd, out var validity))

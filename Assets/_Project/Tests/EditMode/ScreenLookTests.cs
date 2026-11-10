@@ -272,6 +272,45 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void CaptureTeardown_ClosesOnceInOrderAndDropsResizedFrames()
+        {
+            var life = new CaptureLifetime();
+            Assert.IsTrue(life.TryClose(null, null, null));
+            CollectionAssert.AreEqual(new[] { "release-frame", "close-session", "close-pool" }, life.Steps);
+            Assert.IsFalse(life.TryClose(null, null, null));
+            Assert.AreEqual(3, life.Steps.Count);
+
+            Assert.IsTrue(CaptureDiagnostics.TryChooseSize(0, 800, 600, 800, 600, out var width, out var height));
+            Assert.AreEqual(800, width);
+            Assert.AreEqual(600, height);
+            Assert.IsTrue(CaptureDiagnostics.TryChooseSize(-1, 0, 0, 640, 480, out width, out height));
+            Assert.AreEqual(640, width);
+            Assert.AreEqual(480, height);
+            Assert.IsFalse(CaptureDiagnostics.TryChooseSize(-1, 0, 0, 0, 0, out _, out _));
+
+            Assert.IsFalse(CaptureDiagnostics.SizeChanged(800, 600, 802, 600));
+            Assert.IsTrue(CaptureDiagnostics.SizeChanged(800, 600, 1920, 1080));
+            Assert.IsTrue(CaptureDiagnostics.SizeChanged(800, 600, 0, 0));
+            Assert.IsTrue(CaptureDiagnostics.Matches(800, 600, 820, 610));
+            Assert.IsFalse(CaptureDiagnostics.Matches(800, 600, 1920, 1080));
+
+            Assert.IsFalse(CaptureDiagnostics.AllowsUpload(true, true, false, false, false));
+            Assert.IsFalse(CaptureDiagnostics.AllowsUpload(true, false, true, false, false));
+            Assert.IsFalse(CaptureDiagnostics.AllowsUpload(false, false, false, false, false));
+            Assert.IsTrue(CaptureDiagnostics.AllowsUpload(true, false, false, false, false));
+
+            var failed = CaptureDiagnostics.Stopped("CreatePool", unchecked((int)0x80070057));
+            StringAssert.Contains("CreatePool", failed);
+            StringAssert.Contains("80070057", failed);
+            StringAssert.Contains("Nothing was sent", failed);
+            Assert.IsFalse(failed.Contains("Notepad"));
+            Assert.IsFalse(failed.Contains("data:image"));
+            var ready = CaptureDiagnostics.LogLine(true, 800, 600, null);
+            StringAssert.Contains("frame ready 800x600", ready);
+            Assert.IsFalse(ready.Contains("data:image"));
+        }
+
+        [Test]
         public void WindowsCapture_BindsAWindowAndNotTheMonitor()
         {
             var source = File.ReadAllText(Path.Combine(Application.dataPath, "_Project", "Scripts", "ScreenLook", "WindowsGraphicsCapture.cs"));
