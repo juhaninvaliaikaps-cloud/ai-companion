@@ -11,6 +11,7 @@
         "AICompanion.UI",
         "AICompanion.Voice",
         "AICompanion.Settings",
+        "AICompanion.ScreenLook",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

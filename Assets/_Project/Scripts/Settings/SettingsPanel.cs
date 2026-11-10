@@ -36,10 +36,11 @@ namespace AICompanion.Settings
             Controls = 3,
             Overlay = 4,
             Privacy = 5,
-            Persona = 6
+            Persona = 6,
+            Screen = 7
         }
 
-        static readonly string[] TabLabels = { "AI", "Avatar", "Voice", "Controls", "Overlay", "Privacy", "Persona" };
+        static readonly string[] TabLabels = { "AI", "Avatar", "Voice", "Controls", "Overlay", "Privacy", "Persona", "Screen" };
 
         readonly List<InputField> _fields = new List<InputField>();
         readonly List<Image> _tabImages = new List<Image>();
@@ -192,6 +193,7 @@ namespace AICompanion.Settings
             SyncFocus(AnyFieldFocused());
             TrackLive();
             TrackHistory();
+            TrackScreen();
             Place();
         }
 
@@ -640,6 +642,9 @@ namespace AICompanion.Settings
                     break;
                 case Tab.Persona:
                     BuildPersona();
+                    break;
+                case Tab.Screen:
+                    BuildScreen();
                     break;
                 default:
                     BuildAi();
@@ -1401,6 +1406,8 @@ namespace AICompanion.Settings
                 var host = hosts[i].gameObject;
                 if (host.GetComponent<SettingsPanel>() == null)
                     host.AddComponent<SettingsPanel>();
+                if (host.GetComponent<ScreenLookController>() == null)
+                    host.AddComponent<ScreenLookController>();
                 if (host.GetComponent<SetupWizard>() == null)
                     host.AddComponent<SetupWizard>();
             }

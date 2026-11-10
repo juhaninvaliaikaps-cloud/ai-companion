@@ -72,6 +72,15 @@ namespace AICompanion.Settings
         public bool Paused;
         public bool ChatHistory;
         public bool PrivateMode;
+
+        /// <summary>Manual window capture. Off until the user turns it on.</summary>
+        public bool ScreenLookEnabled;
+
+        /// <summary>
+        /// Explicit opt-in before a selected-window image is sent to the cloud vision provider.
+        /// </summary>
+        public bool ScreenCloudConsent;
+
         public string CompanionName = string.Empty;
         public string Relationship = RelationshipStyles.Friend;
 
@@ -435,6 +444,10 @@ namespace AICompanion.Settings
                 settings.ChatHistory = flag;
             if (TryBool(json, "privateMode", out flag))
                 settings.PrivateMode = flag;
+            if (TryBool(json, "screenLookEnabled", out flag))
+                settings.ScreenLookEnabled = flag;
+            if (TryBool(json, "screenCloudConsent", out flag))
+                settings.ScreenCloudConsent = flag;
             if (TryString(json, "companionName", out text))
                 settings.CompanionName = text;
             if (TryString(json, "relationship", out text))
@@ -490,6 +503,8 @@ namespace AICompanion.Settings
             Bool(sb, "paused", source.Paused);
             Bool(sb, "chatHistory", source.ChatHistory);
             Bool(sb, "privateMode", source.PrivateMode);
+            Bool(sb, "screenLookEnabled", source.ScreenLookEnabled);
+            Bool(sb, "screenCloudConsent", source.ScreenCloudConsent);
             String(sb, "companionName", source.CompanionName);
             String(sb, "relationship", source.Relationship);
             String(sb, "personaId", source.PersonaId);

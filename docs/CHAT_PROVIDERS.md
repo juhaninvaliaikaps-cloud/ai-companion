@@ -13,6 +13,8 @@ Change the id, model, base URL, timeout, temperature, max tokens, or system prom
 
 The endpoint is the legacy Chat Completions API, which is what xAI documents as OpenAI-compatible. Visible reply text is `delta.content`. Reasoning text (`reasoning_content`) is not shown.
 
+A one-frame window look is the exception. That request uses the Responses API (`/v1/responses`) because that is the image path the current xAI image-understanding guide shows for `grok-4.7`. It sends one JPEG, sets `store` to false, and does not keep the image in the transcript. Details and the opt-in are in [SCREEN_LOOK.md](SCREEN_LOOK.md).
+
 ## Set the xAI key
 
 The key is never stored in the repository. Resolution order:

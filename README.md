@@ -180,7 +180,7 @@ The companion becomes useful on the machine and in a game.
 - Long-term memory, persona presets, and swappable voice modules.
 - Richer animation (layered blending, procedural idle, reactive listening).
 - Desktop tools (reminders, calendar, files, apps, clipboard) behind an opt-in permission system.
-- Game companion prototype: read-only capture or official game APIs, cloud vision, and paced commentary.
+- Game companion prototype: read-only capture or official game APIs, cloud vision, and paced commentary. The first manual slice (one selected window, local preview, one opted-in look) is described in [docs/SCREEN_LOOK.md](docs/SCREEN_LOOK.md). Continuous commentary is not built yet.
 
 ### Phase 3 — Adult mode, plug-ins, and release
 
