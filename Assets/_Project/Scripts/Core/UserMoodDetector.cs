@@ -234,7 +234,7 @@ namespace AICompanion.Core
                     continue;
 
                 var token = tokens[j];
-                if (UserMoodLexicon.IsNegator(token))
+                if (UserMoodLexicon.IsNegator(token) || (back == 1 && UserMoodLexicon.IsAdjacentNegator(token)))
                     negated = true;
                 if (back <= ModifierWindow)
                 {

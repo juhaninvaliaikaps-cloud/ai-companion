@@ -66,9 +66,17 @@ namespace AICompanion.Core
 
         static readonly HashSet<string> Negators = new HashSet<string>(StringComparer.Ordinal)
         {
-            "not", "no", "never", "dont", "doesnt", "didnt", "isnt", "arent", "wasnt", "werent",
-            "cant", "cannot", "wont", "wouldnt", "aint", "without", "hardly",
+            "not", "never", "dont", "doesnt", "didnt", "isnt", "arent", "wasnt", "werent",
+            "cant", "cannot", "wont", "wouldnt", "aint", "hardly",
             "en", "et", "ei", "emme", "ette", "eivät", "älä",
+        };
+
+        // "no" negates only the very next word ("no fun"). As a reply it stands alone:
+        // "No I'm happy" is still happy. "without" is not a negator at all, because
+        // "without you I'm sad" is sad.
+        static readonly HashSet<string> AdjacentNegators = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "no",
         };
 
         static readonly HashSet<string> Intensifiers = new HashSet<string>(StringComparer.Ordinal)
@@ -78,9 +86,10 @@ namespace AICompanion.Core
             "tosi", "todella", "erittäin", "niin",
         };
 
+        // "kind" is left out: "you are kind and sweet" is not "kind of sweet".
         static readonly HashSet<string> Dampeners = new HashSet<string>(StringComparer.Ordinal)
         {
-            "slightly", "somewhat", "kinda", "kind", "bit", "little", "fairly",
+            "slightly", "somewhat", "kinda", "bit", "little", "fairly",
             "vähän", "hieman", "hiukan",
         };
 
@@ -119,6 +128,12 @@ namespace AICompanion.Core
         public static bool IsNegator(string token)
         {
             return token != null && Negators.Contains(token);
+        }
+
+        /// <summary>A negator that only counts directly before the word it negates.</summary>
+        public static bool IsAdjacentNegator(string token)
+        {
+            return token != null && AdjacentNegators.Contains(token);
         }
 
         public static bool IsIntensifier(string token)
@@ -231,7 +246,8 @@ namespace AICompanion.Core
             AddPhrase(phrases, UserEmotion.Affectionate, 2f, "love you");
             AddPhrase(phrases, UserEmotion.Affectionate, 2f, "love u");
             AddPhrase(phrases, UserEmotion.Affectionate, 1.5f, "miss you");
-            AddPhrase(phrases, UserEmotion.Affectionate, 1.2f, "like you");
+            // Not the bare "like you": "like you said" and "sounds like you" are not affection.
+            AddPhrase(phrases, UserEmotion.Affectionate, 1.2f, "i like you");
             AddPhrase(phrases, UserEmotion.Happy, 1f, "thank you");
             AddPhrase(phrases, UserEmotion.Happy, 1.5f, "cant wait");
             AddPhrase(phrases, UserEmotion.Happy, 1.2f, "looking forward");

@@ -100,6 +100,35 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Detect_NoAsAReply_DoesNotNegateALaterWord()
+        {
+            // "no" only negates the very next word.
+            Assert.AreEqual(UserEmotion.Happy, UserMoodDetector.Detect("No I'm happy").Emotion);
+            Assert.IsTrue(UserMoodDetector.Detect("that was no fun").IsNeutral);
+        }
+
+        [Test]
+        public void Detect_WithoutIsNotANegation()
+        {
+            Assert.AreEqual(UserEmotion.Sad, UserMoodDetector.Detect("without you I'm sad").Emotion);
+        }
+
+        [Test]
+        public void Detect_KindAsAnAdjective_DoesNotWeakenTheNextWord()
+        {
+            Assert.AreEqual(UserEmotion.Affectionate, UserMoodDetector.Detect("you are kind and sweet").Emotion);
+            Assert.Less(UserMoodDetector.Detect("I'm kinda sad").Intensity, UserMoodDetector.Detect("I'm sad").Intensity);
+        }
+
+        [Test]
+        public void Detect_LikeYou_IsAffectionOnlyAsAWholePhrase()
+        {
+            Assert.IsTrue(UserMoodDetector.Detect("like you said, it is at five").IsNeutral);
+            Assert.IsTrue(UserMoodDetector.Detect("that sounds like you").IsNeutral);
+            Assert.AreEqual(UserEmotion.Affectionate, UserMoodDetector.Detect("I like you").Emotion);
+        }
+
+        [Test]
         public void Detect_NegatorInsideAPhrase_DoesNotNegateTheNextWord()
         {
             // "no way" is surprise. Its "no" must not turn "amazing" into sadness.

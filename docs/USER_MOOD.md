@@ -26,6 +26,7 @@ The detector uses word rules, not a model. All of it is in `AICompanion.Core`, w
    - "very", "really", "so", "tosi" within two words multiply the weight by 1.5.
    - "a bit", "slightly", "vähän" within two words multiply it by 0.6.
    - "not", "dont", "never", "en", "ei" within three words negate it. A negated happy or affectionate hit counts as mildly sad. Any other negated hit is dropped, so "not sad" is neutral.
+   - "no" negates only the word directly after it ("no fun"). "No I'm happy" is still happy.
 5. Emoticons and emoji add to the score: `:)`, `:(`, `<3`, and common emoji.
 6. `?!` adds surprise. `??` adds confusion.
 7. The emotion with the highest total wins. A total under 0.5 is neutral. On a tie, distress wins: angry, sad, anxious, affectionate, happy, surprised, confused.
