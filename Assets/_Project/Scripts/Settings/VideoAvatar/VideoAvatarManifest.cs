@@ -22,7 +22,7 @@ namespace AICompanion.Settings
         /// <summary>An optional side-facing standing loop shown after the walk-stop.</summary>
         SideIdle = 4,
 
-        /// <summary>A named full-body reaction such as "happy". Registered but not played yet.</summary>
+        /// <summary>A named full-body reaction such as "happy". Played once from the default idle.</summary>
         Reaction = 5,
     }
 

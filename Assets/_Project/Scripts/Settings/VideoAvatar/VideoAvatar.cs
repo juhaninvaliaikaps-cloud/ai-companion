@@ -196,6 +196,11 @@ namespace AICompanion.Settings
                 Resolve(requested);
             }
 
+            // An emotion she already had before the video showed is not a change. Only a
+            // change while the video plays starts a reaction.
+            if (_state != VideoAvatarState.Playing && _animatorObject != null)
+                _lastEmotion = _animator.Emotion;
+
             if (_state == VideoAvatarState.Loading)
                 TickLoading(delta);
 
