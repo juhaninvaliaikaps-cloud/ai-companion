@@ -58,6 +58,63 @@ namespace AICompanion.Settings
                 _rebuild = true;
             });
             var localChat = _settings.PrivateMode || _settings.ProviderId == ChatDefaults.LocalId;
+            if (look != null)
+                look.RefreshMonitors();
+            AddToggle("Whole screen instead of a window", _settings.ScreenCaptureWholeMonitor, value =>
+            {
+                _settings.ScreenCaptureWholeMonitor = value;
+                ApplyLive();
+                _rebuild = true;
+            });
+            if (_settings.ScreenCaptureWholeMonitor)
+            {
+                AddToggle("Allow whole-screen capture", _settings.ScreenWholeMonitorConsent, value =>
+                {
+                    _settings.ScreenWholeMonitorConsent = value;
+                    ApplyLive();
+                    _rebuild = true;
+                });
+                NoteBlock("Whole-screen capture is a separate consent from window capture. It includes every window on that display. A failed window grab never widens into this, and a failed display grab never widens into another display. Private mode keeps it local.");
+                if (_settings.ScreenWholeMonitorConsent && look != null)
+                {
+                    var monitors = look.Monitors;
+                    if (monitors == null || monitors.Count == 0)
+                        Note("No displays were reported by Windows. Nothing is captured.");
+                    else
+                    {
+                        for (var i = 0; i < monitors.Count; i++)
+                        {
+                            var monitor = monitors[i];
+                            var chosen = look.SelectedMonitor == monitor;
+                            AddButton((chosen ? "Selected: " : string.Empty) + monitor.Label, () => look.SelectMonitor(monitor));
+                        }
+                    }
+                }
+            }
+
+            AddToggle("Let her look during chat", _settings.ScreenAutoLook, value =>
+            {
+                _settings.ScreenAutoLook = value;
+                ApplyLive();
+                _rebuild = true;
+            });
+            if (_settings.ScreenAutoLook)
+            {
+                AddToggle("Pause automatic looks", _settings.ScreenAutoLookPaused, value =>
+                {
+                    _settings.ScreenAutoLookPaused = value;
+                    ApplyLive();
+                    _rebuild = true;
+                });
+                NoteBlock(_settings.ScreenAutoLookPaused
+                    ? "Paused. The permission is still granted, but she cannot look until you unpause."
+                    : "She may ask for one look while replying, at most once per reply and no more than once every " + Mathf.RoundToInt(ScreenLookController.AutoLookCooldownSeconds) + " seconds. The observation is only spoken when it is worth saying. It stays on this PC.");
+            }
+            else
+            {
+                NoteBlock("Automatic looks are off. She never captures the screen on her own; the Look button still works.");
+            }
+
             var decision = look != null ? look.CurrentDecision() : new ScreenLookDecision(false, ScreenLookRoute.None, string.Empty);
             var plansLocal = look != null && look.PlansLocalVision();
             var visionEngine = plansLocal
@@ -103,7 +160,7 @@ namespace AICompanion.Settings
                 _rebuild = true;
             });
 
-            var windows = look.Windows;
+            var windows = _settings.ScreenCaptureWholeMonitor ? null : look.Windows;
             if (windows != null)
             {
                 for (var i = 0; i < windows.Count; i++)
@@ -114,7 +171,13 @@ namespace AICompanion.Settings
                 }
             }
 
-            if (look.Selected == null)
+            if (_settings.ScreenCaptureWholeMonitor)
+            {
+                Note(look.SelectedMonitor != null
+                    ? "Selected display: " + look.SelectedMonitor.Label + ". The whole display is captured, including every window on it."
+                    : "Choose a display. Nothing is captured until you do.");
+            }
+            else if (look.Selected == null)
                 Note("No window selected.");
             else
                 Note("Selected: " + WindowLabel(look.Selected) + ". That name is the window title from Windows, not text read from the picture.");
@@ -133,7 +196,12 @@ namespace AICompanion.Settings
             if (lookWidget != null)
                 lookWidget.interactable = ScreenLookPolicy.LookButtonInteractable(decision.SendButtonEnabled, look.IsBusy);
             AddButton(look.IsBusy ? "Stop" : "Stop look", () => look.Stop());
-            AddButton("Clear window", () => look.ClearSelection());
+            AddButton("Clear window", () =>
+            {
+                look.ClearSelection();
+                if (_settings.ScreenCaptureWholeMonitor)
+                    look.RefreshMonitors();
+            });
             NoteBlock("Stop cancels the current frame. Clear window drops the selection and the preview. Game support, exclusive fullscreen, and the performance target are not verified in this build.");
             DestroyExactPreview();
             if (_screenPreviewBig && look.PreviewTexture != null)

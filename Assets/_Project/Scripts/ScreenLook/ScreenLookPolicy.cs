@@ -1,3 +1,4 @@
+using System;
 using AICompanion.AI;
 
 namespace AICompanion.ScreenLook
@@ -14,7 +15,10 @@ namespace AICompanion.ScreenLook
         public string LocalVisionModel;
         public bool Busy;
         public bool Automatic;
+        public bool AutoLookConsent;
         public bool MonitorRequested;
+        public bool WholeMonitorConsent;
+        public MonitorTarget Monitor;
         public WindowTarget Target;
     }
 
@@ -68,8 +72,11 @@ namespace AICompanion.ScreenLook
         public const string Minimized = "That window is minimised or has no area. Restore it, then try again. Nothing was sent.";
         public const string Closed = "That window has closed. Choose another. Nothing was sent.";
         public const string Busy = "A look is already in progress.";
-        public const string AutomaticRefused = "Automatic commentary is not on. Use What do you see? for one frame.";
-        public const string MonitorRefused = "Capture does not switch to the whole screen.";
+        public const string AutomaticRefused = "Let her look during chat is off. Turn it on under Settings, Screen.";
+        public const string AutoLookBusy = "She is already looking at the screen.";
+        public const string NeedMonitor = "Choose a display first. Nothing is captured.";
+        public const string MonitorRefused = "Whole-screen capture is off. It is a separate consent from the window capture.";
+        public const string MonitorMissing = "That display is no longer connected. Refresh the display list.";
         public const string ConsentRequired = "Cloud screen analysis is off, and no local vision model is set. What do you see? stays off until you set a local vision model or allow cloud screen analysis. Nothing was sent.";
         public const string Stale = "That frame was dropped because a newer look started. Nothing was sent.";
         public const string Blank = "The capture was empty or black. Protected and exclusive fullscreen windows often do this. Nothing was sent.";
@@ -84,10 +91,22 @@ namespace AICompanion.ScreenLook
                 return new ScreenLookDecision(false, ScreenLookRoute.None, FeatureOff);
             if (input.Busy)
                 return new ScreenLookDecision(false, ScreenLookRoute.None, Busy);
-            if (input.Automatic && !ScreenLookSchedule.AutomaticSamplingEnabled)
+            if (input.Automatic && (!ScreenLookSchedule.AutomaticSamplingEnabled || !input.AutoLookConsent))
                 return new ScreenLookDecision(false, ScreenLookRoute.None, AutomaticRefused);
-            if (input.MonitorRequested && !CapturePlan.MonitorCaptureAllowed)
-                return new ScreenLookDecision(false, ScreenLookRoute.None, MonitorRefused);
+            if (input.MonitorRequested)
+            {
+                if (!CapturePlan.MonitorCaptureAllowed || !input.WholeMonitorConsent)
+                    return new ScreenLookDecision(false, ScreenLookRoute.None, MonitorRefused);
+                if (input.Monitor == null || input.Monitor.Handle == IntPtr.Zero)
+                    return new ScreenLookDecision(false, ScreenLookRoute.None, NeedMonitor);
+                if (UseLocalVision(input))
+                    return LocalRoute(input.LocalVisionModel, input.ChatModel);
+                if (!VisionCapability.CloudModelAcceptsImages(input.CloudModel))
+                    return new ScreenLookDecision(true, ScreenLookRoute.None, VisionCapability.ModelRefusal);
+                if (!input.CloudConsent)
+                    return new ScreenLookDecision(true, ScreenLookRoute.None, ConsentRequired);
+                return new ScreenLookDecision(true, ScreenLookRoute.Cloud, string.Empty);
+            }
 
             var validity = WindowTargetRules.Check(input.Target);
             if (validity == TargetValidity.Missing)

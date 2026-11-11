@@ -22,7 +22,11 @@ namespace AICompanion.Settings
         readonly ScreenLookInput _buttonInput = new ScreenLookInput();
         readonly Queue<Action> _main = new Queue<Action>();
         WindowTarget _selected;
+        MonitorTarget _monitor;
         Texture2D _preview;
+        bool _automaticLook;
+        float _lastAutoLook = -1000f;
+        public const float AutoLookCooldownSeconds = 20f;
         bool _waitingForChat;
         bool _alive = true;
         CancellationTokenSource _visionCancel;
@@ -51,6 +55,109 @@ namespace AICompanion.Settings
         public string PreviewDetails { get; private set; } = string.Empty;
 
         public IReadOnlyList<WindowTarget> Windows { get; private set; } = new WindowTarget[0];
+
+        public IReadOnlyList<MonitorTarget> Monitors { get; private set; } = new MonitorTarget[0];
+
+        public MonitorTarget SelectedMonitor => _monitor;
+
+        public bool AutoLookEnabled
+        {
+            get
+            {
+                var settings = CurrentSettings();
+                return settings != null && settings.ScreenLookEnabled && settings.ScreenAutoLook && !settings.ScreenAutoLookPaused;
+            }
+        }
+
+        public bool WholeMonitorMode
+        {
+            get
+            {
+                var settings = CurrentSettings();
+                return settings != null && settings.ScreenCaptureWholeMonitor;
+            }
+        }
+
+        CompanionSettings CurrentSettings()
+        {
+            var panel = GetComponent<SettingsPanel>();
+            return panel != null ? panel.CurrentSettings : null;
+        }
+
+        CapturedWindowFrame CaptureSelected()
+        {
+            var settings = CurrentSettings();
+            if (settings != null && settings.ScreenCaptureWholeMonitor && _monitor != null)
+                return WindowCapture.CaptureMonitor(_monitor);
+            return WindowCapture.CaptureWindow(_selected);
+        }
+
+        public void RefreshMonitors()
+        {
+            Monitors = MonitorList.Read();
+            var settings = CurrentSettings();
+            var device = settings != null ? settings.ScreenMonitorDevice : string.Empty;
+            MonitorTarget chosen = null;
+            for (var i = 0; i < Monitors.Count; i++)
+            {
+                if (!string.IsNullOrEmpty(device) && Monitors[i].DeviceName == device)
+                {
+                    chosen = Monitors[i];
+                    break;
+                }
+            }
+
+            if (chosen == null)
+            {
+                for (var i = 0; i < Monitors.Count; i++)
+                {
+                    if (Monitors[i].IsPrimary)
+                    {
+                        chosen = Monitors[i];
+                        break;
+                    }
+                }
+            }
+
+            _monitor = chosen != null ? chosen : (Monitors.Count > 0 ? Monitors[0] : null);
+        }
+
+        public void SelectMonitor(MonitorTarget monitor)
+        {
+            if (monitor == null || IsBusy || !Enabled())
+                return;
+
+            _monitor = monitor;
+            var settings = CurrentSettings();
+            if (settings != null)
+                settings.ScreenMonitorDevice = monitor.DeviceName;
+            PreviewMonitor();
+        }
+
+        void PreviewMonitor()
+        {
+            if (!WindowCapture.IsSupported || _monitor == null)
+                return;
+            if (!_gate.TryEnter(out var generation))
+                return;
+
+            _activeGeneration = generation;
+            var target = _monitor;
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                CapturedWindowFrame frame;
+                try
+                {
+                    frame = WindowCapture.CaptureMonitor(target);
+                }
+                catch (Exception ex)
+                {
+                    frame = CapturedWindowFrame.Fail(CaptureDiagnostics.Stopped(ex.GetType().Name, 0));
+                }
+
+                Post(() => OnPreviewFrame(generation, frame));
+            });
+        }
 
         void Update()
         {
@@ -90,7 +197,49 @@ namespace AICompanion.Settings
             if (IsBusy)
                 return;
 
+            StartCapture(false);
+        }
+
+        /// <summary>
+        /// A look she asked for herself, through the [look] cue. Local only, rate limited,
+        /// and it needs the separate Let her look switch. The reply is written only when the
+        /// observation has something worth saying.
+        /// </summary>
+        public bool RequestAutoLook()
+        {
+            var settings = CurrentSettings();
+            if (!Enabled() || settings == null || !settings.ScreenAutoLook || settings.ScreenAutoLookPaused)
+                return false;
+            if (IsBusy)
+                return false;
+            if (Time.unscaledTime - _lastAutoLook < AutoLookCooldownSeconds)
+                return false;
+
+            if (WholeMonitorMode && _monitor == null)
+                RefreshMonitors();
             var input = BuildInput();
+            input.Automatic = true;
+            input.AutoLookConsent = settings.ScreenAutoLook;
+            var decision = ScreenLookPolicy.Evaluate(input);
+            if (decision.Route != ScreenLookRoute.Local || !decision.AllowSend)
+                return false;
+            if (!WindowCapture.IsSupported)
+                return false;
+
+            _lastAutoLook = Time.unscaledTime;
+            StartCapture(true);
+            return true;
+        }
+
+        void StartCapture(bool automatic)
+        {
+            var input = BuildInput();
+            if (automatic)
+            {
+                input.Automatic = true;
+                input.AutoLookConsent = true;
+            }
+
             var decision = ScreenLookPolicy.Evaluate(input);
             Debug.Log(CaptureDiagnostics.RouteLine(
                 decision.Route.ToString(),
@@ -114,6 +263,9 @@ namespace AICompanion.Settings
                 return;
             }
 
+            if (WholeMonitorMode && _monitor == null)
+                RefreshMonitors();
+
             if (!_gate.TryEnter(out var generation))
             {
                 Note(ScreenLookPolicy.Busy);
@@ -122,14 +274,14 @@ namespace AICompanion.Settings
             }
 
             _activeGeneration = generation;
-            Touch("Capturing the selected window.");
-            var target = _selected;
+            _automaticLook = automatic;
+            Touch(automatic ? "She is having a quick look." : (WholeMonitorMode ? "Capturing the selected display." : "Capturing the selected window."));
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 CapturedWindowFrame frame;
                 try
                 {
-                    frame = WindowCapture.CaptureWindow(target);
+                    frame = CaptureSelected();
                 }
                 catch (Exception ex)
                 {
@@ -501,9 +653,12 @@ namespace AICompanion.Settings
             input.CloudModel = current != null ? current.Model : ChatDefaults.Model;
             input.ChatModel = current != null ? current.LocalModel : ChatDefaults.LocalModel;
             input.LocalVisionModel = current != null ? current.LocalVisionModel : string.Empty;
+            input.MonitorRequested = current != null && current.ScreenCaptureWholeMonitor;
+            input.WholeMonitorConsent = current != null && current.ScreenWholeMonitorConsent;
+            input.Monitor = _monitor;
+            input.AutoLookConsent = current != null && current.ScreenAutoLook && !current.ScreenAutoLookPaused;
             input.Busy = false;
             input.Automatic = false;
-            input.MonitorRequested = false;
             input.Target = _selected;
         }
 
@@ -560,6 +715,20 @@ namespace AICompanion.Settings
                 }
 
                 var chat = GetComponent<ChatPanel>();
+                var automatic = _automaticLook;
+                _automaticLook = false;
+                if (automatic)
+                {
+                    // She looked on her own. The reply is optional: a silent filter decides
+                    // whether the observation is worth saying. The gate can be released here
+                    // because the vision model has already finished.
+                    _gate.Leave(generation);
+                    var autoStarted = chat != null && chat.SubmitAutoObservation(result.Observation);
+                    Debug.Log(CaptureDiagnostics.ChatLine("local", false, "observationChars", observationChars, autoStarted));
+                    Touch(autoStarted ? "She glanced at the screen." : "She looked, and had nothing to say.");
+                    return;
+                }
+
                 _waitingForChat = chat != null && chat.SubmitTextObservation(result.Observation);
                 Debug.Log(CaptureDiagnostics.ChatLine("local", false, "observationChars", observationChars, _waitingForChat));
                 if (!_waitingForChat)

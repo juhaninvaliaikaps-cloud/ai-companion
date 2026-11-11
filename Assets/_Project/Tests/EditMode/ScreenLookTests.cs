@@ -20,12 +20,12 @@ namespace AICompanion.Tests.EditMode
             settings.Normalize();
             Assert.IsFalse(settings.ScreenLookEnabled);
             Assert.IsFalse(settings.ScreenCloudConsent);
-            Assert.IsFalse(ScreenLookSchedule.AutomaticSamplingEnabled);
+            Assert.IsTrue(ScreenLookSchedule.AutomaticSamplingEnabled);
             Assert.IsFalse(ScreenLookSchedule.FocusAndMutePauseImplemented);
             Assert.IsFalse(ScreenLookSchedule.PerformanceImpactMeasured);
             Assert.AreEqual(0.5f, ScreenLookSchedule.FutureMinFps);
             Assert.AreEqual(2f, ScreenLookSchedule.FutureMaxFps);
-            Assert.IsFalse(CapturePlan.MonitorCaptureAllowed);
+            Assert.IsTrue(CapturePlan.MonitorCaptureAllowed);
             Assert.IsFalse(ScreenLookPolicy.RememberObservations);
         }
 
@@ -210,6 +210,45 @@ namespace AICompanion.Tests.EditMode
             monitor.MonitorRequested = true;
             Assert.AreEqual(ScreenLookPolicy.MonitorRefused, ScreenLookPolicy.Evaluate(monitor).Message);
             Assert.IsFalse(ScreenLookPolicy.Evaluate(monitor).AllowPreview);
+
+            var missing = Ready();
+            missing.MonitorRequested = true;
+            missing.WholeMonitorConsent = true;
+            Assert.AreEqual(ScreenLookPolicy.NeedMonitor, ScreenLookPolicy.Evaluate(missing).Message);
+
+            var allowed = Ready();
+            allowed.PrivateMode = true;
+            allowed.LocalVisionModel = OllamaVision.RecommendedTag;
+            allowed.MonitorRequested = true;
+            allowed.WholeMonitorConsent = true;
+            allowed.Monitor = new MonitorTarget { Handle = new IntPtr(5), DeviceName = "\\\\.\\DISPLAY1" };
+            Assert.AreEqual(ScreenLookRoute.Local, ScreenLookPolicy.Evaluate(allowed).Route);
+
+            var auto = Ready();
+            auto.PrivateMode = true;
+            auto.LocalVisionModel = OllamaVision.RecommendedTag;
+            auto.Automatic = true;
+            auto.AutoLookConsent = true;
+            Assert.AreEqual(ScreenLookRoute.Local, ScreenLookPolicy.Evaluate(auto).Route);
+
+            var noAutoConsent = Ready();
+            noAutoConsent.Automatic = true;
+            Assert.AreEqual(ScreenLookPolicy.AutomaticRefused, ScreenLookPolicy.Evaluate(noAutoConsent).Message);
+
+            // A paused permission is passed as no consent, so the model cannot look while paused.
+            var paused = Ready();
+            paused.PrivateMode = true;
+            paused.LocalVisionModel = OllamaVision.RecommendedTag;
+            paused.Automatic = true;
+            paused.AutoLookConsent = false;
+            Assert.AreEqual(ScreenLookPolicy.AutomaticRefused, ScreenLookPolicy.Evaluate(paused).Message);
+
+            Assert.IsTrue(ScreenLookCue.Requests("Sure, let me see. [look]"));
+            Assert.IsFalse(ScreenLookCue.Requests("No cue here."));
+            Assert.AreEqual("Sure, let me see.", ScreenLookCue.Strip("Sure, let me see. [look]"));
+            Assert.IsTrue(ScreenLookCue.IsSilent("SILENT"));
+            Assert.IsTrue(ScreenLookCue.IsSilent("  \"SILENT\"  "));
+            Assert.IsFalse(ScreenLookCue.IsSilent("I see a window."));
         }
 
         [Test]
@@ -494,7 +533,9 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("CreateForWindow", source);
             StringAssert.Contains("CaptureAbi.DxgiGetInterfaceSlot", source);
             Assert.IsFalse(source.Contains("GetInterfaceFn>(access, 6)"));
-            Assert.IsFalse(source.Contains("CreateForMonitor"));
+            // Whole-monitor capture exists, but only behind its own consent and a separate entry point.
+            StringAssert.Contains("CreateForMonitor", source);
+            StringAssert.Contains("WholeMonitorConsent", File.ReadAllText(Path.Combine(Application.dataPath, "_Project", "Scripts", "ScreenLook", "ScreenLookPolicy.cs")));
             Assert.IsFalse(source.Contains("BitBlt"));
             Assert.IsFalse(source.Contains("ReadProcessMemory"));
         }

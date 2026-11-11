@@ -95,7 +95,7 @@ namespace AICompanion.ScreenLook
 
             try
             {
-                return Grab(hwnd);
+                return Grab(hwnd, IntPtr.Zero);
             }
             catch (Exception ex)
             {
@@ -107,7 +107,33 @@ namespace AICompanion.ScreenLook
             }
         }
 
-        static CapturedWindowFrame Grab(IntPtr hwnd)
+        /// <summary>
+        /// One frame of a whole display. This path exists only after the separate
+        /// whole-monitor consent; a failed window grab never widens to it.
+        /// </summary>
+        public static CapturedWindowFrame CaptureMonitor(MonitorTarget target)
+        {
+            if (target == null || target.Handle == IntPtr.Zero)
+                return CapturedWindowFrame.Fail(ScreenLookPolicy.NeedMonitor);
+
+            if (!Monitor.TryEnter(CaptureLock, 3000))
+                return CapturedWindowFrame.Fail(CaptureDiagnostics.Stopped("Busy", 0));
+
+            try
+            {
+                return Grab(IntPtr.Zero, target.Handle);
+            }
+            catch (Exception ex)
+            {
+                return CapturedWindowFrame.Fail(CaptureDiagnostics.Stopped(ex.GetType().Name, 0));
+            }
+            finally
+            {
+                Monitor.Exit(CaptureLock);
+            }
+        }
+
+        static CapturedWindowFrame Grab(IntPtr hwnd, IntPtr hmon)
         {
             var epoch = Volatile.Read(ref _abort);
             var hrInit = RoInitialize(1);
@@ -152,15 +178,36 @@ namespace AICompanion.ScreenLook
                 if (hr < 0 || itemFactory == IntPtr.Zero)
                     return Stopped("ItemFactory", hr);
                 var itemIid = ItemIid;
-                hr = Fn<CreateForWindowFn>(itemFactory, 3)(itemFactory, hwnd, ref itemIid, out item);
-                if (hr < 0 || item == IntPtr.Zero)
-                    return Stopped("CreateItem", hr);
+                if (hmon != IntPtr.Zero)
+                {
+                    hr = Fn<CreateForMonitorFn>(itemFactory, 4)(itemFactory, hmon, ref itemIid, out item);
+                    if (hr < 0 || item == IntPtr.Zero)
+                        return Stopped("CreateMonitorItem", hr);
+                }
+                else
+                {
+                    hr = Fn<CreateForWindowFn>(itemFactory, 3)(itemFactory, hwnd, ref itemIid, out item);
+                    if (hr < 0 || item == IntPtr.Zero)
+                        return Stopped("CreateItem", hr);
+                }
 
-                if (!TryClientSize(hwnd, out var clientW, out var clientH))
-                    return Stopped("ClientSize", 0);
                 var sizeHr = Fn<GetSizeFn>(item, 7)(item, out var size);
-                if (!CaptureDiagnostics.TryChooseSize(sizeHr, size.Width, size.Height, clientW, clientH, out width, out height))
-                    return Stopped("ItemSize", sizeHr);
+                var clientW = 0;
+                var clientH = 0;
+                if (hmon != IntPtr.Zero)
+                {
+                    if (sizeHr < 0 || size.Width <= 0 || size.Height <= 0)
+                        return Stopped("MonitorSize", sizeHr);
+                    width = size.Width;
+                    height = size.Height;
+                }
+                else
+                {
+                    if (!TryClientSize(hwnd, out clientW, out clientH))
+                        return Stopped("ClientSize", 0);
+                    if (!CaptureDiagnostics.TryChooseSize(sizeHr, size.Width, size.Height, clientW, clientH, out width, out height))
+                        return Stopped("ItemSize", sizeHr);
+                }
 
                 hr = Activate("Windows.Graphics.Capture.Direct3D11CaptureFramePool", PoolStatics2Iid, out poolFactory);
                 if (hr < 0 || poolFactory == IntPtr.Zero)
@@ -181,12 +228,15 @@ namespace AICompanion.ScreenLook
                 {
                     if (Volatile.Read(ref _abort) != epoch)
                         return Stopped("Cancelled", 0);
-                    if (!IsWindow(hwnd))
-                        return Stopped("WindowClosed", 0);
-                    if (IsIconic(hwnd))
-                        return Stopped("Minimized", 0);
-                    if (!TryClientSize(hwnd, out var nowW, out var nowH) || CaptureDiagnostics.SizeChanged(clientW, clientH, nowW, nowH))
-                        return Stopped("WindowResized", 0);
+                    if (hmon == IntPtr.Zero)
+                    {
+                        if (!IsWindow(hwnd))
+                            return Stopped("WindowClosed", 0);
+                        if (IsIconic(hwnd))
+                            return Stopped("Minimized", 0);
+                        if (!TryClientSize(hwnd, out var nowW, out var nowH) || CaptureDiagnostics.SizeChanged(clientW, clientH, nowW, nowH))
+                            return Stopped("WindowResized", 0);
+                    }
 
                     var frameHr = Fn<TryFrameFn>(pool, 7)(pool, out frame);
                     if (frameHr < 0)
@@ -197,8 +247,11 @@ namespace AICompanion.ScreenLook
 
                 if (frame == IntPtr.Zero)
                     return Stopped("WaitFrame", 0);
-                if (!CaptureDiagnostics.AllowsUpload(true, false, Volatile.Read(ref _abort) != epoch, !IsWindow(hwnd), IsIconic(hwnd)))
+                if (hmon == IntPtr.Zero &&
+                    !CaptureDiagnostics.AllowsUpload(true, false, Volatile.Read(ref _abort) != epoch, !IsWindow(hwnd), IsIconic(hwnd)))
                     return Stopped(Volatile.Read(ref _abort) != epoch ? "Cancelled" : "WindowClosed", 0);
+                if (hmon != IntPtr.Zero && Volatile.Read(ref _abort) != epoch)
+                    return Stopped("Cancelled", 0);
 
                 hr = Fn<GetSurfaceFn>(frame, 6)(frame, out surface);
                 if (hr < 0 || surface == IntPtr.Zero)
@@ -524,6 +577,9 @@ namespace AICompanion.ScreenLook
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         delegate int CreateForWindowFn(IntPtr self, IntPtr hwnd, ref Guid iid, out IntPtr result);
+
+        /// <summary>IGraphicsCaptureItemInterop.CreateForMonitor follows CreateForWindow in the vtable.</summary>
+        delegate int CreateForMonitorFn(IntPtr self, IntPtr monitor, ref Guid iid, out IntPtr result);
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         delegate int GetSizeFn(IntPtr self, out SizeInt32 size);

@@ -409,6 +409,58 @@ namespace AICompanion.UI
             return true;
         }
 
+        /// <summary>
+        /// A look she asked for herself. The observation is answered only when it is worth
+        /// saying: the local model may reply SILENT, and then nothing is shown or spoken.
+        /// </summary>
+        public bool SubmitAutoObservation(string observation)
+        {
+            if (!_alive || !VisionPrompt.HasObservation(observation))
+                return false;
+            if (_conversation == null || _conversation.IsBusy)
+                return false;
+
+            var privacy = GetComponent<IPrivacyMode>();
+            var privateMode = privacy != null && privacy.PrivateMode;
+            var providerId = ChatDefaults.LocalId;
+            if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
+                return false;
+
+            if (_cancel != null)
+                _cancel.Dispose();
+            _cancel = new CancellationTokenSource();
+            var prompt = VisionPrompt.AppendAutoLook(DirectorPrompt.Append(settings.systemPrompt, DirectorSuffix()));
+            var text = VisionPrompt.AutoObservationTurn(observation);
+            var options = new ChatTurnOptions
+            {
+                SingleTurn = true,
+                Ephemeral = true,
+                BlockCloud = true
+            };
+            RunAutoObservation(provider, text, prompt, privateMode, options, _cancel.Token);
+            return true;
+        }
+
+        async void RunAutoObservation(IChatProvider provider, string text, string prompt, bool privateMode, ChatTurnOptions options, CancellationToken token)
+        {
+            var result = await _exchange.Run(provider, text, prompt, settings.temperature, settings.maxTokens, token, options);
+            if (!_alive || !result.Ok)
+                return;
+
+            var reply = ScreenLookCue.Strip(result.Text);
+            if (ScreenLookCue.IsSilent(reply))
+                return;
+
+            BeginSpeech(privateMode, ChatDefaults.LocalId);
+            _conversation.AddAssistant(reply);
+            ApplyCue();
+            BindSpeech();
+            if (_speech != null)
+                _speech.CompleteUtterance();
+            RefreshTranscript(true);
+            Debug.Log("Screen look: automatic look produced a remark");
+        }
+
         static bool OutboundAllowsVision(bool privateMode)
         {
             return !privateMode;
@@ -482,9 +534,11 @@ namespace AICompanion.UI
         string DirectorSuffix()
         {
             var director = GetComponent<Director>();
-            if (director == null)
-                return string.Empty;
-            return director.SystemPromptSuffix;
+            var suffix = director == null ? string.Empty : director.SystemPromptSuffix;
+            var look = GetComponent<IScreenLook>();
+            if (look != null && look.AutoLookEnabled)
+                suffix += ScreenLookCue.PromptLine;
+            return suffix;
         }
 
         void OnLookClick()
@@ -522,6 +576,12 @@ namespace AICompanion.UI
                 ApplyCue();
                 if (remember)
                     CaptureMemory(provider, text, result.Text);
+                if (remember && ScreenLookCue.Requests(result.Text))
+                {
+                    var look = GetComponent<IScreenLook>();
+                    if (look != null && look.RequestAutoLook())
+                        Debug.Log("Screen look: the reply asked for a look");
+                }
             }
 
             BindSpeech();

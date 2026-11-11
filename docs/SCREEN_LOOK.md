@@ -55,10 +55,27 @@ Cloud screen analysis can stay off. Private mode, a local chat provider, or a vi
 
 This slice stays one selected window and one frame. The next phase, after this local bridge is working, is separate work:
 
-1. **Whole monitor, only when asked.** A second consent, distinct from the selected-window consent. The user picks which of the two monitors. `CreateForMonitor` stays unbound until that consent exists. A failed or resized window never widens into the desktop.
+1. **Whole-monitor streaming.** Implemented for one frame with its own consent and display choice. A continuous stream, a rate limit, and focus/mute pauses remain separate work.
 2. **Readability.** Partly done in this slice: a 1600 long edge that keeps a 1595-wide window native, block averaging instead of point sampling, higher JPEG quality, a transcription-first prompt, and deterministic decoding. Still open: whether `qwen2.5vl:3b` reads small text reliably, a second local vision model or an OCR pass if it does not, and measured VRAM/reply-time trade-offs on the RTX 2070.
 3. **Optional periodic looks.** Off by default. A visible pause and stop. A rate inside the existing 0.5–2 fps bound, a token and timeout cap, and no second look while one is in flight. Same local-only and untrusted-text rules. The measured FPS cost is still unmeasured.
 
+## Whole screen, only with its own consent
+
+Window capture is the default. **Whole screen instead of a window** and **Allow whole-screen capture** are separate switches on the Screen tab, and the display list is explicit (Windows reports one entry per monitor). The two consents are independent: turning on whole-screen capture does not grant cloud consent, and a failed window grab never widens to a display. A failed display grab never retries another display.
+
+The captured frame is the selected display, with every window on it. Private mode keeps that frame on this PC. The display handle is re-read before each capture, so a monitor that was disconnected reports an error instead of showing a stale frame.
+
+## Automatic looks, with a pause
+
+**Let her look during chat** is a third, separate permission, off by default. While it is on:
+
+- the text model may write the token `[look]` in a reply. The token is removed before you see the reply and never reaches the chat history;
+- the look uses the target you already approved: the selected display in whole-screen mode, otherwise the selected window. She cannot widen the target;
+- at most one automatic look per reply and no more than one every 20 seconds;
+- local vision only. In private mode, or with a local chat model, the observation is read and answered on this PC with no cloud fallback;
+- the observation is answered only when it is worth saying. The model may reply exactly `SILENT`, and then nothing is shown or spoken. A look that is not worth mentioning leaves no chat line.
+
+**Pause automatic looks** is separate from turning the permission off: paused keeps the permission but blocks every automatic look until you unpause. Turning **Let her look during chat** off revokes it. The Look button still works manually in every case, and **Stop** cancels a look in flight.
 ## Vision call
 
 Checked against the xAI docs on 2026-11-10:
