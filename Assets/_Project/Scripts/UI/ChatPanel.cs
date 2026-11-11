@@ -424,7 +424,6 @@ namespace AICompanion.UI
 
             BeginSpeech(true, ChatDefaults.LocalId);
             _conversation.AddAssistant(text);
-            ScreenObservationMemory.Remember(observation);
             ApplyCue();
             BindSpeech();
             if (_speech != null)
@@ -460,11 +459,11 @@ namespace AICompanion.UI
                 Ephemeral = true,
                 BlockCloud = true
             };
-            RunAutoObservation(provider, text, prompt, privateMode, options, _cancel.Token);
+            RunAutoObservation(provider, text, prompt, privateMode, options, observation, _cancel.Token);
             return true;
         }
 
-        async void RunAutoObservation(IChatProvider provider, string text, string prompt, bool privateMode, ChatTurnOptions options, CancellationToken token)
+        async void RunAutoObservation(IChatProvider provider, string text, string prompt, bool privateMode, ChatTurnOptions options, string observation, CancellationToken token)
         {
             var result = await _exchange.Run(provider, text, prompt, settings.temperature, settings.maxTokens, token, options);
             if (!_alive || !result.Ok)
@@ -476,6 +475,7 @@ namespace AICompanion.UI
 
             BeginSpeech(privateMode, ChatDefaults.LocalId);
             _conversation.AddAssistant(reply);
+            ScreenObservationMemory.Remember(observation);
             ApplyCue();
             BindSpeech();
             if (_speech != null)

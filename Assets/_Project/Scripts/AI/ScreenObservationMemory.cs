@@ -9,8 +9,8 @@ namespace AICompanion.AI
     /// </summary>
     public static class ScreenObservationMemory
     {
-        public const int MaxEntries = 2;
-        public const int MaxChars = 400;
+        public const int MaxEntries = 3;
+        public const int MaxChars = 500;
 
         static readonly List<string> Entries = new List<string>(MaxEntries);
 

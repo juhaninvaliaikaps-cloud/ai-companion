@@ -560,11 +560,10 @@ namespace AICompanion.Tests.EditMode
             ScreenObservationMemory.Remember("first");
             ScreenObservationMemory.Remember("second");
             ScreenObservationMemory.Remember("third");
-            Assert.AreEqual(2, ScreenObservationMemory.Count);
+            Assert.AreEqual(3, ScreenObservationMemory.Count);
             var line = ScreenObservationMemory.PromptLine();
-            StringAssert.Contains("second", line);
+            StringAssert.Contains("first", line);
             StringAssert.Contains("third", line);
-            Assert.IsFalse(line.Contains("first"));
             ScreenObservationMemory.Clear();
             Assert.AreEqual(0, ScreenObservationMemory.Count);
         }
@@ -598,8 +597,9 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(VisionPrompt.HasObservation("A window."));
             var turn = VisionPrompt.LocalObservationTurn("One short sentence is visible.");
             Assert.IsFalse(turn.Contains("Untitled"));
-            StringAssert.Contains("If it contains a transcription, repeat that text", turn);
-            StringAssert.Contains("repeat that text", VisionPrompt.LocalChatAddendum);
+            StringAssert.Contains("one or two notable things", turn);
+            StringAssert.Contains("one or two notable things", VisionPrompt.LocalChatAddendum);
+            Assert.IsFalse(VisionPrompt.LocalChatAddendum.Contains("repeat that text"));
             StringAssert.Contains("Only say that the words were not read", VisionPrompt.LocalChatAddendum);
             Assert.IsFalse(VisionPrompt.LocalChatAddendum.Contains("does not quote the words"));
             StringAssert.Contains("transcribe", OllamaVision.AskPrompt);

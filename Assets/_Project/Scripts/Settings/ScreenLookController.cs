@@ -731,6 +731,9 @@ namespace AICompanion.Settings
                     return;
                 }
 
+                if (!_automaticLook)
+                    ScreenObservationMemory.Remember(result.Observation);
+
                 if (fast)
                 {
                     var automaticFast = _automaticLook;
@@ -808,6 +811,8 @@ namespace AICompanion.Settings
                     Touch("She looked and had nothing to say.");
                     return;
                 }
+
+                ScreenObservationMemory.Remember(observation);
             }
 
             var name = settings != null ? settings.CompanionName : string.Empty;
