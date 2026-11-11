@@ -606,9 +606,12 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("[unreadable]", OllamaVision.AskPrompt);
             var look = OllamaVision.BuildLook(OllamaVision.RecommendedTag, OllamaVision.AskPrompt, new byte[] { 1, 2, 3, 4 });
             StringAssert.Contains("\"num_predict\":700", look);
-            StringAssert.Contains("\"temperature\":0", look);
-            StringAssert.Contains("\"top_k\":1", look);
+            StringAssert.Contains("\"temperature\":0.2", look);
+            StringAssert.Contains("\"top_k\":2", look);
+            StringAssert.Contains("\"repeat_penalty\":1.3", look);
+            StringAssert.Contains("\"repeat_last_n\":2048", look);
             StringAssert.Contains("\"num_ctx\":8192", look);
+            StringAssert.Contains("ten short lines", OllamaVision.AskScreenPrompt);
             StringAssert.Contains("\"messages\":[{\"role\":\"user\",\"content\":", look);
             Assert.AreEqual(700, OllamaVision.MaxPredict);
         }

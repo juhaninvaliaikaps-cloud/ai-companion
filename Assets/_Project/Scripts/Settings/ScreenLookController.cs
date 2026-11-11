@@ -506,7 +506,8 @@ namespace AICompanion.Settings
                 + ", JPEG " + jpeg.Length + " bytes, quality " + quality
                 + ". It stays in memory on this PC and is not saved.";
             Log(true, width, height, null);
-            Debug.Log(CaptureDiagnostics.FrameLine(decision.Route.ToString(), frame.Width, frame.Height, width, height, scale, quality, jpeg.Length, imageChars, localFrame ? OllamaVision.AskPrompt.Length : VisionPrompt.Addendum.Length));
+            Debug.Log(CaptureDiagnostics.FrameLine(decision.Route.ToString(), frame.Width, frame.Height, width, height, scale, quality, jpeg.Length, imageChars,
+                localFrame ? (WholeMonitorMode ? OllamaVision.AskScreenPrompt.Length : OllamaVision.AskPrompt.Length) : VisionPrompt.Addendum.Length));
             Touch(localFrame ? "Local look started. The preview is the encoded image." : "Cloud look started. The preview is the encoded image.");
 
             if (decision.Route == ScreenLookRoute.Local)
@@ -696,6 +697,7 @@ namespace AICompanion.Settings
                 if (timeout > 180f)
                     timeout = 180f;
                 var fast = current != null && current.ScreenFastReply;
+                var screenPrompt = WholeMonitorMode ? OllamaVision.AskScreenPrompt : null;
                 var result = await LocalVisionExchange.Run(
                     new UnityChatTransport(this),
                     current != null ? current.LocalBaseUrl : ChatDefaults.LocalBaseUrl,
@@ -704,7 +706,8 @@ namespace AICompanion.Settings
                     jpeg,
                     timeout,
                     cts.Token,
-                    fast ? "2m" : "0");
+                    fast ? "2m" : "0",
+                    screenPrompt);
                 if (!_alive)
                     return;
                 var observationChars = result.Observation == null ? 0 : result.Observation.Length;
