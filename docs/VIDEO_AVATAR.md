@@ -18,7 +18,11 @@ Named reaction clips such as `happy` can be registered and are not played yet.
 | Idle playback with a mask clip in a Windows build | Verified by Jussi on 2026-11-11, on the first version of this code |
 | Clip lookup, manifest, transitions, interruptions, gait, layout, settings | Automated EditMode tests |
 | C# compiles for the Windows player | CI job "Windows player script compile" |
-| Idle variations, walking, walk-stop, mirroring, clip switching without a flash, movement speed against the feet | **Not run in a player.** Use the [Windows checklist](#windows-checklist) |
+| Idle variations, walking, walk-stop, mirroring and clip switching with the picture + mask pairs | Jussi, manual test of commit 905d671 on Windows: "work pretty well". Two faults were reported and are addressed after that commit, see the next rows |
+| Expression portrait hidden while the video shows | Automated test of the rule and of every mode switch. **Not yet seen in a player** |
+| Outline that slips (mask clipping) | Cause **not established**. The packed clips, the mask speed nudge and the sync log lines are **not yet run in a player**. See [Keeping the picture and the mask together](#keeping-the-picture-and-the-mask-together) |
+| A walk cue from the chat model in 2D mode | Automated test from the reply text to the walk clip. In the player logs seen so far the model wrote no cue at all. See [Known behaviour](#known-behaviour) |
+| Movement speed against the feet, 10 minute run | **Not run in a player.** Use the [Windows checklist](#windows-checklist) |
 
 ## Turn it on and off
 
@@ -60,7 +64,7 @@ Every video file that is not a mask is a clip. Its role comes from its name. Cas
 
 The mask for `name.mp4` is `name.mask.mp4`, `name_mask.mp4` or `name-mask.mp4` (also `.png` or `.jpg` for a still mask). White shows her, black is see-through.
 
-`name.sbs.mp4` is a packed clip: picture in the left half, mask in the right half. It is used when there is no separate `name.mp4`. If both exist, the pair wins.
+`name.sbs.mp4` is a packed clip: picture in the left half, mask in the right half. If the folder has both `name.sbs.mp4` and `name.mp4`, the packed clip is used, because one decoder produces the picture and its mask in the same frame. A manifest can still name the pair.
 
 A clip with no mask and no packed form uses its own alpha channel. A clip with no alpha is fully opaque.
 
@@ -129,7 +133,20 @@ Then, in the app: **F12** → **Avatar** → **Avatar: 2D video**, and set **Vid
 
 Expected files in the folder: `idle.mp4`, `idle.mask.mp4`, `idle_breeze.mp4`, `idle_breeze.mask.mp4`, `walk.mp4`, `walk.mask.mp4`, `walk_stop.mp4`, `walk_stop.mask.mp4`, `video-avatar.json`.
 
-To test the packed clips instead (one decoder per clip, so the picture and the mask cannot drift apart), copy the four `.sbs.mp4` files and change each `"color"` in `video-avatar.json` to the `.sbs.mp4` name and delete each `"mask"` line. The packed path has not been run in a player.
+### Packed clips: the test for the slipping outline
+
+The packed clips use one decoder per clip, so the picture and the mask cannot be on different frames. This copies them into a second new folder. The first folder is not touched.
+
+```powershell
+$dst2 = Join-Path $env:APPDATA "ProjectLeia\video-avatar-packed"
+New-Item -ItemType Directory -Force $dst2 | Out-Null
+foreach ($name in "idle", "idle_breeze", "walk", "walk_stop") {
+    Copy-Item "$src\$name.sbs.mp4" $dst2
+}
+Copy-Item "$repo\tools\video-avatar\leia-keyed-packed.video-avatar.json" (Join-Path $dst2 "video-avatar.json")
+```
+
+Set **Video folder** to `$dst2` and press **Reload video**. If the outline holds with the packed clips and slips with the pairs, the cause is the two decoders. If it slips in both, it is in the clips or the shader. The packed path has not been run in a player.
 
 ## What the delivered clips are, measured
 
@@ -194,10 +211,12 @@ The keys do nothing while a text field has focus.
 - Each clip has its own pair of decoders. They are started in the same frame, paused together, and rewound together.
 - **Loading.** A clip is shown only after both its picture and its mask report a frame from the current run. A leftover frame number from before a rewind does not count.
 - **Switching.** The next clip is started first. The previous clip stays on screen until the next one has a picture of its own. Then the picture, the mask and the mirror flag change in the same frame. Nothing blank and no unmasked picture is drawn in between.
-- **Playback and looping.** When the mask is more than one frame away from the picture, it is moved onto the picture's frame, at most twice a second. At a loop point, a mask on the last frame and a picture on the first count as one frame apart.
+- **Playback and looping.** A mask one frame behind the picture plays 8% faster until it is in step, and one frame ahead plays 8% slower. That closes the gap in about half a second without a jump. A mask more than one frame away is moved onto the picture's frame, at most twice a second. At a loop point, a mask on the last frame and a picture on the first count as one frame apart.
+- **Why one frame matters.** In the delivered walk, a mask one frame off changes about 16% of her outline area on average and up to 27%. The masks themselves are in step with their pictures in the files (measured), and hide about 0.3% of her. So a visible slip points at playback, not at the files. This is a measurement of the files, not of the player.
+- **Sync log.** Every 15 seconds `Player.log` gets one line per playing pair, for example `VideoAvatar: sync walk frames=360 inStep=97% offByOne=3% offByMore=0% seeks=0`. A high `offByOne` or any `offByMore` while the outline slips confirms the two decoders as the cause. Each clip change logs `VideoAvatar: showing walk act=Walk mask=MaskVideo`.
 - **Play-once clips** are paused one frame before their end, so the last picture stays on screen.
 - **After use** a clip is rewound in the background, ready for next time. An idle variation is unloaded after it plays.
-- A packed `.sbs.mp4` clip needs none of this, because one decoder produces both halves.
+- A packed `.sbs.mp4` clip needs none of this, because one decoder produces both halves. Each half is read half a pixel inside its own edges, so the picture and the mask never blend at the middle of the file.
 
 At most the default idle, the walk, the walk-stop, a side idle and one idle variation are loaded at a time.
 
@@ -236,8 +255,10 @@ To make her larger than the window allows, raise **Size** on the Overlay tab.
 ## Known behaviour
 
 - She loops the idle while she speaks. There is no talking clip and no lip sync.
-- Cues from the model still drive the hidden 3D face and the expression portrait.
+- Cues from the model still drive the hidden 3D face.
+- **The expression portrait is hidden while the video shows.** It is placed beside the 3D model's head and drawn above the video, so in 2D mode it landed in the middle of her body. It comes back when the 3D model does: in 3D mode, and when the video cannot play and the app falls back to 3D. The setting itself is not changed.
 - An AI walk cue of a few seconds lasts longer in 2D mode, because the stop waits for the walk loop and the walk-stop.
+- **A walk cue needs the chat model to write it.** The path from a reply's `<animation gesture="walk" direction="left" />` to the walk clip is the same in both modes and has a test. In the player logs from 2026-11-11 the local model (Rocinante-X-12B) wrote no `<animation>` tag in any reply: every reply logs `Cue emotion: (none)` and `AnimationDirector: no cue -> neutral`. Then nothing can walk, in 3D or 2D. When a cue does arrive, the log has `Walk: request received dir=-1 secs=12` and `AnimationDirector: cue walk -> requested`.
 - At a screen edge the walk-stop plays its steps on the spot.
 - Rotate, zoom and Ctrl+scroll still act on the hidden 3D model.
 - While she only stands, the overlay drops to 15 fps after a few seconds without the pointer, and the idle is shown at that rate. Variations, walking and clip changes run at the full rate.
@@ -332,12 +353,16 @@ Mark each line. Lines 1 to 6 repeat what was verified before, on the new code.
 26. Chat, voice, push-to-talk, private mode, tray pause and the settings panel behave as before in both modes.
 27. Ask the model something that makes her walk. She walks and stops.
 28. Leave it running for 10 minutes. Check that the outline still fits and memory use is steady.
-29. Optional: repeat 7 to 18 with the packed `.sbs.mp4` clips.
+29. Repeat 7 to 18 with the packed `.sbs.mp4` clips (see [Packed clips](#packed-clips-the-test-for-the-slipping-outline)). Compare the outline with the pairs.
+30. Portrait: turn **Expression portrait** on in 3D mode. Switch to 2D: the portrait is gone. Walk left and right, stop: still gone. Switch to 3D: it is back beside her head. Repeat the switch twice.
+31. Portrait fallback: in 2D mode set **Video folder** to an empty folder and press **Reload video**. The 3D model and the portrait both show.
+32. After a walk test, open `Player.log` and find the `VideoAvatar: sync` lines. Note `offByOne` and `offByMore` for the walk.
 
 ## Tests
 
-- `VideoAvatarDirectorTests`: clip lookup by file name with the delivered names, the manifest, missing clips and masks, variations only at the loop point, walk and stop, interruptions, a new walk during the stop, clips that failed to load, speed that follows the clip, the frame rules for a fresh picture and for the loop point, and the layout for a set of clips.
+- `VideoAvatarDirectorTests`: the packed clip preferred over the pair, the mask offset across the loop point and the speed nudge, the packed halves' edges, the portrait rule through every mode switch and fallback, clip lookup by file name with the delivered names, the manifest, missing clips and masks, variations only at the loop point, walk and stop, interruptions, a new walk during the stop, clips that failed to load, speed that follows the clip, the frame rules for a fresh picture and for the loop point, and the layout for a set of clips.
 - `DesktopPresenceGaitTests`: the gait on the presence, and that nothing changes without it.
+- `WalkRequestWiringTests.ReplyWalk_In2DVideoMode_...`: a reply's walk cue moves the presence at the clip's speed and starts the walk clip, and a stop cue goes through the walk-stop.
 - `VideoAvatarTests`: the earlier tests for modes, settings, the single-clip lookup, the layout, the mask sync rule, the shader and the build setting.
 
 No test decodes video. That part is the checklist above.

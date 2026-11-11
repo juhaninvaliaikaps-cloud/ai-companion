@@ -299,7 +299,8 @@ namespace AICompanion.Settings
         }
 
         /// <summary>
-        /// No manifest: every video in the folder that is not a mask is a clip, and its role
+        /// No manifest: every video in the folder that is not a mask is a clip (a packed
+        /// "name.sbs.mp4" in preference to a "name.mp4" with a separate mask), and its role
         /// comes from its name. "idle" is the default idle. "idle-2" or "idle_look" is a
         /// variation. "idle-side" is the side idle. A name starting with "walk" is the walk,
         /// unless it also contains "stop". Any other name is a reaction.
@@ -327,6 +328,10 @@ namespace AICompanion.Settings
                 var packed = stem.EndsWith(PackedSuffix, StringComparison.OrdinalIgnoreCase);
                 var name = packed ? stem.Substring(0, stem.Length - PackedSuffix.Length) : stem;
                 if (name.Length == 0 || IndexOfName(set, name) >= 0)
+                    continue;
+                // With both forms in the folder the packed clip is used. One decoder makes
+                // its picture and its mask, so the outline cannot slip against her.
+                if (!packed && FindWithExtensions(files, stem + PackedSuffix, VideoExtensions) != null)
                     continue;
 
                 var spec = new VideoClipSpec { Name = name, ColorPath = FindFile(files, names[i]) };

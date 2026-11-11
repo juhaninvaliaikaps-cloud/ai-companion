@@ -100,29 +100,76 @@ namespace AICompanion.Tests.EditMode
 
             var idle = set.Clips[set.Idle];
             Assert.AreEqual("idle", idle.Name);
-            Assert.AreEqual(In("idle.mp4"), idle.ColorPath);
-            Assert.AreEqual(In("idle.mask.mp4"), idle.MaskPath);
-            Assert.AreEqual(VideoMaskKind.MaskVideo, idle.Mask);
             Assert.IsTrue(idle.Loop);
 
             Assert.AreEqual(1, set.Variations.Count);
             var breeze = set.Clips[set.Variations[0]];
             Assert.AreEqual("idle_breeze", breeze.Name);
-            Assert.AreEqual(In("idle_breeze.mask.mp4"), breeze.MaskPath);
             Assert.IsFalse(breeze.Loop);
 
             var walk = set.Clips[set.Walk];
             Assert.AreEqual("walk", walk.Name);
-            Assert.AreEqual(In("walk.mask.mp4"), walk.MaskPath);
             Assert.IsTrue(walk.Loop);
             Assert.IsFalse(walk.FacesRight);
 
             var stop = set.Clips[set.WalkStop];
             Assert.AreEqual("walk_stop", stop.Name);
-            Assert.AreEqual(In("walk_stop.mask.mp4"), stop.MaskPath);
             Assert.IsFalse(stop.Loop);
             Assert.IsFalse(stop.ThenIdle);
             Assert.AreEqual(-1, set.SideIdle);
+        }
+
+        [Test]
+        public void FileNames_WithBothForms_ThePackedClipWins_SoTheOutlineCannotSlip()
+        {
+            // The delivered folder has name.mp4 + name.mask.mp4 and name.sbs.mp4 for every clip.
+            var set = VideoAvatarManifest.Resolve(null, DeliveredFiles());
+
+            for (var i = 0; i < set.Clips.Count; i++)
+            {
+                var clip = set.Clips[i];
+                Assert.AreEqual(VideoMaskKind.Packed, clip.Mask, clip.Name);
+                Assert.AreEqual(In(clip.Name + ".sbs.mp4"), clip.ColorPath, clip.Name);
+                Assert.AreEqual(string.Empty, clip.MaskPath, clip.Name);
+            }
+        }
+
+        [Test]
+        public void FileNames_WithoutAPackedClip_ThePairIsUsed()
+        {
+            var set = VideoAvatarManifest.Resolve(null, Files("idle.mp4", "idle.mask.mp4", "walk.sbs.mp4", "walk.mp4", "walk.mask.mp4"));
+
+            Assert.AreEqual(VideoMaskKind.MaskVideo, set.Clips[set.Idle].Mask);
+            Assert.AreEqual(In("idle.mp4"), set.Clips[set.Idle].ColorPath);
+            Assert.AreEqual(In("idle.mask.mp4"), set.Clips[set.Idle].MaskPath);
+            Assert.AreEqual(VideoMaskKind.Packed, set.Clips[set.Walk].Mask);
+            Assert.AreEqual(In("walk.sbs.mp4"), set.Clips[set.Walk].ColorPath);
+            Assert.AreEqual(2, set.Clips.Count);
+        }
+
+        [Test]
+        public void Manifest_CanStillNameThePair_WhenAPackedClipIsInTheFolder()
+        {
+            var set = VideoAvatarManifest.Resolve(Manifest, DeliveredFiles());
+
+            Assert.AreEqual(VideoMaskKind.MaskVideo, set.Clips[set.Idle].Mask);
+            Assert.AreEqual(In("idle.mask.mp4"), set.Clips[set.Idle].MaskPath);
+            Assert.AreEqual(VideoMaskKind.MaskVideo, set.Clips[set.Walk].Mask);
+        }
+
+        [Test]
+        public void Manifest_APackedFileAsColor_NeedsNoMask()
+        {
+            const string json = @"{ ""clips"": [
+                { ""name"": ""idle"", ""color"": ""idle.sbs.mp4"" },
+                { ""name"": ""walk"", ""color"": ""walk.sbs.mp4"", ""speed"": 0.27 } ] }";
+
+            var set = VideoAvatarManifest.Resolve(json, DeliveredFiles());
+
+            Assert.AreEqual(VideoMaskKind.Packed, set.Clips[set.Idle].Mask);
+            Assert.AreEqual(In("idle.sbs.mp4"), set.Clips[set.Idle].ColorPath);
+            Assert.AreEqual(VideoMaskKind.Packed, set.Clips[set.Walk].Mask);
+            Assert.AreEqual(0, set.Warnings.Count);
         }
 
         [Test]
@@ -1009,6 +1056,153 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(VideoClipProgress.IsFresh(60, 2.5f, 24f));
             // An unknown frame rate falls back to 30.
             Assert.IsTrue(VideoClipProgress.IsFresh(5, 0.1f, 0f));
+        }
+
+        // ---- keeping the mask on the picture's frame -------------------------------------
+
+        [TestCase(10L, 10L, 124L, 0L)]
+        [TestCase(10L, 11L, 124L, 1L)]
+        [TestCase(11L, 10L, 124L, -1L)]
+        [TestCase(40L, 12L, 124L, -28L)]
+        // At the loop point: the mask has started again and the picture is on its last frame.
+        [TestCase(123L, 0L, 124L, 1L)]
+        [TestCase(0L, 123L, 124L, -1L)]
+        [TestCase(122L, 1L, 124L, 3L)]
+        // No frame yet, or an unknown length.
+        [TestCase(-1L, 5L, 124L, 0L)]
+        [TestCase(5L, -1L, 124L, 0L)]
+        [TestCase(10L, 13L, 0L, 3L)]
+        public void MaskSync_OffsetIsMaskMinusPicture_AcrossTheLoopPoint(long color, long mask, long count, long expected)
+        {
+            Assert.AreEqual(expected, VideoMaskSync.SignedOffset(color, mask, count));
+        }
+
+        [Test]
+        public void MaskSync_OneFrameOff_IsNudgedBack_NotJumped()
+        {
+            // Behind: play a little faster. Ahead: a little slower. In step, or far off: normal speed.
+            Assert.Greater(VideoMaskSync.MaskSpeed(-1), 1f);
+            Assert.Less(VideoMaskSync.MaskSpeed(1), 1f);
+            Assert.AreEqual(1f, VideoMaskSync.MaskSpeed(0), 0.0001f);
+            Assert.AreEqual(1f, VideoMaskSync.MaskSpeed(5), 0.0001f);
+            Assert.AreEqual(1f, VideoMaskSync.MaskSpeed(-5), 0.0001f);
+
+            // The jump is kept for more than one frame, and a nudge is never used there.
+            Assert.IsFalse(VideoMaskSync.NeedsResync(10, 11, 124));
+            Assert.IsTrue(VideoMaskSync.NeedsResync(10, 12, 124));
+        }
+
+        [Test]
+        public void MaskSync_TheNudgeClosesAOneFrameGapWithinASecondOrSo()
+        {
+            // 24 fps clip, mask one frame behind, playing at the catch-up speed.
+            var gapFrames = 1f;
+            var seconds = 0f;
+            while (gapFrames > 0f && seconds < 5f)
+            {
+                gapFrames -= (VideoMaskSync.CatchUpSpeed - 1f) * 24f * (1f / 60f);
+                seconds += 1f / 60f;
+            }
+
+            Assert.Less(seconds, 1f);
+        }
+
+        [Test]
+        public void Packed_EachHalfIsReadInsideItsOwnEdges()
+        {
+            // 1536 px wide file: picture in columns 0..767, mask in 768..1535.
+            var texel = 1f / 1536f;
+            var uv = VideoAvatarLayout.PackedRects(texel, false);
+
+            // u runs 0..1 across the clip on screen. The picture's samples stay left of the middle.
+            Assert.Greater(uv.Color.z, 0f);
+            Assert.Less(uv.Color.x * 1f + uv.Color.z, 0.5f);
+            // The mask's samples stay right of the middle and left of the file's edge.
+            Assert.Greater(uv.Mask.z, 0.5f);
+            Assert.Less(uv.Mask.x * 1f + uv.Mask.z, 1f);
+            // Both halves have the same width, so the mask lines up with the picture.
+            Assert.AreEqual(uv.Color.x, uv.Mask.x, 0.000001f);
+            Assert.AreEqual(0.5f, uv.Mask.z - uv.Color.z, 0.000001f);
+            // The first sample is the centre of the half's first column.
+            Assert.AreEqual(0.5f / 1536f, uv.Color.z, 0.000001f);
+        }
+
+        [Test]
+        public void Packed_Mirrored_ReadsTheSameColumnsRightToLeft()
+        {
+            var texel = 1f / 1536f;
+            var plain = VideoAvatarLayout.PackedRects(texel, false);
+            var mirrored = VideoAvatarLayout.PackedRects(texel, true);
+
+            // u = 0 mirrored is u = 1 plain, and the other way round, for both halves.
+            Assert.AreEqual(plain.Color.x + plain.Color.z, mirrored.Color.z, 0.000001f);
+            Assert.AreEqual(plain.Color.z, mirrored.Color.x + mirrored.Color.z, 0.000001f);
+            Assert.AreEqual(plain.Mask.x + plain.Mask.z, mirrored.Mask.z, 0.000001f);
+            Assert.AreEqual(plain.Mask.z, mirrored.Mask.x + mirrored.Mask.z, 0.000001f);
+        }
+
+        [Test]
+        public void Packed_UnknownWidth_UsesPlainHalves()
+        {
+            var uv = VideoAvatarLayout.PackedRects(0f, false);
+
+            Assert.AreEqual(0.5f, uv.Color.x, 0.000001f);
+            Assert.AreEqual(0f, uv.Color.z, 0.000001f);
+            Assert.AreEqual(0.5f, uv.Mask.z, 0.000001f);
+        }
+
+        // ---- the expression portrait and the avatar mode ---------------------------------
+
+        [Test]
+        public void Portrait_ShowsWithThe3DModel_AndNeverOverThe2DVideo()
+        {
+            // On in settings, 3D model visible: show.
+            Assert.IsTrue(PortraitModePolicy.Allows(true, false));
+            // On in settings, video on screen (model hidden): hide.
+            Assert.IsFalse(PortraitModePolicy.Allows(true, true));
+            // Off in settings: hidden in both modes.
+            Assert.IsFalse(PortraitModePolicy.Allows(false, false));
+            Assert.IsFalse(PortraitModePolicy.Allows(false, true));
+        }
+
+        [Test]
+        public void Portrait_FollowsEveryModeSwitch_IncludingTheFallbackTo3D()
+        {
+            var host = new GameObject("portrait-mode-host");
+            try
+            {
+                var mount = host.AddComponent<AICompanion.Avatar.AvatarMount>();
+
+                // 3D at start.
+                Assert.IsFalse(mount.ModelHidden);
+                Assert.IsTrue(PortraitModePolicy.Allows(true, mount.ModelHidden));
+
+                // The states the video avatar goes through, in the order a session can see them.
+                var states = new[]
+                {
+                    VideoAvatarState.Loading, VideoAvatarState.Playing, VideoAvatarState.Off,
+                    VideoAvatarState.Loading, VideoAvatarState.Playing, VideoAvatarState.Failed,
+                    VideoAvatarState.NoClip, VideoAvatarState.Loading, VideoAvatarState.Playing,
+                    VideoAvatarState.NoFolder, VideoAvatarState.Off,
+                };
+                for (var i = 0; i < states.Length; i++)
+                {
+                    // VideoAvatar hides the model in exactly the states HidesModel names.
+                    mount.SetModelHidden(VideoAvatarStatus.HidesModel(states[i]));
+                    var videoOnScreen = states[i] == VideoAvatarState.Playing;
+
+                    Assert.AreEqual(videoOnScreen, mount.ModelHidden, states[i].ToString());
+                    Assert.AreEqual(!videoOnScreen, PortraitModePolicy.Allows(true, mount.ModelHidden), states[i].ToString());
+                    Assert.IsFalse(PortraitModePolicy.Allows(false, mount.ModelHidden), states[i].ToString());
+                }
+
+                // Back in 3D at the end: the portrait is allowed again.
+                Assert.IsTrue(PortraitModePolicy.Allows(true, mount.ModelHidden));
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
         }
 
         // ---- layout for a set of clips ---------------------------------------------------

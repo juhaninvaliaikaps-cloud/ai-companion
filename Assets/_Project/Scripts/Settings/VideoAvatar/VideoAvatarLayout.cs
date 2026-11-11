@@ -97,6 +97,42 @@ namespace AICompanion.Settings
             return new Rect(x, y, width, height);
         }
 
+        /// <summary>UV scale (x, y) and offset (z, w) for the picture half and the mask half of a packed clip.</summary>
+        public readonly struct PackedUv
+        {
+            public Vector4 Color { get; }
+            public Vector4 Mask { get; }
+
+            public PackedUv(Vector4 color, Vector4 mask)
+            {
+                Color = color;
+                Mask = mask;
+            }
+        }
+
+        /// <summary>
+        /// Where the shader reads a packed clip: the picture from the left half and the mask
+        /// from the right half, each kept half a texel away from its own edges so the two
+        /// halves never blend into each other. <paramref name="texelWidth"/> is one divided
+        /// by the file's width in pixels. A mirrored clip reads each half right to left.
+        /// </summary>
+        public static PackedUv PackedRects(float texelWidth, bool mirrored)
+        {
+            var texel = texelWidth > 0f && texelWidth < 0.25f ? texelWidth : 0f;
+            var width = 0.5f - texel;
+            var inset = texel * 0.5f;
+            if (!mirrored)
+            {
+                return new PackedUv(
+                    new Vector4(width, 1f, inset, 0f),
+                    new Vector4(width, 1f, 0.5f + inset, 0f));
+            }
+
+            return new PackedUv(
+                new Vector4(-width, 1f, 0.5f - inset, 0f),
+                new Vector4(-width, 1f, 1f - inset, 0f));
+        }
+
         /// <summary>Height in pixels of a clip drawn at <paramref name="clipScale"/> against the reference. Walking speed is a share of this.</summary>
         public static float DisplayedHeight(float windowWidth, float windowHeight, float referenceWidth, float referenceHeight, float size, float clipScale)
         {
@@ -130,6 +166,66 @@ namespace AICompanion.Settings
             if (frameCount > 0 && frameCount - apart < apart)
                 apart = frameCount - apart;
             return apart > ToleranceFrames;
+        }
+
+        /// <summary>The mask plays this much faster while it is one frame behind the picture.</summary>
+        public const float CatchUpSpeed = 1.08f;
+
+        /// <summary>The mask plays this much slower while it is one frame ahead of the picture.</summary>
+        public const float FallBackSpeed = 0.92f;
+
+        /// <summary>
+        /// Mask frame minus picture frame, taking the loop point into account: a mask on
+        /// frame 0 and a picture on the last frame is +1, not minus the clip length.
+        /// 0 when either decoder has no frame yet.
+        /// </summary>
+        public static long SignedOffset(long colorFrame, long maskFrame, long frameCount)
+        {
+            if (colorFrame < 0 || maskFrame < 0)
+                return 0;
+
+            var offset = maskFrame - colorFrame;
+            if (frameCount > 0)
+            {
+                if (offset > frameCount / 2)
+                    offset -= frameCount;
+                else if (offset < -(frameCount / 2))
+                    offset += frameCount;
+            }
+
+            return offset;
+        }
+
+        /// <summary>
+        /// Playback speed for the mask. A mask one frame off is not worth a seek, which
+        /// would stall it for longer than that. It is nudged instead until the frame
+        /// numbers match again. A larger offset is left at normal speed for the seek.
+        /// </summary>
+        public static float MaskSpeed(long offset)
+        {
+            if (offset == -1)
+                return CatchUpSpeed;
+            if (offset == 1)
+                return FallBackSpeed;
+            return 1f;
+        }
+    }
+
+    /// <summary>
+    /// The expression portrait belongs to the 3D avatar: it sits beside the 3D model's
+    /// head. While the 2D video avatar is on screen that head is hidden and somewhere
+    /// behind the video, so the portrait would land on top of her.
+    /// </summary>
+    public static class PortraitModePolicy
+    {
+        /// <summary>
+        /// True when the portrait may show. <paramref name="modelHidden"/> is
+        /// <c>AvatarMount.ModelHidden</c>: true only while a video clip is really playing.
+        /// A 2D mode that fell back to the 3D avatar therefore keeps its portrait.
+        /// </summary>
+        public static bool Allows(bool showExpressionPortrait, bool modelHidden)
+        {
+            return showExpressionPortrait && !modelHidden;
         }
     }
 

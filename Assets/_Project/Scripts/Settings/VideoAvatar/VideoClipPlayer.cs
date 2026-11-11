@@ -41,6 +41,11 @@ namespace AICompanion.Settings
         float _seekingFor;
         float _sinceBegin;
         float _resyncIn;
+        float _maskSpeed = 1f;
+        int _syncSamples;
+        int _syncOffByOne;
+        int _syncOffByMore;
+        int _syncSeeks;
 
         public VideoClipPlayer(VideoClipSpec spec)
         {
@@ -196,6 +201,9 @@ namespace AICompanion.Settings
             _lastFrame = -1;
             _sinceBegin = 0f;
             _resyncIn = ResyncCooldownSeconds;
+            if (_mask != null && !Mathf.Approximately(_maskSpeed, 1f) && _mask.canSetPlaybackSpeed)
+                _mask.playbackSpeed = 1f;
+            _maskSpeed = 1f;
             _color.Play();
             if (_mask != null)
                 _mask.Play();
@@ -314,10 +322,62 @@ namespace AICompanion.Settings
             _maskImage = null;
         }
 
+        /// <summary>
+        /// True when the picture and the mask come from two decoders, which can drift.
+        /// A packed clip, a still mask, and a clip with its own alpha cannot.
+        /// </summary>
+        public bool HasSeparateMaskClip
+        {
+            get { return _mask != null; }
+        }
+
+        /// <summary>
+        /// How well the mask kept up with the picture since the last call, as one log line,
+        /// or null when nothing was measured. Reading it starts a new count.
+        /// </summary>
+        public string TakeSyncReport()
+        {
+            if (_mask == null || _syncSamples == 0)
+                return null;
+
+            var samples = _syncSamples;
+            var report = "sync " + _spec.Name
+                + " frames=" + samples
+                + " inStep=" + Percent(samples - _syncOffByOne - _syncOffByMore, samples)
+                + " offByOne=" + Percent(_syncOffByOne, samples)
+                + " offByMore=" + Percent(_syncOffByMore, samples)
+                + " seeks=" + _syncSeeks;
+            _syncSamples = 0;
+            _syncOffByOne = 0;
+            _syncOffByMore = 0;
+            _syncSeeks = 0;
+            return report;
+        }
+
+        static string Percent(int part, int whole)
+        {
+            return (100f * part / whole).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "%";
+        }
+
         void SyncMask(long frame, long count, float deltaSeconds)
         {
             if (_mask == null)
                 return;
+
+            var offset = VideoMaskSync.SignedOffset(frame, _mask.frame, count);
+            _syncSamples++;
+            if (offset == 1 || offset == -1)
+                _syncOffByOne++;
+            else if (offset != 0)
+                _syncOffByMore++;
+
+            // One frame off: nudge the mask's speed until the numbers match again.
+            var speed = VideoMaskSync.MaskSpeed(offset);
+            if (!Mathf.Approximately(speed, _maskSpeed) && _mask.canSetPlaybackSpeed)
+            {
+                _maskSpeed = speed;
+                _mask.playbackSpeed = speed;
+            }
 
             _resyncIn -= deltaSeconds;
             if (_resyncIn > 0f)
@@ -325,8 +385,10 @@ namespace AICompanion.Settings
             if (!VideoMaskSync.NeedsResync(frame, _mask.frame, count))
                 return;
 
+            // More than one frame off: jump.
             _mask.frame = frame;
             _resyncIn = ResyncCooldownSeconds;
+            _syncSeeks++;
         }
 
         VideoPlayer CreateDecoder(Transform parent, string objectName, string path)

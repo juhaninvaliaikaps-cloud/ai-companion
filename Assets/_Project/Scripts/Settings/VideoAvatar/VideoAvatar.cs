@@ -32,6 +32,7 @@ namespace AICompanion.Settings
         const string ShaderResource = "VideoAvatar";
         const float RetrySeconds = 2f;
         const float HideRescanSeconds = 0.5f;
+        const float SyncReportSeconds = 15f;
         const float TestWalkSeconds = 30f;
         const float MaskLow = 0.06f;
         const float MaskHigh = 0.94f;
@@ -75,6 +76,7 @@ namespace AICompanion.Settings
         Rect _placed;
         float _retryIn;
         float _rescanIn;
+        float _syncReportIn = SyncReportSeconds;
         bool _paths;
         bool _reload;
         bool _gaitSet;
@@ -381,6 +383,7 @@ namespace AICompanion.Settings
                 return;
 
             RefreshPicture();
+            ReportSync(delta);
             EnsureCamera();
             Place(settings);
             ApplyGait(settings);
@@ -511,9 +514,33 @@ namespace AICompanion.Settings
             _players[index] = null;
         }
 
+        /// <summary>
+        /// Every few seconds, one log line per clip that has a separate mask clip: how often
+        /// the mask was on the picture's frame. This is what tells a slipping outline that
+        /// comes from playback apart from one that is in the files.
+        /// </summary>
+        void ReportSync(float delta)
+        {
+            _syncReportIn -= delta;
+            if (_syncReportIn > 0f)
+                return;
+
+            _syncReportIn = SyncReportSeconds;
+            if (_players == null)
+                return;
+            for (var i = 0; i < _players.Length; i++)
+            {
+                var report = _players[i] != null ? _players[i].TakeSyncReport() : null;
+                if (report != null)
+                    Debug.Log("VideoAvatar: " + report);
+            }
+        }
+
         void Show(int index, bool mirrored)
         {
             var player = _players[index];
+            Debug.Log("VideoAvatar: showing " + player.Spec.Name + " act=" + (_director != null ? _director.Act.ToString() : "Idle")
+                + " mask=" + player.Spec.Mask + (mirrored ? " mirrored" : string.Empty));
             _shown = index;
             _shownMirrored = mirrored;
             _image.texture = player.Texture;
@@ -723,8 +750,14 @@ namespace AICompanion.Settings
                 case VideoMaskKind.Packed:
                     source = 2f;
                     decode = linear ? 1f : 0f;
-                    colorRect = mirrored ? new Vector4(-0.5f, 1f, 0.5f, 0f) : new Vector4(0.5f, 1f, 0f, 0f);
-                    maskRect = mirrored ? new Vector4(-0.5f, 1f, 1f, 0f) : new Vector4(0.5f, 1f, 0.5f, 0f);
+                    // Each half is read half a texel in from its edges. Otherwise the filter
+                    // blends the picture's last column into the mask's first one, which shows
+                    // as a faint line down the side of the clip.
+                    var texture = player.Texture;
+                    var texel = texture != null && texture.width > 0 ? 1f / texture.width : 0f;
+                    var packed = VideoAvatarLayout.PackedRects(texel, mirrored);
+                    colorRect = packed.Color;
+                    maskRect = packed.Mask;
                     break;
             }
 

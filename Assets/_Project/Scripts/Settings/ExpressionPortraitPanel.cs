@@ -240,7 +240,13 @@ namespace AICompanion.Settings
 
         bool WantsPortrait()
         {
-            return _settings != null && _settings.CurrentSettings != null && _settings.CurrentSettings.ShowExpressionPortrait;
+            if (_settings == null || _settings.CurrentSettings == null)
+                return false;
+
+            // The portrait sits beside the 3D head. While the 2D video avatar shows, that head
+            // is hidden behind the video, so the portrait would sit on top of her.
+            var modelHidden = _mount != null && _mount.ModelHidden;
+            return PortraitModePolicy.Allows(_settings.CurrentSettings.ShowExpressionPortrait, modelHidden);
         }
 
         string RequestedPortraitFolder()
