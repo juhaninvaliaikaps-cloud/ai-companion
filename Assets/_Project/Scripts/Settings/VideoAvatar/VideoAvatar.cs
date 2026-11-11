@@ -615,8 +615,10 @@ namespace AICompanion.Settings
 
             var stop = _set.WalkStop >= 0 ? _players[_set.WalkStop] : null;
             var stopMoves = 0f;
-            if (stop != null && stop.Prepared)
-                stopMoves = VideoGait.MoveEnd(_set.Clips[_set.WalkStop].MoveEnd, stop.DurationSeconds);
+            // The manifest's moveEnd is known before the walk-stop has loaded. Using it then
+            // keeps a stop on the very first walk from halting the window while she still steps.
+            if (stop != null)
+                stopMoves = VideoGait.MoveEnd(_set.Clips[_set.WalkStop].MoveEnd, stop.Prepared ? stop.DurationSeconds : 0f);
 
             var factor = 0f;
             var lead = stopMoves;
@@ -624,7 +626,7 @@ namespace AICompanion.Settings
             {
                 factor = VideoGait.Factor(walk.Seconds, walkSpec.MoveStart, walkSpec.MoveEnd, walkSpec.MoveRamp, walk.DurationSeconds);
                 // A stop waits for the walk to reach its loop point, then for the steps in the walk-stop.
-                lead = stop != null && stop.Prepared ? walk.SecondsToLoopPoint + stopMoves : 0f;
+                lead = stop != null ? walk.SecondsToLoopPoint + stopMoves : 0f;
             }
             else if (_shown == _set.WalkStop && stop != null && stop.Begun && !stop.Ended)
             {
@@ -636,10 +638,13 @@ namespace AICompanion.Settings
             _gaitSet = true;
         }
 
-        /// <summary>Arrow keys drive the test walk while the 2D avatar plays and no text field has focus.</summary>
+        /// <summary>Arrow keys drive the test walk while the 2D avatar plays, the settings panel is closed, and no text field has focus.</summary>
         void ReadTestKeys()
         {
             if (DebugInputGuard.TextFieldFocused)
+                return;
+            // With the panel open the arrows belong to its sliders.
+            if (_settings != null && _settings.KeepFrameRateActive)
                 return;
 
             if (Input.GetKeyDown(KeyCode.LeftArrow))
