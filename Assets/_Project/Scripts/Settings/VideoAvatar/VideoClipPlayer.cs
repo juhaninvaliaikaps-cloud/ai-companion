@@ -18,7 +18,9 @@ namespace AICompanion.Settings
     public sealed class VideoClipPlayer
     {
         const float PrepareTimeoutSeconds = 20f;
-        const float SeekTimeoutSeconds = 0.75f;
+        // A rewind is waited for only this long. A leftover picture is kept off the screen
+        // by the freshness test in any case, so a slow rewind must not delay a walk.
+        const float SeekTimeoutSeconds = 0.2f;
         const float FreshTimeoutSeconds = 1.5f;
         const float ResyncCooldownSeconds = 0.5f;
 
