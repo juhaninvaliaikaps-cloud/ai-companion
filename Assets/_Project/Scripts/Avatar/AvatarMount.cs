@@ -26,6 +26,8 @@ namespace AICompanion.Avatar
         AvatarPreference _shownRequest = AvatarPreference.Auto;
         int _generation;
         bool _started;
+        bool _modelHidden;
+        readonly List<Renderer> _hideScratch = new List<Renderer>();
 
         public AvatarDescriptor Current => _current;
 
@@ -38,6 +40,45 @@ namespace AICompanion.Avatar
         public AvatarPreference LoadedPreference => _loaded;
 
         public event Action<AvatarPreference> PreferenceChanged;
+
+        /// <summary>True while the 2D video avatar is drawn in place of the model.</summary>
+        public bool ModelHidden => _modelHidden;
+
+        /// <summary>
+        /// Stops the model and the placeholder capsule from being drawn, or draws them again.
+        /// Nothing is unloaded or disabled: the Animator, the face, and the foot bones keep
+        /// running, so every system that talks to the 3D avatar still works while it is hidden.
+        /// </summary>
+        public void SetModelHidden(bool hidden)
+        {
+            _modelHidden = hidden;
+            ApplyModelHidden();
+        }
+
+        /// <summary>
+        /// Applies the hidden flag again. Call this after parts were added to the model,
+        /// such as the blush cheeks, so they do not stay visible.
+        /// </summary>
+        public void ApplyModelHidden()
+        {
+            ForceRenderingOff(_instance, _modelHidden);
+            ForceRenderingOff(placeholder, _modelHidden);
+        }
+
+        void ForceRenderingOff(GameObject root, bool off)
+        {
+            if (root == null)
+                return;
+
+            root.GetComponentsInChildren(true, _hideScratch);
+            for (var i = 0; i < _hideScratch.Count; i++)
+            {
+                if (_hideScratch[i] != null)
+                    _hideScratch[i].forceRenderingOff = off;
+            }
+
+            _hideScratch.Clear();
+        }
 
         public void Select(AvatarPreference preference)
         {
@@ -286,6 +327,8 @@ namespace AICompanion.Avatar
                 Debug.LogError(report.Message);
 
             Debug.Log("Avatar ready: " + descriptor.Summary());
+            if (_modelHidden)
+                ApplyModelHidden();
             PublishPreference();
         }
 
@@ -297,6 +340,8 @@ namespace AICompanion.Avatar
             _loaded = AvatarPreference.Auto;
             SetPlaceholderVisible(true);
             NotifyAnimator();
+            if (_modelHidden)
+                ApplyModelHidden();
             PublishPreference();
         }
 

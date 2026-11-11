@@ -98,6 +98,7 @@ namespace AICompanion.Settings
                 _settings.StartWithWindows = tray.Menu.StartWithWindows;
 
             PersonaRuntime.ApplySelected(_settings, Folder());
+            EnsureVideoAvatar();
 
             _applying = true;
             try
@@ -171,6 +172,8 @@ namespace AICompanion.Settings
                 TrackHistory();
                 return;
             }
+
+            TickVideoAvatarStatus();
 
             if (Input.GetKeyDown(KeyCode.Escape))
             {
@@ -720,6 +723,7 @@ namespace AICompanion.Settings
 
         void BuildAvatar()
         {
+            BuildVideoAvatar();
             Note("The source applies immediately. Asset Store, Mixamo, and Daz models stay out of this project.");
             AddSourceButton("Auto", AvatarSourceNames.Auto);
             AddSourceButton("Local prefab", AvatarSourceNames.Local);

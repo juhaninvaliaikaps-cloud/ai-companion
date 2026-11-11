@@ -85,6 +85,21 @@ namespace AICompanion.Settings
         public string PortraitFolder = string.Empty;
         public bool ShowExpressionPortrait;
 
+        /// <summary>"3d" for the humanoid model, "video" for the looping 2D clip.</summary>
+        public string AvatarMode = AvatarModeNames.ThreeD;
+
+        /// <summary>Optional clip folder. Empty uses %APPDATA%\ProjectLeia\video-avatar.</summary>
+        public string VideoAvatarFolder = string.Empty;
+
+        /// <summary>Share of the largest size that fits the window, 0.2 to 1.</summary>
+        public float VideoAvatarSize = VideoAvatarLayout.DefaultSize;
+
+        /// <summary>Sideways shift as a share of the window width. Negative is left.</summary>
+        public float VideoAvatarOffsetX;
+
+        /// <summary>Upward shift as a share of the window height. Negative sinks the clip below the window edge.</summary>
+        public float VideoAvatarOffsetY;
+
         public static CompanionSettings CreateDefault()
         {
             return new CompanionSettings();
@@ -135,6 +150,13 @@ namespace AICompanion.Settings
             Relationship = RelationshipStyles.Normalize(Relationship);
             PersonaId = PersonaIds.Normalize(PersonaId);
             PortraitFolder = PersonaDefinition.CleanPath(PortraitFolder);
+            AvatarMode = AvatarModeNames.Normalize(AvatarMode);
+            VideoAvatarFolder = PersonaDefinition.CleanPath(VideoAvatarFolder);
+            if (VideoAvatarFolders.LooksRemote(VideoAvatarFolder))
+                VideoAvatarFolder = string.Empty;
+            VideoAvatarSize = VideoAvatarLayout.ClampSize(VideoAvatarSize);
+            VideoAvatarOffsetX = VideoAvatarLayout.ClampOffsetX(VideoAvatarOffsetX);
+            VideoAvatarOffsetY = VideoAvatarLayout.ClampOffsetY(VideoAvatarOffsetY);
         }
 
         static string CleanToken(string value, string fallback, int max)
@@ -445,6 +467,16 @@ namespace AICompanion.Settings
                 settings.PortraitFolder = text;
             if (TryBool(json, "showExpressionPortrait", out flag))
                 settings.ShowExpressionPortrait = flag;
+            if (TryString(json, "avatarMode", out text))
+                settings.AvatarMode = text;
+            if (TryString(json, "videoAvatarFolder", out text))
+                settings.VideoAvatarFolder = text;
+            if (TryNumber(json, "videoAvatarSize", out number))
+                settings.VideoAvatarSize = (float)number;
+            if (TryNumber(json, "videoAvatarOffsetX", out number))
+                settings.VideoAvatarOffsetX = (float)number;
+            if (TryNumber(json, "videoAvatarOffsetY", out number))
+                settings.VideoAvatarOffsetY = (float)number;
             settings.Normalize();
             return settings;
         }
@@ -495,6 +527,11 @@ namespace AICompanion.Settings
             String(sb, "personaId", source.PersonaId);
             String(sb, "portraitFolder", source.PortraitFolder);
             Bool(sb, "showExpressionPortrait", source.ShowExpressionPortrait);
+            String(sb, "avatarMode", source.AvatarMode);
+            String(sb, "videoAvatarFolder", source.VideoAvatarFolder);
+            Number(sb, "videoAvatarSize", source.VideoAvatarSize, false);
+            Number(sb, "videoAvatarOffsetX", source.VideoAvatarOffsetX, false);
+            Number(sb, "videoAvatarOffsetY", source.VideoAvatarOffsetY, false);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;
