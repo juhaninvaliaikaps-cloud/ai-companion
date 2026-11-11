@@ -35,8 +35,7 @@ namespace AICompanion.ScreenLook
             if (maxEdge < 1)
                 maxEdge = MaxEdge;
 
-            var longEdge = width > height ? width : height;
-            var scale = longEdge <= maxEdge ? 1 : (longEdge + maxEdge - 1) / maxEdge;
+            var scale = ScaleFor(width, height, maxEdge);
             dstWidth = Math.Max(1, width / scale);
             dstHeight = Math.Max(1, height / scale);
             pixels = new byte[dstWidth * dstHeight * 4];
@@ -187,6 +186,18 @@ namespace AICompanion.ScreenLook
             }
 
             return null;
+        }
+
+        public static int ScaleFor(int width, int height, int maxEdge)
+        {
+            if (width <= 0 || height <= 0)
+                return 1;
+            if (maxEdge < 1)
+                maxEdge = MaxEdge;
+            var longEdge = width > height ? width : height;
+            if (longEdge <= maxEdge)
+                return 1;
+            return (longEdge + maxEdge - 1) / maxEdge;
         }
 
         public static bool IsJpeg(byte[] bytes)

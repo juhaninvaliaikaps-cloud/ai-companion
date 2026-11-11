@@ -40,6 +40,9 @@ namespace AICompanion.Settings
 
         public string StatusText { get; private set; } = ScreenLookPolicy.FeatureOff;
 
+        /// <summary>Sizes of the last encoded frame. No pixels and no window text.</summary>
+        public string DeliveryNote { get; private set; } = string.Empty;
+
         public WindowTarget Selected => _selected;
 
         public Texture2D PreviewTexture => _preview;
@@ -159,6 +162,7 @@ namespace AICompanion.Settings
             if (_preview != null)
                 Destroy(_preview);
             _preview = null;
+            DeliveryNote = string.Empty;
             Touch(Enabled() ? "No window selected." : ScreenLookPolicy.FeatureOff);
         }
 
@@ -314,9 +318,10 @@ namespace AICompanion.Settings
 
             var rgba = ScreenImageBudget.BgraTopDownToRgbaBottomUp(small, width, height);
             ApplyTexture(rgba, width, height);
+            int quality;
             var jpeg = localFrame
-                ? ScreenImageBudget.FitJpeg(quality => EncodeJpeg(rgba, width, height, quality), out _, ScreenImageBudget.LocalMaxBytes, ScreenImageBudget.LocalQualities)
-                : ScreenImageBudget.FitJpeg(quality => EncodeJpeg(rgba, width, height, quality), out _);
+                ? ScreenImageBudget.FitJpeg(q => EncodeJpeg(rgba, width, height, q), out quality, ScreenImageBudget.LocalMaxBytes, ScreenImageBudget.LocalQualities)
+                : ScreenImageBudget.FitJpeg(q => EncodeJpeg(rgba, width, height, q), out quality);
             if (jpeg == null)
             {
                 _gate.Leave(generation);
@@ -326,8 +331,16 @@ namespace AICompanion.Settings
                 return;
             }
 
+            var scale = ScreenImageBudget.ScaleFor(frame.Width, frame.Height, maxEdge);
+            var imageChars = OllamaVision.ImageFieldChars(jpeg);
+            DeliveryNote = "Preview is the exact image encoded for this look. Capture " + frame.Width + "x" + frame.Height
+                + ", sent " + width + "x" + height
+                + ", scale " + scale
+                + ", JPEG " + jpeg.Length + " bytes, quality " + quality
+                + ". It stays in memory on this PC and is not saved.";
             Log(true, width, height, null);
-            Debug.Log(CaptureDiagnostics.FrameLine(decision.Route.ToString(), width, height, jpeg.Length));
+            Debug.Log(CaptureDiagnostics.FrameLine(decision.Route.ToString(), frame.Width, frame.Height, width, height, scale, quality, jpeg.Length, imageChars));
+            Touch(localFrame ? "Local look started. The preview is the encoded image." : "Cloud look started. The preview is the encoded image.");
 
             if (decision.Route == ScreenLookRoute.Local)
             {

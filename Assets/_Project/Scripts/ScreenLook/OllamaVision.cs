@@ -73,6 +73,13 @@ namespace AICompanion.ScreenLook
             return sb.ToString();
         }
 
+        public static int ImageFieldChars(byte[] jpeg)
+        {
+            if (jpeg == null || jpeg.Length == 0)
+                return 0;
+            return ((jpeg.Length + 2) / 3) * 4;
+        }
+
         public static string BuildLook(string visionModel, string prompt, byte[] jpeg)
         {
             var sb = new StringBuilder(256 + (jpeg != null ? jpeg.Length * 2 : 0));

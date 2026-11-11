@@ -132,11 +132,18 @@ The Linux VM cannot run this player, so a native crash here is not reproduced an
 
 Rebuild from the latest commit on this branch, then run `Builds\Windows\BackseatCatgirl.exe`. Quit any older `BackseatCatgirl.exe` first. The player log is `%USERPROFILE%\AppData\LocalLow\AI Companion\Backseat Catgirl\Player.log`.
 
+```powershell
+Select-String -Path "$env:USERPROFILE\AppData\LocalLow\AI Companion\Backseat Catgirl\Player.log" -Pattern "Screen look:" | Select-Object -Last 12
+```
+
+Those lines are route, sizes, JPEG byte count, base64 field length, HTTP status, and observation character count. They do not contain the picture, the window title, or the words on screen. Do not paste the chat reply if it contains private text.
+
 ### 1. A still Notepad window
 
 Open Notepad restored, not maximised. Turn on **Read a window**, refresh the list, and pick Notepad. The process must stay up.
 
-- A working preview logs `Screen capture: frame ready <width>x<height>` and shows the preview. With **Private mode** or **Local Ollama** and a vision model set, leave **Allow cloud screen analysis** off and press **What do you see?** once. The button stays available. Player.log should contain `Screen look: route=local`, `cloudConsent=0`, `imageAttached=0`, and `observationChars=` with a number. It should not contain the sentence from Notepad. The window list name is the Windows title. A reply that cannot quote the sentence is an unread picture, not proof the title was read from the pixels. Grok is used only when chat is Grok, private mode is off, and cloud screen analysis is on.
+- A working preview is the exact image encoded for that look. It stays in memory and is not saved. The line under it gives capture size, sent size, scale, JPEG bytes, and quality. `scale=1` means every captured pixel was encoded. `scale=2` means the sent image is about half the capture on each edge, so small text can already be gone in the preview.
+- Leave **Allow cloud screen analysis** off. Press **What do you see?** once. Compare the preview with Notepad before reading the reply. If the preview sentence is readable and the reply misses it, the model missed text that was in the payload. If the preview sentence is already unreadable, the capture or the scale lost it. A partial reply does not by itself prove either case.
 - A failed grab must also stay up. The chat note and the log say `Screen capture: Capture stopped at <stage>` and, when Windows returned one, the raw eight-digit code. `8000797F` was observed at `Texture` before the interface slot was corrected. That value is not a documented DXGI or Direct3D 11 code. The log prints it unchanged and does not name it. The line has no window title and no image. Copy that one line back.
 
 Do not continue to the resize steps until this still-window attempt has either shown a preview or written a `Capture stopped at` line.

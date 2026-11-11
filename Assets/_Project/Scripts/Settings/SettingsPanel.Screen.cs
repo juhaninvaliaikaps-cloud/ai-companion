@@ -144,11 +144,21 @@ namespace AICompanion.Settings
             var go = new GameObject("Preview");
             go.transform.SetParent(_body, false);
             var rect = go.AddComponent<RectTransform>();
-            Place(rect, 140f);
+            var aspect = tex.height > 0 ? tex.width / (float)tex.height : 1f;
+            if (aspect < 0.2f)
+                aspect = 0.2f;
+            var viewH = 400f / aspect;
+            if (viewH > 360f)
+                viewH = 360f;
+            if (viewH < 160f)
+                viewH = 160f;
+            Place(rect, viewH);
             var image = go.AddComponent<RawImage>();
             image.texture = tex;
             image.color = Color.white;
             image.raycastTarget = false;
+            if (!string.IsNullOrEmpty(look.DeliveryNote))
+                NoteBlock(look.DeliveryNote);
         }
 
         void NoteBlock(string text)
