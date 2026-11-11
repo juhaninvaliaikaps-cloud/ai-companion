@@ -515,6 +515,10 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(VisionPrompt.HasObservation("A window."));
             var turn = VisionPrompt.LocalObservationTurn("One short sentence is visible.");
             Assert.IsFalse(turn.Contains("Untitled"));
+            StringAssert.Contains("If it contains a transcription, repeat that text", turn);
+            StringAssert.Contains("repeat that text", VisionPrompt.LocalChatAddendum);
+            StringAssert.Contains("Only say that the words were not read", VisionPrompt.LocalChatAddendum);
+            Assert.IsFalse(VisionPrompt.LocalChatAddendum.Contains("does not quote the words"));
             StringAssert.Contains("transcribe", OllamaVision.AskPrompt);
             StringAssert.Contains("[unreadable]", OllamaVision.AskPrompt);
             var look = OllamaVision.BuildLook(OllamaVision.RecommendedTag, OllamaVision.AskPrompt, new byte[] { 1, 2, 3, 4 });
