@@ -1058,6 +1058,198 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(VideoClipProgress.IsFresh(5, 0.1f, 0f));
         }
 
+        // ---- reactions --------------------------------------------------------------------
+
+        static VideoAvatarClipSet ReactionSet()
+        {
+            var set = VideoAvatarManifest.Resolve(null, Files(
+                "idle.sbs.mp4", "idle_breeze.sbs.mp4", "walk.sbs.mp4", "walk_stop.sbs.mp4",
+                "happy.sbs.mp4", "concerned.sbs.mp4", "turn360.sbs.mp4", "walk_pivot180.sbs.mp4"));
+            set.VariationMinSeconds = 1f;
+            set.VariationMaxSeconds = 1f;
+            return set;
+        }
+
+        [Test]
+        public void FileNames_TheNewClips_AreReactions_AndThePivotIsNotASecondWalk()
+        {
+            var set = ReactionSet();
+
+            Assert.AreEqual(0, set.Warnings.Count);
+            Assert.AreEqual("walk", set.Clips[set.Walk].Name);
+            Assert.AreEqual("walk_stop", set.Clips[set.WalkStop].Name);
+            Assert.AreEqual(1, set.Variations.Count);
+            foreach (var name in new[] { "happy", "concerned", "turn360", "walk_pivot180" })
+            {
+                var clip = set.FindReaction(name);
+                Assert.GreaterOrEqual(clip, 0, name);
+                Assert.IsFalse(set.Clips[clip].Loop, name);
+                Assert.AreEqual(VideoMaskKind.Packed, set.Clips[clip].Mask, name);
+            }
+        }
+
+        [Test]
+        public void Reaction_StartsFromTheIdleAsSoonAsItIsLoaded_AndReturnsToTheIdle()
+        {
+            var set = ReactionSet();
+            var director = new VideoAvatarDirector(set, 1);
+            var entry = director.Entry;
+
+            Assert.IsTrue(director.RequestReaction("Happy"));
+            // Asked, not loaded yet: the idle stays, and the player is told which clip to load.
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual(set.FindReaction("happy"), director.Queued);
+            Assert.IsTrue(director.QueuedIsReaction);
+            Assert.AreEqual(entry, director.Entry);
+
+            // Loaded: it starts without waiting for the idle's loop point.
+            director.OnQueuedReady();
+            Assert.AreEqual(VideoAvatarAct.Reaction, director.Act);
+            Assert.AreEqual(set.FindReaction("happy"), director.Clip);
+            Assert.IsFalse(director.Mirrored);
+            Assert.AreEqual(-1, director.Queued);
+            Assert.IsFalse(director.QueuedIsReaction);
+
+            director.OnEnded();
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual(set.Idle, director.Clip);
+        }
+
+        [Test]
+        public void Reaction_AlsoStartsAtTheIdleLoopPoint_WhenItIsLoadedBythen()
+        {
+            var set = ReactionSet();
+            var director = new VideoAvatarDirector(set, 1);
+
+            director.RequestReaction("concerned");
+            director.OnBoundary(false);
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            director.OnBoundary(true);
+            Assert.AreEqual(VideoAvatarAct.Reaction, director.Act);
+            Assert.AreEqual(set.FindReaction("concerned"), director.Clip);
+        }
+
+        [Test]
+        public void Reaction_UnknownOrMissingClip_IsRefused_AndNothingChanges()
+        {
+            var director = new VideoAvatarDirector(Set(), 1);
+            var entry = director.Entry;
+
+            Assert.IsFalse(director.RequestReaction("happy"));
+            Assert.IsFalse(director.RequestReaction(null));
+            Assert.IsFalse(director.RequestReaction("walk"));
+            Assert.AreEqual(-1, director.Queued);
+            Assert.AreEqual(entry, director.Entry);
+            director.OnQueuedReady();
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+        }
+
+        [Test]
+        public void Reaction_IsIgnoredWhileSheWalksStopsOrPlaysAnotherClip()
+        {
+            var set = ReactionSet();
+            var director = new VideoAvatarDirector(set, 1);
+
+            director.SetMovement(true, false, false, false);
+            Assert.AreEqual(VideoAvatarAct.Walk, director.Act);
+            Assert.IsFalse(director.RequestReaction("happy"));
+
+            director.SetMovement(true, false, true, false);
+            director.OnBoundary(false);
+            Assert.AreEqual(VideoAvatarAct.WalkStop, director.Act);
+            Assert.IsFalse(director.RequestReaction("happy"));
+
+            // A reaction is not interrupted by another reaction.
+            var second = new VideoAvatarDirector(set, 1);
+            second.RequestReaction("happy");
+            second.OnQueuedReady();
+            Assert.IsFalse(second.RequestReaction("concerned"));
+            Assert.AreEqual(set.FindReaction("happy"), second.Clip);
+        }
+
+        [Test]
+        public void Reaction_AWalkInterruptsIt_AndAWaitingOneIsDropped()
+        {
+            var set = ReactionSet();
+            var director = new VideoAvatarDirector(set, 1);
+
+            director.RequestReaction("turn360");
+            director.OnQueuedReady();
+            director.SetMovement(true, true, false, false);
+            Assert.AreEqual(VideoAvatarAct.Walk, director.Act);
+            Assert.IsTrue(director.Mirrored);
+
+            var waiting = new VideoAvatarDirector(set, 1);
+            waiting.RequestReaction("turn360");
+            waiting.SetMovement(true, false, false, false);
+            Assert.AreEqual(-1, waiting.Queued);
+            waiting.OnQueuedReady();
+            Assert.AreEqual(VideoAvatarAct.Walk, waiting.Act);
+        }
+
+        [Test]
+        public void Reaction_TakesThePlaceOfAWaitingVariation_AndVariationsStillWaitForTheLoopPoint()
+        {
+            var set = ReactionSet();
+            var director = new VideoAvatarDirector(set, 1);
+
+            director.Tick(1.5f);
+            Assert.AreEqual(set.Variations[0], director.Queued);
+            Assert.IsFalse(director.QueuedIsReaction);
+            // A loaded variation does not start early.
+            director.OnQueuedReady();
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+
+            Assert.IsTrue(director.RequestReaction("happy"));
+            Assert.AreEqual(set.FindReaction("happy"), director.Queued);
+            director.OnQueuedReady();
+            Assert.AreEqual(VideoAvatarAct.Reaction, director.Act);
+
+            // Back in the idle, variations are scheduled again.
+            director.OnEnded();
+            director.Tick(1.5f);
+            Assert.AreEqual(set.Variations[0], director.Queued);
+            director.OnBoundary(true);
+            Assert.AreEqual(VideoAvatarAct.Variation, director.Act);
+        }
+
+        [Test]
+        public void Reaction_ThatFailsToLoad_IsDroppedAndNeverAskedAgain()
+        {
+            var set = ReactionSet();
+            var director = new VideoAvatarDirector(set, 1);
+            var happy = set.FindReaction("happy");
+
+            director.RequestReaction("happy");
+            director.SetUnavailable(happy);
+            Assert.AreEqual(-1, director.Queued);
+            Assert.IsFalse(director.QueuedIsReaction);
+            Assert.IsFalse(director.RequestReaction("happy"));
+
+            // Failing while it shows: back to the idle.
+            director.RequestReaction("concerned");
+            director.OnQueuedReady();
+            director.SetUnavailable(set.FindReaction("concerned"));
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+        }
+
+        [Test]
+        public void Reaction_NamesFollowTheEmotions()
+        {
+            Assert.IsNull(VideoReactionNames.For(AICompanion.Core.Emotion.Neutral));
+            Assert.AreEqual("happy", VideoReactionNames.For(AICompanion.Core.Emotion.Happy));
+            Assert.AreEqual("concerned", VideoReactionNames.For(AICompanion.Core.Emotion.Concerned));
+            Assert.IsNull(VideoReactionNames.For((AICompanion.Core.Emotion)99));
+
+            // Every emotion in the list has the name of its enum value, in lower case.
+            foreach (AICompanion.Core.Emotion emotion in System.Enum.GetValues(typeof(AICompanion.Core.Emotion)))
+            {
+                if (emotion == AICompanion.Core.Emotion.Neutral)
+                    continue;
+                Assert.AreEqual(emotion.ToString().ToLowerInvariant(), VideoReactionNames.For(emotion));
+            }
+        }
+
         // ---- keeping the mask on the picture's frame -------------------------------------
 
         [TestCase(10L, 10L, 124L, 0L)]

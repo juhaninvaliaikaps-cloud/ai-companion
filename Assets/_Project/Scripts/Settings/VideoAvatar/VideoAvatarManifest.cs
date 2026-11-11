@@ -141,7 +141,7 @@ namespace AICompanion.Settings
             get { return Idle >= 0; }
         }
 
-        /// <summary>Index of a reaction clip by name, or -1. Reactions are registered for later use.</summary>
+        /// <summary>Index of a reaction clip by name, or -1.</summary>
         public int FindReaction(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
@@ -488,7 +488,13 @@ namespace AICompanion.Settings
             if (plain.StartsWith("idle", StringComparison.Ordinal))
                 return plain.IndexOf("side", StringComparison.Ordinal) >= 0 ? VideoClipRole.SideIdle : VideoClipRole.IdleVariation;
             if (plain.StartsWith("walk", StringComparison.Ordinal))
+            {
+                // "walk_pivot180", "walk_turn": a change of direction, not the walk loop.
+                // It is registered and not played yet.
+                if (plain.IndexOf("pivot", StringComparison.Ordinal) >= 0 || plain.IndexOf("turn", StringComparison.Ordinal) >= 0)
+                    return VideoClipRole.Reaction;
                 return plain.IndexOf("stop", StringComparison.Ordinal) >= 0 ? VideoClipRole.WalkStop : VideoClipRole.Walk;
+            }
             if (plain.StartsWith("stop", StringComparison.Ordinal))
                 return VideoClipRole.WalkStop;
             return VideoClipRole.Reaction;

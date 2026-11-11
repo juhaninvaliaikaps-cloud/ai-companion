@@ -22,6 +22,9 @@ namespace AICompanion.Settings
 
         /// <summary>The side-facing idle loop, when the folder has one.</summary>
         SideIdle = 5,
+
+        /// <summary>A reaction clip such as "happy", played once from the default idle.</summary>
+        Reaction = 6,
     }
 
     /// <summary>
@@ -32,6 +35,9 @@ namespace AICompanion.Settings
     ///
     /// Rules:
     /// - An idle variation starts only when the default idle reaches its loop point.
+    /// - A reaction starts from the default idle as soon as its clip is loaded, and returns
+    ///   to the default idle. It is ignored while she walks, stops, holds a pose, or plays
+    ///   another clip.
     /// - A walk starts at once and interrupts anything.
     /// - A stop waits for the walk loop to reach its loop point, then plays the walk-stop.
     /// - After the walk-stop she stays as the clip left her: the side idle if there is one,
@@ -45,6 +51,7 @@ namespace AICompanion.Settings
         readonly bool[] _unavailable;
         float _untilVariation;
         int _queued = -1;
+        bool _queuedReaction;
         int _lastVariation = -1;
         bool _stopPending;
         bool _facingRight;
@@ -77,6 +84,37 @@ namespace AICompanion.Settings
             get { return _queued; }
         }
 
+        /// <summary>True when <see cref="Queued"/> is a reaction. It does not wait for the idle's loop point.</summary>
+        public bool QueuedIsReaction
+        {
+            get { return _queued >= 0 && _queuedReaction; }
+        }
+
+        /// <summary>
+        /// Asks for a reaction clip by name. True when it was accepted: the clip exists and
+        /// she is in the default idle. It takes the place of an idle variation that was waiting.
+        /// </summary>
+        public bool RequestReaction(string name)
+        {
+            if (Act != VideoAvatarAct.Idle)
+                return false;
+
+            var clip = _set.FindReaction(name);
+            if (!Usable(clip))
+                return false;
+
+            _queued = clip;
+            _queuedReaction = true;
+            return true;
+        }
+
+        /// <summary>The queued clip is loaded. A reaction starts now. An idle variation keeps waiting for the loop point.</summary>
+        public void OnQueuedReady()
+        {
+            if (Act == VideoAvatarAct.Idle && _queuedReaction && Usable(_queued))
+                Enter(VideoAvatarAct.Reaction, _queued, false);
+        }
+
         /// <summary>Seconds until the next variation is queued. For tests and the status line.</summary>
         public float UntilVariation
         {
@@ -93,6 +131,7 @@ namespace AICompanion.Settings
             if (_queued == clip)
             {
                 _queued = -1;
+                _queuedReaction = false;
                 ScheduleVariation();
             }
 
@@ -128,6 +167,12 @@ namespace AICompanion.Settings
             if (Act == VideoAvatarAct.Idle && _queued >= 0 && queuedReady && Usable(_queued))
             {
                 var clip = _queued;
+                if (_queuedReaction)
+                {
+                    Enter(VideoAvatarAct.Reaction, clip, false);
+                    return;
+                }
+
                 _lastVariation = clip;
                 Enter(VideoAvatarAct.Variation, clip, false);
             }
@@ -136,7 +181,7 @@ namespace AICompanion.Settings
         /// <summary>The showing play-once clip has reached its end.</summary>
         public void OnEnded()
         {
-            if (Act == VideoAvatarAct.Variation)
+            if (Act == VideoAvatarAct.Variation || Act == VideoAvatarAct.Reaction)
                 EnterIdle();
             else if (Act == VideoAvatarAct.WalkStop)
                 Rest();
@@ -237,6 +282,7 @@ namespace AICompanion.Settings
             Mirrored = mirrored;
             Entry++;
             _queued = -1;
+            _queuedReaction = false;
             if (act == VideoAvatarAct.Idle)
                 ScheduleVariation();
         }

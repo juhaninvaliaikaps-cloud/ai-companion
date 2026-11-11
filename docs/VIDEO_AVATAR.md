@@ -9,7 +9,7 @@ What plays:
 - a walk loop while the desktop presence moves the window, mirrored for the other direction
 - a walk-stop, played once when the walk ends
 
-Named reaction clips such as `happy` can be registered and are not played yet.
+Reaction clips (`happy`, `concerned`, `turn360`) play once from the default idle and return to it. See [Reactions](#reactions). `walk_pivot180` is registered and not played yet.
 
 ## What is verified and what is not
 
@@ -22,6 +22,7 @@ Named reaction clips such as `happy` can be registered and are not played yet.
 | Expression portrait hidden while the video shows | Automated test of the rule and of every mode switch. **Not yet seen in a player** |
 | Outline that slips (mask clipping) | Cause **not established**. The packed clips, the mask speed nudge and the sync log lines are **not yet run in a player**. See [Keeping the picture and the mask together](#keeping-the-picture-and-the-mask-together) |
 | A walk cue from the chat model in 2D mode | Automated test from the reply text to the walk clip. In the player logs seen so far the model wrote no cue at all. See [Known behaviour](#known-behaviour) |
+| Reaction clips `happy`, `concerned`, `turn360` | Automated tests of the rules. **Not run in a player** |
 | Movement speed against the feet, 10 minute run | **Not run in a player.** Use the [Windows checklist](#windows-checklist) |
 
 ## Turn it on and off
@@ -60,7 +61,7 @@ Every video file that is not a mask is a clip. Its role comes from its name. Cas
 | starts with `idle` and contains `side`, for example `idle_side` | side idle | loop |
 | starts with `walk` | walk | loop |
 | starts with `walk` and contains `stop`, or starts with `stop` | walk-stop | once |
-| anything else, for example `happy` | reaction (not played yet) | once |
+| anything else, for example `happy` | reaction | once |
 
 The mask for `name.mp4` is `name.mask.mp4`, `name_mask.mp4` or `name-mask.mp4` (also `.png` or `.jpg` for a still mask). White shows her, black is see-through.
 
@@ -122,7 +123,7 @@ $dst  = Join-Path $env:APPDATA "ProjectLeia\video-avatar-test"
 $repo = "C:\path\to\ai-companion-pr56"     # the PR #56 checkout, see below
 
 New-Item -ItemType Directory -Force $dst | Out-Null
-foreach ($name in "idle", "idle_breeze", "walk", "walk_stop") {
+foreach ($name in "idle", "idle_breeze", "walk", "walk_stop", "happy", "concerned", "turn360") {
     Copy-Item "$src\$name.mp4", "$src\$name.mask.mp4" $dst
 }
 Copy-Item "$repo\tools\video-avatar\leia-keyed.video-avatar.json" (Join-Path $dst "video-avatar.json")
@@ -131,7 +132,7 @@ Get-ChildItem $dst | Select-Object Name, Length
 
 Then, in the app: **F12** → **Avatar** → **Avatar: 2D video**, and set **Video folder** to the path printed by `$dst`.
 
-Expected files in the folder: `idle.mp4`, `idle.mask.mp4`, `idle_breeze.mp4`, `idle_breeze.mask.mp4`, `walk.mp4`, `walk.mask.mp4`, `walk_stop.mp4`, `walk_stop.mask.mp4`, `video-avatar.json`.
+Expected files in the folder: a `.mp4` and a `.mask.mp4` for each of `idle`, `idle_breeze`, `walk`, `walk_stop`, `happy`, `concerned`, `turn360`, and `video-avatar.json`. Copying again over an earlier test folder replaces its `video-avatar.json` with the new one, which is what adds the reactions.
 
 ### Packed clips: the test for the slipping outline
 
@@ -140,7 +141,7 @@ The packed clips use one decoder per clip, so the picture and the mask cannot be
 ```powershell
 $dst2 = Join-Path $env:APPDATA "ProjectLeia\video-avatar-packed"
 New-Item -ItemType Directory -Force $dst2 | Out-Null
-foreach ($name in "idle", "idle_breeze", "walk", "walk_stop") {
+foreach ($name in "idle", "idle_breeze", "walk", "walk_stop", "happy", "concerned", "turn360") {
     Copy-Item "$src\$name.sbs.mp4" $dst2
 }
 Copy-Item "$repo\tools\video-avatar\leia-keyed-packed.video-avatar.json" (Join-Path $dst2 "video-avatar.json")
@@ -178,6 +179,17 @@ Consequences:
 - **Walking speed** is an estimate: about 365 px per step at about one step per second gives 0.27 clip heights per second. Tune it with the slider.
 - **Feet:** the clips have 23 to 31 px of empty space under the feet, so the manifest lowers each clip by 1.7% of its height.
 - The source folder has unkeyed turn clips (`turn_around`, `walk_turn180`, `walk_pivot180`). A keyed turn would remove the hard cut at the start of a walk.
+
+## Reactions
+
+A reaction is a play-once clip with the role `reaction`. Without a manifest, any clip whose name is not an idle, a walk or a stop is a reaction.
+
+- **When.** When the avatar's emotion changes to one that has a clip of the same name: `happy`, `sad`, `surprised`, `thinking`, `embarrassed`, `shy`, `flustered`, `concerned`. The emotion is the one the 3D face already uses, so it comes from the reply's `<animation emotion="..."/>` cue. The same emotion twice in a row plays once. The Avatar tab also has **Test: happy**, **Test: concerned** and **Test: spin (turn360)**.
+- **From where.** Only from the default idle. While she walks, stops, holds the side pose or plays a variation or another reaction, the request is dropped, not kept for later.
+- **How.** The clip is loaded when it is asked for, starts as soon as it has a picture, without waiting for the idle's loop point, and is unloaded after. A walk interrupts it.
+- **The delivered clips, measured.** `happy`, `concerned` and `turn360` are 124 frames at 24 fps, start in the idle's first pose and end close to it. The cut from any idle frame into them is 0.6 to 2.6 on the scale where a normal idle frame step is 0.14 and the idle's own loop jump is 1.6. So expect a small jump at the start and at the end, about as large as the idle's loop jump. **Not seen in a player.**
+- **Not used yet: `walk_pivot180`.** It starts in the walk's first pose facing left and ends in the mirrored walk pose facing right: a change of direction during a walk. Using it needs the window to hold its direction until the pivot ends, which is not built. Today a change of direction flips the walk clip at once. By file name it is registered as a reaction, so it is not mistaken for a second walk loop.
+- There is no emotion detection here and no new cue. If the chat model writes no `<animation>` tag, no reaction plays, as with walking.
 
 ## Walking
 
@@ -356,11 +368,12 @@ Mark each line. Lines 1 to 6 repeat what was verified before, on the new code.
 29. Repeat 7 to 18 with the packed `.sbs.mp4` clips (see [Packed clips](#packed-clips-the-test-for-the-slipping-outline)). Compare the outline with the pairs.
 30. Portrait: turn **Expression portrait** on in 3D mode. Switch to 2D: the portrait is gone. Walk left and right, stop: still gone. Switch to 3D: it is back beside her head. Repeat the switch twice.
 31. Portrait fallback: in 2D mode set **Video folder** to an empty folder and press **Reload video**. The 3D model and the portrait both show.
-32. After a walk test, open `Player.log` and find the `VideoAvatar: sync` lines. Note `offByOne` and `offByMore` for the walk.
+32. Reactions: in the front idle press **Test: happy**, **Test: concerned**, **Test: spin (turn360)**, one at a time. Each plays once and returns to the idle. Note the size of the jump at the start and the end. Press one while she walks: nothing happens.
+33. After a walk test, open `Player.log` and find the `VideoAvatar: sync` lines. Note `offByOne` and `offByMore` for the walk.
 
 ## Tests
 
-- `VideoAvatarDirectorTests`: the packed clip preferred over the pair, the mask offset across the loop point and the speed nudge, the packed halves' edges, the portrait rule through every mode switch and fallback, clip lookup by file name with the delivered names, the manifest, missing clips and masks, variations only at the loop point, walk and stop, interruptions, a new walk during the stop, clips that failed to load, speed that follows the clip, the frame rules for a fresh picture and for the loop point, and the layout for a set of clips.
+- `VideoAvatarDirectorTests`: reactions (start from the idle when loaded, return to the idle, refused elsewhere, interrupted by a walk, failed clips, names per emotion, the pivot not taken for a walk), the packed clip preferred over the pair, the mask offset across the loop point and the speed nudge, the packed halves' edges, the portrait rule through every mode switch and fallback, clip lookup by file name with the delivered names, the manifest, missing clips and masks, variations only at the loop point, walk and stop, interruptions, a new walk during the stop, clips that failed to load, speed that follows the clip, the frame rules for a fresh picture and for the loop point, and the layout for a set of clips.
 - `DesktopPresenceGaitTests`: the gait on the presence, and that nothing changes without it.
 - `WalkRequestWiringTests.ReplyWalk_In2DVideoMode_...`: a reply's walk cue moves the presence at the clip's speed and starts the walk clip, and a stop cue goes through the walk-stop.
 - `VideoAvatarTests`: the earlier tests for modes, settings, the single-clip lookup, the layout, the mask sync rule, the shader and the build setting.

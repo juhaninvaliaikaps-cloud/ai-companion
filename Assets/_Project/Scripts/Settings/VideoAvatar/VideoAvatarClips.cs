@@ -31,6 +31,26 @@ namespace AICompanion.Settings
         public const string Idle = "idle";
     }
 
+    /// <summary>
+    /// The reaction clip that goes with an emotion: the emotion's name in lower case, so
+    /// "happy.mp4" plays for <see cref="AICompanion.Core.Emotion.Happy"/>. A folder without
+    /// that clip simply has no reaction for it.
+    /// </summary>
+    public static class VideoReactionNames
+    {
+        static readonly string[] Names =
+        {
+            null, "happy", "sad", "surprised", "thinking", "embarrassed", "shy", "flustered", "concerned",
+        };
+
+        /// <summary>The clip name for an emotion, or null for neutral and for a value this list does not know.</summary>
+        public static string For(AICompanion.Core.Emotion emotion)
+        {
+            var index = (int)emotion;
+            return index >= 0 && index < Names.Length ? Names[index] : null;
+        }
+    }
+
     /// <summary>Where a clip's transparency comes from.</summary>
     public enum VideoMaskKind
     {

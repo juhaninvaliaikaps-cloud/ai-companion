@@ -47,6 +47,9 @@ namespace AICompanion.Settings
 
         SettingsPanel _settings;
         AvatarMount _mount;
+        IAvatarAnimator _animator;
+        Component _animatorObject;
+        Emotion _lastEmotion = Emotion.Neutral;
         DesktopPresence _presence;
 
         GameObject _canvasObject;
@@ -112,6 +115,7 @@ namespace AICompanion.Settings
                 return _incoming >= 0
                     || _director.Queued >= 0
                     || _director.Act == VideoAvatarAct.Variation
+                    || _director.Act == VideoAvatarAct.Reaction
                     || _director.Act == VideoAvatarAct.Walk
                     || _director.Act == VideoAvatarAct.WalkStop;
             }
@@ -137,6 +141,15 @@ namespace AICompanion.Settings
             Bind();
             if (_presence != null)
                 _presence.RequestStop();
+        }
+
+        /// <summary>
+        /// Plays a reaction clip by name ("happy", "concerned", "turn360") once, from the
+        /// default idle. False when the folder has no such clip or she is not in the idle.
+        /// </summary>
+        public bool PlayReaction(string name)
+        {
+            return _director != null && _state == VideoAvatarState.Playing && _director.RequestReaction(name);
         }
 
         /// <summary>Test control: return to the default idle from a held pose, the side idle, or a variation.</summary>
@@ -198,6 +211,11 @@ namespace AICompanion.Settings
                 _mount = GetComponent<AvatarMount>();
             if (_presence == null)
                 _presence = GetComponent<DesktopPresence>();
+            if (_animatorObject == null)
+            {
+                _animator = GetComponent<IAvatarAnimator>();
+                _animatorObject = _animator as Component;
+            }
         }
 
         /// <summary>Reads the folder once. This runs on a setting change, on Reload, and every two seconds while there is nothing to play.</summary>
@@ -366,12 +384,18 @@ namespace AICompanion.Settings
                 phase == PresenceStopPhase.Lead,
                 phase == PresenceStopPhase.Glide);
             ReadTestKeys();
+            ReactToEmotion();
             _director.Tick(delta);
 
             if (_director.Queued >= 0)
                 EnsurePlayer(_director.Queued);
             if (_shown == _director.Clip && _director.Entry == _shownEntry)
             {
+                // A reaction does not wait for the idle's loop point. The delivered reactions
+                // start in the idle pose, and the idle moves little, so the cut is small.
+                if (_director.QueuedIsReaction && QueuedReady())
+                    _director.OnQueuedReady();
+
                 if (shownEvent == VideoClipEvent.LoopPoint)
                     _director.OnBoundary(QueuedReady());
                 else if (shownEvent == VideoClipEvent.Ended)
@@ -393,6 +417,25 @@ namespace AICompanion.Settings
             // This runs after FootGrounding and before DesktopPresence reads the offset.
             if (_presence != null)
                 _presence.SetFootOffset(0f);
+        }
+
+        /// <summary>
+        /// When the avatar's emotion changes to one the folder has a clip for, that clip
+        /// plays once. The emotion comes from the same place the 3D face reads it.
+        /// </summary>
+        void ReactToEmotion()
+        {
+            if (_animatorObject == null)
+                return;
+
+            var emotion = _animator.Emotion;
+            if (emotion == _lastEmotion)
+                return;
+
+            _lastEmotion = emotion;
+            var name = VideoReactionNames.For(emotion);
+            if (name != null)
+                _director.RequestReaction(name);
         }
 
         bool QueuedReady()
@@ -472,7 +515,8 @@ namespace AICompanion.Settings
             if (index < 0 || _players[index] == null)
                 return;
 
-            if (_players[index].Spec.Role == VideoClipRole.IdleVariation)
+            // Variations and reactions are loaded when they are wanted and unloaded after.
+            if (_players[index].Spec.Role == VideoClipRole.IdleVariation || _players[index].Spec.Role == VideoClipRole.Reaction)
             {
                 _players[index].Dispose();
                 _players[index] = null;

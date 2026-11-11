@@ -91,6 +91,9 @@ namespace AICompanion.Settings
             AddButton("Test: walk right (mirrored)", () => VideoTest(avatar => avatar.TestWalk(1f)));
             AddButton("Test: stop", () => VideoTest(avatar => avatar.TestStop()));
             AddButton("Test: back to the front idle", () => VideoTest(avatar => avatar.TestFront()));
+            AddButton("Test: happy", () => VideoReaction("happy"));
+            AddButton("Test: concerned", () => VideoReaction("concerned"));
+            AddButton("Test: spin (turn360)", () => VideoReaction("turn360"));
             var speedLabel = AddLabel(VideoSpeedText(_settings.VideoAvatarWalkSpeed));
             AddSlider(_settings.VideoAvatarWalkSpeed, 0f, 1f, false, value =>
             {
@@ -125,6 +128,15 @@ namespace AICompanion.Settings
 
             _videoStatusShown = text;
             _videoStatus.text = text;
+        }
+
+        void VideoReaction(string name)
+        {
+            VideoTest(avatar =>
+            {
+                if (!avatar.PlayReaction(name))
+                    SetStatus("No \"" + name + "\" clip in the video folder, or she is not in the front idle.");
+            });
         }
 
         void VideoTest(System.Action<VideoAvatar> action)

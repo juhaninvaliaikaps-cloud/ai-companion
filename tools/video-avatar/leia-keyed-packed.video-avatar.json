@@ -39,6 +39,27 @@
       "moveRamp": 0.4,
       "after": "idle",
       "offsetY": -0.017
+    },
+    {
+      "name": "happy",
+      "role": "reaction",
+      "color": "happy.sbs.mp4",
+      "playback": "once",
+      "offsetY": -0.017
+    },
+    {
+      "name": "concerned",
+      "role": "reaction",
+      "color": "concerned.sbs.mp4",
+      "playback": "once",
+      "offsetY": -0.017
+    },
+    {
+      "name": "turn360",
+      "role": "reaction",
+      "color": "turn360.sbs.mp4",
+      "playback": "once",
+      "offsetY": -0.017
     }
   ]
 }
