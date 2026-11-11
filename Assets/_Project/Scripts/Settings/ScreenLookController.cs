@@ -460,10 +460,16 @@ namespace AICompanion.Settings
 
             var localFrame = decision.Route == ScreenLookRoute.Local;
             var maxEdge = localFrame ? ScreenImageBudget.LocalMaxEdge : ScreenImageBudget.MaxEdge;
-            // Local vision averages the block; nearest-pixel sampling drops the thin strokes of
-            // small window text before the model can see them. The cloud cap is small enough
-            // that sharp sampling still reads better there.
-            ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out var small, out var width, out var height, maxEdge, !localFrame);
+            // Local vision resizes to the exact cap with bilinear sampling: a 2560-wide display
+            // becomes 1600 wide, not the 1280 an integer 2x step would give. Nearest sampling
+            // drops the thin strokes of small text before the model can see them.
+            byte[] small;
+            int width;
+            int height;
+            if (localFrame && Mathf.Max(frame.Width, frame.Height) > maxEdge)
+                ScreenImageBudget.DownscaleFit(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out small, out width, out height, maxEdge);
+            else
+                ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out small, out width, out height, maxEdge, true);
             Wipe(frame);
             if (small == null || ScreenImageBudget.LooksBlank(small, width, height))
             {
@@ -586,7 +592,13 @@ namespace AICompanion.Settings
         {
             var local = ScreenLookPolicy.UseLocalVision(BuildInput());
             var edge = local ? ScreenImageBudget.LocalMaxEdge : ScreenImageBudget.MaxEdge;
-            ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out var small, out var width, out var height, edge, !local);
+            byte[] small;
+            int width;
+            int height;
+            if (local && Mathf.Max(frame.Width, frame.Height) > edge)
+                ScreenImageBudget.DownscaleFit(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out small, out width, out height, edge);
+            else
+                ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out small, out width, out height, edge, true);
             if (small == null)
                 return;
             ApplyTexture(ScreenImageBudget.BgraTopDownToRgbaBottomUp(small, width, height), width, height);

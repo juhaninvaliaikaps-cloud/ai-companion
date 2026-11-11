@@ -320,6 +320,20 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void LargeDisplay_ResizesToTheCapWithoutIntegerJump()
+        {
+            var wide = new byte[2560 * 4 * 1440];
+            ScreenImageBudget.DownscaleFit(wide, 2560, 1440, 2560 * 4, out var fit, out var fw, out var fh, ScreenImageBudget.LocalMaxEdge);
+            Assert.AreEqual(1600, fw);
+            Assert.AreEqual(900, fh);
+            Assert.AreEqual(fw * fh * 4, fit.Length);
+
+            var small = new byte[800 * 4 * 600];
+            ScreenImageBudget.DownscaleFit(small, 800, 600, 800 * 4, out _, out var sw, out var sh, ScreenImageBudget.LocalMaxEdge);
+            Assert.AreEqual(800, sw);
+            Assert.AreEqual(600, sh);
+        }
+        [Test]
         public void Observation_IsNotAGameEventAndIsLeftOutOfHistory()
         {
             var observation = ScreenObservation.FromReply("A text editor is open.", "Notes", 3);
@@ -481,6 +495,8 @@ namespace AICompanion.Tests.EditMode
             var sample = new byte[] { 0xFF, 0xD8, 0xFF, 0xD9 };
             var field = OllamaVision.ImageFieldChars(sample);
             var body = OllamaVision.BuildLook(OllamaVision.RecommendedTag, OllamaVision.AskPrompt, sample);
+            StringAssert.Contains("\"keep_alive\":0", body);
+            StringAssert.Contains("\"keep_alive\":\"2m\"", OllamaVision.BuildLook(OllamaVision.RecommendedTag, OllamaVision.AskPrompt, sample, "2m"));
             StringAssert.Contains(Convert.ToBase64String(sample), body);
             Assert.AreEqual(Convert.ToBase64String(sample).Length, field);
             Assert.IsFalse(body.Contains("data:image"));

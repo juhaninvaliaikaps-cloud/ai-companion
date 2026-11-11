@@ -83,13 +83,43 @@ namespace AICompanion.ScreenLook
             return ((jpeg.Length + 2) / 3) * 4;
         }
 
+        /// <summary>
+        /// Ollama accepts a number of seconds or a duration string such as "2m". An unquoted
+        /// duration is invalid JSON and made the whole vision request fail with HTTP 400.
+        /// </summary>
+        static void AppendKeepAlive(StringBuilder sb, string keepAlive)
+        {
+            var value = keepAlive == null ? string.Empty : keepAlive.Trim();
+            if (value.Length == 0 || value == "0")
+            {
+                sb.Append('0');
+                return;
+            }
+
+            var numeric = true;
+            for (var i = 0; i < value.Length && numeric; i++)
+            {
+                var c = value[i];
+                numeric = (c >= '0' && c <= '9') || (i == 0 && c == '-');
+            }
+
+            if (numeric)
+            {
+                sb.Append(value);
+                return;
+            }
+
+            sb.Append('"');
+            sb.Append(value);
+            sb.Append('"');
+        }
         public static string BuildLook(string visionModel, string prompt, byte[] jpeg, string keepAlive = "0")
         {
             var sb = new StringBuilder(256 + (jpeg != null ? jpeg.Length * 2 : 0));
             sb.Append("{\"model\":");
             JsonText.AppendString(sb, visionModel ?? string.Empty);
             sb.Append(",\"stream\":false,\"keep_alive\":");
-            sb.Append(string.IsNullOrEmpty(keepAlive) ? "0" : keepAlive);
+            AppendKeepAlive(sb, keepAlive);
             sb.Append(",\"options\":{\"num_predict\":");
             sb.Append(MaxPredict.ToString(System.Globalization.CultureInfo.InvariantCulture));
             // Deterministic decoding: the same pixels should produce the same transcription.
