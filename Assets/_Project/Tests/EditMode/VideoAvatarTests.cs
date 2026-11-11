@@ -4,6 +4,7 @@ using AICompanion.Settings;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace AICompanion.Tests.EditMode
 {
@@ -345,6 +346,15 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("idle.mp4", noClip);
             StringAssert.Contains("Unsupported codec", failed);
             StringAssert.Contains("3D avatar", failed);
+        }
+
+        [Test]
+        public void Build_AlwaysIncludesTheVideoDecodeShaders()
+        {
+            // The VideoPlayer is created in script, with no VideoClip asset and nothing in the
+            // scene. Unity only keeps its decode shaders in a player build when this is Always.
+            // With Never, the clip fails to prepare in the built player and only there.
+            Assert.AreEqual(VideoShadersIncludeMode.Always, GraphicsSettings.videoShadersIncludeMode);
         }
 
         [Test]

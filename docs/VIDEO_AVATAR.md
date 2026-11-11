@@ -43,7 +43,7 @@ The packed clip is the safest choice, because one decoder produces both halves a
 
 ### Preparing files with ffmpeg
 
-These commands are suggestions. They have not been run against the idle clip.
+These commands were run on a generated test clip, not on the idle clip.
 
 Remove the sound and make an H.264 file that Windows can decode:
 
@@ -86,6 +86,7 @@ The values are saved as `videoAvatarSize`, `videoAvatarOffsetX`, and `videoAvata
 - While a clip is on screen, `AvatarMount.SetModelHidden(true)` stops the 3D model and the placeholder capsule from being drawn (`Renderer.forceRenderingOff`). The model stays loaded and its Animator keeps running. The animation director, lip sync, and the face code keep working against it, unseen.
 - The 3D model is hidden only in the `Playing` state. In every other state it is visible, so a broken clip never leaves an empty window.
 - Gravity and the taskbar line: the clip stands on the bottom edge of the window, so `VideoAvatar` sets the foot offset to 0 after `FootGrounding` and before `DesktopPresence` each frame.
+- **Project setting.** `ProjectSettings/GraphicsSettings.asset` has `m_VideoShadersIncludeMode: 2` (Project Settings → Graphics → Video → **Always include**). It was `0` (never), which strips the video decode shaders from a player build. The player is created in script with no `VideoClip` asset, so Unity cannot see that the build needs them. A test guards the value.
 - Chat, voice, memory, private mode, and the tray do not know which avatar is showing. No clip or frame is sent anywhere.
 
 Plain-logic classes, all tested: `AvatarModeNames`, `VideoAvatarFiles`, `VideoAvatarFolders`, `VideoAvatarLayout`, `VideoMaskSync`, `VideoAvatarStatus`.
