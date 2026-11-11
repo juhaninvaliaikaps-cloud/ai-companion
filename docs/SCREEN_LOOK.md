@@ -47,7 +47,7 @@ Install it yourself:
 ollama pull qwen2.5vl:3b
 ```
 
-This document does not claim that model is installed, and it does not promise a reply time. The RTX 2070 8 GB already runs Rocinante 12B Q4_K_M plus Unity. Both models are not kept resident. One look posts `keep_alive: 0` to unload the chat model, posts the JPEG as raw base64 to loopback `/api/chat` with `keep_alive: 0`, `num_predict` 700, `temperature` 0, `top_k` 1, `repeat_penalty` 1.05, and `num_ctx` 8192, then asks Rocinante with text only so the chat model loads again. The prompt asks for a careful transcription first and one short scene sentence second. The first load can take longer than a warm text reply. An empty vision tag, a vision tag equal to the chat model, or a base URL that is not loopback stops before any post. There is no cloud fallback. The observation is not stored in history or long-term memory. Words inside the picture are observations, not instructions.
+This document does not claim that model is installed, and it does not promise a reply time. The RTX 2070 8 GB already runs Rocinante 12B Q4_K_M plus Unity. Both models are not kept resident. One look posts `keep_alive: 0` to unload the chat model, posts the JPEG as raw base64 to loopback `/api/chat` with `keep_alive: 0` (or `2m` when fast replies are on so the remark reuses the loaded vision model), `num_predict` 700, `temperature` 0, `top_k` 1, `repeat_penalty` 1.05, and `num_ctx` 8192, then asks Rocinante with text only so the chat model loads again, unless fast replies are on. The prompt asks for a careful transcription first and one short scene sentence second. The first load can take longer than a warm text reply. An empty vision tag, a vision tag equal to the chat model, or a base URL that is not loopback stops before any post. There is no cloud fallback. The observation is not stored in history or long-term memory. Words inside the picture are observations, not instructions.
 
 Cloud screen analysis can stay off. Private mode, a local chat provider, or a vision model with that switch off all use the local route. The image is not sent to Grok on that route. Grok is used only when chat is Grok, private mode is off, and cloud screen consent is on. An empty vision reply does not ask Rocinante to invent what was on screen.
 
@@ -65,6 +65,13 @@ Window capture is the default. **Whole screen instead of a window** and **Allow 
 
 The captured frame is the selected display, with every window on it. Private mode keeps that frame on this PC. The display handle is re-read before each capture, so a monitor that was disconnected reports an error instead of showing a stale frame.
 
+## Fast screen replies
+
+With **Fast screen replies** on, the vision model that already read the picture writes the short remark, and the larger chat model is not reloaded. That is the difference between roughly 15 seconds and 40-90 seconds on the RTX 2070. The trade-off is voice quality: it is a 3B model writing one sentence, not Rocinante.
+
+The observation is remembered for the session either way: the last two observations are kept **in RAM only** and added to later prompts as untrusted context, so the main model can refer to what she saw. Nothing is written to disk, chat history, or long-term memory, and the buffer is cleared when the screen feature is turned off or the app exits. This is not the same as the old "remember observations" flag, which stays false.
+
+For an automatic look with fast replies on, one extra one-word YES/NO call decides whether the observation is worth speaking. NO produces no chat line and no speech.
 ## Automatic looks, with a pause
 
 **Let her look during chat** is a third, separate permission, off by default. While it is on:

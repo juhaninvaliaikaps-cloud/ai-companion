@@ -115,6 +115,16 @@ namespace AICompanion.Settings
                 NoteBlock("Automatic looks are off. She never captures the screen on her own; the Look button still works.");
             }
 
+            AddToggle("Fast screen replies", _settings.ScreenFastReply, value =>
+            {
+                _settings.ScreenFastReply = value;
+                ApplyLive();
+                _rebuild = true;
+            });
+            NoteBlock(_settings.ScreenFastReply
+                ? "The vision model writes the screen remark, so the chat model is not reloaded. Faster, with a simpler voice. What it saw is kept in this session's context so later replies can remember it; it is not saved to disk."
+                : "The chat model writes the screen remark after the vision model. Slower, because the larger model reloads, but it keeps the full persona.");
+
             var decision = look != null ? look.CurrentDecision() : new ScreenLookDecision(false, ScreenLookRoute.None, string.Empty);
             var plansLocal = look != null && look.PlansLocalVision();
             var visionEngine = plansLocal

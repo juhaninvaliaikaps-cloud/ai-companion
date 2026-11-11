@@ -104,6 +104,9 @@ namespace AICompanion.Settings
         /// <summary>Temporary hold on automatic looks. The permission above stays granted.</summary>
         public bool ScreenAutoLookPaused;
 
+        /// <summary>Let the vision model write the screen remark instead of reloading the chat model.</summary>
+        public bool ScreenFastReply;
+
         public string CompanionName = string.Empty;
         public string Relationship = RelationshipStyles.Friend;
 
@@ -485,6 +488,8 @@ namespace AICompanion.Settings
                 settings.ScreenAutoLook = flag;
             if (TryBool(json, "screenAutoLookPaused", out flag))
                 settings.ScreenAutoLookPaused = flag;
+            if (TryBool(json, "screenFastReply", out flag))
+                settings.ScreenFastReply = flag;
             if (TryString(json, "companionName", out text))
                 settings.CompanionName = text;
             if (TryString(json, "relationship", out text))
@@ -548,6 +553,7 @@ namespace AICompanion.Settings
             String(sb, "screenMonitorDevice", source.ScreenMonitorDevice);
             Bool(sb, "screenAutoLook", source.ScreenAutoLook);
             Bool(sb, "screenAutoLookPaused", source.ScreenAutoLookPaused);
+            Bool(sb, "screenFastReply", source.ScreenFastReply);
             String(sb, "companionName", source.CompanionName);
             String(sb, "relationship", source.Relationship);
             String(sb, "personaId", source.PersonaId);

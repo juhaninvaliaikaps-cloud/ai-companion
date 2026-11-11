@@ -410,6 +410,29 @@ namespace AICompanion.UI
         }
 
         /// <summary>
+        /// A screen remark written by the vision model in fast mode. The observation is kept
+        /// in session context so later replies can remember what she saw.
+        /// </summary>
+        public bool SubmitFastObservation(string observation, string reply)
+        {
+            if (!_alive || _conversation == null)
+                return false;
+
+            var text = ScreenLookCue.Strip(reply);
+            if (string.IsNullOrWhiteSpace(text) || ScreenLookCue.IsSilent(text))
+                return false;
+
+            BeginSpeech(true, ChatDefaults.LocalId);
+            _conversation.AddAssistant(text);
+            ScreenObservationMemory.Remember(observation);
+            ApplyCue();
+            BindSpeech();
+            if (_speech != null)
+                _speech.CompleteUtterance();
+            RefreshTranscript(true);
+            return true;
+        }
+        /// <summary>
         /// A look she asked for herself. The observation is answered only when it is worth
         /// saying: the local model may reply SILENT, and then nothing is shown or spoken.
         /// </summary>
@@ -536,8 +559,12 @@ namespace AICompanion.UI
             var director = GetComponent<Director>();
             var suffix = director == null ? string.Empty : director.SystemPromptSuffix;
             var look = GetComponent<IScreenLook>();
-            if (look != null && look.AutoLookEnabled)
-                suffix += ScreenLookCue.PromptLine;
+            if (look != null)
+            {
+                if (look.AutoLookEnabled)
+                    suffix += ScreenLookCue.PromptLine;
+                suffix += ScreenObservationMemory.PromptLine();
+            }
             return suffix;
         }
 

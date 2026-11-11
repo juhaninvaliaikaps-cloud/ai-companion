@@ -527,6 +527,32 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void FastReply_AndSessionMemory_AreBounded()
+        {
+            var body = OllamaVision.BuildFastReply("qwen2.5vl:3b", "You are Yumi.", "horses horses");
+            StringAssert.Contains("\"keep_alive\":\"2m\"", body);
+            StringAssert.Contains("horses horses", body);
+            StringAssert.Contains("You are Yumi.", body);
+            StringAssert.Contains("\"num_predict\":220", body);
+
+            var check = OllamaVision.BuildSilentCheck("qwen2.5vl:3b", "a window");
+            StringAssert.Contains("YES", check);
+            StringAssert.Contains("a window", check);
+
+            ScreenObservationMemory.Clear();
+            Assert.AreEqual(string.Empty, ScreenObservationMemory.PromptLine());
+            ScreenObservationMemory.Remember("first");
+            ScreenObservationMemory.Remember("second");
+            ScreenObservationMemory.Remember("third");
+            Assert.AreEqual(2, ScreenObservationMemory.Count);
+            var line = ScreenObservationMemory.PromptLine();
+            StringAssert.Contains("second", line);
+            StringAssert.Contains("third", line);
+            Assert.IsFalse(line.Contains("first"));
+            ScreenObservationMemory.Clear();
+            Assert.AreEqual(0, ScreenObservationMemory.Count);
+        }
+        [Test]
         public void WindowsCapture_BindsAWindowAndNotTheMonitor()
         {
             var source = File.ReadAllText(Path.Combine(Application.dataPath, "_Project", "Scripts", "ScreenLook", "WindowsGraphicsCapture.cs"));

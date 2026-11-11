@@ -683,6 +683,7 @@ namespace AICompanion.Settings
                     timeout = 30f;
                 if (timeout > 180f)
                     timeout = 180f;
+                var fast = current != null && current.ScreenFastReply;
                 var result = await LocalVisionExchange.Run(
                     new UnityChatTransport(this),
                     current != null ? current.LocalBaseUrl : ChatDefaults.LocalBaseUrl,
@@ -690,7 +691,8 @@ namespace AICompanion.Settings
                     vision,
                     jpeg,
                     timeout,
-                    cts.Token);
+                    cts.Token,
+                    fast ? "2m" : "0");
                 if (!_alive)
                     return;
                 var observationChars = result.Observation == null ? 0 : result.Observation.Length;
@@ -711,6 +713,14 @@ namespace AICompanion.Settings
                     Note(failed);
                     Touch(failed);
                     Log(false, 0, 0, failed);
+                    return;
+                }
+
+                if (fast)
+                {
+                    var automaticFast = _automaticLook;
+                    _automaticLook = false;
+                    await FinishFastLook(generation, cts.Token, current, result.Observation, automaticFast, timeout);
                     return;
                 }
 
@@ -757,6 +767,54 @@ namespace AICompanion.Settings
                     _visionCancel = null;
                 cts.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Fast screen reply: the vision model that already read the picture writes the remark,
+        /// so the chat model is not reloaded. The observation is kept in session context by
+        /// ChatPanel. For an automatic look a one-word YES/NO check decides whether to speak.
+        /// </summary>
+        async System.Threading.Tasks.Task FinishFastLook(
+            int generation, CancellationToken token, CompanionSettings settings,
+            string observation, bool automatic, float timeout)
+        {
+            var transport = new UnityChatTransport(this);
+            var baseUrl = settings != null ? settings.LocalBaseUrl : ChatDefaults.LocalBaseUrl;
+            var vision = settings != null ? settings.LocalVisionModel : string.Empty;
+
+            if (automatic)
+            {
+                var worth = await LocalVisionExchange.SilentCheck(transport, baseUrl, vision, observation, timeout, token);
+                if (!_alive || token.IsCancellationRequested)
+                    return;
+                _gate.Leave(generation);
+                if (!worth)
+                {
+                    Touch("She looked and had nothing to say.");
+                    return;
+                }
+            }
+
+            var name = settings != null ? settings.CompanionName : string.Empty;
+            var system = OllamaVision.FastReplySystem(name);
+            var reply = await LocalVisionExchange.FastReply(transport, baseUrl, vision, system, observation, timeout, token);
+            _gate.Leave(generation);
+            if (!_alive || token.IsCancellationRequested)
+                return;
+
+            if (!automatic)
+                _gate.Leave(generation);
+            if (!reply.Ok || string.IsNullOrWhiteSpace(reply.Observation))
+            {
+                Touch("The fast screen reply did not answer. Nothing was spoken.");
+                return;
+            }
+
+            var chat = GetComponent<ChatPanel>();
+            var started = chat != null && chat.SubmitFastObservation(observation, reply.Observation);
+            Debug.Log(CaptureDiagnostics.ChatLine("local", false, "observationChars",
+                observation != null ? observation.Length : 0, started));
+            Touch(started ? "She answered from the local vision model." : "The fast reply did not start.");
         }
 
         void Log(bool ok, int width, int height, string error)
