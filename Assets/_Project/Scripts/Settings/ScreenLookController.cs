@@ -47,6 +47,9 @@ namespace AICompanion.Settings
 
         public Texture2D PreviewTexture => _preview;
 
+        /// <summary>Size and byte count of the exact frame shown in the preview. No pixels or text.</summary>
+        public string PreviewDetails { get; private set; } = string.Empty;
+
         public IReadOnlyList<WindowTarget> Windows { get; private set; } = new WindowTarget[0];
 
         void Update()
@@ -305,7 +308,10 @@ namespace AICompanion.Settings
 
             var localFrame = decision.Route == ScreenLookRoute.Local;
             var maxEdge = localFrame ? ScreenImageBudget.LocalMaxEdge : ScreenImageBudget.MaxEdge;
-            ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out var small, out var width, out var height, maxEdge, true);
+            // Local vision averages the block; nearest-pixel sampling drops the thin strokes of
+            // small window text before the model can see them. The cloud cap is small enough
+            // that sharp sampling still reads better there.
+            ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out var small, out var width, out var height, maxEdge, !localFrame);
             Wipe(frame);
             if (small == null || ScreenImageBudget.LooksBlank(small, width, height))
             {
@@ -333,13 +339,16 @@ namespace AICompanion.Settings
 
             var scale = ScreenImageBudget.ScaleFor(frame.Width, frame.Height, maxEdge);
             var imageChars = OllamaVision.ImageFieldChars(jpeg);
+            // Replace the quick preview with the exact JPEG that is sent, so the 1:1 inspection
+            // shows decoder output and not the pre-encode buffer.
+            ApplyJpeg(jpeg);
             DeliveryNote = "Preview is the exact image encoded for this look. Capture " + frame.Width + "x" + frame.Height
                 + ", sent " + width + "x" + height
                 + ", scale " + scale
                 + ", JPEG " + jpeg.Length + " bytes, quality " + quality
                 + ". It stays in memory on this PC and is not saved.";
             Log(true, width, height, null);
-            Debug.Log(CaptureDiagnostics.FrameLine(decision.Route.ToString(), frame.Width, frame.Height, width, height, scale, quality, jpeg.Length, imageChars));
+            Debug.Log(CaptureDiagnostics.FrameLine(decision.Route.ToString(), frame.Width, frame.Height, width, height, scale, quality, jpeg.Length, imageChars, localFrame ? OllamaVision.AskPrompt.Length : VisionPrompt.Addendum.Length));
             Touch(localFrame ? "Local look started. The preview is the encoded image." : "Cloud look started. The preview is the encoded image.");
 
             if (decision.Route == ScreenLookRoute.Local)
@@ -400,11 +409,32 @@ namespace AICompanion.Settings
             }
         }
 
+        /// <summary>Decode the encoded JPEG so the preview and the 1:1 inspection are exact.</summary>
+        void ApplyJpeg(byte[] jpeg)
+        {
+            if (jpeg == null || jpeg.Length == 0)
+                return;
+
+            var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            if (!ImageConversion.LoadImage(tex, jpeg, false))
+            {
+                Destroy(tex);
+                return;
+            }
+
+            tex.hideFlags = HideFlags.HideAndDontSave;
+            if (_preview != null)
+                Destroy(_preview);
+            _preview = tex;
+            PreviewDetails = "Encoded frame " + tex.width + "x" + tex.height
+                + ", JPEG " + jpeg.Length + " bytes. This is the decoded image that was sent.";
+        }
+
         void ShowPreview(CapturedWindowFrame frame)
         {
             var local = ScreenLookPolicy.UseLocalVision(BuildInput());
             var edge = local ? ScreenImageBudget.LocalMaxEdge : ScreenImageBudget.MaxEdge;
-            ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out var small, out var width, out var height, edge, true);
+            ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out var small, out var width, out var height, edge, !local);
             if (small == null)
                 return;
             ApplyTexture(ScreenImageBudget.BgraTopDownToRgbaBottomUp(small, width, height), width, height);

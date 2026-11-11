@@ -140,15 +140,18 @@ namespace AICompanion.ScreenLook
                 + " chat=" + ModelToken(chatModel);
         }
 
-        public static string FrameLine(string route, int captureW, int captureH, int sentW, int sentH, int scale, int quality, int jpegBytes, int imageFieldChars)
+        public static string FrameLine(string route, int captureW, int captureH, int sentW, int sentH, int scale, int quality, int jpegBytes, int imageFieldChars, int promptChars = 0)
         {
-            return "Screen look: frame route=" + Token(route)
+            var line = "Screen look: frame route=" + Token(route)
                 + " capture=" + NonNeg(captureW) + "x" + NonNeg(captureH)
                 + " sent=" + NonNeg(sentW) + "x" + NonNeg(sentH)
                 + " scale=" + NonNeg(scale)
                 + " quality=" + NonNeg(quality)
                 + " jpegBytes=" + NonNeg(jpegBytes)
                 + " imageFieldChars=" + NonNeg(imageFieldChars);
+            if (promptChars > 0)
+                line += " promptChars=" + promptChars;
+            return line;
         }
 
         static int NonNeg(int value)

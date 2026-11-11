@@ -256,8 +256,11 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(1, sharpH);
             Assert.AreEqual(255, sharp[0]);
             Assert.Less(soft[0], 255);
-            Assert.AreEqual(1280, ScreenImageBudget.LocalMaxEdge);
+            Assert.AreEqual(1600, ScreenImageBudget.LocalMaxEdge);
             Assert.AreEqual(768, ScreenImageBudget.MaxEdge);
+            Assert.AreEqual(92, ScreenImageBudget.LocalQualities[0]);
+            Assert.AreEqual(1, ScreenImageBudget.ScaleFor(1595, 1076, ScreenImageBudget.LocalMaxEdge));
+            Assert.AreEqual(2, ScreenImageBudget.ScaleFor(1920, 1080, ScreenImageBudget.LocalMaxEdge));
 
             var bgra = new byte[] { 10, 20, 30, 255, 1, 2, 3, 255 };
             var rgba = ScreenImageBudget.BgraTopDownToRgbaBottomUp(bgra, 1, 2);
@@ -429,6 +432,7 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("quality=85", frame);
             StringAssert.Contains("jpegBytes=12000", frame);
             StringAssert.Contains("imageFieldChars=16000", frame);
+            StringAssert.Contains("promptChars=12", CaptureDiagnostics.FrameLine("local", 1920, 1080, 960, 540, 2, 85, 12000, 16000, 12));
             Assert.IsFalse(frame.Contains("one short sentence"));
             Assert.AreEqual(1, ScreenImageBudget.ScaleFor(800, 600, ScreenImageBudget.LocalMaxEdge));
             Assert.AreEqual(2, ScreenImageBudget.ScaleFor(1920, 1080, ScreenImageBudget.LocalMaxEdge));
@@ -511,8 +515,15 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(VisionPrompt.HasObservation("A window."));
             var turn = VisionPrompt.LocalObservationTurn("One short sentence is visible.");
             Assert.IsFalse(turn.Contains("Untitled"));
-            StringAssert.Contains("cannot read it", OllamaVision.AskPrompt);
-            StringAssert.Contains("\"num_predict\":360", OllamaVision.BuildLook(OllamaVision.RecommendedTag, OllamaVision.AskPrompt, new byte[] { 1, 2, 3, 4 }));
+            StringAssert.Contains("transcribe", OllamaVision.AskPrompt);
+            StringAssert.Contains("[unreadable]", OllamaVision.AskPrompt);
+            var look = OllamaVision.BuildLook(OllamaVision.RecommendedTag, OllamaVision.AskPrompt, new byte[] { 1, 2, 3, 4 });
+            StringAssert.Contains("\"num_predict\":700", look);
+            StringAssert.Contains("\"temperature\":0", look);
+            StringAssert.Contains("\"top_k\":1", look);
+            StringAssert.Contains("\"num_ctx\":8192", look);
+            StringAssert.Contains("\"messages\":[{\"role\":\"user\",\"content\":", look);
+            Assert.AreEqual(700, OllamaVision.MaxPredict);
         }
 
         static ScreenLookInput Ready()

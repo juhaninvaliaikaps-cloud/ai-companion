@@ -9,10 +9,15 @@ namespace AICompanion.ScreenLook
     public static class ScreenImageBudget
     {
         public const int MaxEdge = 768;
-        public const int LocalMaxEdge = 1280;
+        /// <summary>
+        /// Local vision keeps the window at its native size up to this edge. The earlier 1280
+        /// halved a 1595 px Notepad window, which turned 11-16 px text into 5-8 px and made the
+        /// 3B vision model guess. Above this edge the scale still uses whole-number blocks.
+        /// </summary>
+        public const int LocalMaxEdge = 1600;
         public const int LocalMaxBytes = 1536 * 1024;
         public static readonly int[] Qualities = { 70, 55, 40 };
-        public static readonly int[] LocalQualities = { 85, 75, 60 };
+        public static readonly int[] LocalQualities = { 92, 85, 75 };
 
         public static void Downscale(byte[] bgra, int width, int height, int stride, out byte[] pixels, out int dstWidth, out int dstHeight)
         {
