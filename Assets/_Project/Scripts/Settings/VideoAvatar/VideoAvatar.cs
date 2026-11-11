@@ -1,33 +1,38 @@
 using System;
 using System.IO;
 using AICompanion.Avatar;
+using AICompanion.Core;
 using AICompanion.Overlay;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Video;
 
 namespace AICompanion.Settings
 {
     /// <summary>
-    /// Optional full-body 2D avatar: one looping clip drawn in the overlay window in place
-    /// of the 3D model. The 3D model is only hidden, never unloaded, so every system that
+    /// Optional full-body 2D avatar: video clips drawn in the overlay window in place of
+    /// the 3D model. The 3D model is only hidden, never unloaded, so every system that
     /// talks to it keeps working and switching back is instant.
+    ///
+    /// What plays is decided by <see cref="VideoAvatarDirector"/>: a default idle, optional
+    /// idle variations at the idle's loop point, a walk loop while the desktop presence
+    /// moves the window, and a walk-stop when the walk ends. This class owns the decoders
+    /// and the picture. It changes clips only when the next one shows a picture of its own,
+    /// so the previous clip stays on screen until then and nothing blank is drawn.
     ///
     /// The picture is a uGUI RawImage that is not a raycast target. Click-through, drag,
     /// and double-click therefore still follow the visible pixels in the framebuffer, the
-    /// same as for the 3D model. The clip's sound is never played.
+    /// same as for the 3D model. No clip's sound is ever played.
     ///
-    /// Only the idle clip is played today. See docs/VIDEO_AVATAR.md.
+    /// See docs/VIDEO_AVATAR.md.
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(215)]
-    public sealed class VideoAvatar : MonoBehaviour
+    public sealed class VideoAvatar : MonoBehaviour, IOverlayKeepAwake
     {
         const string ShaderResource = "VideoAvatar";
         const float RetrySeconds = 2f;
-        const float LoadTimeoutSeconds = 20f;
         const float HideRescanSeconds = 0.5f;
-        const float ResyncCooldownSeconds = 0.5f;
+        const float TestWalkSeconds = 30f;
         const float MaskLow = 0.06f;
         const float MaskHigh = 0.94f;
 
@@ -49,12 +54,18 @@ namespace AICompanion.Settings
         RectTransform _imageRect;
         Material _material;
 
-        VideoPlayer _color;
-        VideoPlayer _mask;
-        Texture2D _maskImage;
+        VideoAvatarClipSet _set;
+        VideoClipPlayer[] _players;
+        VideoAvatarDirector _director;
+        int _shown = -1;
+        int _shownEntry;
+        bool _shownMirrored;
+        int _incoming = -1;
+        Texture _maskShown;
+        float _referenceWidth;
+        float _referenceHeight;
 
         VideoAvatarState _state = VideoAvatarState.Off;
-        VideoAvatarClip _clip;
         string _folder = string.Empty;
         string _requested;
         string _error = string.Empty;
@@ -63,13 +74,10 @@ namespace AICompanion.Settings
         string _persistent = string.Empty;
         Rect _placed;
         float _retryIn;
-        float _loadingFor;
         float _rescanIn;
-        float _resyncIn;
         bool _paths;
         bool _reload;
-        bool _colorReady;
-        bool _maskReady;
+        bool _gaitSet;
         bool _shaderWarned;
 
         public VideoAvatarState State
@@ -83,15 +91,64 @@ namespace AICompanion.Settings
             get { return _status; }
         }
 
-        /// <summary>Looks at the folder again on the next frame, for a clip that was just copied in.</summary>
+        /// <summary>What she is doing, for the settings panel. Idle when no clip is playing.</summary>
+        public VideoAvatarAct Act
+        {
+            get { return _director != null ? _director.Act : VideoAvatarAct.Idle; }
+        }
+
+        /// <summary>
+        /// Clip changes need the full frame rate. The default idle does not, so the overlay
+        /// may drop to its idle rate while she only stands.
+        /// </summary>
+        public bool KeepFrameRateActive
+        {
+            get
+            {
+                if (_state != VideoAvatarState.Playing || _director == null)
+                    return false;
+                return _incoming >= 0
+                    || _director.Queued >= 0
+                    || _director.Act == VideoAvatarAct.Variation
+                    || _director.Act == VideoAvatarAct.Walk
+                    || _director.Act == VideoAvatarAct.WalkStop;
+            }
+        }
+
+        /// <summary>Reads the folder and video-avatar.json again on the next frame.</summary>
         public void Reload()
         {
             _reload = true;
         }
 
+        /// <summary>Test control: walk left (-1) or right (+1) until stopped, through the desktop presence.</summary>
+        public void TestWalk(float direction)
+        {
+            Bind();
+            if (_presence != null && _state == VideoAvatarState.Playing)
+                _presence.RequestWalk(direction, TestWalkSeconds);
+        }
+
+        /// <summary>Test control: end the walk. The walk-stop clip plays when the folder has one.</summary>
+        public void TestStop()
+        {
+            Bind();
+            if (_presence != null)
+                _presence.RequestStop();
+        }
+
+        /// <summary>Test control: return to the default idle from a held pose, the side idle, or a variation.</summary>
+        public void TestFront()
+        {
+            if (_director != null)
+                _director.RequestFront();
+        }
+
         void OnDestroy()
         {
-            ReleasePlayers();
+            ReleaseAll();
+            if (_presence != null && _gaitSet)
+                _presence.ClearGait();
             if (_mount != null && _mount.ModelHidden)
                 _mount.SetModelHidden(false);
             if (_material != null)
@@ -153,7 +210,8 @@ namespace AICompanion.Settings
             var folder = VideoAvatarFolders.Select(requested, _appData, _persistent, Directory.Exists);
             if (string.IsNullOrEmpty(folder))
             {
-                ReleasePlayers();
+                ReleaseAll();
+                _set = null;
                 _folder = string.IsNullOrWhiteSpace(requested)
                     ? VideoAvatarFolders.Primary(_appData, _persistent) ?? string.Empty
                     : requested.Trim();
@@ -162,172 +220,170 @@ namespace AICompanion.Settings
             }
 
             string[] files;
+            string manifest = null;
             try
             {
                 files = Directory.GetFiles(folder);
+                var manifestPath = Path.Combine(folder, VideoAvatarManifest.FileName);
+                if (File.Exists(manifestPath))
+                    manifest = File.ReadAllText(manifestPath);
             }
             catch (Exception)
             {
                 files = Array.Empty<string>();
             }
 
-            var clip = VideoAvatarFiles.Find(files, VideoAvatarClipNames.Idle);
+            var set = VideoAvatarManifest.Resolve(manifest, files);
             _folder = folder;
-            if (!clip.Found)
+            if (!set.Found)
             {
-                ReleasePlayers();
-                _clip = clip;
+                ReleaseAll();
+                _set = set;
                 SetState(VideoAvatarState.NoClip);
                 return;
             }
 
             var busy = _state == VideoAvatarState.Loading || _state == VideoAvatarState.Playing;
-            if (!forced && busy && clip.SameFiles(_clip))
+            if (!forced && busy && set.SameAs(_set))
                 return;
-            // A clip that already failed is not retried on its own. Reload or a new folder tries again.
-            if (!forced && _state == VideoAvatarState.Failed && clip.SameFiles(_clip))
+            // A set that already failed is not retried on its own. Reload or a new folder tries again.
+            if (!forced && _state == VideoAvatarState.Failed && set.SameAs(_set))
                 return;
 
-            Load(clip);
+            Load(set);
         }
 
-        void Load(VideoAvatarClip clip)
+        void Load(VideoAvatarClipSet set)
         {
-            ReleasePlayers();
+            ReleaseAll();
             EnsureUi();
-            _clip = clip;
+            _set = set;
+            _players = new VideoClipPlayer[set.Clips.Count];
             _error = string.Empty;
-            _colorReady = false;
-            _maskReady = clip.Mask != VideoMaskKind.MaskVideo;
-            _loadingFor = 0f;
+            for (var i = 0; i < set.Warnings.Count; i++)
+                Debug.LogWarning("VideoAvatar: " + set.Warnings[i]);
 
-            if (clip.Mask == VideoMaskKind.MaskImage && !LoadMaskImage(clip.MaskPath))
+            var idle = EnsurePlayer(set.Idle);
+            if (idle == null || idle.Failed)
             {
-                Fail("The mask picture " + VideoAvatarFiles.FileName(clip.MaskPath) + " could not be read");
+                Fail(idle != null ? idle.Error : "The default idle could not be created");
                 return;
             }
-
-            _color = CreatePlayer("VideoAvatarColor", clip.ColorPath);
-            if (clip.Mask == VideoMaskKind.MaskVideo)
-                _mask = CreatePlayer("VideoAvatarMask", clip.MaskPath);
 
             SetState(VideoAvatarState.Loading);
-            _color.Prepare();
-            if (_mask != null)
-                _mask.Prepare();
         }
 
-        VideoPlayer CreatePlayer(string objectName, string path)
+        /// <summary>The decoders for a clip, created on first use. Null when the clip failed earlier.</summary>
+        VideoClipPlayer EnsurePlayer(int index)
         {
-            var host = new GameObject(objectName);
-            host.hideFlags = HideFlags.DontSave;
-            host.transform.SetParent(transform, false);
-            var player = host.AddComponent<VideoPlayer>();
-            player.playOnAwake = false;
-            player.source = VideoSource.Url;
-            player.url = path;
-            player.isLooping = true;
-            // The clip's sound is never routed anywhere, so a breathing track cannot be heard.
-            player.audioOutputMode = VideoAudioOutputMode.None;
-            player.renderMode = VideoRenderMode.APIOnly;
-            player.waitForFirstFrame = true;
-            player.skipOnDrop = true;
-            player.prepareCompleted += OnPrepared;
-            player.errorReceived += OnError;
+            if (_players == null || index < 0 || index >= _players.Length)
+                return null;
+            if (_players[index] != null)
+                return _players[index];
+
+            var player = new VideoClipPlayer(_set.Clips[index]);
+            player.Create(transform);
+            _players[index] = player;
             return player;
-        }
-
-        bool LoadMaskImage(string path)
-        {
-            try
-            {
-                var bytes = File.ReadAllBytes(path);
-                // Linear, so a mid-grey in the file stays mid-grey when the shader reads it.
-                _maskImage = new Texture2D(2, 2, TextureFormat.RGBA32, false, true);
-                _maskImage.hideFlags = HideFlags.DontSave;
-                _maskImage.wrapMode = TextureWrapMode.Clamp;
-                if (ImageConversion.LoadImage(_maskImage, bytes, true))
-                    return true;
-            }
-            catch (Exception)
-            {
-            }
-
-            if (_maskImage != null)
-                Destroy(_maskImage);
-            _maskImage = null;
-            return false;
-        }
-
-        void OnPrepared(VideoPlayer source)
-        {
-            if (source == null)
-                return;
-            if (source == _color)
-                _colorReady = true;
-            else if (source == _mask)
-                _maskReady = true;
-        }
-
-        void OnError(VideoPlayer source, string message)
-        {
-            if (source == null || (source != _color && source != _mask))
-                return;
-            Fail(string.IsNullOrWhiteSpace(message) ? "The video decoder reported an error" : message);
         }
 
         void TickLoading(float delta)
         {
-            _loadingFor += delta;
-            if (_loadingFor > LoadTimeoutSeconds)
+            var idle = _players != null ? _players[_set.Idle] : null;
+            if (idle == null)
             {
-                Fail("The clip did not start within " + Mathf.RoundToInt(LoadTimeoutSeconds) + " seconds");
+                Fail("The default idle was removed");
                 return;
             }
 
-            if (_color == null || !_colorReady || !_maskReady)
-                return;
-
-            if (!_color.isPlaying)
+            idle.Tick(delta);
+            if (idle.Failed)
             {
-                _color.Play();
-                if (_mask != null)
-                    _mask.Play();
+                Fail(idle.Error);
+                return;
             }
 
-            var texture = _color.texture;
-            if (texture == null || texture.width <= 0 || texture.height <= 0)
-                return;
-            if (_mask != null && _mask.texture == null)
+            if (idle.ReadyToBegin)
+                idle.Begin();
+            if (!idle.HasFreshFrame)
                 return;
 
-            ApplyMaterial();
-            _image.texture = texture;
-            _image.enabled = true;
-            _placed = new Rect(0f, 0f, 0f, 0f);
+            _director = new VideoAvatarDirector(_set, Environment.TickCount);
+            var texture = idle.Texture;
+            _referenceWidth = VideoAvatarLayout.DisplayWidth(texture.width, idle.Spec.Mask);
+            _referenceHeight = texture.height;
+            Show(_set.Idle, false);
+            _shownEntry = _director.Entry;
             _rescanIn = 0f;
+
+            // The movement clips load now, in the background, so the first walk does not wait.
+            EnsurePlayer(_set.Walk);
+            EnsurePlayer(_set.WalkStop);
+            EnsurePlayer(_set.SideIdle);
+
             SetState(VideoAvatarState.Playing);
-            Debug.Log("VideoAvatar: playing " + VideoAvatarFiles.FileName(_clip.ColorPath)
-                + " " + texture.width + "x" + texture.height + " mask=" + _clip.Mask);
+            Debug.Log("VideoAvatar: playing " + VideoAvatarFiles.FileName(idle.Spec.ColorPath)
+                + " " + texture.width + "x" + texture.height + " mask=" + idle.Spec.Mask
+                + " clips=" + _set.Clips.Count);
         }
 
         void TickPlaying(CompanionSettings settings, float delta)
         {
-            if (_color == null || _image == null)
+            if (_players == null || _director == null || _image == null)
             {
                 Fail("The video player was removed");
                 return;
             }
 
-            var texture = _color.texture;
-            if (texture != null && _image.texture != texture)
-                _image.texture = texture;
-            if (_mask != null && _material != null && _mask.texture != null)
-                _material.SetTexture(MaskTexId, _mask.texture);
+            var shownEvent = VideoClipEvent.None;
+            for (var i = 0; i < _players.Length; i++)
+            {
+                var player = _players[i];
+                if (player == null)
+                    continue;
 
+                var clipEvent = player.Tick(delta);
+                if (player.Failed)
+                {
+                    DropClip(i);
+                    if (_state != VideoAvatarState.Playing)
+                        return;
+                    continue;
+                }
+
+                if (i == _shown)
+                    shownEvent = clipEvent;
+            }
+
+            var model = _presence != null ? _presence.Model : null;
+            var walking = model != null && model.State == PresenceState.Walking;
+            var phase = model != null ? model.StopPhase : PresenceStopPhase.None;
+            _director.SetMovement(
+                walking,
+                model != null && model.FacingRight,
+                phase == PresenceStopPhase.Lead,
+                phase == PresenceStopPhase.Glide);
+            ReadTestKeys();
+            _director.Tick(delta);
+
+            if (_director.Queued >= 0)
+                EnsurePlayer(_director.Queued);
+            if (_shown == _director.Clip && _director.Entry == _shownEntry)
+            {
+                if (shownEvent == VideoClipEvent.LoopPoint)
+                    _director.OnBoundary(QueuedReady());
+                else if (shownEvent == VideoClipEvent.Ended)
+                    _director.OnEnded();
+            }
+
+            UpdateSwitch();
+            if (_state != VideoAvatarState.Playing)
+                return;
+
+            RefreshPicture();
             EnsureCamera();
-            Place(settings, _image.texture);
-            SyncMask(delta);
+            Place(settings);
+            ApplyGait(settings);
             KeepModelHidden(delta);
 
             // The clip stands on the bottom edge of the window, so that edge is the ground line.
@@ -336,20 +392,186 @@ namespace AICompanion.Settings
                 _presence.SetFootOffset(0f);
         }
 
-        void Place(CompanionSettings settings, Texture texture)
+        bool QueuedReady()
         {
-            if (texture == null || _imageRect == null)
+            var queued = _director.Queued;
+            if (queued < 0 || _players[queued] == null)
+                return false;
+            return _players[queued].ReadyToBegin;
+        }
+
+        /// <summary>
+        /// Moves the picture to the clip the director wants. The clip is started first and
+        /// shown only when it has a picture of its own. Until then the previous clip stays.
+        /// </summary>
+        void UpdateSwitch()
+        {
+            if (_director.Entry == _shownEntry)
+            {
+                CancelIncoming();
+                return;
+            }
+
+            var target = _director.Clip;
+            if (target == _shown)
+            {
+                // The clip on screen was entered again, for example a stop asked twice.
+                CancelIncoming();
+                var current = _players[target];
+                if (current == null)
+                    return;
+                if (current.Begun && !current.Ended)
+                    _shownEntry = _director.Entry;
+                else if (current.Begun)
+                    current.Park();
+                else if (current.ReadyToBegin)
+                {
+                    current.Begin();
+                    _shownEntry = _director.Entry;
+                }
+
+                return;
+            }
+
+            var next = EnsurePlayer(target);
+            if (next == null)
                 return;
 
-            var width = VideoAvatarLayout.DisplayWidth(texture.width, _clip.Mask);
-            var rect = VideoAvatarLayout.Compute(
+            if (_incoming != target)
+            {
+                CancelIncoming();
+                if (!next.ReadyToBegin)
+                    return;
+                next.Begin();
+                _incoming = target;
+            }
+
+            if (!next.HasFreshFrame)
+                return;
+
+            var previous = _shown;
+            Show(target, _director.Mirrored);
+            _shownEntry = _director.Entry;
+            _incoming = -1;
+            Retire(previous);
+        }
+
+        void CancelIncoming()
+        {
+            if (_incoming >= 0 && _incoming != _shown && _players[_incoming] != null)
+                _players[_incoming].Park();
+            _incoming = -1;
+        }
+
+        /// <summary>Puts away the clip that just left the screen. A variation is unloaded, because the next one may be a different file.</summary>
+        void Retire(int index)
+        {
+            if (index < 0 || _players[index] == null)
+                return;
+
+            if (_players[index].Spec.Role == VideoClipRole.IdleVariation)
+            {
+                _players[index].Dispose();
+                _players[index] = null;
+                return;
+            }
+
+            _players[index].Park();
+        }
+
+        /// <summary>A clip other than the default idle failed. It is never used again, and she carries on without it.</summary>
+        void DropClip(int index)
+        {
+            var player = _players[index];
+            var error = player != null ? player.Error : string.Empty;
+            if (index == _set.Idle)
+            {
+                Fail(error);
+                return;
+            }
+
+            Debug.LogWarning("VideoAvatar: clip \"" + _set.Clips[index].Name + "\" is not used. " + error);
+            _director.SetUnavailable(index);
+            if (_incoming == index)
+                _incoming = -1;
+
+            if (_shown == index)
+            {
+                // The clip on screen died. The default idle is parked on its first frame, so
+                // it can take over in this same frame.
+                var idle = _players[_set.Idle];
+                if (idle != null && !idle.Begun)
+                    idle.Begin();
+                Show(_set.Idle, false);
+                _shownEntry = _director.Entry;
+            }
+
+            if (player != null)
+                player.Dispose();
+            _players[index] = null;
+        }
+
+        void Show(int index, bool mirrored)
+        {
+            var player = _players[index];
+            _shown = index;
+            _shownMirrored = mirrored;
+            _image.texture = player.Texture;
+            ApplyMaterial(player, mirrored);
+            _image.enabled = true;
+            _placed = new Rect(0f, 0f, 0f, 0f);
+        }
+
+        /// <summary>Keeps the picture, the mask, and the mirror in step with the showing clip. All three change in the same frame.</summary>
+        void RefreshPicture()
+        {
+            if (_shown < 0 || _players[_shown] == null)
+                return;
+
+            var player = _players[_shown];
+            var texture = player.Texture;
+            if (texture != null && _image.texture != texture)
+                _image.texture = texture;
+
+            var mask = player.MaskTexture;
+            if (_material != null && mask != null && mask != _maskShown)
+            {
+                _maskShown = mask;
+                _material.SetTexture(MaskTexId, mask);
+            }
+
+            if (_shown == _director.Clip && _director.Entry == _shownEntry && _shownMirrored != _director.Mirrored)
+            {
+                _shownMirrored = _director.Mirrored;
+                ApplyMaterial(player, _shownMirrored);
+                _placed = new Rect(0f, 0f, 0f, 0f);
+            }
+        }
+
+        void Place(CompanionSettings settings)
+        {
+            if (_shown < 0 || _imageRect == null || _players[_shown] == null)
+                return;
+
+            var texture = _image.texture;
+            if (texture == null)
+                return;
+
+            var spec = _players[_shown].Spec;
+            var rect = VideoAvatarLayout.ComputeAligned(
                 Screen.width,
                 Screen.height,
-                width,
+                _referenceWidth,
+                _referenceHeight,
+                VideoAvatarLayout.DisplayWidth(texture.width, spec.Mask),
                 texture.height,
                 settings.VideoAvatarSize,
                 settings.VideoAvatarOffsetX,
-                settings.VideoAvatarOffsetY);
+                settings.VideoAvatarOffsetY,
+                spec.Scale,
+                spec.OffsetX,
+                spec.OffsetY,
+                _shownMirrored);
             if (rect == _placed)
                 return;
 
@@ -358,19 +580,76 @@ namespace AICompanion.Settings
             _imageRect.sizeDelta = new Vector2(rect.width, rect.height);
         }
 
-        void SyncMask(float delta)
+        /// <summary>
+        /// Tells the desktop presence how fast the feet in the clip carry her right now. The
+        /// speed follows the clip: zero while she stands at the start or the end of the walk,
+        /// full in between, and zero again once the walk-stop has finished its last step.
+        /// </summary>
+        void ApplyGait(CompanionSettings settings)
         {
-            if (_mask == null || _color == null)
+            if (_presence == null)
                 return;
 
-            _resyncIn -= delta;
-            if (_resyncIn > 0f)
+            var walk = _set.Walk >= 0 ? _players[_set.Walk] : null;
+            if (walk == null)
+            {
+                // No walk clip: the window moves at the 3D speed and the idle slides with it.
+                if (_gaitSet)
+                {
+                    _presence.ClearGait();
+                    _gaitSet = false;
+                }
+
                 return;
-            if (!VideoMaskSync.NeedsResync(_color.frame, _mask.frame, (long)_color.frameCount))
+            }
+
+            var walkSpec = _set.Clips[_set.Walk];
+            var height = VideoAvatarLayout.DisplayedHeight(
+                Screen.width,
+                Screen.height,
+                _referenceWidth,
+                _referenceHeight,
+                settings.VideoAvatarSize,
+                walkSpec.Scale);
+            var heightsPerSecond = settings.VideoAvatarWalkSpeed > 0f ? settings.VideoAvatarWalkSpeed : walkSpec.Speed;
+
+            var stop = _set.WalkStop >= 0 ? _players[_set.WalkStop] : null;
+            var stopMoves = 0f;
+            if (stop != null && stop.Prepared)
+                stopMoves = VideoGait.MoveEnd(_set.Clips[_set.WalkStop].MoveEnd, stop.DurationSeconds);
+
+            var factor = 0f;
+            var lead = stopMoves;
+            if (_shown == _set.Walk && walk.Begun)
+            {
+                factor = VideoGait.Factor(walk.Seconds, walkSpec.MoveStart, walkSpec.MoveEnd, walkSpec.MoveRamp, walk.DurationSeconds);
+                // A stop waits for the walk to reach its loop point, then for the steps in the walk-stop.
+                lead = stop != null && stop.Prepared ? walk.SecondsToLoopPoint + stopMoves : 0f;
+            }
+            else if (_shown == _set.WalkStop && stop != null && stop.Begun && !stop.Ended)
+            {
+                var stopSpec = _set.Clips[_set.WalkStop];
+                factor = VideoGait.Factor(stop.Seconds, stopSpec.MoveStart, stopSpec.MoveEnd, stopSpec.MoveRamp, stop.DurationSeconds);
+            }
+
+            _presence.SetGait(heightsPerSecond * height * factor, lead, 0f);
+            _gaitSet = true;
+        }
+
+        /// <summary>Arrow keys drive the test walk while the 2D avatar plays and no text field has focus.</summary>
+        void ReadTestKeys()
+        {
+            if (DebugInputGuard.TextFieldFocused)
                 return;
 
-            _mask.frame = _color.frame;
-            _resyncIn = ResyncCooldownSeconds;
+            if (Input.GetKeyDown(KeyCode.LeftArrow))
+                TestWalk(-1f);
+            else if (Input.GetKeyDown(KeyCode.RightArrow))
+                TestWalk(1f);
+            else if (Input.GetKeyDown(KeyCode.DownArrow))
+                TestStop();
+            else if (Input.GetKeyDown(KeyCode.UpArrow))
+                TestFront();
         }
 
         void KeepModelHidden(float delta)
@@ -393,7 +672,7 @@ namespace AICompanion.Settings
             _mount.ApplyModelHidden();
         }
 
-        void ApplyMaterial()
+        void ApplyMaterial(VideoClipPlayer player, bool mirrored)
         {
             if (_material == null)
             {
@@ -414,35 +693,37 @@ namespace AICompanion.Settings
             if (_material == null)
                 return;
 
-            var colorRect = new Vector4(1f, 1f, 0f, 0f);
-            var maskRect = new Vector4(1f, 1f, 0f, 0f);
+            // x and y scale the UV, z and w shift it. A mirrored clip reads its picture right to left.
+            var colorRect = mirrored ? new Vector4(-1f, 1f, 1f, 0f) : new Vector4(1f, 1f, 0f, 0f);
+            var maskRect = colorRect;
             var source = 0f;
             var decode = 0f;
             Texture maskTexture = Texture2D.whiteTexture;
             // A video frame is decoded as sRGB. In a linear project that darkens the mask's
             // greys, so the shader puts them back. A mask picture is loaded linear already.
             var linear = QualitySettings.activeColorSpace == ColorSpace.Linear;
-            switch (_clip.Mask)
+            switch (player.Spec.Mask)
             {
                 case VideoMaskKind.MaskImage:
                     source = 1f;
-                    if (_maskImage != null)
-                        maskTexture = _maskImage;
+                    if (player.MaskTexture != null)
+                        maskTexture = player.MaskTexture;
                     break;
                 case VideoMaskKind.MaskVideo:
                     source = 1f;
                     decode = linear ? 1f : 0f;
-                    if (_mask != null && _mask.texture != null)
-                        maskTexture = _mask.texture;
+                    if (player.MaskTexture != null)
+                        maskTexture = player.MaskTexture;
                     break;
                 case VideoMaskKind.Packed:
                     source = 2f;
                     decode = linear ? 1f : 0f;
-                    colorRect = new Vector4(0.5f, 1f, 0f, 0f);
-                    maskRect = new Vector4(0.5f, 1f, 0.5f, 0f);
+                    colorRect = mirrored ? new Vector4(-0.5f, 1f, 0.5f, 0f) : new Vector4(0.5f, 1f, 0f, 0f);
+                    maskRect = mirrored ? new Vector4(-0.5f, 1f, 1f, 0f) : new Vector4(0.5f, 1f, 0.5f, 0f);
                     break;
             }
 
+            _maskShown = maskTexture;
             _material.SetTexture(MaskTexId, maskTexture);
             _material.SetVector(ColorRectId, colorRect);
             _material.SetVector(MaskRectId, maskRect);
@@ -512,29 +793,45 @@ namespace AICompanion.Settings
         void Fail(string error)
         {
             _error = error ?? string.Empty;
-            ReleasePlayers();
+            ReleaseAll();
             SetState(VideoAvatarState.Failed);
             Debug.LogWarning("VideoAvatar: " + _status);
         }
 
         void SwitchOff()
         {
-            ReleasePlayers();
+            ReleaseAll();
             _requested = null;
-            _clip = default(VideoAvatarClip);
+            _set = null;
             SetState(VideoAvatarState.Off);
         }
 
         void SetState(VideoAvatarState state)
         {
             _state = state;
-            _status = VideoAvatarStatus.Describe(state, _folder, _clip, _error);
+            _status = state == VideoAvatarState.Playing && _set != null
+                ? VideoAvatarStatus.DescribeSet(_set)
+                : VideoAvatarStatus.Describe(state, _folder, IdleClip(), _error);
+            if (state == VideoAvatarState.NoClip && _set != null)
+            {
+                for (var i = 0; i < _set.Warnings.Count; i++)
+                    _status += " " + _set.Warnings[i];
+            }
+
             if (_mount != null && !VideoAvatarStatus.HidesModel(state) && _mount.ModelHidden)
                 _mount.SetModelHidden(false);
         }
 
-        /// <summary>Stops decoding and hides the picture. The canvas and the material are kept for the next clip.</summary>
-        void ReleasePlayers()
+        VideoAvatarClip IdleClip()
+        {
+            if (_set == null || !_set.Found)
+                return default(VideoAvatarClip);
+            var idle = _set.Clips[_set.Idle];
+            return new VideoAvatarClip(idle.Name, idle.ColorPath, idle.MaskPath, idle.Mask);
+        }
+
+        /// <summary>Stops every decoder, hides the picture, and gives movement back to the 3D speed. The canvas and the material are kept.</summary>
+        void ReleaseAll()
         {
             if (_image != null)
             {
@@ -542,26 +839,23 @@ namespace AICompanion.Settings
                 _image.texture = null;
             }
 
-            DestroyPlayer(_color);
-            DestroyPlayer(_mask);
-            _color = null;
-            _mask = null;
-            _colorReady = false;
-            _maskReady = false;
-            if (_maskImage != null)
-                Destroy(_maskImage);
-            _maskImage = null;
-        }
+            if (_players != null)
+            {
+                for (var i = 0; i < _players.Length; i++)
+                {
+                    if (_players[i] != null)
+                        _players[i].Dispose();
+                }
+            }
 
-        void DestroyPlayer(VideoPlayer player)
-        {
-            if (player == null)
-                return;
-
-            player.prepareCompleted -= OnPrepared;
-            player.errorReceived -= OnError;
-            player.Stop();
-            Destroy(player.gameObject);
+            _players = null;
+            _director = null;
+            _shown = -1;
+            _incoming = -1;
+            _maskShown = null;
+            if (_presence != null && _gaitSet)
+                _presence.ClearGait();
+            _gaitSet = false;
         }
     }
 }

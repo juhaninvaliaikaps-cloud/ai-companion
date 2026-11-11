@@ -1,0 +1,48 @@
+{
+  "variationMinSeconds": 12,
+  "variationMaxSeconds": 30,
+  "clips": [
+    {
+      "name": "idle",
+      "role": "idle",
+      "color": "idle.mp4",
+      "mask": "idle.mask.mp4",
+      "playback": "loop",
+      "offsetY": -0.017
+    },
+    {
+      "name": "idle_breeze",
+      "role": "idleVariation",
+      "color": "idle_breeze.mp4",
+      "mask": "idle_breeze.mask.mp4",
+      "playback": "once",
+      "offsetY": -0.017
+    },
+    {
+      "name": "walk",
+      "role": "walk",
+      "color": "walk.mp4",
+      "mask": "walk.mask.mp4",
+      "playback": "loop",
+      "facing": "left",
+      "speed": 0.27,
+      "moveStart": 0.15,
+      "moveEnd": 4.95,
+      "moveRamp": 0.3,
+      "offsetY": -0.017
+    },
+    {
+      "name": "walk_stop",
+      "role": "walkStop",
+      "color": "walk_stop.mp4",
+      "mask": "walk_stop.mask.mp4",
+      "playback": "once",
+      "facing": "left",
+      "moveStart": 0.15,
+      "moveEnd": 3.8,
+      "moveRamp": 0.4,
+      "after": "idle",
+      "offsetY": -0.017
+    }
+  ]
+}

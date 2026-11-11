@@ -39,7 +39,7 @@ namespace AICompanion.Settings
             _videoStatus.horizontalOverflow = HorizontalWrapMode.Wrap;
             _videoStatus.verticalOverflow = VerticalWrapMode.Overflow;
             _videoStatus.raycastTarget = false;
-            Place(_videoStatus.rectTransform, 50f);
+            Place(_videoStatus.rectTransform, 96f);
 
             AddField("Video folder (empty uses the default)", _settings.VideoAvatarFolder, false, value =>
             {
@@ -54,7 +54,7 @@ namespace AICompanion.Settings
                     current.Reload();
                 SetStatus("Looking for the clip again.");
             });
-            Note("Put idle.mp4 with idle.mask.mp4 or idle.mask.png in the folder, or one idle.webm that has alpha. The clip's sound is never played.");
+            Note("Put idle.mp4 with idle.mask.mp4 in the folder. Optional: idle variations, walk and walk_stop clips with their masks, and video-avatar.json to list them. See docs/VIDEO_AVATAR.md. No clip's sound is ever played.");
 
             var sizeLabel = AddLabel(VideoSizeText(_settings.VideoAvatarSize));
             AddSlider(_settings.VideoAvatarSize, VideoAvatarLayout.MinSize, VideoAvatarLayout.MaxSize, false, value =>
@@ -85,7 +85,21 @@ namespace AICompanion.Settings
                 ApplyLive();
                 _rebuild = true;
             });
-            Note("Size and position apply immediately. The window size is on the Overlay tab. The settings below are for the 3D avatar.");
+            Note("Size and position apply immediately. The window size is on the Overlay tab.");
+
+            AddButton("Test: walk left", () => VideoTest(avatar => avatar.TestWalk(-1f)));
+            AddButton("Test: walk right (mirrored)", () => VideoTest(avatar => avatar.TestWalk(1f)));
+            AddButton("Test: stop", () => VideoTest(avatar => avatar.TestStop()));
+            AddButton("Test: back to the front idle", () => VideoTest(avatar => avatar.TestFront()));
+            var speedLabel = AddLabel(VideoSpeedText(_settings.VideoAvatarWalkSpeed));
+            AddSlider(_settings.VideoAvatarWalkSpeed, 0f, 1f, false, value =>
+            {
+                // The lowest step of the slider means "use the walk clip's own speed".
+                _settings.VideoAvatarWalkSpeed = value < 0.02f ? 0f : value;
+                speedLabel.text = VideoSpeedText(_settings.VideoAvatarWalkSpeed);
+                ApplyLive();
+            });
+            Note("With this panel closed and the window focused, the arrow keys do the same: left and right walk, down stops, up returns to the front idle. Raise the speed if her feet slide backwards, lower it if they slide forwards. The settings below are for the 3D avatar.");
         }
 
         void SetAvatarMode(string mode)
@@ -111,6 +125,25 @@ namespace AICompanion.Settings
 
             _videoStatusShown = text;
             _videoStatus.text = text;
+        }
+
+        void VideoTest(System.Action<VideoAvatar> action)
+        {
+            var player = GetComponent<VideoAvatar>();
+            if (player == null || player.State != VideoAvatarState.Playing)
+            {
+                SetStatus("The 2D avatar is not playing.");
+                return;
+            }
+
+            action(player);
+        }
+
+        static string VideoSpeedText(float heightsPerSecond)
+        {
+            if (!(heightsPerSecond > 0f))
+                return "Walk speed: from the walk clip";
+            return "Walk speed " + heightsPerSecond.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " clip heights per second";
         }
 
         static string VideoSizeText(float size)

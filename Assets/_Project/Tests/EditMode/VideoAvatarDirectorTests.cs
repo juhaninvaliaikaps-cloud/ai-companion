@@ -1,0 +1,1111 @@
+using System.Collections.Generic;
+using System.IO;
+using AICompanion.Settings;
+using NUnit.Framework;
+using UnityEngine;
+
+namespace AICompanion.Tests.EditMode
+{
+    /// <summary>
+    /// JUH-99. Which clip plays when: the manifest and the file-name rules, the director's
+    /// transitions and interruptions, the speed that follows a walking clip, and the frame
+    /// arithmetic that keeps a stale picture off the screen. Decoding, transparency, and
+    /// movement on a real desktop need a Windows build and are checked by hand.
+    /// </summary>
+    public class VideoAvatarDirectorTests
+    {
+        static readonly string Folder = Path.Combine("D:", "clips");
+
+        static string In(string fileName)
+        {
+            return Path.Combine(Folder, fileName);
+        }
+
+        static string[] Files(params string[] names)
+        {
+            var paths = new string[names.Length];
+            for (var i = 0; i < names.Length; i++)
+                paths[i] = In(names[i]);
+            return paths;
+        }
+
+        /// <summary>The file names DeepSeek delivered on 2026-11-11, including the files that are not clips.</summary>
+        static string[] DeliveredFiles()
+        {
+            return Files(
+                "idle.mp4", "idle.mask.mp4", "idle.sbs.mp4", "idle.key.json",
+                "idle_breeze.mp4", "idle_breeze.mask.mp4", "idle_breeze.sbs.mp4", "idle_breeze.key.json",
+                "walk.mp4", "walk.mask.mp4", "walk.sbs.mp4", "walk.key.json",
+                "walk_stop.mp4", "walk_stop.mask.mp4", "walk_stop.sbs.mp4", "walk_stop.key.json",
+                "REPORT.md", "validation.json", "key_greenscreen.py");
+        }
+
+        static VideoAvatarClipSet Set(int variations = 2, bool walk = true, bool stop = true, bool side = false, bool thenIdle = false)
+        {
+            var names = new List<string> { "idle.mp4", "idle.mask.mp4" };
+            for (var i = 0; i < variations; i++)
+            {
+                names.Add("idle_" + (i + 1) + ".mp4");
+                names.Add("idle_" + (i + 1) + ".mask.mp4");
+            }
+
+            if (walk)
+            {
+                names.Add("walk.mp4");
+                names.Add("walk.mask.mp4");
+            }
+
+            if (stop)
+            {
+                names.Add("walk_stop.mp4");
+                names.Add("walk_stop.mask.mp4");
+            }
+
+            if (side)
+            {
+                names.Add("idle_side.mp4");
+                names.Add("idle_side.mask.mp4");
+            }
+
+            var set = VideoAvatarManifest.Resolve(null, Files(names.ToArray()));
+            if (thenIdle && set.WalkStop >= 0)
+                set.Clips[set.WalkStop].ThenIdle = true;
+            // Queue a variation after one second, so tests do not depend on the random delay.
+            set.VariationMinSeconds = 1f;
+            set.VariationMaxSeconds = 1f;
+            return set;
+        }
+
+        static void WalkLeft(VideoAvatarDirector director)
+        {
+            director.SetMovement(true, false, false, false);
+        }
+
+        static void Stand(VideoAvatarDirector director)
+        {
+            director.SetMovement(false, false, false, false);
+        }
+
+        // ---- finding clips by file name -------------------------------------------------
+
+        [Test]
+        public void FileNames_TheDeliveredSet_GivesIdleOneVariationWalkAndWalkStop()
+        {
+            var set = VideoAvatarManifest.Resolve(null, DeliveredFiles());
+
+            Assert.IsTrue(set.Found);
+            Assert.IsFalse(set.FromManifest);
+            Assert.AreEqual(4, set.Clips.Count);
+            Assert.AreEqual(0, set.Warnings.Count);
+
+            var idle = set.Clips[set.Idle];
+            Assert.AreEqual("idle", idle.Name);
+            Assert.AreEqual(In("idle.mp4"), idle.ColorPath);
+            Assert.AreEqual(In("idle.mask.mp4"), idle.MaskPath);
+            Assert.AreEqual(VideoMaskKind.MaskVideo, idle.Mask);
+            Assert.IsTrue(idle.Loop);
+
+            Assert.AreEqual(1, set.Variations.Count);
+            var breeze = set.Clips[set.Variations[0]];
+            Assert.AreEqual("idle_breeze", breeze.Name);
+            Assert.AreEqual(In("idle_breeze.mask.mp4"), breeze.MaskPath);
+            Assert.IsFalse(breeze.Loop);
+
+            var walk = set.Clips[set.Walk];
+            Assert.AreEqual("walk", walk.Name);
+            Assert.AreEqual(In("walk.mask.mp4"), walk.MaskPath);
+            Assert.IsTrue(walk.Loop);
+            Assert.IsFalse(walk.FacesRight);
+
+            var stop = set.Clips[set.WalkStop];
+            Assert.AreEqual("walk_stop", stop.Name);
+            Assert.AreEqual(In("walk_stop.mask.mp4"), stop.MaskPath);
+            Assert.IsFalse(stop.Loop);
+            Assert.IsFalse(stop.ThenIdle);
+            Assert.AreEqual(-1, set.SideIdle);
+        }
+
+        [Test]
+        public void FileNames_OnlyTheDefaultIdle_StillPlays()
+        {
+            var set = VideoAvatarManifest.Resolve(null, Files("idle.mp4", "idle.mask.mp4"));
+
+            Assert.IsTrue(set.Found);
+            Assert.AreEqual(0, set.Variations.Count);
+            Assert.AreEqual(-1, set.Walk);
+            Assert.AreEqual(-1, set.WalkStop);
+        }
+
+        [Test]
+        public void FileNames_PackedClipIsUsedWhenThereIsNoPair()
+        {
+            var set = VideoAvatarManifest.Resolve(null, Files("idle.sbs.mp4", "walk.sbs.mp4"));
+
+            Assert.AreEqual(VideoMaskKind.Packed, set.Clips[set.Idle].Mask);
+            Assert.AreEqual(In("idle.sbs.mp4"), set.Clips[set.Idle].ColorPath);
+            Assert.AreEqual(VideoMaskKind.Packed, set.Clips[set.Walk].Mask);
+        }
+
+        [Test]
+        public void FileNames_MaskFilesAreNeverClips_WhateverTheirSuffix()
+        {
+            var set = VideoAvatarManifest.Resolve(null, Files("idle.mp4", "idle_mask.mp4", "walk.mp4", "walk-mask.mp4"));
+
+            Assert.AreEqual(2, set.Clips.Count);
+            Assert.AreEqual(In("idle_mask.mp4"), set.Clips[set.Idle].MaskPath);
+            Assert.AreEqual(In("walk-mask.mp4"), set.Clips[set.Walk].MaskPath);
+            Assert.AreEqual(0, set.Variations.Count);
+        }
+
+        [Test]
+        public void FileNames_RolesComeFromTheName()
+        {
+            var set = VideoAvatarManifest.Resolve(null, Files(
+                "idle.mp4", "idle-2.mp4", "idle_look.mp4", "idle3.mp4", "idle-side.mp4",
+                "Walk-Left.mp4", "walk_stop_left.mp4", "happy.mp4", "notes.txt"));
+
+            Assert.AreEqual(3, set.Variations.Count);
+            Assert.AreEqual("idle-side", set.Clips[set.SideIdle].Name);
+            Assert.AreEqual("Walk-Left", set.Clips[set.Walk].Name);
+            Assert.AreEqual("walk_stop_left", set.Clips[set.WalkStop].Name);
+            Assert.GreaterOrEqual(set.FindReaction("HAPPY"), 0);
+            Assert.AreEqual(VideoClipRole.Reaction, set.Clips[set.FindReaction("happy")].Role);
+            Assert.AreEqual(-1, set.FindReaction("annoyed"));
+        }
+
+        [Test]
+        public void FileNames_VariationsWithoutADefault_PromoteTheFirstOne()
+        {
+            var set = VideoAvatarManifest.Resolve(null, Files("idle-1.mp4", "idle-2.mp4", "idle-3.mp4"));
+
+            Assert.IsTrue(set.Found);
+            Assert.AreEqual("idle-1", set.Clips[set.Idle].Name);
+            Assert.IsTrue(set.Clips[set.Idle].Loop);
+            Assert.AreEqual(2, set.Variations.Count);
+            Assert.AreEqual(1, set.Warnings.Count);
+        }
+
+        [Test]
+        public void FileNames_NoIdleAtAll_IsNotFound()
+        {
+            Assert.IsFalse(VideoAvatarManifest.Resolve(null, Files("walk.mp4", "walk_stop.mp4")).Found);
+            Assert.IsFalse(VideoAvatarManifest.Resolve(null, null).Found);
+            Assert.IsFalse(VideoAvatarManifest.Resolve("", new string[0]).Found);
+        }
+
+        // ---- video-avatar.json ----------------------------------------------------------
+
+        const string Manifest = @"{
+  ""variationMinSeconds"": 20,
+  ""variationMaxSeconds"": 40,
+  ""clips"": [
+    { ""name"": ""idle"", ""role"": ""idle"", ""color"": ""idle.mp4"", ""mask"": ""idle.mask.mp4"", ""offsetY"": -0.023 },
+    { ""name"": ""breeze"", ""role"": ""idleVariation"", ""color"": ""idle_breeze.mp4"", ""mask"": ""idle_breeze.mask.mp4"", ""weight"": 2 },
+    { ""name"": ""walk"", ""role"": ""walk"", ""color"": ""walk.mp4"", ""mask"": ""walk.mask.mp4"", ""facing"": ""left"",
+      ""speed"": 0.27, ""moveStart"": 0.15, ""moveEnd"": 4.95, ""moveRamp"": 0.3 },
+    { ""name"": ""walk-stop"", ""role"": ""walkStop"", ""color"": ""walk_stop.mp4"", ""mask"": ""walk_stop.mask.mp4"",
+      ""playback"": ""once"", ""moveEnd"": 3.8, ""after"": ""idle"" },
+    { ""name"": ""happy"", ""role"": ""reaction"", ""color"": ""happy.mp4"", ""mask"": ""happy.mask.mp4"" }
+  ]
+}";
+
+        [Test]
+        public void Manifest_RegistersEveryClipWithItsRoleFilesAndPlayback()
+        {
+            var set = VideoAvatarManifest.Resolve(Manifest, DeliveredFiles());
+
+            Assert.IsTrue(set.FromManifest);
+            Assert.AreEqual(20f, set.VariationMinSeconds, 0.001f);
+            Assert.AreEqual(40f, set.VariationMaxSeconds, 0.001f);
+
+            var idle = set.Clips[set.Idle];
+            Assert.AreEqual(In("idle.mp4"), idle.ColorPath);
+            Assert.AreEqual(VideoMaskKind.MaskVideo, idle.Mask);
+            Assert.IsTrue(idle.Loop);
+            Assert.AreEqual(-0.023f, idle.OffsetY, 0.0001f);
+            Assert.AreEqual(1f, idle.Scale, 0.0001f);
+
+            Assert.AreEqual(1, set.Variations.Count);
+            var breeze = set.Clips[set.Variations[0]];
+            Assert.AreEqual("breeze", breeze.Name);
+            Assert.AreEqual(In("idle_breeze.mp4"), breeze.ColorPath);
+            Assert.IsFalse(breeze.Loop);
+            Assert.AreEqual(2f, breeze.Weight, 0.0001f);
+
+            var walk = set.Clips[set.Walk];
+            Assert.IsTrue(walk.Loop);
+            Assert.IsFalse(walk.FacesRight);
+            Assert.AreEqual(0.27f, walk.Speed, 0.0001f);
+            Assert.AreEqual(0.15f, walk.MoveStart, 0.0001f);
+            Assert.AreEqual(4.95f, walk.MoveEnd, 0.0001f);
+            Assert.AreEqual(0.3f, walk.MoveRamp, 0.0001f);
+
+            var stop = set.Clips[set.WalkStop];
+            Assert.IsFalse(stop.Loop);
+            Assert.IsTrue(stop.ThenIdle);
+            Assert.AreEqual(3.8f, stop.MoveEnd, 0.0001f);
+            Assert.AreEqual(VideoAvatarManifest.DefaultMoveRamp, stop.MoveRamp, 0.0001f);
+        }
+
+        [Test]
+        public void Manifest_AMissingClip_IsLeftOutWithAWarningAndTheRestStillLoads()
+        {
+            // happy.mp4 is listed in the manifest and is not in the folder.
+            var set = VideoAvatarManifest.Resolve(Manifest, DeliveredFiles());
+
+            Assert.IsTrue(set.Found);
+            Assert.AreEqual(4, set.Clips.Count);
+            Assert.AreEqual(-1, set.FindReaction("happy"));
+            Assert.AreEqual(1, set.Warnings.Count);
+            StringAssert.Contains("happy", set.Warnings[0]);
+        }
+
+        [Test]
+        public void Manifest_AMissingMask_LeavesTheClipOut_SoItsBackgroundIsNeverShown()
+        {
+            var set = VideoAvatarManifest.Resolve(Manifest, Files(
+                "idle.mp4", "idle.mask.mp4", "idle_breeze.mp4", "walk.mp4", "walk.mask.mp4", "walk_stop.mp4", "walk_stop.mask.mp4"));
+
+            Assert.IsTrue(set.Found);
+            Assert.AreEqual(0, set.Variations.Count);
+            Assert.GreaterOrEqual(set.Walk, 0);
+            StringAssert.Contains("idle_breeze.mask.mp4", string.Join(" ", set.Warnings.ToArray()));
+        }
+
+        [Test]
+        public void Manifest_WithoutTheDefaultIdleFile_IsNotFound()
+        {
+            var set = VideoAvatarManifest.Resolve(Manifest, Files("walk.mp4", "walk.mask.mp4"));
+
+            Assert.IsFalse(set.Found);
+            Assert.GreaterOrEqual(set.Walk, 0);
+        }
+
+        [Test]
+        public void Manifest_ThatCannotBeRead_FallsBackToFileNames()
+        {
+            var set = VideoAvatarManifest.Resolve("{ this is not json", DeliveredFiles());
+
+            Assert.IsTrue(set.Found);
+            Assert.IsFalse(set.FromManifest);
+            Assert.AreEqual(4, set.Clips.Count);
+            StringAssert.Contains(VideoAvatarManifest.FileName, set.Warnings[0]);
+        }
+
+        [Test]
+        public void Manifest_FileNamesNeverLeaveTheFolder()
+        {
+            const string json = @"{ ""clips"": [ { ""name"": ""idle"", ""color"": ""..\\elsewhere\\idle.mp4"", ""mask"": ""C:/other/idle.mask.mp4"" } ] }";
+
+            var set = VideoAvatarManifest.Resolve(json, Files("idle.mp4", "idle.mask.mp4"));
+
+            Assert.AreEqual(In("idle.mp4"), set.Clips[set.Idle].ColorPath);
+            Assert.AreEqual(In("idle.mask.mp4"), set.Clips[set.Idle].MaskPath);
+        }
+
+        [Test]
+        public void Manifest_DefaultsAndClamps()
+        {
+            const string json = @"{ ""clips"": [
+                { ""color"": ""idle.mp4"", ""scale"": 99, ""offsetX"": -7, ""playback"": ""once"" },
+                { ""color"": ""walk.mp4"", ""facing"": ""right"", ""speed"": 50 },
+                { ""color"": ""walk.mp4"", ""name"": ""second walk"", ""role"": ""walk"" } ] }";
+
+            var set = VideoAvatarManifest.Resolve(json, Files("idle.mp4", "walk.mp4"));
+
+            var idle = set.Clips[set.Idle];
+            Assert.AreEqual("idle", idle.Name);
+            Assert.AreEqual(VideoMaskKind.VideoAlpha, idle.Mask);
+            Assert.IsFalse(idle.Loop);
+            Assert.AreEqual(VideoAvatarManifest.MaxScale, idle.Scale, 0.0001f);
+            Assert.AreEqual(-VideoAvatarManifest.MaxClipOffset, idle.OffsetX, 0.0001f);
+
+            var walk = set.Clips[set.Walk];
+            Assert.IsTrue(walk.FacesRight);
+            Assert.AreEqual(VideoAvatarManifest.MaxWalkSpeed, walk.Speed, 0.0001f);
+            Assert.AreEqual(2, set.Clips.Count);
+            Assert.AreEqual(1, set.Warnings.Count);
+        }
+
+        [Test]
+        public void ClipSet_SameAs_SeesAChangedFileOrValue()
+        {
+            var a = VideoAvatarManifest.Resolve(Manifest, DeliveredFiles());
+            var b = VideoAvatarManifest.Resolve(Manifest, DeliveredFiles());
+            var c = VideoAvatarManifest.Resolve(Manifest.Replace("0.27", "0.35"), DeliveredFiles());
+            var d = VideoAvatarManifest.Resolve(null, DeliveredFiles());
+
+            Assert.IsTrue(a.SameAs(b));
+            Assert.IsFalse(a.SameAs(c));
+            Assert.IsFalse(a.SameAs(d));
+            Assert.IsFalse(a.SameAs(null));
+        }
+
+        [Test]
+        public void Status_ListsWhatIsLoadedAndWhatWasLeftOut()
+        {
+            var text = VideoAvatarStatus.DescribeSet(VideoAvatarManifest.Resolve(Manifest, DeliveredFiles()));
+
+            StringAssert.Contains("Playing idle.mp4", text);
+            StringAssert.Contains("Idle variations: 1", text);
+            StringAssert.Contains("Walk: walk.", text);
+            StringAssert.Contains("Walk-stop: walk-stop.", text);
+            StringAssert.Contains("happy", text);
+            StringAssert.Contains(VideoAvatarManifest.FileName, text);
+        }
+
+        // ---- the director: idle and variations ------------------------------------------
+
+        [Test]
+        public void Director_StartsOnTheDefaultIdle()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual(set.Idle, director.Clip);
+            Assert.AreEqual(-1, director.Queued);
+            Assert.IsFalse(director.Mirrored);
+        }
+
+        [Test]
+        public void Director_AVariationStartsOnlyAtTheIdleLoopPoint()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+            var entry = director.Entry;
+
+            // Before the delay has passed, a loop point changes nothing.
+            director.OnBoundary(true);
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+
+            director.Tick(1.5f);
+            Assert.GreaterOrEqual(director.Queued, 0);
+            // Queued is not playing: the idle is still mid-loop.
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual(set.Idle, director.Clip);
+            Assert.AreEqual(entry, director.Entry);
+
+            var queued = director.Queued;
+            director.OnBoundary(true);
+
+            Assert.AreEqual(VideoAvatarAct.Variation, director.Act);
+            Assert.AreEqual(queued, director.Clip);
+            Assert.AreEqual(entry + 1, director.Entry);
+            Assert.Contains(queued, set.Variations);
+        }
+
+        [Test]
+        public void Director_AVariationThatIsNotLoadedYet_WaitsForTheNextLoopPoint()
+        {
+            var director = new VideoAvatarDirector(Set(), 1);
+            director.Tick(1.5f);
+            var queued = director.Queued;
+
+            director.OnBoundary(false);
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual(queued, director.Queued);
+
+            director.OnBoundary(true);
+            Assert.AreEqual(VideoAvatarAct.Variation, director.Act);
+        }
+
+        [Test]
+        public void Director_AfterAVariation_TheDefaultIdleReturnsAndTheDelayStartsAgain()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+            director.Tick(1.5f);
+            director.OnBoundary(true);
+
+            // A loop point of the variation itself must not start another one.
+            director.Tick(5f);
+            director.OnBoundary(true);
+            Assert.AreEqual(VideoAvatarAct.Variation, director.Act);
+
+            director.OnEnded();
+
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual(set.Idle, director.Clip);
+            Assert.AreEqual(-1, director.Queued);
+            Assert.Greater(director.UntilVariation, 0f);
+        }
+
+        [Test]
+        public void Director_WithTwoVariations_NeverPlaysTheSameOneTwiceInARow()
+        {
+            var director = new VideoAvatarDirector(Set(variations: 2), 12345);
+            var last = -1;
+            for (var i = 0; i < 20; i++)
+            {
+                director.Tick(1.5f);
+                director.OnBoundary(true);
+                Assert.AreEqual(VideoAvatarAct.Variation, director.Act);
+                Assert.AreNotEqual(last, director.Clip);
+                last = director.Clip;
+                director.OnEnded();
+            }
+        }
+
+        [Test]
+        public void Director_WithOneVariation_RepeatsIt()
+        {
+            var set = Set(variations: 1);
+            var director = new VideoAvatarDirector(set, 3);
+            for (var i = 0; i < 3; i++)
+            {
+                director.Tick(1.5f);
+                director.OnBoundary(true);
+                Assert.AreEqual(set.Variations[0], director.Clip);
+                director.OnEnded();
+            }
+        }
+
+        [Test]
+        public void Director_WithoutVariations_TheDefaultIdleJustLoops()
+        {
+            var set = Set(variations: 0);
+            var director = new VideoAvatarDirector(set, 1);
+
+            director.Tick(1000f);
+            director.OnBoundary(true);
+
+            Assert.AreEqual(-1, director.Queued);
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual(1, director.Entry);
+        }
+
+        [Test]
+        public void Director_AVariationThatFailedToLoad_IsNeverChosenAgain()
+        {
+            var set = Set(variations: 2);
+            var director = new VideoAvatarDirector(set, 1);
+            director.SetUnavailable(set.Variations[0]);
+
+            for (var i = 0; i < 6; i++)
+            {
+                director.Tick(1.5f);
+                Assert.AreEqual(set.Variations[1], director.Queued);
+                director.OnBoundary(true);
+                director.OnEnded();
+            }
+
+            director.SetUnavailable(set.Variations[1]);
+            director.Tick(100f);
+            Assert.AreEqual(-1, director.Queued);
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+        }
+
+        [Test]
+        public void Director_AQueuedVariationThatFails_IsDroppedWithoutLeavingTheIdle()
+        {
+            var set = Set(variations: 1);
+            var director = new VideoAvatarDirector(set, 1);
+            director.Tick(1.5f);
+            var entry = director.Entry;
+
+            director.SetUnavailable(director.Queued);
+            director.OnBoundary(true);
+
+            Assert.AreEqual(-1, director.Queued);
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual(entry, director.Entry);
+        }
+
+        [Test]
+        public void Director_TheShowingVariationFails_SheReturnsToTheDefaultIdle()
+        {
+            var set = Set(variations: 1);
+            var director = new VideoAvatarDirector(set, 1);
+            director.Tick(1.5f);
+            director.OnBoundary(true);
+            var entry = director.Entry;
+
+            director.SetUnavailable(director.Clip);
+
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual(set.Idle, director.Clip);
+            Assert.AreEqual(entry + 1, director.Entry);
+        }
+
+        [Test]
+        public void Director_TheDefaultIdleCannotBeMarkedUnavailable()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+
+            director.SetUnavailable(set.Idle);
+            director.SetUnavailable(-5);
+            director.SetUnavailable(999);
+
+            Assert.AreEqual(set.Idle, director.Clip);
+            Assert.AreEqual(1, director.Entry);
+        }
+
+        // ---- the director: walking and stopping -----------------------------------------
+
+        [Test]
+        public void Director_AWalkStartsAtOnceAndFacesTheWayTheClipDoes()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+            var entry = director.Entry;
+
+            WalkLeft(director);
+
+            Assert.AreEqual(VideoAvatarAct.Walk, director.Act);
+            Assert.AreEqual(set.Walk, director.Clip);
+            Assert.IsFalse(director.Mirrored);
+            Assert.AreEqual(entry + 1, director.Entry);
+
+            // More frames of the same walk do not enter the clip again.
+            WalkLeft(director);
+            WalkLeft(director);
+            Assert.AreEqual(entry + 1, director.Entry);
+        }
+
+        [Test]
+        public void Director_WalkingRight_MirrorsTheLeftFacingClip()
+        {
+            var director = new VideoAvatarDirector(Set(), 1);
+
+            director.SetMovement(true, true, false, false);
+            Assert.IsTrue(director.Mirrored);
+
+            // Turning mid-walk flips the picture without restarting the clip.
+            var entry = director.Entry;
+            director.SetMovement(true, false, false, false);
+            Assert.IsFalse(director.Mirrored);
+            Assert.AreEqual(entry, director.Entry);
+        }
+
+        [Test]
+        public void Director_AClipThatFacesRight_IsMirroredForWalkingLeft()
+        {
+            var set = Set();
+            set.Clips[set.Walk].FacesRight = true;
+            var director = new VideoAvatarDirector(set, 1);
+
+            director.SetMovement(true, false, false, false);
+            Assert.IsTrue(director.Mirrored);
+
+            director.SetMovement(true, true, false, false);
+            Assert.IsFalse(director.Mirrored);
+        }
+
+        [Test]
+        public void Director_AWalkInterruptsAVariationAndDropsTheQueue()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+            director.Tick(1.5f);
+            Assert.GreaterOrEqual(director.Queued, 0);
+
+            WalkLeft(director);
+            Assert.AreEqual(VideoAvatarAct.Walk, director.Act);
+            Assert.AreEqual(-1, director.Queued);
+
+            // A loop point of the walk never starts a variation.
+            director.Tick(100f);
+            director.OnBoundary(true);
+            Assert.AreEqual(VideoAvatarAct.Walk, director.Act);
+        }
+
+        [Test]
+        public void Director_AStop_WaitsForTheWalkLoopPoint_ThenPlaysTheWalkStop()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+            WalkLeft(director);
+            var entry = director.Entry;
+
+            // The presence reports: stop asked, still at full speed.
+            director.SetMovement(true, false, true, false);
+            Assert.AreEqual(VideoAvatarAct.Walk, director.Act);
+            Assert.AreEqual(entry, director.Entry);
+
+            director.OnBoundary(false);
+
+            Assert.AreEqual(VideoAvatarAct.WalkStop, director.Act);
+            Assert.AreEqual(set.WalkStop, director.Clip);
+            Assert.AreEqual(entry + 1, director.Entry);
+        }
+
+        [Test]
+        public void Director_WhileTheWalkStopCarriesHer_ItIsNotMistakenForANewWalk()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+            WalkLeft(director);
+            director.SetMovement(true, false, true, false);
+            director.OnBoundary(false);
+            var entry = director.Entry;
+
+            // The presence still moves the window while the walk-stop takes its last steps.
+            for (var i = 0; i < 100; i++)
+                director.SetMovement(true, false, true, false);
+
+            Assert.AreEqual(VideoAvatarAct.WalkStop, director.Act);
+            Assert.AreEqual(entry, director.Entry);
+        }
+
+        [Test]
+        public void Director_AWalkWithoutAStopRequest_KeepsLoopingAtItsLoopPoint()
+        {
+            var director = new VideoAvatarDirector(Set(), 1);
+            WalkLeft(director);
+            var entry = director.Entry;
+
+            director.OnBoundary(false);
+            director.OnBoundary(true);
+
+            Assert.AreEqual(VideoAvatarAct.Walk, director.Act);
+            Assert.AreEqual(entry, director.Entry);
+        }
+
+        [Test]
+        public void Director_AWalkThatEndsAtOnce_PlaysTheWalkStopWithoutWaiting()
+        {
+            // A screen edge, a drag, or a fall ends the walk with no lead.
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+            WalkLeft(director);
+
+            Stand(director);
+
+            Assert.AreEqual(VideoAvatarAct.WalkStop, director.Act);
+            Assert.AreEqual(set.WalkStop, director.Clip);
+        }
+
+        [Test]
+        public void Director_SlowingDownWhileTheWalkStillShows_StartsTheWalkStop()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+            WalkLeft(director);
+
+            director.SetMovement(true, false, false, true);
+
+            Assert.AreEqual(VideoAvatarAct.WalkStop, director.Act);
+        }
+
+        [Test]
+        public void Director_AfterTheWalkStop_SheHoldsItsLastFrame()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+            WalkLeft(director);
+            Stand(director);
+            var entry = director.Entry;
+
+            director.OnEnded();
+
+            Assert.AreEqual(VideoAvatarAct.Hold, director.Act);
+            Assert.AreEqual(set.WalkStop, director.Clip);
+            // No new entry: the player must not restart the clip or change the picture.
+            Assert.AreEqual(entry, director.Entry);
+
+            // Standing still, loop points, and time do not send her to the front idle.
+            for (var i = 0; i < 50; i++)
+            {
+                Stand(director);
+                director.Tick(10f);
+                director.OnBoundary(true);
+                director.OnEnded();
+            }
+
+            Assert.AreEqual(VideoAvatarAct.Hold, director.Act);
+            Assert.AreEqual(-1, director.Queued);
+            Assert.AreEqual(entry, director.Entry);
+        }
+
+        [Test]
+        public void Director_TheHeldPose_ReturnsToTheFrontOnlyWhenAsked()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+            WalkLeft(director);
+            Stand(director);
+            director.OnEnded();
+
+            director.RequestFront();
+
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual(set.Idle, director.Clip);
+            Assert.IsFalse(director.Mirrored);
+        }
+
+        [Test]
+        public void Director_AWalkStopThatEndsInTheIdlePose_IsFollowedByTheDefaultIdle()
+        {
+            var set = Set(thenIdle: true);
+            var director = new VideoAvatarDirector(set, 1);
+            WalkLeft(director);
+            Stand(director);
+
+            director.OnEnded();
+
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual(set.Idle, director.Clip);
+        }
+
+        [Test]
+        public void Director_ASideIdle_FollowsTheWalkStopAndKeepsHerDirection()
+        {
+            var set = Set(side: true, thenIdle: true);
+            var director = new VideoAvatarDirector(set, 1);
+            director.SetMovement(true, true, false, false);
+            Stand(director);
+            Assert.IsTrue(director.Mirrored);
+
+            director.OnEnded();
+
+            Assert.AreEqual(VideoAvatarAct.SideIdle, director.Act);
+            Assert.AreEqual(set.SideIdle, director.Clip);
+            Assert.IsTrue(director.Mirrored);
+
+            // The side idle loops. It does not start variations and does not turn to the front.
+            director.Tick(100f);
+            director.OnBoundary(true);
+            Assert.AreEqual(VideoAvatarAct.SideIdle, director.Act);
+        }
+
+        [Test]
+        public void Director_TheWalkStop_IsMirroredLikeTheWalkBeforeIt()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+            director.SetMovement(true, true, false, false);
+
+            Stand(director);
+
+            Assert.AreEqual(VideoAvatarAct.WalkStop, director.Act);
+            Assert.IsTrue(director.Mirrored);
+        }
+
+        [Test]
+        public void Director_ANewWalkDuringTheWalkStop_StartsWalkingAgain()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+            WalkLeft(director);
+            director.SetMovement(true, false, true, false);
+            director.OnBoundary(false);
+            var entry = director.Entry;
+
+            // The presence cancelled its stop: walking, no lead, the other way.
+            director.SetMovement(true, true, false, false);
+
+            Assert.AreEqual(VideoAvatarAct.Walk, director.Act);
+            Assert.AreEqual(set.Walk, director.Clip);
+            Assert.IsTrue(director.Mirrored);
+            Assert.AreEqual(entry + 1, director.Entry);
+
+            // The end of the abandoned walk-stop arrives late and must be ignored.
+            director.OnEnded();
+            Assert.AreEqual(VideoAvatarAct.Walk, director.Act);
+        }
+
+        [Test]
+        public void Director_ANewWalkFromTheHeldPose_StartsWalking()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+            WalkLeft(director);
+            Stand(director);
+            director.OnEnded();
+
+            WalkLeft(director);
+
+            Assert.AreEqual(VideoAvatarAct.Walk, director.Act);
+            Assert.AreEqual(set.Walk, director.Clip);
+        }
+
+        [Test]
+        public void Director_StopAndWalkEveryFrame_NeverLeavesAnUnknownState()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 99);
+            for (var i = 0; i < 400; i++)
+            {
+                switch (i % 7)
+                {
+                    case 0: director.SetMovement(true, i % 2 == 0, false, false); break;
+                    case 1: director.SetMovement(true, false, true, false); break;
+                    case 2: director.OnBoundary(i % 3 == 0); break;
+                    case 3: director.SetMovement(false, false, false, false); break;
+                    case 4: director.OnEnded(); break;
+                    case 5: director.Tick(0.7f); break;
+                    default: director.RequestFront(); break;
+                }
+
+                Assert.GreaterOrEqual(director.Clip, 0);
+                Assert.Less(director.Clip, set.Clips.Count);
+                if (director.Act == VideoAvatarAct.Walk)
+                    Assert.AreEqual(set.Walk, director.Clip);
+                if (director.Act == VideoAvatarAct.Idle)
+                    Assert.AreEqual(set.Idle, director.Clip);
+                if (director.Act == VideoAvatarAct.WalkStop || director.Act == VideoAvatarAct.Hold)
+                    Assert.AreEqual(set.WalkStop, director.Clip);
+            }
+        }
+
+        [Test]
+        public void Director_RequestFront_IsIgnoredWhileWalking()
+        {
+            var director = new VideoAvatarDirector(Set(), 1);
+            WalkLeft(director);
+            var entry = director.Entry;
+
+            director.RequestFront();
+
+            Assert.AreEqual(VideoAvatarAct.Walk, director.Act);
+            Assert.AreEqual(entry, director.Entry);
+        }
+
+        [Test]
+        public void Director_WithoutAWalkClip_WalkingLeavesTheIdleOnScreen()
+        {
+            var set = Set(walk: false, stop: false);
+            var director = new VideoAvatarDirector(set, 1);
+
+            WalkLeft(director);
+            Stand(director);
+
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual(1, director.Entry);
+        }
+
+        [Test]
+        public void Director_WithoutAWalkStopClip_TheWalkEndsOnTheDefaultIdle()
+        {
+            var set = Set(stop: false);
+            var director = new VideoAvatarDirector(set, 1);
+            WalkLeft(director);
+
+            Stand(director);
+
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual(set.Idle, director.Clip);
+        }
+
+        [Test]
+        public void Director_AWalkStopThatFailedToLoad_IsSkipped()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+            director.SetUnavailable(set.WalkStop);
+            WalkLeft(director);
+
+            Stand(director);
+
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+        }
+
+        [Test]
+        public void Director_AWalkClipThatFailedToLoad_IsNotEntered()
+        {
+            var set = Set();
+            var director = new VideoAvatarDirector(set, 1);
+            director.SetUnavailable(set.Walk);
+
+            WalkLeft(director);
+
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+        }
+
+        // ---- speed that follows the clip -------------------------------------------------
+
+        [TestCase(0f, 0f)]
+        [TestCase(0.15f, 0f)]
+        [TestCase(0.3f, 0.5f)]
+        [TestCase(0.45f, 1f)]
+        [TestCase(2.5f, 1f)]
+        [TestCase(4.8f, 0.5f)]
+        [TestCase(4.95f, 0f)]
+        [TestCase(5.1f, 0f)]
+        [TestCase(-1f, 0f)]
+        public void Gait_SpeedRisesAfterTheFirstStepAndFallsBeforeTheLast(float seconds, float expected)
+        {
+            // The delivered walk clip: she stands, starts at 0.15 s, plants her last step at 4.95 s.
+            Assert.AreEqual(expected, VideoGait.Factor(seconds, 0.15f, 4.95f, 0.3f, 5.1667f), 0.001f);
+        }
+
+        [Test]
+        public void Gait_NoMoveEnd_MeansTheWholeClip()
+        {
+            Assert.AreEqual(1f, VideoGait.Factor(2f, 0f, 0f, 0.25f, 5f), 0.001f);
+            Assert.AreEqual(0f, VideoGait.Factor(5f, 0f, 0f, 0.25f, 5f), 0.001f);
+            Assert.AreEqual(5f, VideoGait.MoveEnd(0f, 5f), 0.001f);
+            Assert.AreEqual(3.8f, VideoGait.MoveEnd(3.8f, 5f), 0.001f);
+            Assert.AreEqual(5f, VideoGait.MoveEnd(9f, 5f), 0.001f);
+        }
+
+        [Test]
+        public void Gait_NoRamp_IsFullSpeedInsideTheWindow()
+        {
+            Assert.AreEqual(1f, VideoGait.Factor(0.2f, 0.1f, 1f, 0f, 2f), 0.001f);
+            Assert.AreEqual(0f, VideoGait.Factor(0.05f, 0.1f, 1f, 0f, 2f), 0.001f);
+            Assert.AreEqual(0f, VideoGait.Factor(0.5f, 1f, 0.5f, 0.2f, 2f), 0.001f);
+            Assert.AreEqual(0f, VideoGait.Factor(float.NaN, 0f, 1f, 0.2f, 2f), 0.001f);
+        }
+
+        // ---- frame arithmetic -----------------------------------------------------------
+
+        [Test]
+        public void Progress_LoopPointIsReportedTwoFramesEarly()
+        {
+            // 124 frames: the last one is 123.
+            Assert.IsFalse(VideoClipProgress.NearLoopPoint(120, 124));
+            Assert.IsTrue(VideoClipProgress.NearLoopPoint(121, 124));
+            Assert.IsTrue(VideoClipProgress.NearLoopPoint(123, 124));
+            Assert.IsFalse(VideoClipProgress.NearLoopPoint(123, 0));
+            Assert.IsFalse(VideoClipProgress.NearLoopPoint(-1, 124));
+        }
+
+        [Test]
+        public void Progress_AWrapIsAFrameNumberThatWentDown()
+        {
+            Assert.IsTrue(VideoClipProgress.Wrapped(123, 0));
+            Assert.IsTrue(VideoClipProgress.Wrapped(122, 1));
+            Assert.IsFalse(VideoClipProgress.Wrapped(10, 11));
+            Assert.IsFalse(VideoClipProgress.Wrapped(10, 10));
+            Assert.IsFalse(VideoClipProgress.Wrapped(-1, 0));
+        }
+
+        [Test]
+        public void Progress_APlayOnceClipIsHeldOneFrameBeforeItsEnd()
+        {
+            Assert.IsFalse(VideoClipProgress.AtEnd(121, 124));
+            Assert.IsTrue(VideoClipProgress.AtEnd(122, 124));
+            Assert.IsTrue(VideoClipProgress.AtEnd(123, 124));
+            Assert.IsFalse(VideoClipProgress.AtEnd(123, 0));
+        }
+
+        [Test]
+        public void Progress_SecondsToTheLoopPoint()
+        {
+            Assert.AreEqual(123f / 24f, VideoClipProgress.SecondsToLoopPoint(0, 124, 24f), 0.001f);
+            Assert.AreEqual(1f, VideoClipProgress.SecondsToLoopPoint(99, 124, 24f), 0.001f);
+            Assert.AreEqual(0f, VideoClipProgress.SecondsToLoopPoint(123, 124, 24f), 0.001f);
+            Assert.AreEqual(0f, VideoClipProgress.SecondsToLoopPoint(10, 0, 24f), 0.001f);
+            Assert.AreEqual(0f, VideoClipProgress.SecondsToLoopPoint(10, 124, 0f), 0.001f);
+        }
+
+        [Test]
+        public void Progress_AStaleFrameNumberIsNotAFreshPicture()
+        {
+            // Just started: frame 0 is not proof of a new picture, frame 1 is.
+            Assert.IsFalse(VideoClipProgress.IsFresh(0, 0.05f, 24f));
+            Assert.IsFalse(VideoClipProgress.IsFresh(-1, 0.05f, 24f));
+            Assert.IsTrue(VideoClipProgress.IsFresh(1, 0.05f, 24f));
+            Assert.IsTrue(VideoClipProgress.IsFresh(3, 0.1f, 24f));
+
+            // The decoder still reports the frame it stopped on before the rewind.
+            Assert.IsFalse(VideoClipProgress.IsFresh(123, 0.05f, 24f));
+            Assert.IsFalse(VideoClipProgress.IsFresh(60, 0.5f, 24f));
+
+            // Later in the run the same number is plausible.
+            Assert.IsTrue(VideoClipProgress.IsFresh(60, 2.5f, 24f));
+            // An unknown frame rate falls back to 30.
+            Assert.IsTrue(VideoClipProgress.IsFresh(5, 0.1f, 0f));
+        }
+
+        // ---- layout for a set of clips ---------------------------------------------------
+
+        [Test]
+        public void Layout_AClipLikeTheReference_SitsExactlyWhereTheSingleClipDid()
+        {
+            var single = VideoAvatarLayout.Compute(480f, 720f, 768f, 1344f, 0.8f, 0.1f, -0.05f);
+            var aligned = VideoAvatarLayout.ComputeAligned(480f, 720f, 768f, 1344f, 768f, 1344f, 0.8f, 0.1f, -0.05f, 1f, 0f, 0f, false);
+
+            Assert.AreEqual(single.x, aligned.x, 0.01f);
+            Assert.AreEqual(single.y, aligned.y, 0.01f);
+            Assert.AreEqual(single.width, aligned.width, 0.01f);
+            Assert.AreEqual(single.height, aligned.height, 0.01f);
+        }
+
+        [Test]
+        public void Layout_AClipWithOtherFraming_KeepsItsOwnAspectAndTheSameCentreAndGround()
+        {
+            var reference = VideoAvatarLayout.Compute(480f, 720f, 768f, 1344f, 1f, 0f, 0f);
+            // A wider render of the walk, the same height.
+            var wide = VideoAvatarLayout.ComputeAligned(480f, 720f, 768f, 1344f, 1344f, 1344f, 1f, 0f, 0f, 1f, 0f, 0f, false);
+
+            Assert.AreEqual(reference.height, wide.height, 0.01f);
+            Assert.AreEqual(wide.height, wide.width, 0.01f);
+            Assert.AreEqual(reference.x + reference.width * 0.5f, wide.x + wide.width * 0.5f, 0.01f);
+            Assert.AreEqual(reference.y, wide.y, 0.01f);
+        }
+
+        [Test]
+        public void Layout_PerClipScaleAndOffsets_AreSharesOfTheClipsHeightOnScreen()
+        {
+            var plain = VideoAvatarLayout.ComputeAligned(480f, 720f, 768f, 1344f, 768f, 1344f, 1f, 0f, 0f, 1f, 0f, 0f, false);
+            var tuned = VideoAvatarLayout.ComputeAligned(480f, 720f, 768f, 1344f, 768f, 1344f, 1f, 0f, 0f, 0.5f, 0.1f, -0.02f, false);
+
+            Assert.AreEqual(plain.height * 0.5f, tuned.height, 0.01f);
+            Assert.AreEqual(plain.width / plain.height, tuned.width / tuned.height, 0.0001f);
+            var centre = plain.x + plain.width * 0.5f;
+            Assert.AreEqual(centre + 0.1f * tuned.height, tuned.x + tuned.width * 0.5f, 0.01f);
+            Assert.AreEqual(plain.y - 0.02f * tuned.height, tuned.y, 0.01f);
+        }
+
+        [Test]
+        public void Layout_AMirroredClip_FlipsItsSidewaysOffset()
+        {
+            var left = VideoAvatarLayout.ComputeAligned(480f, 720f, 768f, 1344f, 768f, 1344f, 1f, 0f, 0f, 1f, 0.1f, 0f, false);
+            var right = VideoAvatarLayout.ComputeAligned(480f, 720f, 768f, 1344f, 768f, 1344f, 1f, 0f, 0f, 1f, 0.1f, 0f, true);
+            var centred = VideoAvatarLayout.ComputeAligned(480f, 720f, 768f, 1344f, 768f, 1344f, 1f, 0f, 0f, 1f, 0f, 0f, false);
+
+            Assert.AreEqual(centred.x - left.x, right.x - centred.x, 0.01f);
+            Assert.Greater(left.x, centred.x);
+            Assert.AreEqual(left.y, right.y, 0.01f);
+        }
+
+        [Test]
+        public void Layout_BadClipNumbers_FallBackToTheReference()
+        {
+            var bad = VideoAvatarLayout.ComputeAligned(480f, 720f, 768f, 1344f, 768f, 1344f, 1f, 0f, 0f, float.NaN, float.NaN, float.PositiveInfinity, false);
+            var good = VideoAvatarLayout.Compute(480f, 720f, 768f, 1344f, 1f, 0f, 0f);
+            var empty = VideoAvatarLayout.ComputeAligned(480f, 720f, 768f, 1344f, 0f, 0f, 1f, 0f, 0f, 1f, 0f, 0f, false);
+
+            Assert.AreEqual(good.x, bad.x, 0.01f);
+            Assert.AreEqual(good.height, bad.height, 0.01f);
+            Assert.AreEqual(0f, empty.width, 0.0001f);
+        }
+
+        [Test]
+        public void Layout_WalkingSpeedScalesWithHerSizeOnScreen()
+        {
+            var full = VideoAvatarLayout.DisplayedHeight(480f, 720f, 768f, 1344f, 1f, 1f);
+            var half = VideoAvatarLayout.DisplayedHeight(480f, 720f, 768f, 1344f, 0.5f, 1f);
+            var bigWindow = VideoAvatarLayout.DisplayedHeight(960f, 1440f, 768f, 1344f, 1f, 1f);
+
+            Assert.AreEqual(720f, full, 0.01f);
+            Assert.AreEqual(360f, half, 0.01f);
+            Assert.AreEqual(1440f, bigWindow, 0.01f);
+        }
+
+        // ---- settings -------------------------------------------------------------------
+
+        [Test]
+        public void Settings_WalkSpeed_DefaultsToTheClipAndSurvivesAWriteAndARead()
+        {
+            var settings = CompanionSettings.CreateDefault();
+            Assert.AreEqual(0f, settings.VideoAvatarWalkSpeed, 0.0001f);
+
+            settings.VideoAvatarWalkSpeed = 0.35f;
+            var loaded = CompanionSettingsJson.Parse(CompanionSettingsJson.Write(settings), SettingsLegacyPrefs.None);
+            Assert.AreEqual(0.35f, loaded.VideoAvatarWalkSpeed, 0.001f);
+
+            settings.VideoAvatarWalkSpeed = -2f;
+            settings.Normalize();
+            Assert.AreEqual(0f, settings.VideoAvatarWalkSpeed, 0.0001f);
+
+            settings.VideoAvatarWalkSpeed = 500f;
+            settings.Normalize();
+            Assert.AreEqual(VideoAvatarManifest.MaxWalkSpeed, settings.VideoAvatarWalkSpeed, 0.0001f);
+        }
+    }
+}

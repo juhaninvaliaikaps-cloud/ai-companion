@@ -59,6 +59,56 @@ namespace AICompanion.Settings
             var y = ClampOffsetY(offsetY) * windowHeight;
             return new Rect(x, y, width, height);
         }
+
+        /// <summary>
+        /// The rectangle for one clip of a set. The default idle (the reference) decides how
+        /// big the character is in the window. Every other clip is drawn at the reference
+        /// height times its own <paramref name="clipScale"/>, with its own aspect ratio, and
+        /// is then shifted by its own offsets (shares of its height on screen). That keeps
+        /// her size and her feet in one place when clips were rendered with different
+        /// framing. A mirrored clip flips its sideways offset with it.
+        /// </summary>
+        public static Rect ComputeAligned(
+            float windowWidth,
+            float windowHeight,
+            float referenceWidth,
+            float referenceHeight,
+            float clipWidth,
+            float clipHeight,
+            float size,
+            float offsetX,
+            float offsetY,
+            float clipScale,
+            float clipOffsetX,
+            float clipOffsetY,
+            bool mirrored)
+        {
+            var reference = Compute(windowWidth, windowHeight, referenceWidth, referenceHeight, size, offsetX, offsetY);
+            if (!(reference.height > 0f) || !(clipWidth > 0f) || !(clipHeight > 0f))
+                return new Rect(0f, 0f, 0f, 0f);
+
+            var scale = clipScale > 0f && !float.IsNaN(clipScale) && !float.IsInfinity(clipScale) ? clipScale : 1f;
+            var height = reference.height * scale;
+            var width = height * (clipWidth / clipHeight);
+            var centre = reference.x + reference.width * 0.5f;
+            var shift = Finite(clipOffsetX) * height;
+            var x = centre - width * 0.5f + (mirrored ? -shift : shift);
+            var y = reference.y + Finite(clipOffsetY) * height;
+            return new Rect(x, y, width, height);
+        }
+
+        /// <summary>Height in pixels of a clip drawn at <paramref name="clipScale"/> against the reference. Walking speed is a share of this.</summary>
+        public static float DisplayedHeight(float windowWidth, float windowHeight, float referenceWidth, float referenceHeight, float size, float clipScale)
+        {
+            var reference = Compute(windowWidth, windowHeight, referenceWidth, referenceHeight, size, 0f, 0f);
+            var scale = clipScale > 0f && !float.IsNaN(clipScale) && !float.IsInfinity(clipScale) ? clipScale : 1f;
+            return reference.height * scale;
+        }
+
+        static float Finite(float value)
+        {
+            return float.IsNaN(value) || float.IsInfinity(value) ? 0f : value;
+        }
     }
 
     /// <summary>
@@ -122,6 +172,26 @@ namespace AICompanion.Settings
                 default:
                     return "3D avatar.";
             }
+        }
+
+        /// <summary>The status line while a set of clips plays: the default idle, what else is loaded, and any clip that was left out.</summary>
+        public static string DescribeSet(VideoAvatarClipSet set)
+        {
+            if (set == null || !set.Found)
+                return "3D avatar.";
+
+            var idle = set.Clips[set.Idle];
+            var text = "Playing " + VideoAvatarFiles.FileName(idle.ColorPath) + ". "
+                + MaskText(new VideoAvatarClip(idle.Name, idle.ColorPath, idle.MaskPath, idle.Mask));
+            text += " Idle variations: " + set.Variations.Count + ".";
+            text += " Walk: " + (set.Walk >= 0 ? set.Clips[set.Walk].Name : "none") + ".";
+            text += " Walk-stop: " + (set.WalkStop >= 0 ? set.Clips[set.WalkStop].Name : "none") + ".";
+            if (set.SideIdle >= 0)
+                text += " Side idle: " + set.Clips[set.SideIdle].Name + ".";
+            text += set.FromManifest ? " Clips are listed in " + VideoAvatarManifest.FileName + "." : " Clips were found by file name.";
+            for (var i = 0; i < set.Warnings.Count; i++)
+                text += " " + set.Warnings[i];
+            return text;
         }
 
         static string MaskText(VideoAvatarClip clip)

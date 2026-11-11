@@ -100,6 +100,9 @@ namespace AICompanion.Settings
         /// <summary>Upward shift as a share of the window height. Negative sinks the clip below the window edge.</summary>
         public float VideoAvatarOffsetY;
 
+        /// <summary>Walking speed of the 2D avatar in clip heights per second. 0 uses the walk clip's own value.</summary>
+        public float VideoAvatarWalkSpeed;
+
         public static CompanionSettings CreateDefault()
         {
             return new CompanionSettings();
@@ -157,6 +160,9 @@ namespace AICompanion.Settings
             VideoAvatarSize = VideoAvatarLayout.ClampSize(VideoAvatarSize);
             VideoAvatarOffsetX = VideoAvatarLayout.ClampOffsetX(VideoAvatarOffsetX);
             VideoAvatarOffsetY = VideoAvatarLayout.ClampOffsetY(VideoAvatarOffsetY);
+            if (float.IsNaN(VideoAvatarWalkSpeed) || float.IsInfinity(VideoAvatarWalkSpeed) || VideoAvatarWalkSpeed < 0f)
+                VideoAvatarWalkSpeed = 0f;
+            VideoAvatarWalkSpeed = Math.Min(VideoAvatarWalkSpeed, VideoAvatarManifest.MaxWalkSpeed);
         }
 
         static string CleanToken(string value, string fallback, int max)
@@ -477,6 +483,8 @@ namespace AICompanion.Settings
                 settings.VideoAvatarOffsetX = (float)number;
             if (TryNumber(json, "videoAvatarOffsetY", out number))
                 settings.VideoAvatarOffsetY = (float)number;
+            if (TryNumber(json, "videoAvatarWalkSpeed", out number))
+                settings.VideoAvatarWalkSpeed = (float)number;
             settings.Normalize();
             return settings;
         }
@@ -532,6 +540,7 @@ namespace AICompanion.Settings
             Number(sb, "videoAvatarSize", source.VideoAvatarSize, false);
             Number(sb, "videoAvatarOffsetX", source.VideoAvatarOffsetX, false);
             Number(sb, "videoAvatarOffsetY", source.VideoAvatarOffsetY, false);
+            Number(sb, "videoAvatarWalkSpeed", source.VideoAvatarWalkSpeed, false);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;
