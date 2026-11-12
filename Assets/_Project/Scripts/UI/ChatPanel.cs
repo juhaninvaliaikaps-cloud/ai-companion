@@ -317,9 +317,9 @@ namespace AICompanion.UI
 
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = privacy != null && privacy.PrivateMode;
-            var providerId = settings != null ? settings.providerId : string.Empty;
-            if (privateMode)
-                providerId = ChatDefaults.LocalId;
+            var providerId = settings != null
+                ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
+                : (privateMode ? ChatDefaults.LocalId : string.Empty);
             var model = settings != null ? settings.model : string.Empty;
             if (privateMode || !OutboundAllowsVision(privateMode))
             {
@@ -500,9 +500,9 @@ namespace AICompanion.UI
 
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = privacy != null && privacy.PrivateMode;
-            var providerId = settings != null ? settings.providerId : string.Empty;
-            if (privateMode)
-                providerId = ChatDefaults.LocalId;
+            var providerId = settings != null
+                ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
+                : (privateMode ? ChatDefaults.LocalId : string.Empty);
             if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
             {
                 var message = ChatErrors.UnknownProvider(providerId);

@@ -49,7 +49,8 @@ namespace AICompanion.AI
             ChatSettings settings,
             IApiKeySource keys,
             IChatTransport transport,
-            IChatProviderDecorator decorator)
+            IChatProviderDecorator decorator,
+            IApiKeySource privateKeys = null)
         {
             var registry = new ChatProviderRegistry();
             registry.Register(Wrap(decorator, new OpenAiCompatibleChatProvider(new OpenAiProviderConfig
@@ -77,6 +78,26 @@ namespace AICompanion.AI
                 Model = () => Value(settings != null ? settings.localModel : null, ChatDefaults.LocalModel),
                 TimeoutSeconds = () => settings != null ? settings.timeoutSeconds : ChatDefaults.TimeoutSeconds,
                 ApiKey = () => null,
+                Transport = transport
+            })));
+            registry.Register(Wrap(decorator, new OpenAiCompatibleChatProvider(new OpenAiProviderConfig
+            {
+                ProviderId = ChatDefaults.CustomId,
+                DisplayName = "Custom server",
+                RequiresKey = false,
+                BaseUrl = () => settings == null ? string.Empty : (settings.privateBaseUrl ?? string.Empty).Trim(),
+                Model = () => settings == null ? string.Empty : (settings.privateModel ?? string.Empty).Trim(),
+                TimeoutSeconds = () => settings != null ? settings.timeoutSeconds : ChatDefaults.TimeoutSeconds,
+                ApiKey = () =>
+                {
+                    string key;
+                    if (privateKeys != null && privateKeys.TryGet(out key) && !string.IsNullOrWhiteSpace(key))
+                        return key;
+                    return PrivateApiKeyStore.TryLoad(out key) ? key : null;
+                },
+                ConfigurationError = () => settings == null
+                    ? PrivateEndpointRules.MissingAddress
+                    : PrivateEndpointRules.ValidateForChat(settings.privateBaseUrl, settings.privateModel),
                 Transport = transport
             })));
             return registry;

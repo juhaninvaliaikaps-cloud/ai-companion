@@ -16,6 +16,9 @@ namespace AICompanion.AI
         public Func<float> TimeoutSeconds;
         public IChatTransport Transport;
         public bool RequiresKey;
+
+        /// <summary>A non-empty value is shown as the chat error instead of calling the server.</summary>
+        public Func<string> ConfigurationError;
     }
 
     /// <summary>
@@ -60,6 +63,11 @@ namespace AICompanion.AI
 
             if (request == null)
                 return Task.FromResult(ChatResult.Fail(ChatErrorKind.Malformed, ChatErrors.Rejected(DisplayName)));
+
+            var configurationError = _config.ConfigurationError != null ? _config.ConfigurationError() : null;
+            if (!string.IsNullOrEmpty(configurationError))
+                return Task.FromResult(ChatResult.Fail(ChatErrorKind.Malformed, configurationError));
+
             if (request.Image != null)
                 return StreamVision(request, onDelta, cancellationToken);
 

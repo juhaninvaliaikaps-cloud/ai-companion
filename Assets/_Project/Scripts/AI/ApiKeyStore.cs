@@ -214,10 +214,18 @@ namespace AICompanion.AI
     {
         public static string Write(string payload, bool isProtected)
         {
+            return WriteField(payload, isProtected, "xaiApiKey");
+        }
+
+        /// <summary>Same envelope as the Grok key, for a named key field.</summary>
+        public static string WriteField(string payload, bool isProtected, string field)
+        {
             var sb = new StringBuilder();
             sb.Append("{\"protected\":");
             sb.Append(isProtected ? "true" : "false");
-            sb.Append(",\"xaiApiKey\":");
+            sb.Append(',');
+            JsonText.AppendString(sb, string.IsNullOrEmpty(field) ? "xaiApiKey" : field);
+            sb.Append(':');
             JsonText.AppendString(sb, payload ?? string.Empty);
             sb.Append('}');
             return sb.ToString();
@@ -225,10 +233,16 @@ namespace AICompanion.AI
 
         public static bool TryReadKey(string json, ISecretProtector protector, out string key)
         {
+            return TryReadKeyField(json, protector, "xaiApiKey", out key);
+        }
+
+        public static bool TryReadKeyField(string json, ISecretProtector protector, string field, out string key)
+        {
             key = null;
             if (string.IsNullOrWhiteSpace(json))
                 return false;
-            if (!JsonText.TryReadStringField(json, "xaiApiKey", out var payload) || string.IsNullOrWhiteSpace(payload))
+            var name = string.IsNullOrEmpty(field) ? "xaiApiKey" : field;
+            if (!JsonText.TryReadStringField(json, name, out var payload) || string.IsNullOrWhiteSpace(payload))
                 return false;
 
             var isProtected = false;
@@ -255,6 +269,11 @@ namespace AICompanion.AI
         static readonly UTF8Encoding Utf8 = new UTF8Encoding(false);
 
         public static void Save(string path, string key, ISecretProtector protector)
+        {
+            SaveField(path, key, protector, "xaiApiKey");
+        }
+
+        public static void SaveField(string path, string key, ISecretProtector protector, string field)
         {
             if (string.IsNullOrWhiteSpace(path))
                 throw new ArgumentException("A secrets path is required.", "path");
@@ -285,10 +304,15 @@ namespace AICompanion.AI
             var directory = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(directory))
                 Directory.CreateDirectory(directory);
-            File.WriteAllText(path, SecretFileFormat.Write(payload, protect), Utf8);
+            File.WriteAllText(path, SecretFileFormat.WriteField(payload, protect, field), Utf8);
         }
 
         public static bool TryReadKey(string path, ISecretProtector protector, out string key)
+        {
+            return TryReadKeyField(path, protector, "xaiApiKey", out key);
+        }
+
+        public static bool TryReadKeyField(string path, ISecretProtector protector, string field, out string key)
         {
             key = null;
             if (string.IsNullOrEmpty(path) || !File.Exists(path))
@@ -297,7 +321,7 @@ namespace AICompanion.AI
             try
             {
                 var json = File.ReadAllText(path, Utf8);
-                return SecretFileFormat.TryReadKey(json, protector, out key);
+                return SecretFileFormat.TryReadKeyField(json, protector, field, out key);
             }
             catch (Exception)
             {

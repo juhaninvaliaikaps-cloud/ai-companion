@@ -714,7 +714,10 @@ namespace AICompanion.Settings
                 _rebuild = true;
             });
             if (_settings.PrivateMode)
-                Note("Private mode is on. Chat and voice stay on the local model. The choice above is remembered for when private mode is off.");
+            {
+                Note("Private mode is on. Chat and voice stay on the local model or your own server. The choice above is remembered for when private mode is off.");
+                BuildPrivateEndpoint();
+            }
             AddField("Grok model", _settings.Model, false, value =>
             {
                 _settings.Model = value;

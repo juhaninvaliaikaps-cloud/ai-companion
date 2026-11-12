@@ -21,7 +21,7 @@ namespace AICompanion.Settings
             var adultFolder = PortraitFolders.Adult(appData, Application.persistentDataPath ?? string.Empty);
             IntimateExpressions.Configure(settings.IntimateExpressions, settings.PrivateMode,
                 !string.IsNullOrEmpty(adultFolder) && Directory.Exists(adultFolder));
-            var provider = AICompanion.Voice.OutboundPrivacy.ChatProviderId(settings.PrivateMode, settings.ProviderId);
+            var provider = AICompanion.Voice.OutboundPrivacy.ChatProviderId(settings.PrivateMode, settings.ProviderId, settings.PrivateEndpointType);
 
             AICompanion.Memory.MemoryRuntime.SwitchPersona(settings.PersonaId);
 
@@ -133,6 +133,9 @@ namespace AICompanion.Settings
             chat.localModel = settings.LocalModel;
             chat.baseUrl = settings.BaseUrl;
             chat.localBaseUrl = settings.LocalBaseUrl;
+            chat.privateEndpointType = settings.PrivateEndpointType;
+            chat.privateBaseUrl = settings.PrivateBaseUrl;
+            chat.privateModel = settings.PrivateModel;
             chat.timeoutSeconds = settings.TimeoutSeconds;
             ApplyPersona(chat, settings);
         }
