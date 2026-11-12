@@ -133,6 +133,121 @@ namespace AICompanion.Settings
             ConfirmWipe();
         }
 
+        // ---- JUH-104 PR E: the new settings view reaches the same actions as the old tabs ----
+
+        /// <summary>The status line text.</summary>
+        public string StatusMessage => _statusMessage ?? string.Empty;
+
+        public void SetStatusMessage(string message)
+        {
+            SetStatus(message);
+        }
+
+        /// <summary>Same as "Save key" on the AI tab: the key goes to the secret store, never settings.json.</summary>
+        public void SaveApiKey(string key)
+        {
+            var trimmed = (key ?? string.Empty).Trim();
+            if (trimmed.Length == 0)
+            {
+                SetStatus("Enter a key to save. A saved key stays masked.");
+                return;
+            }
+
+            try
+            {
+                AICompanion.AI.ApiKeyFile.SavePreferred(trimmed);
+                SetStatus(ApiKeyMask.SavedLabel + ". It is in the secret store, not in settings.");
+            }
+            catch (System.Exception)
+            {
+                SetStatus("Could not save the API key.");
+            }
+        }
+
+        /// <summary>Same as "Remove saved key" on the AI tab.</summary>
+        public void RemoveApiKey()
+        {
+            RemoveKey();
+        }
+
+        public bool ApiKeySaved => FileHasKey();
+
+        public bool ApiKeyFromEnvironment => EnvOverrides();
+
+        public bool ConnectionTestRunning => _probeBusy;
+
+        /// <summary>Same as "Test connection" on the AI tab (the key and header are never logged).</summary>
+        public void TestConnectionNow()
+        {
+            if (!_probeBusy)
+                TestConnection();
+        }
+
+        /// <summary>Same as "Save chat history" on the Privacy tab.</summary>
+        public void SetChatHistory(bool on)
+        {
+            _settings.ChatHistory = on;
+            if (on)
+                SaveHistory();
+            ApplyLive();
+        }
+
+        /// <summary>The persona list read from disk now (built-ins and saved files).</summary>
+        public PersonaCatalog PersonaCatalogNow()
+        {
+            return PersonaCatalog.LoadDefault(Folder());
+        }
+
+        /// <summary>Same as editing a field on the Persona tab.</summary>
+        public void SavePersona(string id, System.Action<PersonaDefinition> change)
+        {
+            SaveActive(id, change);
+        }
+
+        /// <summary>Same as "New persona".</summary>
+        public void NewPersona()
+        {
+            CreatePersona();
+        }
+
+        /// <summary>Same as "Delete saved copy" / "Delete persona".</summary>
+        public void DeletePersona()
+        {
+            DeleteActivePersona();
+        }
+
+        /// <summary>Same as "Reset rotation" on the Avatar tab.</summary>
+        public void ResetAvatarRotation()
+        {
+            var mount = GetComponent<AICompanion.Avatar.AvatarMount>();
+            if (mount != null)
+                mount.ResetRotation();
+            SetStatus("Rotation reset.");
+        }
+
+        /// <summary>
+        /// While set, Open() (F12, the tray, the wheel) shows the new settings view instead of
+        /// this panel. Return true when it handled the request. Null keeps this panel.
+        /// </summary>
+        public System.Func<bool> OpenOverride;
+
+        /// <summary>Opens this classic panel even while the new settings view is on ("Classic settings").</summary>
+        public void OpenClassic()
+        {
+            var redirect = OpenOverride;
+            OpenOverride = null;
+            try
+            {
+                Open();
+            }
+            finally
+            {
+                OpenOverride = redirect;
+            }
+        }
+
+        public ScreenLookController ScreenController => GetComponent<ScreenLookController>();
+
         /// <summary>"Run setup again" for the new settings view.</summary>
         public void RequestSetupReplay()
         {

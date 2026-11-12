@@ -112,6 +112,8 @@ namespace AICompanion.NewUI.Wheel
             _open = true;
             _leftWas = true;
             _rightWas = true;
+            _pressed = NoPress;
+            Debug.Log("Wheel: opened " + (_partWheel ? "body-part wheel" : "main wheel"));
             var typing = GetComponent<ITypingFocus>();
             if (typing != null)
                 typing.FocusForTyping();
@@ -146,8 +148,21 @@ namespace AICompanion.NewUI.Wheel
             var right = RightHeld();
             var leftDown = left && !_leftWas;
             var rightDown = right && !_rightWas;
+            var leftUp = !left && _leftWas;
             _leftWas = left;
             _rightWas = right;
+
+            // A slice acts when the button is released over the slice it was pressed on, so the
+            // release cannot fall through into a panel the slice just opened.
+            if (leftUp && _pressed != NoPress)
+            {
+                var pressed = _pressed;
+                _pressed = NoPress;
+                if (_wheel != null && !_card.Visible && pointer.HasValue && _wheel.HitTest(pointer.Value) == pressed)
+                    Activate(pressed);
+                return;
+            }
+
             if (!leftDown && !rightDown)
                 return;
 
@@ -157,6 +172,7 @@ namespace AICompanion.NewUI.Wheel
                 return;
             if (!onWheel)
             {
+                Debug.Log("Wheel: closed by a click outside");
                 Close();
                 return;
             }
@@ -164,7 +180,14 @@ namespace AICompanion.NewUI.Wheel
             if (rightDown)
                 return;
 
-            var hit = _wheel.HitTest(pointer.Value);
+            _pressed = _wheel.HitTest(pointer.Value);
+        }
+
+        const int NoPress = int.MinValue;
+        int _pressed = NoPress;
+
+        void Activate(int hit)
+        {
             if (hit == RadialMath.Center)
             {
                 var center = _wheel.Definition.OnCenter;
@@ -182,6 +205,7 @@ namespace AICompanion.NewUI.Wheel
 
         void Choose(WheelSlice slice)
         {
+            Debug.Log("Wheel: chose " + slice.Id + (slice.Enabled ? string.Empty : " (refused)"));
             if (!slice.Enabled)
             {
                 Note(slice.Label, string.IsNullOrEmpty(slice.DisabledReason) ? "Not now." : slice.DisabledReason);

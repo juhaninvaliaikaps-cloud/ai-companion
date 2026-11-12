@@ -201,3 +201,37 @@ per-slice accent (pink for intimate), and draws a connector line to an anchor. J
 in through `BodyPartWheels.HitZones` and `BodyPartWheels.Register`; nothing is registered, so
 right-click always opens the main wheel now and no touch reactions were added. Slices marked
 `RequiresIntimateGate` are left out unless `IntimateExpressions.Active`.
+
+## PR E
+
+**E1. Same tabs, one more.** The new settings view keeps the old tabs (AI, Avatar, Voice,
+Controls, Overlay, Privacy, Persona, Screen) with the same items and wording, plus a "Happi"
+tab for the new UI's own options (New UI, Voice narration, Step mode, wheel help). A coverage
+test fails if any `CompanionSettings` field has no control in the view (exceptions are listed
+in the test with where they are set instead).
+
+**E2. Classic settings stay one click away.** The header has "Classic settings", which opens
+the old panel even while the new UI is on. This is the safety net for anything the new view
+misses, and for items that land on main after this PR (for example #63's Private endpoint
+section on the AI tab, which the new view does not have yet).
+
+**E3. Opening.** F12, the tray "Settings" item and the wheel all call `SettingsPanel.Open()`;
+while the new UI is on, a new `OpenOverride` hook (one added line in `Open()`) shows the new
+view instead. F12 toggles; the tray and the wheel only open.
+
+**E4. Same actions as the old tabs.** API key save/remove/test, chat history, clear, wipe,
+export, persona edit/create/delete, reset rotation and run setup go through small host
+methods in `SettingsPanel.Presenters.cs` that call the old panel's existing private methods,
+so messages, confirmations and file handling are identical. Clear and Wipe keep the two-step
+confirm (`PrivacyConfirm`).
+
+**E5. 18+ condition unchanged.** "Intimate expressions (18+)" is listed on the Avatar tab
+exactly as on the old tab (always listed, with the same note; it only takes effect with
+Private mode and the adult folder, enforced by `IntimateExpressions.Configure` as before).
+
+**E6. Setup wizard not rebuilt.** There was not enough time for a themed wizard. "Run setup
+again" (and first launch) open the existing wizard, which works with the new UI on.
+
+**E7. Wheel acts on release.** Slices act when the mouse button is released over the same
+slice it was pressed on. Acting on press let the release land on the panel a slice had just
+opened (it selected a settings tab by accident in testing).

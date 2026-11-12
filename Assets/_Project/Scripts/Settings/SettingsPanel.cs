@@ -266,6 +266,9 @@ namespace AICompanion.Settings
         {
             if (WizardIsOpen())
                 return;
+            // JUH-104: with the new UI on, the new settings view opens instead.
+            if (OpenOverride != null && OpenOverride())
+                return;
 
             if (!_started)
                 StartCompanion();

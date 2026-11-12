@@ -14,6 +14,11 @@ Columns:
 - **New UI**: where it lives in the new UI (filled in as PRs C, D and E land). `—` means not
   moved yet; the old path stays reachable.
 
+Status after PRs C–E: chat items (section 3) are in the new chat view (PR C); every settings
+item (section 4) is on the same-named tab of the new settings view (PR E), and "Classic
+settings" opens the old panel; the wizard (section 5), tray (6), debug readouts (7) and gates (8)
+are shared and unchanged. Section 9 lists what is new.
+
 ## 1. Panels and windows
 
 | ID | Panel | Implemented by | Opens with | New UI |

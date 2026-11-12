@@ -56,6 +56,7 @@ namespace AICompanion.NewUI
                 if (asset == null)
                     return null;
                 asset.hideFlags = HideFlags.DontSave;
+                asset.name = family + " " + style + " (OS)";
                 if (fallback != null)
                 {
                     if (asset.fallbackFontAssetTable == null)
