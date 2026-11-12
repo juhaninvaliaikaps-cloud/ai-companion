@@ -319,7 +319,7 @@ namespace AICompanion.Voice
         bool PrivateMode()
         {
             var privacy = GetComponent<IPrivacyMode>();
-            return privacy != null && privacy.PrivateMode;
+            return IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
         }
 
         void PumpSynthesis()
@@ -555,17 +555,10 @@ namespace AICompanion.Voice
 
         string RequestLine(int chars)
         {
+            // JUH-112: the label used to say xAI for every engine that was not Piper, so Kokoro
+            // lines looked like cloud requests in Player.log. It now names the real engine.
             var engine = _provider != null ? _provider.ProviderId : string.Empty;
-            if (string.Equals(engine, PiperTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
-            {
-                var voice = voiceSettings != null ? voiceSettings.piperVoice : string.Empty;
-                var label = string.IsNullOrWhiteSpace(voice) ? VoiceUtterance.DefaultPiperVoiceId : System.IO.Path.GetFileNameWithoutExtension(voice);
-                return "Voice: TTS request starting (" + chars.ToString() + " chars, engine=Piper, voice=" + label + ")";
-            }
-
-            var cloud = voiceSettings != null ? voiceSettings.voiceId : "eve";
-            var rate = TtsRequestJson.NormalizeSampleRate(voiceSettings != null ? voiceSettings.sampleRate : 24000);
-            return "Voice: TTS request starting (" + chars.ToString() + " chars, engine=xAI, voice=" + cloud + ", pcm, " + rate.ToString() + " Hz)";
+            return VoiceUtterance.RequestLine(engine, voiceSettings, chars);
         }
 
         TtsRequest BuildRequest(string sentence)

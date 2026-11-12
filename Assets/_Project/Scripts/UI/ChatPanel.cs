@@ -316,7 +316,7 @@ namespace AICompanion.UI
             }
 
             var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = privacy != null && privacy.PrivateMode;
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             var providerId = settings != null ? settings.providerId : string.Empty;
             if (privateMode)
                 providerId = ChatDefaults.LocalId;
@@ -386,7 +386,7 @@ namespace AICompanion.UI
                 return false;
 
             var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = privacy != null && privacy.PrivateMode;
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             var providerId = ChatDefaults.LocalId;
             if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
             {
@@ -444,7 +444,7 @@ namespace AICompanion.UI
                 return false;
 
             var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = privacy != null && privacy.PrivateMode;
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             var providerId = ChatDefaults.LocalId;
             if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
                 return false;
@@ -499,7 +499,7 @@ namespace AICompanion.UI
                 return false;
 
             var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = privacy != null && privacy.PrivateMode;
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             var providerId = settings != null ? settings.providerId : string.Empty;
             if (privateMode)
                 providerId = ChatDefaults.LocalId;
@@ -719,7 +719,7 @@ namespace AICompanion.UI
                 return;
 
             var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = privacy != null && privacy.PrivateMode;
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
 
             try
             {
@@ -809,7 +809,7 @@ namespace AICompanion.UI
                 return;
 
             var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = privacy != null && privacy.PrivateMode;
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             var provider = settings.providerId ?? string.Empty;
             var grok = settings.model ?? string.Empty;
             var local = settings.localModel ?? string.Empty;

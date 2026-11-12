@@ -38,7 +38,8 @@ namespace AICompanion.Voice
 
         public static VoiceUtterance Decide(SpeechOrigin origin, VoiceSettings voice, Func<string, bool> fileExists)
         {
-            var privateMode = origin.Private;
+            // An open intimate gate counts as private even if the origin's flag is stale.
+            var privateMode = IntimateExpressions.KeepsLocal(origin.Private);
             var chatId = origin.ChatProviderId;
             var local = !VoiceRoute.UsesCloudTts(privateMode, chatId);
             var model = string.IsNullOrWhiteSpace(origin.Model)
@@ -77,6 +78,34 @@ namespace AICompanion.Voice
             plan.PiperPath = resolved;
             plan.Voice = VoiceLabel(resolved, requested);
             return plan;
+        }
+
+        /// <summary>
+        /// The Player.log line for one synthesis request, named after the engine that will
+        /// actually run it. Kokoro and Piper stay on this machine; only xAI is a cloud call.
+        /// </summary>
+        public static string RequestLine(string engineId, VoiceSettings voice, int chars)
+        {
+            var id = engineId == null ? string.Empty : engineId.Trim();
+            var head = "Voice: TTS request starting (" + chars.ToString() + " chars, engine=";
+            if (string.Equals(id, PiperTtsProvider.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                var piper = voice != null ? voice.piperVoice : string.Empty;
+                var label = string.IsNullOrWhiteSpace(piper) ? DefaultPiperVoiceId : Path.GetFileNameWithoutExtension(piper.Trim());
+                return head + "Piper, voice=" + label + ", local)";
+            }
+
+            if (string.Equals(id, KokoroTtsProvider.Id, StringComparison.OrdinalIgnoreCase))
+                return head + "Kokoro, voice=" + KokoroVoiceName(voice != null ? voice.kokoroVoice : null) + ", local)";
+
+            if (string.Equals(id, VoiceRoute.Cloud, StringComparison.OrdinalIgnoreCase))
+            {
+                var cloud = voice != null && !string.IsNullOrWhiteSpace(voice.voiceId) ? voice.voiceId.Trim() : "eve";
+                var rate = TtsRequestJson.NormalizeSampleRate(voice != null ? voice.sampleRate : 24000);
+                return head + "xAI, voice=" + cloud + ", pcm, " + rate.ToString() + " Hz, cloud)";
+            }
+
+            return head + (id.Length == 0 ? "none" : id) + ")";
         }
 
         public const string DefaultKokoroVoiceId = "af_heart";
