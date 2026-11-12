@@ -40,12 +40,12 @@ namespace AICompanion.Settings
             return plan;
         }
 
-        public static string FormatResult(int status, string error, string body)
+        public static string FormatResult(int status, string error, string body, string secret = null)
         {
             var raw = status == 0 || string.IsNullOrEmpty(body) ? error : body;
             if (string.IsNullOrEmpty(raw))
                 raw = body ?? string.Empty;
-            var detail = ChatErrors.Scrub(raw).Replace('\r', ' ').Replace('\n', ' ').Trim();
+            var detail = ChatErrors.ScrubSecret(ChatErrors.Scrub(raw), secret).Replace('\r', ' ').Replace('\n', ' ').Trim();
             if (detail.Length > 180)
                 detail = detail.Substring(0, 180);
             if (status >= 200 && status < 300)

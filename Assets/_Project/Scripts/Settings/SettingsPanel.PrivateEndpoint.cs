@@ -139,7 +139,7 @@ namespace AICompanion.Settings
                     yield break;
 
                 var body = request.downloadHandler != null ? request.downloadHandler.text : string.Empty;
-                var status = ConnectionProbe.FormatResult((int)request.responseCode, request.error, body);
+                var status = ConnectionProbe.FormatResult((int)request.responseCode, request.error, body, key);
                 if (!string.IsNullOrEmpty(warning))
                     status += " " + warning;
                 SetStatus(status);

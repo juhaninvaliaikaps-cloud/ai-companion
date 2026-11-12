@@ -85,6 +85,14 @@ namespace AICompanion.AI
             return sb.ToString();
         }
 
+        /// <summary>Redacts a known secret the server may have echoed in its error body.</summary>
+        public static string ScrubSecret(string text, string secret)
+        {
+            if (string.IsNullOrEmpty(text) || string.IsNullOrWhiteSpace(secret) || secret.Length < 4)
+                return text;
+            return text.Replace(secret, "[redacted]");
+        }
+
         public static string ReadProviderMessage(string body, int maxChars)
         {
             var scrubbed = Collapse(Scrub(body));
