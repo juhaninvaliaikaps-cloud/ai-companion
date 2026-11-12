@@ -178,7 +178,8 @@ namespace AICompanion.NewUI
 
             SyncFocus();
             var signature = Signature();
-            if (signature != _signature && !AnyFieldFocused())
+            // Not while a field has focus or a slider is being dragged (the Size slider changes the window).
+            if (signature != _signature && !AnyFieldFocused() && !Input.GetMouseButton(0))
             {
                 _signature = signature;
                 _rebuild = true;
