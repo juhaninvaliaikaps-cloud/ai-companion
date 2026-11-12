@@ -538,10 +538,11 @@ namespace AICompanion.UI
             // the reply, and the model gets one hint line. The reply cue replaces the face.
             var mood = UserMoodDetector.Detect(text);
             Debug.Log(mood.ToLogString());
-            CompanionMoodInputs.ReportUserMood(mood);
             prompt = UserMoodPrompt.Append(prompt, mood);
+            // The face reaction is shaded by her mood before the user's mood moves it.
             if (director != null && UserMoodReaction.TryGetCue(mood, out var moodCue))
                 director.Play(moodCue);
+            CompanionMoodInputs.ReportUserMood(mood);
 
             var temperature = settings.temperature;
             var maxTokens = settings.maxTokens;
@@ -758,6 +759,11 @@ namespace AICompanion.UI
             // What the model really wrote, so a missing or broken cue shows in Player.log.
             Debug.Log(AnimationCueParser.DescribeTag(_exchange.LastCueTag, _exchange.LastCueStatus));
             Debug.Log(EmotionNames.FormatFieldLog(_exchange.LastCue.EmotionField));
+            // JUH-103 phase 2: the director shades the cue by the mood she had before this
+            // reply, so it plays first and the cue moves the mood after.
+            var director = GetComponent<Director>();
+            if (director != null)
+                director.Play(_exchange.LastCue);
             // JUH-103: her own cue moves her lasting mood, once per finished reply. The
             // screen-look remark paths call this without a new reply, and must not push the
             // last cue again.
@@ -766,9 +772,6 @@ namespace AICompanion.UI
                 _moodCueSerial = _exchange.CueSerial;
                 CompanionMoodInputs.ReportCue(_exchange.LastCue);
             }
-            var director = GetComponent<Director>();
-            if (director != null)
-                director.Play(_exchange.LastCue);
         }
 
         public void ShowSpeechNote(string message)
