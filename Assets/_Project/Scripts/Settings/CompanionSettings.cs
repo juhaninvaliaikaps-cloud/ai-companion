@@ -145,6 +145,9 @@ namespace AICompanion.Settings
         /// <summary>Clip sound volume, 0 to 1.</summary>
         public float ClipSoundVolume = VideoClipSound.DefaultVolume;
 
+        /// <summary>Adult drawn expressions from the separate portraits-adult folder. Off by default.</summary>
+        public bool IntimateExpressions;
+
         public static CompanionSettings CreateDefault()
         {
             return new CompanionSettings();
@@ -552,6 +555,8 @@ namespace AICompanion.Settings
                 settings.PlayClipSounds = flag;
             if (TryNumber(json, "clipSoundVolume", out number))
                 settings.ClipSoundVolume = (float)number;
+            if (TryBool(json, "intimateExpressions", out flag))
+                settings.IntimateExpressions = flag;
             settings.Normalize();
             return settings;
         }
@@ -619,6 +624,7 @@ namespace AICompanion.Settings
             Number(sb, "videoAvatarWalkSpeed", source.VideoAvatarWalkSpeed, false);
             Bool(sb, "playClipSounds", source.PlayClipSounds);
             Number(sb, "clipSoundVolume", source.ClipSoundVolume, false);
+            Bool(sb, "intimateExpressions", source.IntimateExpressions);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;

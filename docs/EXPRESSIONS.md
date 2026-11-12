@@ -44,6 +44,13 @@ The default map in `PortraitMap.CreateDefaults()` includes the drawn portrait se
 | `flustered_heavy` | open + blink + talk | flustered |
 | `seductive` | open + blink + talk | shy |
 | `kiss` | open + blink + talk | happy |
+| `finger_suck` | open + blink + talk | flustered |
+| `finger_suck_deep` | open + blink + talk | flustered |
+| `finger_suck_hold` | still (first frame of the hold sequence) | flustered |
+| `finger_pull` | still | shy |
+| `finger_pull_start` | still | shy |
+
+The `finger_*` set is suggestive rather than explicit. It is gated by **Settings -> Avatar -> Intimate expressions (18+)**, which is off by default and works only in Private mode (local model). While it is off, those portraits are not registered or resolved (the cue falls back to the normal flustered or shy face), and their names are not in the prompt. When it is on, the files load only from `%APPDATA%\ProjectLeia\portraits-adult`; if that folder is missing, the feature stays off and one warning is logged. The finger referred to is the user's finger. `finger_suck_hold_00`..`07` is a drawn sequence, but the panel shows a single frame, so only `_00` is registered.
 
 Synonyms choose the same portraits: `afraid`/`fear` -> `scared`, `annoyed` -> `tsundere`, `teasing` -> `smug`, `focused` -> `determined`, `tired` -> `sleepy`, `love` -> `kiss`, `flirty` -> `seductive`, `overwhelmed` -> `flustered_heavy`. A strong `sad` (intensity 0.9 or more) uses `crying`; a strong `surprised` uses `shocked`. Unknown words still fall back to neutral. `pouty` keeps its older drawing.
 

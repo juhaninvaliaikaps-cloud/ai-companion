@@ -27,6 +27,19 @@ namespace AICompanion.Core
             "pouty stays a playful pout and is not the same as angry. " +
             "These names are emotion values, so write them as emotion=\"crying\" and not as a gesture.";
 
+        /// <summary>
+        /// Appended to the prompt only when the adult drawn set is enabled and its folder exists.
+        /// The finger referred to is the user's, and the wording stays suggestive, not explicit.
+        /// </summary>
+        public const string IntimateCatalogLine =
+            "Intimate drawn expressions are on. They refer to the user's finger at her lips, not her own. " +
+            "finger_suck: his fingertip held at her lips, teasing. " +
+            "finger_suck_deep: holding his finger between her lips, eye contact. " +
+            "finger_suck_hold: eyes closed, holding it. " +
+            "finger_pull_start: his finger just leaving her lips. " +
+            "finger_pull: after, a shy satisfied smile. " +
+            "Use them only when the conversation is already intimate, and keep the wording suggestive.";
+
         public static bool TryParse(string value, out Emotion emotion)
         {
             emotion = Emotion.Neutral;
@@ -103,10 +116,17 @@ namespace AICompanion.Core
                     return true;
                 case "flustered_heavy":
                 case "overwhelmed":
+                case "finger_suck":
+                case "finger_suck_deep":
+                case "finger_suck_hold":
                     emotion = Emotion.Flustered;
                     return true;
                 case "annoyed":
                     emotion = Emotion.Sad;
+                    return true;
+                case "finger_pull":
+                case "finger_pull_start":
+                    emotion = Emotion.Shy;
                     return true;
                 default:
                     return Enum.TryParse(value.Trim(), true, out emotion);
@@ -127,6 +147,8 @@ namespace AICompanion.Core
         public static string PortraitAlias(string field, float intensity)
         {
             var token = Token(field);
+            if (IntimateExpressions.IsIntimateId(token) && !IntimateExpressions.Allows(token))
+                return string.Empty;
             switch (token)
             {
                 case "sad":
@@ -175,6 +197,11 @@ namespace AICompanion.Core
                 case "seductive":
                 case "kiss":
                 case "smug_wink":
+                case "finger_suck":
+                case "finger_suck_deep":
+                case "finger_suck_hold":
+                case "finger_pull":
+                case "finger_pull_start":
                     return token;
                 case "excited":
                 case "loving":

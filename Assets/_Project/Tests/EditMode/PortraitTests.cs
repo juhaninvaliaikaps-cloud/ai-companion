@@ -56,6 +56,23 @@ namespace AICompanion.Tests.EditMode
             AssertAnimated(map, "flustered_heavy", "flustered_heavy", "flustered_heavy_blink_half", "flustered_heavy_blink_closed", "flustered_heavy_talk");
             AssertAnimated(map, "seductive", "seductive", "seductive_blink_half", "seductive_blink_closed", "seductive_talk");
             AssertAnimated(map, "kiss", "kiss", "kiss_blink_half", "kiss_blink_closed", "kiss_talk");
+            IntimateExpressions.Reset();
+            var offMap = PortraitMap.CreateDefaults();
+            Assert.AreEqual(PortraitStems.NeutralOpen, offMap.Resolve("finger_suck").Open, "the gated set stays out of the default map");
+            IntimateExpressions.Configure(true, true, true);
+            try
+            {
+                var intimate = PortraitMap.CreateDefaults(true);
+                AssertAnimated(intimate, "finger_suck", "finger_suck", "finger_suck_blink_half", "finger_suck_blink_closed", "finger_suck_talk");
+                AssertAnimated(intimate, "finger_suck_deep", "finger_suck_deep", "finger_suck_deep_blink_half", "finger_suck_deep_blink_closed", "finger_suck_deep_talk");
+                AssertStill(intimate, "finger_suck_hold", "finger_suck_hold_00");
+                AssertStill(intimate, "finger_pull", "finger_pull_02_smile");
+                AssertStill(intimate, "finger_pull_start", "finger_pull_01");
+            }
+            finally
+            {
+                IntimateExpressions.Reset();
+            }
 
             var wink = map.Resolve("smug_wink");
             Assert.AreEqual("smug_wink", wink.Open);

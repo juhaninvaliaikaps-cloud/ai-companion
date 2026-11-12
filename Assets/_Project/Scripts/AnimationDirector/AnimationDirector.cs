@@ -83,6 +83,8 @@ namespace AICompanion.AnimationDirector
                 text.Append(AnimationCueParser.Instruction)
                     .Append('\n')
                     .Append(EmotionNames.CatalogLine);
+                if (IntimateExpressions.Active)
+                    text.Append('\n').Append(EmotionNames.IntimateCatalogLine);
                 return text.ToString();
             }
         }

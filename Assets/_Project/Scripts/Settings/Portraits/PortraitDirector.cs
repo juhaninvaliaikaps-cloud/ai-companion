@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AICompanion.Core;
 using UnityEngine;
 
 namespace AICompanion.Settings
@@ -140,7 +141,7 @@ namespace AICompanion.Settings
             float fadeUnit)
         {
             if (map == null)
-                map = PortraitMap.CreateDefaults();
+                map = PortraitMap.CreateDefaults(IntimateExpressions.Active);
             if (string.IsNullOrEmpty(emotion))
                 emotion = "neutral";
 
