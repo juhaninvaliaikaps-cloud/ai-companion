@@ -1120,16 +1120,20 @@ namespace AICompanion.UI
         {
             if (_conversation == null || _content == null)
                 return;
-            if (!force && _shownRevision == _conversation.Revision)
-                return;
 
-            _shownRevision = _conversation.Revision;
-            _view.Update(_conversation.Lines);
+            // The panel width follows her placement, so a resize re-wraps the messages even
+            // when no new message arrived (Bugbot on #64).
             var width = _content.rect.width;
             if (width < 8f)
                 width = Mathf.Max(8f, _guiRect.width - 16f);
             var textWidth = Mathf.Max(8f, width - 8f);
             var widthChanged = Mathf.Abs(textWidth - _laidOutWidth) > 0.5f;
+            var newContent = force || _shownRevision != _conversation.Revision;
+            if (!newContent && !widthChanged)
+                return;
+
+            _shownRevision = _conversation.Revision;
+            _view.Update(_conversation.Lines);
             _laidOutWidth = textWidth;
 
             var count = _view.Count;
@@ -1185,7 +1189,8 @@ namespace AICompanion.UI
             var height = Mathf.Max(8f, y - MessageSpacing);
             _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
             _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
-            if (_scroll != null)
+            // Only new content jumps to the latest message; a resize keeps the reading spot.
+            if (_scroll != null && newContent)
                 _scroll.verticalNormalizedPosition = 0f;
         }
 
