@@ -113,13 +113,28 @@ namespace AICompanion.AnimationDirector
             Debug.Log("AnimationDirector: reaction " + name + " -> " + result.ToString().ToLowerInvariant());
         }
 
-        /// <summary>The reaction to ask for: the cue's reaction attribute, or an emotion word that names an offered reaction.</summary>
+        /// <summary>
+        /// The reaction to ask for: the cue's reaction attribute, else a gesture or an emotion
+        /// word that names an offered reaction. Models write gesture="pout" and
+        /// gesture="turn_around" although the prompt asks for reaction= (JUH-99 player log,
+        /// 2026-11-12, Rocinante-X-12B): only the walk played.
+        /// </summary>
         public static string ReactionName(AnimationCue cue)
         {
             if (!string.IsNullOrEmpty(cue.Reaction))
                 return cue.Reaction;
-            var word = AnimationCueParser.SanitizeGesture(cue.EmotionField);
-            return word.Length > 0 && AvatarReactionCatalog.Contains(word) && !IsPlainEmotion(word) ? word : string.Empty;
+
+            var gesture = cue.Gesture == null ? string.Empty : cue.Gesture.Trim().ToLowerInvariant();
+            if (gesture.Length > 0 && gesture != WalkCue && gesture != StopCue)
+            {
+                // gesture="flustered" plays; with emotion="flustered" the face already asks for it.
+                var fromGesture = AvatarReactionCatalog.Find(gesture);
+                if (fromGesture.Length > 0 && !IsEmotion(fromGesture, cue.Emotion))
+                    return fromGesture;
+            }
+
+            var word = AvatarReactionCatalog.Find(cue.EmotionField);
+            return word.Length > 0 && !IsPlainEmotion(word) ? word : string.Empty;
         }
 
         // A plain emotion such as "happy" reaches the 2D avatar through the face, not here,
@@ -128,6 +143,11 @@ namespace AICompanion.AnimationDirector
         {
             Emotion emotion;
             return EmotionNames.TryParse(word, out emotion) && string.Equals(emotion.ToString(), word, System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        static bool IsEmotion(string word, Emotion emotion)
+        {
+            return string.Equals(emotion.ToString(), word, System.StringComparison.OrdinalIgnoreCase);
         }
 
         public void Resolve()

@@ -72,6 +72,33 @@ namespace AICompanion.Core
             return token.Length > 0 && _names.Contains(token);
         }
 
+        /// <summary>
+        /// The offered reaction a model's word stands for: the same name, or else the one
+        /// offered name that starts with the word and an underscore (turn_around ->
+        /// turn_around_back, wink -> wink_dance). Empty when none or more than one fit.
+        /// </summary>
+        public static string Find(string word)
+        {
+            var token = AnimationCueParser.SanitizeGesture(word);
+            if (token.Length == 0)
+                return string.Empty;
+            if (_names.Contains(token))
+                return token;
+
+            var prefix = token + "_";
+            var found = string.Empty;
+            for (var i = 0; i < _names.Count; i++)
+            {
+                if (!_names[i].StartsWith(prefix, StringComparison.Ordinal))
+                    continue;
+                if (found.Length > 0)
+                    return string.Empty;
+                found = _names[i];
+            }
+
+            return found;
+        }
+
         /// <summary>The prompt line for the current list, or empty when there is none.</summary>
         public static string PromptLine()
         {

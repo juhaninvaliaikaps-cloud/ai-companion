@@ -203,5 +203,42 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(string.Empty, Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"sleepy\" />\nx").Cue));
             Assert.AreEqual(string.Empty, Director.ReactionName(AnimationCueParser.NeutralCue));
         }
+
+        [Test]
+        public void ReactionName_AGestureThatNamesAnOfferedReaction_PlaysIt()
+        {
+            // The tags Rocinante-X-12B wrote in the JUH-99 player test, 2026-11-12.
+            AvatarReactionCatalog.Set(new[] { "happy", "concerned", "turn360", "embarrassed", "flustered", "pout", "wink_dance", "turn_around_back" });
+
+            Assert.AreEqual("pout", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"sad\" intensity=\"0.6\" gesture=\"pout\" />\nx").Cue));
+            Assert.AreEqual("wink_dance", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"neutral\" gesture=\"wink_dance\" intensity=\"0.7\" />\nx").Cue));
+            // One offered name starts with the word: that one.
+            Assert.AreEqual("turn_around_back", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"neutral\" gesture=\"turn_around\" />\nx").Cue));
+            Assert.AreEqual("wink_dance", Director.ReactionName(AnimationCueParser.Parse("<animation gesture=\"wink\" />\nx").Cue));
+            // The reaction attribute still wins over the gesture.
+            Assert.AreEqual("flustered", Director.ReactionName(AnimationCueParser.Parse("<animation reaction=\"flustered\" gesture=\"pout\" />\nx").Cue));
+            // An emotion clip named as the gesture plays, unless the emotion already asks for it.
+            Assert.AreEqual("flustered", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"neutral\" gesture=\"flustered\" />\nx").Cue));
+            Assert.AreEqual(string.Empty, Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"happy\" gesture=\"happy\" />\nx").Cue));
+            // Not reactions: walk, stop, a 3D gesture.
+            Assert.AreEqual(string.Empty, Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"neutral\" gesture=\"walk\" direction=\"left\" />\nx").Cue));
+            Assert.AreEqual(string.Empty, Director.ReactionName(AnimationCueParser.Parse("<animation gesture=\"stop\" />\nx").Cue));
+            Assert.AreEqual(string.Empty, Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"happy\" gesture=\"laugh\" />\nx").Cue));
+        }
+
+        [Test]
+        public void Catalog_Find_IsTheNameOrTheOnlyNameStartingWithTheWord()
+        {
+            AvatarReactionCatalog.Set(new[] { "pout", "turn_around_back", "turn_around_front", "wink_dance" });
+
+            Assert.AreEqual("pout", AvatarReactionCatalog.Find("POUT"));
+            Assert.AreEqual("wink_dance", AvatarReactionCatalog.Find("wink"));
+            // Two fit: none.
+            Assert.AreEqual(string.Empty, AvatarReactionCatalog.Find("turn_around"));
+            // Only whole words before an underscore.
+            Assert.AreEqual(string.Empty, AvatarReactionCatalog.Find("po"));
+            Assert.AreEqual(string.Empty, AvatarReactionCatalog.Find(""));
+            Assert.AreEqual(string.Empty, AvatarReactionCatalog.Find(null));
+        }
     }
 }
