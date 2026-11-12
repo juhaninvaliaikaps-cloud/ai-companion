@@ -333,6 +333,18 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Status_WarnsThatAPairCanSlip_ButNotForAPackedClip()
+        {
+            var pair = new VideoAvatarClip("idle", In("idle.mp4"), In("idle.mask.mp4"), VideoMaskKind.MaskVideo);
+            var packed = new VideoAvatarClip("idle", In("idle.sbs.mp4"), null, VideoMaskKind.Packed);
+            var picture = new VideoAvatarClip("idle", In("idle.mp4"), In("idle.mask.png"), VideoMaskKind.MaskImage);
+
+            StringAssert.Contains(VideoAvatarStatus.PairWarning, VideoAvatarStatus.Describe(VideoAvatarState.Playing, Folder, pair, null));
+            StringAssert.DoesNotContain(VideoAvatarStatus.PairWarning, VideoAvatarStatus.Describe(VideoAvatarState.Playing, Folder, packed, null));
+            StringAssert.DoesNotContain(VideoAvatarStatus.PairWarning, VideoAvatarStatus.Describe(VideoAvatarState.Playing, Folder, picture, null));
+        }
+
+        [Test]
         public void Status_ProblemsNameTheFolderOrTheErrorAndThe3DFallback()
         {
             var clip = new VideoAvatarClip("idle", In("idle.mp4"), null, VideoMaskKind.VideoAlpha);

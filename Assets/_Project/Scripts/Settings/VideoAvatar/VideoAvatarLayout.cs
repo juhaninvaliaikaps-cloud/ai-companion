@@ -427,11 +427,18 @@ namespace AICompanion.Settings
             return text;
         }
 
+        public const string PairWarning =
+            "Picture and mask are two decoders, so her outline can slip by a frame. A folder of packed .sbs.mp4 clips cannot.";
+
         static string MaskText(VideoAvatarClip clip)
         {
             switch (clip.Mask)
             {
                 case VideoMaskKind.MaskVideo:
+                    // Said on screen because a folder of pairs looks like a worse build: the
+                    // two decoders drift on the walk and the outline slips (JUH-99, 2026-11-12).
+                    return "Transparency from " + VideoAvatarFiles.FileName(clip.MaskPath) + ". "
+                        + PairWarning;
                 case VideoMaskKind.MaskImage:
                     return "Transparency from " + VideoAvatarFiles.FileName(clip.MaskPath) + ".";
                 case VideoMaskKind.Packed:
