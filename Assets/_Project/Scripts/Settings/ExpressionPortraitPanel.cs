@@ -44,6 +44,9 @@ namespace AICompanion.Settings
         PortraitLibrary _library = new PortraitLibrary();
         bool _intimateLogged;
         bool _intimateMode;
+        bool _settingKnown;
+        bool _wantedIntimate;
+        bool _wantedPrivate;
         PortraitMap _map;
         Rect _guiRect;
         string _appData = string.Empty;
@@ -278,16 +281,23 @@ namespace AICompanion.Settings
             EnsurePaths();
             var requested = RequestedPortraitFolder();
             var requestChanged = !string.Equals(requested, _requested, StringComparison.Ordinal);
+            var settings = _settings != null ? _settings.CurrentSettings : null;
+            var wanted = settings != null && settings.IntimateExpressions;
+            var privateMode = settings != null && settings.PrivateMode;
+            var settingsChanged = !_settingKnown || wanted != _wantedIntimate || privateMode != _wantedPrivate;
+            _settingKnown = true;
+            _wantedIntimate = wanted;
+            _wantedPrivate = privateMode;
             _refreshIn -= delta;
-            if (!force && !requestChanged && _refreshIn > 0f && _map != null)
+            if (!force && !requestChanged && !settingsChanged && _refreshIn > 0f && _map != null)
                 return;
 
             _refreshIn = RefreshSeconds;
             _requested = requested;
 
-            // The adult set is a separate folder and a separate consent. Without the folder the
-            // setting silently has no effect, and the warning is written once.
-            var wanted = _settings != null && _settings.CurrentSettings != null && _settings.CurrentSettings.IntimateExpressions;
+            // The adult set is a separate folder and a separate consent, and it stays local:
+            // Private mode must be on as well. Without the folder the setting silently has no
+            // effect, and the warning is written once.
             var adultFolder = PortraitFolders.Adult(_appData, _persistent);
             var adultPresent = !string.IsNullOrEmpty(adultFolder) && Directory.Exists(adultFolder);
             if (wanted && !adultPresent && !_intimateLogged)
@@ -296,7 +306,7 @@ namespace AICompanion.Settings
                 Debug.LogWarning("Expression portraits: intimate expressions are on but " + adultFolder + " is missing. They stay off.");
             }
 
-            IntimateExpressions.Configure(wanted, adultPresent);
+            IntimateExpressions.Configure(wanted, privateMode, adultPresent);
             if (_intimateMode != IntimateExpressions.Active)
             {
                 _intimateMode = IntimateExpressions.Active;

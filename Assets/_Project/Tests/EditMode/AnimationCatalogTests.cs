@@ -195,7 +195,7 @@ namespace AICompanion.Tests.EditMode
             Assert.IsFalse(catalog.BuildPromptList().Contains("finger_"), "gated rows stay out of the prompt while the setting is off");
             Assert.IsFalse(catalog.TryGetByTag("smile", out AnimationEntry smileTag) && IntimateExpressions.IsIntimateId(smileTag.id));
 
-            IntimateExpressions.Configure(true, true);
+            IntimateExpressions.Configure(true, true, true);
             try
             {
                 Assert.AreEqual(45, catalog.BuildPromptList().Split('\n').Length);

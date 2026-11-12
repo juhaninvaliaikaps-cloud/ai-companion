@@ -967,7 +967,12 @@ namespace AICompanion.Settings
                     SaveHistory();
             });
             Note("Off keeps the transcript for this session only. On writes it under ProjectLeia, outside the repo.");
-            AddToggle("Private mode", _settings.PrivateMode, value => _settings.PrivateMode = value);
+            AddToggle("Private mode", _settings.PrivateMode, value =>
+            {
+                _settings.PrivateMode = value;
+                ApplyLive();
+                _rebuild = true;
+            });
             Note("Private mode sends chat only to the local Ollama model. Cloud TTS, the voice agent, and Uthana do not receive that content. The default is off.");
             AddButton("Clear chat history", () =>
             {

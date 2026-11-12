@@ -19,7 +19,7 @@ namespace AICompanion.Settings
             settings.Normalize();
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) ?? string.Empty;
             var adultFolder = PortraitFolders.Adult(appData, Application.persistentDataPath ?? string.Empty);
-            IntimateExpressions.Configure(settings.IntimateExpressions,
+            IntimateExpressions.Configure(settings.IntimateExpressions, settings.PrivateMode,
                 !string.IsNullOrEmpty(adultFolder) && Directory.Exists(adultFolder));
             var provider = AICompanion.Voice.OutboundPrivacy.ChatProviderId(settings.PrivateMode, settings.ProviderId);
 

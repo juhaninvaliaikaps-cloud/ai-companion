@@ -59,7 +59,7 @@ namespace AICompanion.Tests.EditMode
             IntimateExpressions.Reset();
             var offMap = PortraitMap.CreateDefaults();
             Assert.AreEqual(PortraitStems.NeutralOpen, offMap.Resolve("finger_suck").Open, "the gated set stays out of the default map");
-            IntimateExpressions.Configure(true, true);
+            IntimateExpressions.Configure(true, true, true);
             try
             {
                 var intimate = PortraitMap.CreateDefaults(true);

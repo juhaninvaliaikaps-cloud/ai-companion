@@ -17,16 +17,20 @@ namespace AICompanion.Core
 
         public static bool FolderPresent { get; private set; }
 
-        public static void Configure(bool enabled, bool folderPresent)
+        /// <summary>Intimate portraits stay local: they are active only in Private mode.</summary>
+        public static bool PrivateMode { get; private set; }
+
+        public static void Configure(bool enabled, bool privateMode, bool folderPresent)
         {
             Enabled = enabled;
+            PrivateMode = privateMode;
             FolderPresent = folderPresent;
-            Active = enabled && folderPresent;
+            Active = enabled && privateMode && folderPresent;
         }
 
         public static void Reset()
         {
-            Configure(false, false);
+            Configure(false, false, false);
         }
 
         /// <summary>True for a stem or catalog id in the gated set.</summary>

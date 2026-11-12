@@ -279,7 +279,14 @@ namespace AICompanion.Tests.EditMode
                 Assert.IsFalse(director.SystemPromptSuffix.Contains("Intimate drawn expressions"), "the prompt has no intimate line while off");
                 Assert.IsFalse(director.SystemPromptSuffix.Contains("finger_"), "the prompt has no finger ids while off");
 
-                IntimateExpressions.Configure(true, true);
+                IntimateExpressions.Configure(true, false, true);
+                var localOff = model.Decide(cue);
+                Assert.AreEqual(Emotion.Flustered, localOff.Emotion, "private mode off means the normal flustered face");
+                Assert.AreEqual(string.Empty, localOff.Portrait, "the finger portrait is not resolved outside Private mode");
+                Assert.IsFalse(director.SystemPromptSuffix.Contains("finger_"), "private mode off removes the finger ids from the prompt immediately");
+                Assert.IsFalse(director.SystemPromptSuffix.Contains("Intimate drawn expressions"), "private mode off removes the intimate line immediately");
+
+                IntimateExpressions.Configure(true, true, true);
                 try
                 {
                     var on = model.Decide(cue);

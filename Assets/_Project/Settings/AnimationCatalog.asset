@@ -521,7 +521,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: finger_suck
-    description: use for a teasing moment with a finger at her lips
+    description: use for a teasing moment, his fingertip at her lips
     tags:
     - finger_tease
     - finger_lips
@@ -534,7 +534,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: finger_suck_deep
-    description: use when the finger stays at her lips a little longer
+    description: use when she holds his finger between her lips with eye contact
     tags:
     - finger_tease
     - finger_eye_contact
@@ -547,7 +547,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: finger_suck_hold
-    description: use when she holds the finger-at-lips pose
+    description: use when she closes her eyes, still holding it
     tags:
     - finger_hold
     - finger_lips
@@ -560,7 +560,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: finger_pull
-    description: use when she draws her finger away with a smile
+    description: use after, a shy satisfied smile
     tags:
     - finger_after
     - finger_smile
@@ -573,7 +573,7 @@ MonoBehaviour:
     durationSeconds: 2
     priority: 0
   - id: finger_pull_start
-    description: use when she brings a finger toward her lips
+    description: use when his finger is just leaving her lips
     tags:
     - finger_tease
     - finger_lips

@@ -123,7 +123,7 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(Emotion.Flustered, finger.Cue.Emotion);
             IntimateExpressions.Reset();
             Assert.AreEqual(string.Empty, EmotionNames.PortraitAlias(finger.Cue.EmotionField, finger.Cue.Intensity), "the gated portrait is not resolved while off");
-            IntimateExpressions.Configure(true, true);
+            IntimateExpressions.Configure(true, true, true);
             try
             {
                 Assert.AreEqual("finger_suck", EmotionNames.PortraitAlias(finger.Cue.EmotionField, finger.Cue.Intensity));
