@@ -135,6 +135,26 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Exchange_CueSerial_CountsEachFinishedReplyOnce()
+        {
+            // JUH-103: the mood takes each reply's cue once, keyed on this counter.
+            var conversation = new ChatConversation();
+            var exchange = new ChatExchange(conversation);
+            var provider = new ScriptedProvider { Result = ChatResult.Success("<animation emotion=\"happy\" />\nHi.") };
+            Assert.AreEqual(0, exchange.CueSerial);
+
+            exchange.Run(provider, "hi", "persona", 0.5f, 200, CancellationToken.None).GetAwaiter().GetResult();
+            Assert.AreEqual(1, exchange.CueSerial);
+
+            // Clearing the transcript is not a new reply.
+            conversation.ClearTranscript();
+            Assert.AreEqual(1, exchange.CueSerial);
+
+            exchange.Run(provider, "again", "persona", 0.5f, 200, CancellationToken.None).GetAwaiter().GetResult();
+            Assert.AreEqual(2, exchange.CueSerial);
+        }
+
+        [Test]
         public void Exchange_WithoutAReminder_SendsTheMessageAsTyped()
         {
             var conversation = new ChatConversation();
