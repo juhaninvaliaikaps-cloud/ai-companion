@@ -29,7 +29,8 @@ namespace AICompanion.AnimationDirector
                 for (int i = 0; i < entries.Count; i++)
                 {
                     AnimationEntry candidate = entries[i];
-                    if (candidate != null && string.Equals(candidate.id, trimmed, StringComparison.OrdinalIgnoreCase))
+                    if (candidate != null && !GatedOut(candidate) &&
+                        string.Equals(candidate.id, trimmed, StringComparison.OrdinalIgnoreCase))
                     {
                         entry = candidate;
                         return true;
@@ -53,7 +54,7 @@ namespace AICompanion.AnimationDirector
                 for (int i = 0; i < entries.Count; i++)
                 {
                     AnimationEntry candidate = entries[i];
-                    if (candidate == null || candidate.tags == null)
+                    if (candidate == null || candidate.tags == null || GatedOut(candidate))
                         continue;
 
                     for (int t = 0; t < candidate.tags.Length; t++)
@@ -84,7 +85,7 @@ namespace AICompanion.AnimationDirector
                 for (int i = 0; i < entries.Count; i++)
                 {
                     AnimationEntry candidate = entries[i];
-                    if (candidate != null && candidate.HasGesture &&
+                    if (candidate != null && !GatedOut(candidate) && candidate.HasGesture &&
                         string.Equals(candidate.gesture, trimmed, StringComparison.OrdinalIgnoreCase))
                     {
                         entry = candidate;
@@ -106,7 +107,7 @@ namespace AICompanion.AnimationDirector
             for (int i = 0; i < entries.Count; i++)
             {
                 AnimationEntry candidate = entries[i];
-                if (candidate != null && candidate.emotion == emotion && !candidate.HasGesture)
+                if (candidate != null && !GatedOut(candidate) && candidate.emotion == emotion && !candidate.HasGesture)
                 {
                     entry = candidate;
                     return true;
@@ -127,7 +128,7 @@ namespace AICompanion.AnimationDirector
             for (int i = 0; i < entries.Count; i++)
             {
                 AnimationEntry entry = entries[i];
-                if (entry == null || string.IsNullOrWhiteSpace(entry.id))
+                if (entry == null || string.IsNullOrWhiteSpace(entry.id) || GatedOut(entry))
                 {
                     continue;
                 }
@@ -267,6 +268,11 @@ namespace AICompanion.AnimationDirector
             }
 
             return problems.Count == 0;
+        }
+
+        static bool GatedOut(AnimationEntry entry)
+        {
+            return !IntimateExpressions.Active && IntimateExpressions.IsIntimateId(entry.id);
         }
 
         private static bool HasLineBreak(string value)

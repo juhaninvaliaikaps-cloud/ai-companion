@@ -108,7 +108,7 @@ namespace AICompanion.Settings
                 stem, stem + "_blink_half", stem + "_blink_closed", stem + "_talk");
         }
 
-        public static PortraitMap CreateDefaults()
+        public static PortraitMap CreateDefaults(bool intimate = false)
         {
             var map = new PortraitMap();
             map.Set("neutral", PortraitFrames.NeutralSet());
@@ -157,11 +157,14 @@ namespace AICompanion.Settings
             map.Set("flustered_heavy", Animated(PortraitStems.FlusteredHeavy));
             map.Set("seductive", Animated(PortraitStems.Seductive));
             map.Set("kiss", Animated(PortraitStems.Kiss));
-            map.Set("finger_suck", Animated(PortraitStems.FingerSuck));
-            map.Set("finger_suck_deep", Animated(PortraitStems.FingerSuckDeep));
-            map.Set("finger_suck_hold", PortraitFrameSet.Single(PortraitStems.FingerSuckHold));
-            map.Set("finger_pull", PortraitFrameSet.Single(PortraitStems.FingerPull));
-            map.Set("finger_pull_start", PortraitFrameSet.Single(PortraitStems.FingerPullStart));
+            if (intimate)
+            {
+                map.Set("finger_suck", Animated(PortraitStems.FingerSuck));
+                map.Set("finger_suck_deep", Animated(PortraitStems.FingerSuckDeep));
+                map.Set("finger_suck_hold", PortraitFrameSet.Single(PortraitStems.FingerSuckHold));
+                map.Set("finger_pull", PortraitFrameSet.Single(PortraitStems.FingerPull));
+                map.Set("finger_pull_start", PortraitFrameSet.Single(PortraitStems.FingerPullStart));
+            }
 
             // A wink has no blink frames: only the open still and its talk frame.
             map.Set("smug_wink", new PortraitFrameSet(

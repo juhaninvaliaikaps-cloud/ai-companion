@@ -42,6 +42,8 @@ namespace AICompanion.Settings
         Texture2D _roundedTexture;
         Transform _head;
         PortraitLibrary _library = new PortraitLibrary();
+        bool _intimateLogged;
+        bool _intimateMode;
         PortraitMap _map;
         Rect _guiRect;
         string _appData = string.Empty;
@@ -282,6 +284,26 @@ namespace AICompanion.Settings
 
             _refreshIn = RefreshSeconds;
             _requested = requested;
+
+            // The adult set is a separate folder and a separate consent. Without the folder the
+            // setting silently has no effect, and the warning is written once.
+            var wanted = _settings != null && _settings.CurrentSettings != null && _settings.CurrentSettings.IntimateExpressions;
+            var adultFolder = PortraitFolders.Adult(_appData, _persistent);
+            var adultPresent = !string.IsNullOrEmpty(adultFolder) && Directory.Exists(adultFolder);
+            if (wanted && !adultPresent && !_intimateLogged)
+            {
+                _intimateLogged = true;
+                Debug.LogWarning("Expression portraits: intimate expressions are on but " + adultFolder + " is missing. They stay off.");
+            }
+
+            IntimateExpressions.Configure(wanted, adultPresent);
+            if (_intimateMode != IntimateExpressions.Active)
+            {
+                _intimateMode = IntimateExpressions.Active;
+                _mapStamp = -1;
+                _map = null;
+            }
+
             var folder = PortraitFolders.Select(requested, _appData, _persistent, Directory.Exists);
             if (!string.Equals(folder, _folder, StringComparison.OrdinalIgnoreCase))
             {
@@ -294,6 +316,8 @@ namespace AICompanion.Settings
             }
 
             _library = string.IsNullOrEmpty(_folder) ? new PortraitLibrary() : PortraitLibrary.Load(_folder);
+            if (IntimateExpressions.Active && adultPresent)
+                _library.Merge(PortraitLibrary.Load(adultFolder, true));
             _map = ReadMap(_folder);
             DropFailedSprites();
         }
@@ -327,7 +351,7 @@ namespace AICompanion.Settings
                 if (_map != null && _mapStamp == -2)
                     return _map;
                 _mapStamp = -2;
-                return PortraitMap.CreateDefaults();
+                return PortraitMap.CreateDefaults(IntimateExpressions.Active);
             }
 
             var path = Path.Combine(folder, PortraitFolders.MapFileName);
@@ -336,7 +360,7 @@ namespace AICompanion.Settings
                 if (_map != null && _mapStamp == 0)
                     return _map;
                 _mapStamp = 0;
-                return PortraitMap.CreateDefaults();
+                return PortraitMap.CreateDefaults(IntimateExpressions.Active);
             }
 
             long stamp;
@@ -355,11 +379,11 @@ namespace AICompanion.Settings
             _mapStamp = stamp;
             try
             {
-                return PortraitMapJson.Parse(File.ReadAllText(path));
+                return PortraitMapJson.Parse(File.ReadAllText(path), IntimateExpressions.Active);
             }
             catch (Exception)
             {
-                return PortraitMap.CreateDefaults();
+                return PortraitMap.CreateDefaults(IntimateExpressions.Active);
             }
         }
 
