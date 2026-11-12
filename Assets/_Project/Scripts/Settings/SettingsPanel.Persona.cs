@@ -69,8 +69,25 @@ namespace AICompanion.Settings
             AddButton(string.IsNullOrEmpty(persona.AvatarSource) ? "Leave avatar unchanged (selected)" : "Leave avatar unchanged", () => SaveActive(idFixed, item => item.AvatarSource = string.Empty));
             AddField("Portrait folder", persona.PortraitFolder, false, value => SaveActive(idFixed, item => item.PortraitFolder = value));
             Note("A missing portrait folder uses the standard portraits folder.");
+            AddTemperamentPicker(idFixed, persona.Temperament);
             if (current.UserFile)
                 AddButton(current.BuiltIn ? "Delete saved copy" : "Delete persona", DeleteActivePersona);
+        }
+
+        /// <summary>
+        /// JUH-103 phase 3: a few temperament presets, never raw numbers. The choice is saved in
+        /// the persona file and takes effect at once.
+        /// </summary>
+        void AddTemperamentPicker(string id, string current)
+        {
+            Note("Temperament: how quickly her moods build and fade. Balanced is the default.");
+            for (var i = 0; i < AICompanion.Core.PersonaTemperaments.Ids.Length; i++)
+            {
+                var preset = AICompanion.Core.PersonaTemperaments.Get(AICompanion.Core.PersonaTemperaments.Ids[i]);
+                var stored = AICompanion.Core.PersonaTemperaments.Normalize(preset.Id);
+                AddButton(PersonaChoiceLabel("Temperament: " + preset.Name, current ?? string.Empty, stored),
+                    () => SaveActive(id, item => item.Temperament = stored));
+            }
         }
 
         string ActiveModelText()
@@ -148,6 +165,9 @@ namespace AICompanion.Settings
                 var beforeVoice = _settings.PiperVoice;
                 PersonaApply.Overlay(_settings, saved, File.Exists, Directory.Exists);
                 ApplyLive();
+                var keeper = GetComponent<CompanionMoodKeeper>();
+                if (keeper != null)
+                    keeper.ReloadTemperament();
                 SetStatus(SavedStatus(saved, beforeVoice));
             }
             else

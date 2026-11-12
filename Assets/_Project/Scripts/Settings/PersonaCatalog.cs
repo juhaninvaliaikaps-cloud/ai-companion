@@ -460,6 +460,18 @@ namespace AICompanion.Settings
             PersonaApply.Overlay(settings, persona, File.Exists, Directory.Exists);
         }
 
+        /// <summary>
+        /// The temperament of a persona (JUH-103 phase 3). No persona (the setup name), a missing
+        /// persona, or a blank or unknown preset is the default (balanced) temperament.
+        /// </summary>
+        public static AICompanion.Core.PersonaTemperament TemperamentFor(PersonaCatalog catalog, string personaId)
+        {
+            if (catalog == null || string.IsNullOrWhiteSpace(personaId))
+                return AICompanion.Core.PersonaTemperament.Default;
+            var persona = catalog.Find(personaId);
+            return AICompanion.Core.PersonaTemperaments.Get(persona == null ? null : persona.Temperament);
+        }
+
         public static string SystemPrompt(CompanionSettings settings, PersonaCatalog catalog)
         {
             if (settings == null)

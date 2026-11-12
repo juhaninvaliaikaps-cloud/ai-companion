@@ -82,6 +82,25 @@ namespace AICompanion.Core
 
         readonly float[] _strength = new float[CompanionMoodNames.Count];
         bool _intimateAllowed;
+        PersonaTemperament _temperament = PersonaTemperament.Default;
+
+        /// <summary>
+        /// The persona's temperament (JUH-103 phase 3). It scales half-lives and keeps baseline
+        /// and bias floors in <see cref="Tick"/>, and <see cref="CompanionMoodTable"/> scales
+        /// pushes by it. The default is exactly the phase 1/2 behaviour. Not saved in the mood
+        /// file: it belongs to the persona.
+        /// </summary>
+        public PersonaTemperament Temperament
+        {
+            get { return _temperament; }
+            set { _temperament = value ?? PersonaTemperament.Default; }
+        }
+
+        float HalfLife(int index)
+        {
+            var mood = (CompanionMood)index;
+            return CompanionMoodTuning.HalfLife(mood) * _temperament.HalfLifeScale(mood);
+        }
 
         /// <summary>The mood that shows now. Content when no mood is strong enough.</summary>
         public CompanionMood Shown { get; private set; }
@@ -143,7 +162,10 @@ namespace AICompanion.Core
                 // Below the night level Sleepy does not fade: the night pulls it up instead.
                 if (i == sleepy && night > _strength[i])
                     continue;
-                var halfLife = CompanionMoodTuning.HalfLife((CompanionMood)i);
+                // Below a temperament floor (baseline or bias) a mood does not fade either.
+                if (_temperament.RestFloor((CompanionMood)i) > _strength[i])
+                    continue;
+                var halfLife = HalfLife(i);
                 if (halfLife > 0f && _strength[i] > 0f)
                     _strength[i] *= Mathf.Pow(0.5f, seconds / halfLife);
                 if (_strength[i] < 0.0001f)
@@ -154,6 +176,17 @@ namespace AICompanion.Core
             {
                 var approach = 1f - Mathf.Exp(-seconds / CompanionMoodTuning.NightSleepySeconds);
                 _strength[sleepy] += (night - _strength[sleepy]) * approach;
+            }
+
+            // The temperament's baseline and bias pull a weaker mood back up slowly.
+            for (var i = 1; i < _strength.Length; i++)
+            {
+                var floor = _temperament.RestFloor((CompanionMood)i);
+                if (floor > _strength[i])
+                {
+                    var pull = 1f - Mathf.Exp(-seconds / PersonaTemperament.RestPullSeconds);
+                    _strength[i] += (floor - _strength[i]) * pull;
+                }
             }
 
             if (!_intimateAllowed)
@@ -172,7 +205,7 @@ namespace AICompanion.Core
             seconds = Math.Min(seconds, CompanionMoodTuning.MaxRestoreSeconds);
             for (var i = 1; i < _strength.Length; i++)
             {
-                var halfLife = CompanionMoodTuning.HalfLife((CompanionMood)i);
+                var halfLife = HalfLife(i);
                 if (halfLife > 0f && _strength[i] > 0f)
                     _strength[i] = (float)(_strength[i] * Math.Pow(0.5, seconds / halfLife));
                 if (_strength[i] < 0.0001f)
@@ -322,6 +355,15 @@ namespace AICompanion.Core
         /// </summary>
         public static CompanionMoodState FromJson(string json, DateTime nowUtc)
         {
+            return FromJson(json, nowUtc, null);
+        }
+
+        /// <summary>
+        /// As <see cref="FromJson(string, DateTime)"/>, with the persona's temperament set before
+        /// the closed time is faded, so its half-lives apply to the time away too.
+        /// </summary>
+        public static CompanionMoodState FromJson(string json, DateTime nowUtc, PersonaTemperament temperament)
+        {
             if (string.IsNullOrWhiteSpace(json))
                 return null;
 
@@ -339,7 +381,7 @@ namespace AICompanion.Core
                 || file.moods.Length == 0 || file.strengths.Length == 0)
                 return null;
 
-            var state = new CompanionMoodState();
+            var state = new CompanionMoodState { Temperament = temperament };
             var count = Math.Min(file.moods.Length, file.strengths.Length);
             for (var i = 0; i < count; i++)
             {

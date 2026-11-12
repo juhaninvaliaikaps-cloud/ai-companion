@@ -148,15 +148,55 @@ namespace AICompanion.Settings
                 Save();
 
             _personaId = persona;
-            _path = CompanionMoodStore.FileFor(SettingsPanelFolder(), persona);
-            _state = string.IsNullOrEmpty(_path) ? new CompanionMoodState() : CompanionMoodStore.Load(_path, DateTime.UtcNow);
+            var folder = SettingsPanelFolder();
+            // JUH-103 phase 3: the persona's temperament, before the closed time is faded.
+            var temperament = ResolveTemperament(folder, persona);
+            _path = CompanionMoodStore.FileFor(folder, persona);
+            _state = string.IsNullOrEmpty(_path)
+                ? new CompanionMoodState { Temperament = temperament }
+                : CompanionMoodStore.Load(_path, DateTime.UtcNow, temperament);
+            _state.Temperament = temperament;
             _state.SetIntimateAllowed(IntimateExpressions.Active);
+            LogTemperament(persona);
             _loaded = true;
             _dirty = false;
             Debug.Log("Mood: " + CompanionMoodNames.Name(_state.Shown) + " for persona "
                 + (persona.Length == 0 ? "(default)" : CompanionMoodStore.PersonaFileId(persona))
                 + " (" + _state.DescribeTop3() + ")");
             Publish();
+        }
+
+        /// <summary>
+        /// The persona's temperament changed in persona settings: use it now, without
+        /// reloading the mood. Called by <see cref="SettingsPanel"/> after it saves the active persona.
+        /// </summary>
+        public void ReloadTemperament()
+        {
+            if (!_loaded)
+                return;
+            var temperament = ResolveTemperament(SettingsPanelFolder(), _personaId);
+            if (ReferenceEquals(temperament, _state.Temperament))
+                return;
+            _state.Temperament = temperament;
+            LogTemperament(_personaId);
+        }
+
+        /// <summary>The temperament name for the readout, such as "Tsundere".</summary>
+        public string TemperamentName
+        {
+            get { return _state.Temperament.Name; }
+        }
+
+        static PersonaTemperament ResolveTemperament(string folder, string persona)
+        {
+            if (string.IsNullOrEmpty(persona))
+                return PersonaTemperament.Default;
+            return PersonaRuntime.TemperamentFor(PersonaCatalog.LoadDefault(folder), persona);
+        }
+
+        void LogTemperament(string persona)
+        {
+            Debug.Log(MoodTemperamentLog.Line(persona, _state.Temperament));
         }
 
         void Save()
@@ -192,7 +232,7 @@ namespace AICompanion.Settings
 
         string Readout()
         {
-            return "Mood: " + CompanionMoodNames.Name(_state.Shown) + "\n" + _state.DescribeTop3();
+            return "Mood: " + CompanionMoodNames.Name(_state.Shown) + " (" + _state.Temperament.Name + ")\n" + _state.DescribeTop3();
         }
 
         CompanionSettings CurrentSettings()
@@ -213,6 +253,17 @@ namespace AICompanion.Settings
             return SettingsLocations.Folder(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 Application.persistentDataPath);
+        }
+    }
+
+    /// <summary>The temperament log line: <c>Mood temperament: friend = cheerful</c>.</summary>
+    public static class MoodTemperamentLog
+    {
+        public static string Line(string persona, PersonaTemperament temperament)
+        {
+            var id = CompanionMoodStore.PersonaFileId(persona);
+            var name = temperament == null ? PersonaTemperaments.DefaultId : temperament.Id;
+            return "Mood temperament: " + (id.Length == 0 ? "(default)" : id) + " = " + name;
         }
     }
 }

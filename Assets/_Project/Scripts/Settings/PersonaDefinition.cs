@@ -33,6 +33,12 @@ namespace AICompanion.Settings
         public string AvatarSource = string.Empty;
         public string PortraitFolder = string.Empty;
 
+        /// <summary>
+        /// Temperament preset id (JUH-103 phase 3), such as "tsundere". Blank is the default
+        /// (balanced) temperament. See <see cref="AICompanion.Core.PersonaTemperaments"/>.
+        /// </summary>
+        public string Temperament = string.Empty;
+
         public static PersonaDefinition CreateStarter(string id)
         {
             return new PersonaDefinition
@@ -60,7 +66,8 @@ namespace AICompanion.Settings
                 ProviderId = ProviderId,
                 Model = Model,
                 AvatarSource = AvatarSource,
-                PortraitFolder = PortraitFolder
+                PortraitFolder = PortraitFolder,
+                Temperament = Temperament
             };
         }
 
@@ -81,6 +88,7 @@ namespace AICompanion.Settings
             string avatar;
             AvatarSource = PersonaAvatars.TryNormalize(AvatarSource, out avatar) ? avatar : string.Empty;
             PortraitFolder = CleanPath(PortraitFolder);
+            Temperament = AICompanion.Core.PersonaTemperaments.Normalize(Temperament);
             return Id.Length > 0;
         }
 
@@ -298,6 +306,8 @@ namespace AICompanion.Settings
                 persona.AvatarSource = text;
             if (TryString(json, "portraitFolder", out text))
                 persona.PortraitFolder = text;
+            if (TryString(json, "temperament", out text))
+                persona.Temperament = text;
 
             if (!persona.Normalize())
                 return null;
@@ -322,6 +332,7 @@ namespace AICompanion.Settings
             String(sb, "model", source.Model);
             String(sb, "avatarSource", source.AvatarSource);
             String(sb, "portraitFolder", source.PortraitFolder);
+            String(sb, "temperament", source.Temperament);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;

@@ -53,10 +53,16 @@ namespace AICompanion.Core
         /// </summary>
         public static CompanionMoodState Load(string path, DateTime nowUtc)
         {
+            return Load(path, nowUtc, null);
+        }
+
+        /// <summary>The persona's mood, faded with its temperament for the time it was closed.</summary>
+        public static CompanionMoodState Load(string path, DateTime nowUtc, PersonaTemperament temperament)
+        {
             var read = ProtectedLocalFile.Read(path);
             if (read.Status != LocalReadStatus.Ready)
-                return new CompanionMoodState();
-            return CompanionMoodState.FromJson(read.Text, nowUtc) ?? new CompanionMoodState();
+                return new CompanionMoodState { Temperament = temperament };
+            return CompanionMoodState.FromJson(read.Text, nowUtc, temperament) ?? new CompanionMoodState { Temperament = temperament };
         }
 
         public static bool Save(string path, CompanionMoodState state, DateTime nowUtc)
