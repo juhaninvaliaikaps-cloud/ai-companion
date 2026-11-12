@@ -167,12 +167,17 @@ namespace AICompanion.Settings
         }
 
         /// <summary>
-        /// The persona's temperament changed in persona settings: use it now, without
-        /// reloading the mood. Called by <see cref="SettingsPanel"/> after it saves the active persona.
+        /// The active persona's temperament may have changed in persona settings (the picker, or a
+        /// deleted saved copy of a built-in): use it now, without reloading the mood. Called by
+        /// <see cref="SettingsPanel"/> after it saves or re-applies the active persona.
         /// </summary>
         public void ReloadTemperament()
         {
             if (!_loaded)
+                return;
+            // A persona switch is picked up by Update, which loads that persona's mood too.
+            var settings = CurrentSettings();
+            if (settings == null || !string.Equals(settings.PersonaId ?? string.Empty, _personaId, StringComparison.Ordinal))
                 return;
             var temperament = ResolveTemperament(SettingsPanelFolder(), _personaId);
             if (ReferenceEquals(temperament, _state.Temperament))

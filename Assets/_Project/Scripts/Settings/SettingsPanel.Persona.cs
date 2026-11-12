@@ -90,6 +90,13 @@ namespace AICompanion.Settings
             }
         }
 
+        void ReloadMoodTemperament()
+        {
+            var keeper = GetComponent<CompanionMoodKeeper>();
+            if (keeper != null)
+                keeper.ReloadTemperament();
+        }
+
         string ActiveModelText()
         {
             var effective = OutboundPrivacy.ChatProviderId(_settings.PrivateMode, _settings.ProviderId);
@@ -126,6 +133,9 @@ namespace AICompanion.Settings
             var beforeVoice = _settings.PiperVoice;
             PersonaApply.Overlay(_settings, persona, File.Exists, Directory.Exists);
             ApplyLive();
+            // The same id can come back with another temperament (a deleted saved copy of a
+            // built-in). A different id is loaded by the keeper with its mood.
+            ReloadMoodTemperament();
             _rebuild = true;
             SetStatus(UseStatus(persona, beforeVoice));
         }
@@ -165,9 +175,7 @@ namespace AICompanion.Settings
                 var beforeVoice = _settings.PiperVoice;
                 PersonaApply.Overlay(_settings, saved, File.Exists, Directory.Exists);
                 ApplyLive();
-                var keeper = GetComponent<CompanionMoodKeeper>();
-                if (keeper != null)
-                    keeper.ReloadTemperament();
+                ReloadMoodTemperament();
                 SetStatus(SavedStatus(saved, beforeVoice));
             }
             else
