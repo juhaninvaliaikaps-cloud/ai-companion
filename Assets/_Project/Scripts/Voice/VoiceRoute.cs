@@ -5,7 +5,8 @@ namespace AICompanion.Voice
 {
     /// <summary>
     /// Voice follows the chat that will actually run. Grok uses the cloud voice.
-    /// Local chat and private mode use Piper, so that text never goes to cloud TTS.
+    /// Local chat and private mode use Piper or Kokoro, so that text never goes to cloud TTS.
+    /// An open intimate gate also counts as private here (JUH-112).
     /// </summary>
     public static class VoiceRoute
     {

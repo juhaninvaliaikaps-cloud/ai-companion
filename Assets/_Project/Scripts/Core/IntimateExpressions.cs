@@ -33,6 +33,15 @@ namespace AICompanion.Core
             Configure(false, false, false);
         }
 
+        /// <summary>
+        /// The private flag every outbound check should use. An open gate keeps chat, voice and
+        /// vision local even if the caller's private flag is stale (JUH-112).
+        /// </summary>
+        public static bool KeepsLocal(bool privateMode)
+        {
+            return privateMode || Active;
+        }
+
         /// <summary>True for a stem or catalog id in the gated set.</summary>
         public static bool IsIntimateId(string value)
         {

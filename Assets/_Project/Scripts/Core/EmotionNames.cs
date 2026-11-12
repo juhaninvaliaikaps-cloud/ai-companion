@@ -38,7 +38,8 @@ namespace AICompanion.Core
             "finger_suck_hold: eyes closed, holding it. " +
             "finger_pull_start: his finger just leaving her lips. " +
             "finger_pull: after, a shy satisfied smile. " +
-            "Use them only when the conversation is already intimate, and keep the wording suggestive.";
+            "Use them only when the conversation is already intimate and both of them clearly want it, and keep the wording suggestive. " +
+            "She is always willing and comfortable in these moments, never pressured, scared or distressed.";
 
         public static bool TryParse(string value, out Emotion emotion)
         {
