@@ -71,8 +71,10 @@ namespace AICompanion.Core
             "Write it in every reply, also in roleplay and narration. " +
             "The sample <animation emotion=\"happy\" intensity=\"0.8\" gesture=\"wave_hello\" /> is the format only. " +
             "Pick the emotion that fits this reply. Happy and embarrassed are not defaults. " +
-            "A sad reply starts with <animation emotion=\"sad\" intensity=\"0.7\" />. " +
-            "A surprised reply starts with <animation emotion=\"surprised\" intensity=\"0.8\" />. " +
+            "A sad reply starts with <animation emotion=\"sad\" intensity=\"0.55\" />. " +
+            "A surprised reply starts with <animation emotion=\"surprised\" intensity=\"0.6\" />. " +
+            "For strong sadness use emotion=\"crying\" (or sad at 0.9 or more). " +
+            "For strong shock use emotion=\"shocked\" (or surprised at 0.9 or more). " +
             "Set gesture to a catalog id (wave_hello) or that row's gesture name (wave). " +
             "Leave the gesture attribute out for an emotion only. " +
             "When the user asks you to walk, move, come here, or go to one side, set gesture to walk " +

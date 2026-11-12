@@ -22,6 +22,32 @@ The drawn sheet is the target. It is not in the repo.
 | Blush and an open mouth | `flustered` | Blush near 1 and an open jaw |
 | Embarrassed and worried | `embarrassed` | Strong blush plus the inner brow. `concerned` is the same worry with no blush |
 
+## 2D portrait expressions
+
+The default map in `PortraitMap.CreateDefaults()` includes the drawn portrait set. A file is looked up by stem in the portraits folder; a missing blink or talk frame falls back to that expression's still, and a missing still falls back to neutral.
+
+| Expression | Frames | 3D face |
+| --- | --- | --- |
+| `crying` | open + blink + talk | sad |
+| `teary_happy` | open + blink + talk | happy |
+| `shocked` | open + blink + talk | surprised |
+| `confused` | open + blink + talk | thinking |
+| `bored` | open + blink + talk | neutral |
+| `scared` | open + blink + talk | concerned |
+| `tsundere` | open + blink + talk | shy |
+| `determined` | open + blink + talk | neutral |
+| `angry` | open + blink + talk | sad |
+| `smug` | open + blink + talk | happy |
+| `smug_wink` | open + talk only (a wink) | happy |
+| `sleepy` | open + blink + talk | neutral |
+| `embarrassed_worried` | open + blink + talk | concerned |
+| `flustered_heavy` | open + blink + talk | flustered |
+| `seductive` | open + blink + talk | shy |
+| `kiss` | open + blink + talk | happy |
+
+Synonyms choose the same portraits: `afraid`/`fear` -> `scared`, `annoyed` -> `tsundere`, `teasing` -> `smug`, `focused` -> `determined`, `tired` -> `sleepy`, `love` -> `kiss`, `flirty` -> `seductive`, `overwhelmed` -> `flustered_heavy`. A strong `sad` (intensity 0.9 or more) uses `crying`; a strong `surprised` uses `shocked`. Unknown words still fall back to neutral. `pouty` keeps its older drawing.
+
+The prompt lists these names and the synonym rules in `EmotionNames.CatalogLine`, so the model can choose them. The 3D face uses the existing presets in the last column; the drawn portrait and the face may differ in how expressive they are.
 ## Names
 
 `ExpressionPresetMap` matches VRM presets (`Joy`, `Fcl_ALL_Joy`, `Fcl_BRW_Sorrow`, `Fcl_MTH_Angry`, `Fcl_EYE_Joy`), ARKit (`mouthSmileLeft`, `mouthFrownLeft`, `browInnerUp`, `browOuterUpLeft`, `browOuterUpRight`, `browDownLeft`, `eyeSquintLeft`, `cheekSquintLeft`, `eyeLookDownLeft`, `eyeLookUpLeft`, `eyeLookOutLeft`, `eyeLookInRight`, `mouthPressLeft`, `mouthPucker`), Daz-style names (`eCTRLMouthSmile`, `eCTRLFrown`, `eCTRLBrowsUp`, `eCTRLEyeSquintL`, `eCTRLCheekSquintL`, `eCTRLBlush`), a single-letter prefix such as `M_Joy`, and common MMD morphs (`にこり`, `笑い`, `困る`, `怒り`, `びっくり`, `まばたき`, `照れ`, `あ`). `cheekSquint` is `fun`, so a smile still lifts the cheeks when there is no `fun` morph. `browOuterUpLeft` is its own channel so thinking can raise one brow. `eyeLookOutLeft` and `eyeLookInRight` glance to one side; the opposite pair is left alone so the eyes do not cancel. `Fcl_HA_Fung*` bangs and `tongueOut` are ignored. Blink still uses only blink and eye-close names, so a look-down shape does not blink.
@@ -43,7 +69,7 @@ Cue emotion: sad
 Expression: sad
 ```
 
-`Cue emotion: (none)` means the tag had no emotion attribute. An unknown word is still logged, and the cue stays neutral. Portrait rows in the catalog store a neutral body emotion and put the real name in `portrait`. The prompt lists that name as `face:`. That name drives the 2D still and the 3D face, so `gesture="embarrassed"` blushes even though the catalog emotion is neutral. `embarrassed_worried` uses the embarrassed face. `angry` and `pouty` use the sad face and the pouty still. `sleepy` keeps a neutral face and the sleepy still.
+`Cue emotion: (none)` means the tag had no emotion attribute. An unknown word is still logged, and the cue stays neutral. Portrait rows in the catalog store a neutral body emotion and put the real name in `portrait`. The prompt lists that name as `face:`. That name drives the 2D still and the 3D face, so `gesture="embarrassed"` blushes even though the catalog emotion is neutral. `embarrassed_worried` uses the concerned face and its own drawn frames. `angry` uses the sad face and its own drawn frames; `pouty` keeps the older pouty still. `sleepy` keeps a neutral face and its drawn frames.
 
 While she is talking, lip sync replaces `aa`, `ih`, `ou`, `ee`, and `oh`. Smile, brows, squint, look-down, look-up, a side glance, a lip press, and blush stay. A thinking pucker is a mouth shape, so speech replaces it until the line ends. A procedural blink takes the max of the emotion lids and the blink, and does not write the mouth.
 

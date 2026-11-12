@@ -304,8 +304,8 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(Emotion.Shy, FaceEmotion.Resolve("shy", Emotion.Neutral));
             Assert.AreEqual(Emotion.Flustered, FaceEmotion.Resolve("flustered", Emotion.Neutral));
             Assert.AreEqual(Emotion.Concerned, FaceEmotion.Resolve("worried", Emotion.Neutral));
-            Assert.AreEqual(Emotion.Embarrassed, FaceEmotion.Resolve("embarrassed_worried", Emotion.Sad));
-            Assert.AreEqual(Emotion.Embarrassed, FaceEmotion.Resolve("embarrassed-worried", Emotion.Sad));
+            Assert.AreEqual(Emotion.Concerned, FaceEmotion.Resolve("embarrassed_worried", Emotion.Sad));
+            Assert.AreEqual(Emotion.Concerned, FaceEmotion.Resolve("embarrassed-worried", Emotion.Sad));
             Assert.AreEqual(Emotion.Sad, FaceEmotion.Resolve("angry", Emotion.Neutral));
             Assert.AreEqual(Emotion.Sad, FaceEmotion.Resolve(string.Empty, Emotion.Sad));
             Assert.AreEqual(Emotion.Happy, FaceEmotion.Resolve("teasing", Emotion.Happy));

@@ -1,0 +1,17 @@
+{
+    "name": "AICompanion.ScreenLook",
+    "rootNamespace": "AICompanion.ScreenLook",
+    "references": [
+        "AICompanion.Core",
+        "AICompanion.AI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
