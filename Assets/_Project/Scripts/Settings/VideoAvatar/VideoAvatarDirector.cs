@@ -76,6 +76,15 @@ namespace AICompanion.Settings
         public const float MaxPendingSeconds = 30f;
         float _pendingAge;
         int _lastVariation = -1;
+
+        /// <summary>
+        /// JUH-103 phase 2: when her mood names a silent reaction clip (happy while Happy,
+        /// concerned while Sad or Anxious), it stands in for this share of idle variations.
+        /// </summary>
+        public const float MoodVariationShare = 0.5f;
+        string _moodClip = string.Empty;
+        int _moodClipIndex = -1;
+        int _moodQueued = -1;
         bool _stopPending;
         bool _facingRight;
 
@@ -105,6 +114,29 @@ namespace AICompanion.Settings
         public int Queued
         {
             get { return _queued; }
+        }
+
+        /// <summary>
+        /// The reaction clip her mood names for the idle, set every frame by the player. Only a
+        /// silent reaction that is not a held pose counts; anything else means none.
+        /// </summary>
+        public string MoodClip
+        {
+            get { return _moodClip; }
+            set
+            {
+                var name = value ?? string.Empty;
+                if (string.Equals(name, _moodClip, StringComparison.Ordinal))
+                    return;
+                _moodClip = name;
+                _moodClipIndex = ResolveMoodClip(name);
+            }
+        }
+
+        /// <summary>True when <see cref="Queued"/> is the mood's idle clip, picked in place of a variation.</summary>
+        public bool QueuedIsMood
+        {
+            get { return _queued >= 0 && !_queuedReaction && _queued == _moodQueued; }
         }
 
         /// <summary>True when <see cref="Queued"/> is a reaction. It does not wait for the idle's loop point.</summary>
@@ -273,12 +305,24 @@ namespace AICompanion.Settings
 
             if (Act != VideoAvatarAct.Idle || _queued >= 0 || deltaSeconds <= 0f)
                 return;
-            if (!HasVariation())
+            var variations = HasVariation();
+            var mood = MoodClipUsable();
+            if (!variations && !mood)
                 return;
 
             _untilVariation -= deltaSeconds;
-            if (_untilVariation <= 0f)
-                _queued = PickVariation();
+            if (_untilVariation > 0f)
+                return;
+
+            // The mood clip is not repeated back to back while there is a plain variation.
+            if (mood && (!variations || (_lastVariation != _moodClipIndex && _random.NextDouble() < MoodVariationShare)))
+            {
+                _queued = _moodClipIndex;
+                _moodQueued = _moodClipIndex;
+                return;
+            }
+
+            _queued = PickVariation();
         }
 
         /// <summary>
@@ -504,6 +548,21 @@ namespace AICompanion.Settings
             }
 
             return last;
+        }
+
+        int ResolveMoodClip(string name)
+        {
+            if (name.Length == 0)
+                return -1;
+            var clip = _set.FindReaction(name);
+            if (clip < 0 || _set.IsPoseTarget(clip) || _set.Clips[clip].Sound)
+                return -1;
+            return clip;
+        }
+
+        bool MoodClipUsable()
+        {
+            return _moodClipIndex >= 0 && Usable(_moodClipIndex);
         }
 
         bool Usable(int clip)

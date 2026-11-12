@@ -5,10 +5,11 @@ using UnityEngine;
 namespace AICompanion.Settings
 {
     /// <summary>
-    /// Keeps her mood (JUH-103, phase 1): loads it for the selected persona, fades it once a
-    /// second, feeds it her reply cues and the user's detected mood, saves it encrypted, and
-    /// shows a small readout when "Show mood readout" is on. It does not change any
-    /// expression or reaction yet; that is phase 2. Added by <see cref="SettingsPanel"/>.
+    /// Keeps her mood (JUH-103): loads it for the selected persona, fades it once a second,
+    /// feeds it her reply cues and the user's detected mood, saves it encrypted, and shows a
+    /// small readout when "Show mood readout" is on. Phase 2: it publishes the shown mood to
+    /// <see cref="CompanionMoodNow"/>, which the face, portrait, 2D clips, director and prompt
+    /// read, and logs the rest look when it changes. Added by <see cref="SettingsPanel"/>.
     /// </summary>
     public sealed class CompanionMoodKeeper : MonoBehaviour
     {
@@ -25,6 +26,9 @@ namespace AICompanion.Settings
         float _saveIn = SaveSeconds;
         string _readout = string.Empty;
         GUIStyle _style;
+        bool _lookLogged;
+        CompanionMood _lookMood;
+        string _lookExpression = string.Empty;
 
         /// <summary>The mood now. For phase 2 and for tests in a player.</summary>
         public CompanionMoodState State
@@ -47,6 +51,8 @@ namespace AICompanion.Settings
             CompanionMoodInputs.Touched -= OnTouch;
             CompanionMoodInputs.Ignored -= OnIgnored;
             Save();
+            CompanionMoodNow.Reset();
+            _lookLogged = false;
         }
 
         void OnApplicationQuit()
@@ -75,6 +81,7 @@ namespace AICompanion.Settings
             _dirty = true;
             if (changed)
                 LogShown("time");
+            Publish();
 
             _saveIn -= seconds;
             if (_saveIn <= 0f)
@@ -112,6 +119,7 @@ namespace AICompanion.Settings
             if (CompanionMoodTable.ApplyCue(_state, cue))
                 LogShown("her cue");
             _dirty = true;
+            Publish();
         }
 
         void OnUserMood(UserMood mood)
@@ -122,6 +130,7 @@ namespace AICompanion.Settings
             if (CompanionMoodTable.ApplyUser(_state, mood))
                 LogShown("your mood");
             _dirty = true;
+            Publish();
         }
 
         // Phase 1: hooks only. Touches (JUH-61) and being ignored do not move the mood yet.
@@ -147,6 +156,7 @@ namespace AICompanion.Settings
             Debug.Log("Mood: " + CompanionMoodNames.Name(_state.Shown) + " for persona "
                 + (persona.Length == 0 ? "(default)" : CompanionMoodStore.PersonaFileId(persona))
                 + " (" + _state.DescribeTop3() + ")");
+            Publish();
         }
 
         void Save()
@@ -155,6 +165,24 @@ namespace AICompanion.Settings
                 return;
             if (CompanionMoodStore.Save(_path, _state, DateTime.UtcNow))
                 _dirty = false;
+        }
+
+        /// <summary>
+        /// Hands the shown mood to the renderers and logs the rest look when it changes. No
+        /// allocation unless the look changed.
+        /// </summary>
+        void Publish()
+        {
+            var shown = _state.Shown;
+            CompanionMoodNow.Set(shown, shown == CompanionMood.Content ? 0f : _state.Strength(shown));
+            var look = CompanionMoodNow.Rest;
+            if (_lookLogged && look.Mood == _lookMood && string.Equals(look.Expression, _lookExpression, StringComparison.Ordinal))
+                return;
+
+            _lookLogged = true;
+            _lookMood = look.Mood;
+            _lookExpression = look.Expression ?? string.Empty;
+            Debug.Log(CompanionMoodLooks.LogLine(look.Mood, look.Expression, "rest face"));
         }
 
         void LogShown(string cause)

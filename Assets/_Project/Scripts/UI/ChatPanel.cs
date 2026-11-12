@@ -358,7 +358,7 @@ namespace AICompanion.UI
                 _cancel.Dispose();
             _cancel = new CancellationTokenSource();
             BeginSpeech(privateMode, providerId);
-            var prompt = VisionPrompt.Append(DirectorPrompt.Append(settings.systemPrompt, DirectorSuffix()));
+            var prompt = VisionPrompt.Append(DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), DirectorSuffix()));
             var options = new ChatTurnOptions
             {
                 Image = image,
@@ -399,7 +399,7 @@ namespace AICompanion.UI
                 _cancel.Dispose();
             _cancel = new CancellationTokenSource();
             BeginSpeech(true, providerId);
-            var prompt = VisionPrompt.AppendLocalChat(DirectorPrompt.Append(settings.systemPrompt, DirectorSuffix()));
+            var prompt = VisionPrompt.AppendLocalChat(DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), DirectorSuffix()));
             var options = new ChatTurnOptions
             {
                 SingleTurn = true,
@@ -452,7 +452,7 @@ namespace AICompanion.UI
             if (_cancel != null)
                 _cancel.Dispose();
             _cancel = new CancellationTokenSource();
-            var prompt = VisionPrompt.AppendAutoLook(DirectorPrompt.Append(settings.systemPrompt, DirectorSuffix()));
+            var prompt = VisionPrompt.AppendAutoLook(DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), DirectorSuffix()));
             var text = VisionPrompt.AutoObservationTurn(observation);
             var options = new ChatTurnOptions
             {
@@ -532,7 +532,7 @@ namespace AICompanion.UI
             var director = GetComponent<Director>();
             if (director != null)
                 suffix = director.SystemPromptSuffix;
-            var prompt = DirectorPrompt.Append(settings.systemPrompt, suffix);
+            var prompt = DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), suffix);
 
             // JUH-21: read the user's mood on this machine. The face reacts now, before
             // the reply, and the model gets one hint line. The reply cue replaces the face.

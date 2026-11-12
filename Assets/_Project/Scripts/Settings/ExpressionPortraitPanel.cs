@@ -126,7 +126,7 @@ namespace AICompanion.Settings
                 return;
             }
 
-            var live = AnimatorAlive() ? ExpressionName() : "neutral";
+            var live = AnimatorAlive() ? ExpressionName() : RestExpression();
             var amplitude = 0f;
             var hasAmplitude = MouthAlive();
             if (hasAmplitude)
@@ -549,7 +549,16 @@ namespace AICompanion.Settings
             if (hint != null && !string.IsNullOrEmpty(hint.ExpressionName))
                 return hint.ExpressionName;
 
+            // No reply expression: her mood's rest look (JUH-103 phase 2).
+            if (_animator.Emotion == Emotion.Neutral)
+                return RestExpression();
             return PortraitNames.For(_animator.Emotion);
+        }
+
+        static string RestExpression()
+        {
+            var rest = CompanionMoodNow.Rest;
+            return rest.HasExpression ? rest.Expression : "neutral";
         }
 
 

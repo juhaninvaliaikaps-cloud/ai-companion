@@ -230,6 +230,7 @@ namespace AICompanion.AnimationDirector
                 return;
             }
 
+            decision = ShadeByMood(decision);
             var played = Apply(decision);
             LastDecision = decision;
             Debug.Log(AnimationDirectorLog.Format(cue, decision, played));
@@ -300,6 +301,29 @@ namespace AICompanion.AnimationDirector
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Her mood shades the reply's face (JUH-103 phase 2). A neutral cue lets the mood's
+        /// rest look show, which the face and portrait pick up once the hold is cleared.
+        /// </summary>
+        static DirectorDecision ShadeByMood(DirectorDecision decision)
+        {
+            var shaded = AnimationDirectorModel.ShadeByMood(decision, CompanionMoodNow.Shown, IntimateExpressions.Active, out var cueFace);
+            if (cueFace.Length > 0)
+            {
+                Debug.Log(CompanionMoodLooks.LogLine(CompanionMoodNow.Effective, shaded.Portrait, "softened " + cueFace + " cue"));
+                return shaded;
+            }
+
+            if (decision.Action == DirectorAction.Neutral)
+            {
+                var rest = CompanionMoodNow.Rest;
+                if (rest.HasExpression || rest.Face != Emotion.Neutral)
+                    Debug.Log(CompanionMoodLooks.LogLine(rest.Mood, rest.Expression, "neutral cue"));
+            }
+
+            return decision;
         }
 
         public void PlayNeutral()
