@@ -532,6 +532,15 @@ namespace AICompanion.UI
             if (director != null)
                 suffix = director.SystemPromptSuffix;
             var prompt = DirectorPrompt.Append(settings.systemPrompt, suffix);
+
+            // JUH-21: read the user's mood on this machine. The face reacts now, before
+            // the reply, and the model gets one hint line. The reply cue replaces the face.
+            var mood = UserMoodDetector.Detect(text);
+            Debug.Log(mood.ToLogString());
+            prompt = UserMoodPrompt.Append(prompt, mood);
+            if (director != null && UserMoodReaction.TryGetCue(mood, out var moodCue))
+                director.Play(moodCue);
+
             var temperature = settings.temperature;
             var maxTokens = settings.maxTokens;
             Dispatch(provider, text, prompt, temperature, maxTokens, _cancel.Token, null, true);
