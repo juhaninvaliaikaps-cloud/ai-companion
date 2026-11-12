@@ -51,7 +51,22 @@ namespace AICompanion.Core
                 case "worried":
                 case "worry":
                 case "concern":
+                // JUH-113: the 2026-11-12 log wrote emotion="distressed" and the whole tag fell
+                // back to neutral. These read as the concerned (anxious) face.
+                case "distressed":
+                case "anxious":
+                case "nervous":
+                case "upset":
                     emotion = Emotion.Concerned;
+                    return true;
+                // Mood-table words that did not parse as a face before (JUH-113).
+                case "hurt":
+                case "grumpy":
+                    emotion = Emotion.Sad;
+                    return true;
+                case "playful":
+                case "affectionate":
+                    emotion = Emotion.Happy;
                     return true;
                 case "embarrassment":
                     emotion = Emotion.Embarrassed;

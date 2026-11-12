@@ -45,6 +45,12 @@ One table, `CompanionMoodTable` (`Assets/_Project/Scripts/Core/CompanionMoodTabl
 | embarrassed_worried | flustered 0.2, anxious 0.1 |
 | sleepy / tired / bored | sleepy 0.25 / 0.2 / 0.15 |
 | seductive, flirty | intimate 0.3 (gated), affectionate 0.1 |
+| distressed | anxious 0.3, sad 0.15 |
+| anxious | anxious 0.3 |
+| upset | sad 0.25, anxious 0.1 |
+| teary_happy | happy 0.25, affectionate 0.1 |
+
+JUH-113: `distressed`, `anxious`, `nervous` and `upset` now also read as the concerned face (before, the whole tag fell back to neutral). `hurt` and `grumpy` read as sad; `playful` and `affectionate` read as happy. As a gesture or reaction word, `teary_happy` plays the `happy` clip, and `distressed`, `anxious` and `upset` play `concerned`.
 
 Otherwise the emotion: happy → happy 0.25, sad → sad 0.3, surprised → anxious 0.1, embarrassed → flustered 0.3, shy → flustered 0.2 + affectionate 0.1, flustered → flustered 0.35, concerned → anxious 0.2 + sad 0.1. Neutral and thinking move nothing.
 
