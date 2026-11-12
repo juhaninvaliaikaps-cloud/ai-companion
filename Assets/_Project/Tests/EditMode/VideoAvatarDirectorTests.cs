@@ -1428,6 +1428,28 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Request_StillLoadingWhenAWalkStarts_WaitsInsteadOfBeingLost()
+        {
+            // A reply with both a reaction and a walk: the reaction is accepted on the idle,
+            // then the walk starts before its clip has loaded.
+            var set = VideoAvatarManifest.Resolve(PoseManifest, PackedFolder());
+            var director = new VideoAvatarDirector(set, 1);
+            var pout = set.FindReaction("pout");
+
+            Assert.AreEqual(AICompanion.Core.AvatarReactionResult.Started, director.Request("pout", true));
+            director.SetMovement(true, false, false, false);
+            Assert.AreEqual(VideoAvatarAct.Walk, director.Act);
+            Assert.AreEqual(-1, director.Queued);
+            Assert.AreEqual(pout, director.PendingReaction);
+
+            director.SetMovement(false, false, false, false);
+            director.Tick(0.1f);
+            Assert.AreEqual(pout, director.Queued);
+            director.OnQueuedReady();
+            Assert.AreEqual(VideoAvatarAct.Reaction, director.Act);
+        }
+
+        [Test]
         public void Request_ThatWaitsTooLong_IsDropped()
         {
             var set = VideoAvatarManifest.Resolve(PoseManifest, PackedFolder());

@@ -414,6 +414,15 @@ namespace AICompanion.Settings
 
         void Enter(VideoAvatarAct act, int clip, bool mirrored)
         {
+            // A reaction that was loading on the idle is not lost when something else starts
+            // first (a reply with both a walk and a reaction): it waits like a late request.
+            if (act != VideoAvatarAct.Reaction && _queued >= 0 && _queuedReaction)
+            {
+                _pendingClip = _queued;
+                _pendingExplicit = _queuedExplicit;
+                _pendingLeft = PendingSeconds;
+            }
+
             Act = act;
             Clip = clip;
             Mirrored = mirrored;
