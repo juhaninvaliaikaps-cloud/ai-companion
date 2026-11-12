@@ -241,6 +241,10 @@ namespace AICompanion.Tests.EditMode
             // A named reaction still wins, and a reaction word as the emotion still counts.
             Assert.AreEqual("pout", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"happy\" gesture=\"walk\" reaction=\"pout\" />\nx").Cue));
             Assert.AreEqual("pout", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"pout\" gesture=\"walk\" />\nx").Cue));
+            // A reaction word as the emotion beats the clip of the emotion it aliases to.
+            AvatarReactionCatalog.Set(new[] { "happy", "sad", "pout" });
+            Assert.AreEqual("pout", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"pout\" gesture=\"walk\" />\nx").Cue));
+            Assert.AreEqual("sad", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"sad\" gesture=\"walk\" />\nx").Cue));
             // Without a walk, a plain emotion still goes through the face only.
             Assert.AreEqual(string.Empty, Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"happy\" />\nx").Cue));
         }

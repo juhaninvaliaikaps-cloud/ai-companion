@@ -135,17 +135,18 @@ namespace AICompanion.AnimationDirector
                     return fromGesture;
             }
 
+            // An emotion word that is itself a listed reaction ("pout") is used as written,
+            // before its alias ("pout" reads as sad) can pick a different clip.
+            var word = AvatarReactionCatalog.Find(cue.EmotionField);
+            if (word.Length > 0 && !IsPlainEmotion(word))
+                return word;
+
             // A walk or stop cue never reaches the face: Play returns after the movement. So the
             // emotion's own clip is asked for here. It waits for the walk and plays after it.
             if ((gesture == WalkCue || gesture == StopCue) && cue.Emotion != Emotion.Neutral)
-            {
-                var fromEmotion = AvatarReactionCatalog.Find(cue.Emotion.ToString());
-                if (fromEmotion.Length > 0)
-                    return fromEmotion;
-            }
+                return AvatarReactionCatalog.Find(cue.Emotion.ToString());
 
-            var word = AvatarReactionCatalog.Find(cue.EmotionField);
-            return word.Length > 0 && !IsPlainEmotion(word) ? word : string.Empty;
+            return string.Empty;
         }
 
         // A plain emotion such as "happy" reaches the 2D avatar through the face, not here,
