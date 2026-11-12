@@ -400,7 +400,7 @@ namespace AICompanion.Tests.EditMode
             var poutDecision = model.Decide(pouty);
             Assert.AreEqual(DirectorAction.Emotion, poutDecision.Action);
             Assert.AreEqual(Emotion.Sad, poutDecision.Emotion);
-            Assert.AreEqual("angry", poutDecision.Portrait);
+            Assert.AreEqual("pouty", poutDecision.Portrait);
 
             var sleepy = AnimationCueParser.Parse("<animation emotion=\"sleepy\" />").Cue;
             var sleepyDecision = model.Decide(sleepy);

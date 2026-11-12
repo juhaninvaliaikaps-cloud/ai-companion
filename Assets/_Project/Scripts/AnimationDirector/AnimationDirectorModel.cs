@@ -210,7 +210,7 @@ namespace AICompanion.AnimationDirector
                 return Neutral();
             }
 
-            var portrait = EmotionNames.PortraitAlias(cue.EmotionField);
+            var portrait = EmotionNames.PortraitAlias(cue.EmotionField, cue.Intensity);
             if (cue.Emotion == Emotion.Neutral && portrait.Length == 0)
             {
                 return Neutral();
@@ -233,7 +233,7 @@ namespace AICompanion.AnimationDirector
         {
             if (!string.IsNullOrWhiteSpace(catalogPortrait))
                 return catalogPortrait;
-            return EmotionNames.PortraitAlias(cue.EmotionField);
+            return EmotionNames.PortraitAlias(cue.EmotionField, cue.Intensity);
         }
 
         public static DirectorDecision Neutral()
