@@ -124,7 +124,7 @@ namespace AICompanion.AnimationDirector
         public static string ReactionName(AnimationCue cue)
         {
             if (!string.IsNullOrEmpty(cue.Reaction))
-                return cue.Reaction;
+                return AvatarReactionCatalog.Alias(cue.Reaction);
 
             var gesture = cue.Gesture == null ? string.Empty : cue.Gesture.Trim().ToLowerInvariant();
             if (gesture.Length > 0 && gesture != WalkCue && gesture != StopCue)
