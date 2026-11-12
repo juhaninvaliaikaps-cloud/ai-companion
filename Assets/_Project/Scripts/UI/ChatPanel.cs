@@ -35,7 +35,13 @@ namespace AICompanion.UI
         RectTransform _panelRect;
         ScrollRect _scroll;
         RectTransform _content;
-        Text _transcript;
+        // JUH-111: one Text per shown message, reused. See ChatTranscriptView.
+        readonly ChatTranscriptView _view = new ChatTranscriptView();
+        readonly System.Collections.Generic.List<Text> _messageTexts = new System.Collections.Generic.List<Text>();
+        readonly System.Collections.Generic.List<float> _messageHeights = new System.Collections.Generic.List<float>();
+        Font _transcriptFont;
+        float _laidOutWidth = -1f;
+        const float MessageSpacing = 8f;
         Text _actionLabel;
         Text _lookLabel;
         Button _lookButton;
@@ -317,7 +323,7 @@ namespace AICompanion.UI
             }
 
             var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = privacy != null && privacy.PrivateMode;
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             var providerId = settings != null
                 ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
                 : (privateMode ? ChatDefaults.LocalId : string.Empty);
@@ -359,7 +365,7 @@ namespace AICompanion.UI
                 _cancel.Dispose();
             _cancel = new CancellationTokenSource();
             BeginSpeech(privateMode, providerId);
-            var prompt = VisionPrompt.Append(DirectorPrompt.Append(settings.systemPrompt, DirectorSuffix()));
+            var prompt = VisionPrompt.Append(DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), DirectorSuffix()));
             var options = new ChatTurnOptions
             {
                 Image = image,
@@ -387,7 +393,7 @@ namespace AICompanion.UI
                 return false;
 
             var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = privacy != null && privacy.PrivateMode;
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             var providerId = settings != null
                 ? PrivateChatRouting.ObservationProviderId(privateMode, settings.privateEndpointType)
                 : ChatDefaults.LocalId;
@@ -402,7 +408,7 @@ namespace AICompanion.UI
                 _cancel.Dispose();
             _cancel = new CancellationTokenSource();
             BeginSpeech(true, providerId);
-            var prompt = VisionPrompt.AppendLocalChat(DirectorPrompt.Append(settings.systemPrompt, DirectorSuffix()));
+            var prompt = VisionPrompt.AppendLocalChat(DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), DirectorSuffix()));
             var options = new ChatTurnOptions
             {
                 SingleTurn = true,
@@ -447,7 +453,7 @@ namespace AICompanion.UI
                 return false;
 
             var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = privacy != null && privacy.PrivateMode;
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             var providerId = settings != null
                 ? PrivateChatRouting.ObservationProviderId(privateMode, settings.privateEndpointType)
                 : ChatDefaults.LocalId;
@@ -457,7 +463,7 @@ namespace AICompanion.UI
             if (_cancel != null)
                 _cancel.Dispose();
             _cancel = new CancellationTokenSource();
-            var prompt = VisionPrompt.AppendAutoLook(DirectorPrompt.Append(settings.systemPrompt, DirectorSuffix()));
+            var prompt = VisionPrompt.AppendAutoLook(DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), DirectorSuffix()));
             var text = VisionPrompt.AutoObservationTurn(observation);
             var options = new ChatTurnOptions
             {
@@ -504,7 +510,7 @@ namespace AICompanion.UI
                 return false;
 
             var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = privacy != null && privacy.PrivateMode;
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             var providerId = settings != null
                 ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
                 : (privateMode ? ChatDefaults.LocalId : string.Empty);
@@ -531,16 +537,17 @@ namespace AICompanion.UI
             var director = GetComponent<Director>();
             if (director != null)
                 suffix = director.SystemPromptSuffix;
-            var prompt = DirectorPrompt.Append(settings.systemPrompt, suffix);
+            var prompt = DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), suffix);
 
             // JUH-21: read the user's mood on this machine. The face reacts now, before
             // the reply, and the model gets one hint line. The reply cue replaces the face.
             var mood = UserMoodDetector.Detect(text);
             Debug.Log(mood.ToLogString());
-            CompanionMoodInputs.ReportUserMood(mood);
             prompt = UserMoodPrompt.Append(prompt, mood);
+            // The face reaction is shaded by her mood before the user's mood moves it.
             if (director != null && UserMoodReaction.TryGetCue(mood, out var moodCue))
                 director.Play(moodCue);
+            CompanionMoodInputs.ReportUserMood(mood);
 
             var temperature = settings.temperature;
             var maxTokens = settings.maxTokens;
@@ -739,7 +746,7 @@ namespace AICompanion.UI
                 return;
 
             var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = privacy != null && privacy.PrivateMode;
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
 
             try
             {
@@ -778,6 +785,11 @@ namespace AICompanion.UI
             // What the model really wrote, so a missing or broken cue shows in Player.log.
             Debug.Log(AnimationCueParser.DescribeTag(_exchange.LastCueTag, _exchange.LastCueStatus));
             Debug.Log(EmotionNames.FormatFieldLog(_exchange.LastCue.EmotionField));
+            // JUH-103 phase 2: the director shades the cue by the mood she had before this
+            // reply, so it plays first and the cue moves the mood after.
+            var director = GetComponent<Director>();
+            if (director != null)
+                director.Play(_exchange.LastCue);
             // JUH-103: her own cue moves her lasting mood, once per finished reply. The
             // screen-look remark paths call this without a new reply, and must not push the
             // last cue again.
@@ -786,9 +798,6 @@ namespace AICompanion.UI
                 _moodCueSerial = _exchange.CueSerial;
                 CompanionMoodInputs.ReportCue(_exchange.LastCue);
             }
-            var director = GetComponent<Director>();
-            if (director != null)
-                director.Play(_exchange.LastCue);
         }
 
         public void ShowSpeechNote(string message)
@@ -829,7 +838,7 @@ namespace AICompanion.UI
                 return;
 
             var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = privacy != null && privacy.PrivateMode;
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             var provider = settings != null
                 ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
                 : string.Empty;
@@ -1137,30 +1146,100 @@ namespace AICompanion.UI
 
         void RefreshTranscript(bool force)
         {
-            if (_conversation == null || _transcript == null)
-                return;
-            if (!force && _shownRevision == _conversation.Revision)
+            if (_conversation == null || _content == null)
                 return;
 
-            _shownRevision = _conversation.Revision;
-            _transcript.text = _conversation.FormatTranscript();
-            var width = _content != null ? _content.rect.width : _guiRect.width - 16f;
+            // The panel width follows her placement, so a resize re-wraps the messages even
+            // when no new message arrived (Bugbot on #64).
+            var width = _content.rect.width;
             if (width < 8f)
                 width = Mathf.Max(8f, _guiRect.width - 16f);
+            var textWidth = Mathf.Max(8f, width - 8f);
+            var widthChanged = Mathf.Abs(textWidth - _laidOutWidth) > 0.5f;
+            var newContent = force || _shownRevision != _conversation.Revision;
+            if (!newContent && !widthChanged)
+                return;
 
-            var textRect = _transcript.rectTransform;
-            textRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
-            Canvas.ForceUpdateCanvases();
-            var height = Mathf.Max(8f, _transcript.preferredHeight);
-            textRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
-            if (_content != null)
+            // A reader at the latest message stays there through a resize; one scrolled up
+            // keeps their place (Bugbot on #64).
+            var atBottom = _scroll == null || _scroll.verticalNormalizedPosition <= 0.01f;
+            _shownRevision = _conversation.Revision;
+            _view.Update(_conversation.Lines);
+            _laidOutWidth = textWidth;
+
+            var count = _view.Count;
+            while (_messageTexts.Count < count)
+                AddMessageText();
+
+            var measure = false;
+            for (var i = 0; i < _messageTexts.Count; i++)
             {
-                _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
-                _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+                var text = _messageTexts[i];
+                if (i >= count)
+                {
+                    // Unused: empty and hidden, so it holds no mesh.
+                    if (text.gameObject.activeSelf)
+                    {
+                        text.text = string.Empty;
+                        text.gameObject.SetActive(false);
+                    }
+
+                    continue;
+                }
+
+                if (!text.gameObject.activeSelf)
+                    text.gameObject.SetActive(true);
+                if (_view.Changed(i) || widthChanged || _messageHeights[i] <= 0f)
+                {
+                    text.text = _view.Entry(i);
+                    text.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, textWidth);
+                    _messageHeights[i] = -1f;
+                    measure = true;
+                }
             }
 
-            if (_scroll != null)
+            if (measure)
+            {
+                Canvas.ForceUpdateCanvases();
+                for (var i = 0; i < count; i++)
+                {
+                    if (_messageHeights[i] < 0f)
+                        _messageHeights[i] = Mathf.Max(8f, _messageTexts[i].preferredHeight);
+                }
+            }
+
+            var y = 0f;
+            for (var i = 0; i < count; i++)
+            {
+                var rect = _messageTexts[i].rectTransform;
+                rect.anchoredPosition = new Vector2(4f, -y);
+                rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, _messageHeights[i]);
+                y += _messageHeights[i] + MessageSpacing;
+            }
+
+            var height = Mathf.Max(8f, y - MessageSpacing);
+            _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+            _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+            // New content jumps to the latest message. A resize keeps a reader at the bottom
+            // there, and leaves someone reading older messages where they were.
+            if (_scroll != null && (newContent || atBottom))
                 _scroll.verticalNormalizedPosition = 0f;
+        }
+
+        void AddMessageText()
+        {
+            var text = CreateText(_content, _transcriptFont, 14, TextAnchor.UpperLeft, string.Empty);
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.raycastTarget = false;
+            var rect = text.rectTransform;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(Mathf.Max(8f, _laidOutWidth), 8f);
+            _messageTexts.Add(text);
+            _messageHeights.Add(-1f);
         }
 
         void BuildUi()
@@ -1272,15 +1351,8 @@ namespace AICompanion.UI
             _content.sizeDelta = new Vector2(0f, 8f);
             _scroll.content = _content;
 
-            _transcript = CreateText(content.transform, font, 14, TextAnchor.UpperLeft, string.Empty);
-            _transcript.horizontalOverflow = HorizontalWrapMode.Wrap;
-            _transcript.verticalOverflow = VerticalWrapMode.Overflow;
-            var transcriptRect = _transcript.rectTransform;
-            transcriptRect.anchorMin = new Vector2(0f, 1f);
-            transcriptRect.anchorMax = new Vector2(1f, 1f);
-            transcriptRect.pivot = new Vector2(0.5f, 1f);
-            transcriptRect.anchoredPosition = Vector2.zero;
-            transcriptRect.sizeDelta = new Vector2(-8f, 8f);
+            // The messages are Texts created on demand under the content (RefreshTranscript).
+            _transcriptFont = font;
 
             var mic = CreateHoldButton(_panel.transform, font, "Mic");
             var micRect = mic.GetComponent<RectTransform>();

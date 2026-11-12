@@ -415,7 +415,12 @@ namespace AICompanion.Settings
                 phase == PresenceStopPhase.Glide);
             ReadTestKeys();
             ReactToEmotion();
+            // JUH-103 phase 2: her mood may stand a silent reaction in for an idle variation.
+            _director.MoodClip = CompanionMoodNow.Rest.IdleClip;
+            var queuedBefore = _director.Queued;
             _director.Tick(delta);
+            if (_director.QueuedIsMood && _director.Queued != queuedBefore)
+                Debug.Log(CompanionMoodLooks.LogLine(CompanionMoodNow.Effective, _set.Clips[_director.Queued].Name, "2D idle clip"));
 
             if (_director.Queued >= 0)
                 EnsurePlayer(_director.Queued);

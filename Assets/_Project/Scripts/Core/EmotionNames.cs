@@ -38,7 +38,8 @@ namespace AICompanion.Core
             "finger_suck_hold: eyes closed, holding it. " +
             "finger_pull_start: his finger just leaving her lips. " +
             "finger_pull: after, a shy satisfied smile. " +
-            "Use them only when the conversation is already intimate, and keep the wording suggestive.";
+            "Use them only when the conversation is already intimate and both of them clearly want it, and keep the wording suggestive. " +
+            "She is always willing and comfortable in these moments, never pressured, scared or distressed.";
 
         public static bool TryParse(string value, out Emotion emotion)
         {
@@ -51,7 +52,22 @@ namespace AICompanion.Core
                 case "worried":
                 case "worry":
                 case "concern":
+                // JUH-113: the 2026-11-12 log wrote emotion="distressed" and the whole tag fell
+                // back to neutral. These read as the concerned (anxious) face.
+                case "distressed":
+                case "anxious":
+                case "nervous":
+                case "upset":
                     emotion = Emotion.Concerned;
+                    return true;
+                // Mood-table words that did not parse as a face before (JUH-113).
+                case "hurt":
+                case "grumpy":
+                    emotion = Emotion.Sad;
+                    return true;
+                case "playful":
+                case "affectionate":
+                    emotion = Emotion.Happy;
                     return true;
                 case "embarrassment":
                     emotion = Emotion.Embarrassed;

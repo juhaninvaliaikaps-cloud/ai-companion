@@ -1,6 +1,6 @@
 # Her mood (JUH-103)
 
-Leia has a lasting mood that changes slowly with the conversation. This is **phase 1**: the mood is kept, fades, is saved per persona, and can be watched. It does **not** pick expressions or reactions yet; that is phase 2. Persona temperaments are phase 3.
+Leia has a lasting mood that changes slowly with the conversation. **Phase 1** keeps the mood: it fades, is saved per persona, and can be watched. **Phase 2** lets the mood colour what she shows (see "What she shows"), without overriding a reply's own cue. Persona temperaments are phase 3.
 
 The approved design is the comment "Approved mood design (2026-11-12)" on JUH-103.
 
@@ -11,6 +11,8 @@ The approved design is the comment "Approved mood design (2026-11-12)" on JUH-10
 | Moods, decay, hysteresis, the Intimate gate, the input table, the mood file | Automated EditMode tests (`CompanionMoodTests`) |
 | Encrypted per-persona file, round trip | Automated EditMode test with a test key |
 | The keeper in the app, the readout, the log lines, saving on quit | **Not run in a player** |
+| Phase 2: the look table, cue softening, the prompt line, the 2D idle clip, the Intimate gate | Automated EditMode tests (`CompanionMoodLookTests`) |
+| Phase 2: the rest face on the 3D avatar and portrait, the 2D idle clip on screen | **Not run in a player** |
 
 ## Moods
 
@@ -45,6 +47,12 @@ One table, `CompanionMoodTable` (`Assets/_Project/Scripts/Core/CompanionMoodTabl
 | embarrassed_worried | flustered 0.2, anxious 0.1 |
 | sleepy / tired / bored | sleepy 0.25 / 0.2 / 0.15 |
 | seductive, flirty | intimate 0.3 (gated), affectionate 0.1 |
+| distressed | anxious 0.3, sad 0.15 |
+| anxious | anxious 0.3 |
+| upset | sad 0.25, anxious 0.1 |
+| teary_happy | happy 0.25, affectionate 0.1 |
+
+JUH-113: `distressed`, `anxious`, `nervous` and `upset` now also read as the concerned face (before, the whole tag fell back to neutral). `hurt` and `grumpy` read as sad; `playful` and `affectionate` read as happy. As a gesture or reaction word, `teary_happy` plays the `happy` clip, and `distressed`, `anxious` and `upset` play `concerned`.
 
 Otherwise the emotion: happy → happy 0.25, sad → sad 0.3, surprised → anxious 0.1, embarrassed → flustered 0.3, shy → flustered 0.2 + affectionate 0.1, flustered → flustered 0.35, concerned → anxious 0.2 + sad 0.1. Neutral and thinking move nothing.
 
@@ -53,6 +61,51 @@ Her cue counts once per chat turn. The screen-look remarks, which reuse the last
 **The user's detected mood** (JUH-21, local rules, each message): happy → happy 0.2, sad → sad 0.15, angry → annoyed 0.15, anxious → anxious 0.15, affectionate → affectionate 0.25. Neutral, surprised and confused move nothing.
 
 **Hooks only, no effect yet:** `CompanionMoodInputs.ReportTouch(Pat / Poke / Other)` for JUH-61 touches, and `ReportIgnored(seconds)` for being ignored.
+
+## What she shows (phase 2)
+
+One table, `CompanionMoodLooks` (`Assets/_Project/Scripts/Core/CompanionMoodLooks.cs`). The keeper publishes the shown mood to `CompanionMoodNow`; the face, portrait, 2D clips, director and prompt read it from there.
+
+**Rest look.** While no reply expression is held (before the first reply, after the hold releases, and for neutral or unreadable cues), she shows her mood:
+
+| Mood | Portrait | 3D face | 2D idle clip |
+| --- | --- | --- | --- |
+| content | neutral | neutral | none |
+| happy | smile | happy 0.35 | happy |
+| affectionate | smile | happy 0.25 | none |
+| flustered | shy | shy 0.3 | none |
+| annoyed | pouty | sad 0.25 | none (pout has sound) |
+| sad | concerned | concerned 0.35 | concerned |
+| anxious | embarrassed_worried | concerned 0.3 | concerned |
+| sleepy | sleepy | neutral (no sleepy 3D pose) | none (no sleepy clip) |
+| intimate (gated) | shy | shy 0.3 | none |
+
+The 3D face intensity is 60 % of the table value at strength 0 and 100 % at strength 1. The body emotion stays neutral, so the 2D avatar does not play an emotion reaction because of the rest look.
+
+**2D idle clip.** When the mood names a clip that the folder has as a silent reaction (not a held pose), it stands in for half of the idle variations (`VideoAvatarDirector.MoodVariationShare`), never twice in a row while there is a plain variation. With no plain variation it is used every time the variation timer fires.
+
+**Reply cues win.** A reply's cue always sets the face. The mood only picks a softer face in the same family, at 80 % intensity:
+
+| Mood | Cue face | Shown |
+| --- | --- | --- |
+| sad | happy, excited, laughing, smug | smile |
+| anxious, sleepy | happy, excited, laughing | smile |
+| annoyed | happy / loving | smug / tsundere |
+| happy | sad | concerned |
+| affectionate | angry | pouty |
+| flustered | happy | shy |
+
+Gestures, reactions and every other face are played as written.
+
+**Prompt.** One line goes right after the persona text: `Your current mood: annoyed, mild. Let it colour your tone a little; the conversation still decides what you say.` The degree is mild below 0.5, moderate below 0.75, then strong. Content says `Your current mood: content.`
+
+**Intimate.** While `IntimateExpressions.Active` is false, Intimate counts as content everywhere: no look, no softening, and it is never named in the prompt. The rest look never uses a `finger_*` portrait.
+
+**Log.** `Mood expression: <mood> → <expression or clip> (<where>)`. Where is one of:
+- `rest face`: logged once each time the rest look changes.
+- `softened <cue> cue`
+- `neutral cue`
+- `2D idle clip`
 
 ## Saved per persona
 
@@ -93,3 +146,12 @@ annoyed 0.52, sad 0.18, happy 0.05
 4. Quit and start again: the mood is still there, a little weaker.
 5. Switch persona: the other persona has its own mood. Switch back: the first one returns.
 6. With Intimate expressions off (or Private mode off) Intimate never appears.
+
+## Windows checklist (phase 2)
+
+1. Turn on the mood readout. Say something sad until the readout shows `Mood: sad`. Once she stops talking, the portrait and the 3D face rest on `concerned`, and the log shows `Mood expression: sad → concerned (rest face)`.
+2. Still sad, get her to reply with a happy cue. She shows a smile instead of the full happy face, and the log shows `Mood expression: sad → smile (softened happy cue)`.
+3. A reply with a strong cue that has no softer variant, such as `surprised`, plays exactly as written.
+4. In 2D video mode while Happy or Sad, some idle variations become the silent `happy` or `concerned` clip (log `… (2D idle clip)`). Clips with sound are never used for this.
+5. After 22:00 Sleepy rises. The portrait rests on `sleepy`.
+6. With Intimate expressions off, nothing ever logs `intimate`, and the prompt never names it.

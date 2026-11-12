@@ -211,6 +211,22 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void VoiceUtterance_NamesTheCustomProviderWhileStayingLocal()
+        {
+            var plan = VoiceUtterance.Decide(new SpeechOrigin
+            {
+                ChatProviderId = ChatDefaults.CustomId,
+                Model = "qwen2.5-7b",
+                Private = true
+            }, null, null);
+
+            Assert.IsTrue(plan.Local);
+            Assert.AreEqual("Custom", plan.ProviderLabel);
+            Assert.AreEqual("qwen2.5-7b", plan.Model);
+            StringAssert.Contains("provider=Custom", plan.LogLine());
+        }
+
+        [Test]
         public void IntimateGate_IsOnForLocalOrCustomPrivateMode_AndOffForCloud()
         {
             IntimateExpressions.Reset();
@@ -218,6 +234,8 @@ namespace AICompanion.Tests.EditMode
             {
                 IntimateExpressions.Configure(true, true, true);
                 Assert.IsTrue(IntimateExpressions.Active, "local or custom endpoint in Private mode may show the gated set");
+                Assert.AreEqual(ChatDefaults.CustomId, OutboundPrivacy.ChatProviderId(false, ChatDefaults.GrokId, PrivateEndpointTypes.Custom), "an open intimate gate must keep the custom route local");
+                Assert.AreNotEqual(ChatDefaults.GrokId, OutboundPrivacy.ChatProviderId(false, "grok", "custom"));
 
                 IntimateExpressions.Configure(true, false, true);
                 Assert.IsFalse(IntimateExpressions.Active, "the cloud path must not activate the gated set");
