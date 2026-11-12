@@ -62,6 +62,29 @@ namespace AICompanion.Core
             }
         }
 
+        /// <summary>
+        /// True when a private file in this folder is already an AES envelope.
+        /// Used to avoid minting a new install key over data the old key still owns.
+        /// </summary>
+        public static bool HasSealedPayload(string root)
+        {
+            if (string.IsNullOrEmpty(root) || !Directory.Exists(root))
+                return false;
+
+            var aes = new List<string>();
+            var secrets = new List<string>();
+            var raw = new List<string>();
+            var junk = new List<string>();
+            Collect(root, aes, secrets, raw, junk);
+            for (var i = 0; i < aes.Count; i++)
+            {
+                if (StartsWithMagic(aes[i]))
+                    return true;
+            }
+
+            return false;
+        }
+
         public static LocalActionResult MigratePlaintext(string root)
         {
             var result = new LocalActionResult();
@@ -317,6 +340,24 @@ namespace AICompanion.Core
             }
             catch (Exception)
             {
+            }
+        }
+
+        static bool StartsWithMagic(string path)
+        {
+            try
+            {
+                using (var stream = File.OpenRead(path))
+                {
+                    var magic = new byte[8];
+                    if (stream.Read(magic, 0, magic.Length) < magic.Length)
+                        return false;
+                    return LocalAesGcm.IsMagic(magic);
+                }
+            }
+            catch (Exception)
+            {
+                return false;
             }
         }
 

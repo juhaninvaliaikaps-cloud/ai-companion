@@ -277,18 +277,50 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void MissingKey_KeepsTheCiphertextAsideInsteadOfReplacingIt()
+        public void MissingKey_LeavesCiphertextInPlaceUntilTheKeyReturns()
         {
             var root = NewRoot();
             var path = Path.Combine(root, "personality.json");
+            var history = Path.Combine(root, "chat-history.json");
             Assert.IsTrue(ProtectedLocalFile.Write(path, "{\"version\":1,\"personaName\":\"ZephyrUnique\",\"mood\":\"bright\",\"warmth\":0.5,\"updatedUtc\":\"\"}"));
+            Assert.IsTrue(ProtectedLocalFile.Write(history, "ZephyrUnique chat"));
+            var personality = File.ReadAllBytes(path);
+            var chat = File.ReadAllBytes(history);
+            var keyPath = Path.Combine(root, InstallKeyFile.FileName);
+            var keyCopy = File.ReadAllBytes(keyPath);
             InstallKeyFile.Forget(root);
-            File.Delete(Path.Combine(root, InstallKeyFile.FileName));
-            LogAssert.Expect(LogType.Warning, "Unreadable local file was kept aside: personality.json");
+            File.Delete(keyPath);
+
+            LogAssert.Expect(LogType.Warning, "Install key is missing. Encrypted files were left in place.");
+            LogAssert.Expect(LogType.Warning, "Local file was not decrypted because the install key is unavailable: personality.json");
             Assert.AreEqual(LocalReadStatus.Unreadable, ProtectedLocalFile.Read(path).Status);
-            var aside = Aside(root, "personality.json.unreadable-");
-            Assert.IsNotNull(aside);
-            Assert.IsFalse(Encoding.UTF8.GetString(File.ReadAllBytes(aside)).Contains("ZephyrUnique"));
+            LogAssert.Expect(LogType.Warning, "Local file was not decrypted because the install key is unavailable: chat-history.json");
+            Assert.AreEqual(LocalReadStatus.Unreadable, ProtectedLocalFile.Read(history).Status);
+            Assert.IsFalse(File.Exists(keyPath));
+            Assert.IsNull(Aside(root, "personality.json.unreadable-"));
+            Assert.IsNull(Aside(root, "chat-history.json.unreadable-"));
+            CollectionAssert.AreEqual(personality, File.ReadAllBytes(path));
+            CollectionAssert.AreEqual(chat, File.ReadAllBytes(history));
+
+            File.WriteAllBytes(keyPath, keyCopy);
+            InstallKeyFile.Forget(root);
+            Assert.AreEqual("{\"version\":1,\"personaName\":\"ZephyrUnique\",\"mood\":\"bright\",\"warmth\":0.5,\"updatedUtc\":\"\"}", ProtectedLocalFile.Read(path).Text);
+            Assert.AreEqual("ZephyrUnique chat", ProtectedLocalFile.Read(history).Text);
+        }
+
+        [Test]
+        public void OmitSecret_RemovesTheCopiedKeyFile()
+        {
+            var root = NewRoot();
+            var copied = Path.Combine(root, "secrets.json");
+            File.WriteAllText(copied, "{\"protected\":true,\"xaiApiKey\":\"blob\"}");
+            File.WriteAllText(copied + ".writing", "partial");
+            var result = new LocalActionResult { Ok = true, Files = 2 };
+            LocalDataPortal.OmitSecret(copied, result);
+            Assert.IsFalse(File.Exists(copied));
+            Assert.IsFalse(File.Exists(copied + ".writing"));
+            Assert.AreEqual(1, result.Files);
+            CollectionAssert.Contains(result.Notes, "secrets.json was not included");
         }
 
         [Test]

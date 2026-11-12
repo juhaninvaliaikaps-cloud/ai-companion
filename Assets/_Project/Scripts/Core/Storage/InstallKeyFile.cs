@@ -44,6 +44,7 @@ namespace AICompanion.Core
 
         static readonly object Gate = new object();
         static readonly Dictionary<string, byte[]> Cache = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+        static readonly HashSet<string> MissingKeyLogged = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>Tests set this to force a key, or null to refuse writes. Production leaves it null.</summary>
         internal static Func<string, byte[]> KeyForPath;
@@ -140,7 +141,19 @@ namespace AICompanion.Core
             lock (Gate)
             {
                 Cache.Remove(full);
+                MissingKeyLogged.Remove(full);
             }
+        }
+
+        static void WarnMissingOnce(string root)
+        {
+            lock (Gate)
+            {
+                if (!MissingKeyLogged.Add(root))
+                    return;
+            }
+
+            Debug.LogWarning("Install key is missing. Encrypted files were left in place.");
         }
 
         public static byte[] LoadOrCreate(
@@ -167,6 +180,12 @@ namespace AICompanion.Core
             var path = Path.Combine(full, FileName);
             if (File.Exists(path))
                 return ReadExisting(path, windowsPlayer, unprotect);
+
+            if (LocalDataActions.HasSealedPayload(full))
+            {
+                WarnMissingOnce(full);
+                return null;
+            }
 
             var created = new byte[LocalAesGcm.KeyBytes];
             try

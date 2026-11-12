@@ -59,20 +59,7 @@ namespace AICompanion.Settings
             string key;
             if (!ApiKeyFile.TryReadKey(source, SecretProtector.Create(), out key) || string.IsNullOrWhiteSpace(key))
             {
-                try
-                {
-                    if (File.Exists(exported))
-                    {
-                        File.Delete(exported);
-                        if (result.Files > 0)
-                            result.Files--;
-                    }
-                }
-                catch (Exception)
-                {
-                }
-
-                result.Notes.Add("secrets.json was not included");
+                OmitSecret(exported, result);
                 return;
             }
 
@@ -81,12 +68,41 @@ namespace AICompanion.Settings
                 var directory = Path.GetDirectoryName(exported);
                 if (!string.IsNullOrEmpty(directory))
                     Directory.CreateDirectory(directory);
-                File.WriteAllText(exported, SecretFileFormat.Write(key, false), Utf8);
+                var temp = exported + ".writing";
+                File.WriteAllText(temp, SecretFileFormat.Write(key, false), Utf8);
+                if (File.Exists(exported))
+                    File.Delete(exported);
+                File.Move(temp, exported);
             }
             catch (Exception)
             {
-                result.Notes.Add("secrets.json was not included");
+                OmitSecret(exported, result);
             }
+        }
+
+        /// <summary>
+        /// Drops a copied secrets file from an export when it cannot be rewritten decrypted.
+        /// </summary>
+        internal static void OmitSecret(string exported, LocalActionResult result)
+        {
+            try
+            {
+                var temp = exported + ".writing";
+                if (!string.IsNullOrEmpty(exported) && File.Exists(temp))
+                    File.Delete(temp);
+                if (!string.IsNullOrEmpty(exported) && File.Exists(exported))
+                {
+                    File.Delete(exported);
+                    if (result != null && result.Files > 0)
+                        result.Files--;
+                }
+            }
+            catch (Exception)
+            {
+            }
+
+            if (result != null)
+                result.Notes.Add("secrets.json was not included");
         }
     }
 }

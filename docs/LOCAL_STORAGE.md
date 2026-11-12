@@ -65,7 +65,7 @@ A second launch finds `LEIAENC1` and does not migrate again.
 
 A truncated file, a flipped byte, or a file whose name does not match the name inside the tag does not throw. The bad file is moved to `<name>.unreadable-<utc>` beside it, a warning names the file, and that store starts empty. The backup is the ciphertext, not a decoded copy. The next save creates a new file with the current install key.
 
-If the install key itself cannot be unwrapped, it is left in place and new writes are skipped.
+If the install key cannot be unwrapped, it is left in place and new writes are skipped. If the key file is missing while encrypted files are still there, those files stay on their original names and a new key is not created, so putting the key file back makes them readable again.
 
 ## Export and wipe
 
