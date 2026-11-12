@@ -25,6 +25,11 @@ namespace AICompanion.AnimationDirector
             if (rules.Length > 0)
                 body = body.Length == 0 ? rules : body + "\n\n" + rules;
 
+            // JUH-108: the visual-novel line, only while the new UI is on (empty otherwise).
+            var style = VisualNovelPrompt.Current;
+            if (style.Length > 0)
+                directorSuffix = string.IsNullOrWhiteSpace(directorSuffix) ? style : directorSuffix.TrimEnd() + "\n" + style;
+
             if (string.IsNullOrWhiteSpace(directorSuffix))
                 return body;
 

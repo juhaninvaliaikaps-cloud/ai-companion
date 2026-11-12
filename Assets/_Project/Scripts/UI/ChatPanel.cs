@@ -86,7 +86,7 @@ namespace AICompanion.UI
         bool _started;
         bool _alive = true;
 
-        public Rect InteractiveRect => _visible ? _guiRect : new Rect(0f, 0f, 0f, 0f);
+        public Rect InteractiveRect => _visible && !_legacyHidden ? _guiRect : new Rect(0f, 0f, 0f, 0f);
 
         public ChatSettings RuntimeChat
         {
@@ -735,6 +735,12 @@ namespace AICompanion.UI
             // What the model really wrote, so a missing or broken cue shows in Player.log.
             Debug.Log(AnimationCueParser.DescribeTag(_exchange.LastCueTag, _exchange.LastCueStatus));
             Debug.Log(EmotionNames.FormatFieldLog(_exchange.LastCue.EmotionField));
+            // JUH-108: the new chat fires each cue at its own line and reports the mood there.
+            if (_replyCuesElsewhere)
+            {
+                _moodCueSerial = _exchange.CueSerial;
+                return;
+            }
             // JUH-103 phase 2: the director shades the cue by the mood she had before this
             // reply, so it plays first and the cue moves the mood after.
             var director = GetComponent<Director>();
@@ -769,7 +775,7 @@ namespace AICompanion.UI
         void BindSpeech()
         {
             if (_speech == null)
-                _speech = GetComponent<ISpeechOutput>();
+                _speech = _speechOverride ?? GetComponent<ISpeechOutput>();
         }
 
         void OnMuteClick()

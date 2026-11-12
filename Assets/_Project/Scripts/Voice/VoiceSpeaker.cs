@@ -13,7 +13,7 @@ namespace AICompanion.Voice
     /// message cancel through <see cref="ISpeechOutput.Cancel"/>.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class VoiceSpeaker : MonoBehaviour, ICompanionStartup, ISpeechOutput, ISpeechSuppression
+    public sealed partial class VoiceSpeaker : MonoBehaviour, ICompanionStartup, ISpeechOutput, ISpeechSuppression, ISpeechPlaybackHold
     {
         public const string MutePref = "ai-companion.tts-muted";
 
@@ -577,7 +577,7 @@ namespace AICompanion.Voice
         {
             _clips.Enqueue(clip);
             _playback.EnqueueClip();
-            if (_playback.Playing)
+            if (_playback.Playing || _held)
                 return;
 
             _playback.Pump();
@@ -622,6 +622,7 @@ namespace AICompanion.Voice
 
         void SilencePlayback()
         {
+            _held = false;
             _decoded.Clear();
             _playback.Stop();
             _playUntil = 0d;
