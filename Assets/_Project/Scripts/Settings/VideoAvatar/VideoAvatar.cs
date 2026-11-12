@@ -349,7 +349,9 @@ namespace AICompanion.Settings
             SetState(VideoAvatarState.Playing);
             Debug.Log("VideoAvatar: playing " + VideoAvatarFiles.FileName(idle.Spec.ColorPath)
                 + " " + texture.width + "x" + texture.height + " mask=" + idle.Spec.Mask
-                + " clips=" + _set.Clips.Count);
+                + " clips=" + _set.Clips.Count
+                + " folder=" + System.IO.Path.GetDirectoryName(idle.Spec.ColorPath)
+                + (_set.FromManifest ? " manifest=" + VideoAvatarManifest.FileName : " manifest=none"));
         }
 
         void TickPlaying(CompanionSettings settings, float delta)
@@ -520,6 +522,9 @@ namespace AICompanion.Settings
             if (index < 0 || _players[index] == null)
                 return;
 
+            // The run is over: report it now, so each line belongs to one clip's run.
+            LogSync(_players[index]);
+
             // Variations and reactions are loaded when they are wanted and unloaded after.
             if (_players[index].Spec.Role == VideoClipRole.IdleVariation || _players[index].Spec.Role == VideoClipRole.Reaction)
             {
@@ -578,18 +583,24 @@ namespace AICompanion.Settings
             if (_players == null)
                 return;
             for (var i = 0; i < _players.Length; i++)
-            {
-                var report = _players[i] != null ? _players[i].TakeSyncReport() : null;
-                if (report != null)
-                    Debug.Log("VideoAvatar: " + report);
-            }
+                LogSync(_players[i]);
+        }
+
+        static void LogSync(VideoClipPlayer player)
+        {
+            var report = player != null ? player.TakeSyncReport() : null;
+            if (report != null)
+                Debug.Log("VideoAvatar: " + report);
         }
 
         void Show(int index, bool mirrored)
         {
             var player = _players[index];
+            var files = VideoAvatarFiles.FileName(player.Spec.ColorPath);
+            if (player.Spec.Mask == VideoMaskKind.MaskVideo || player.Spec.Mask == VideoMaskKind.MaskImage)
+                files += "+" + VideoAvatarFiles.FileName(player.Spec.MaskPath);
             Debug.Log("VideoAvatar: showing " + player.Spec.Name + " act=" + (_director != null ? _director.Act.ToString() : "Idle")
-                + " mask=" + player.Spec.Mask + (mirrored ? " mirrored" : string.Empty));
+                + " mask=" + player.Spec.Mask + " file=" + files + (mirrored ? " mirrored" : string.Empty));
             _shown = index;
             _shownMirrored = mirrored;
             _image.texture = player.Texture;

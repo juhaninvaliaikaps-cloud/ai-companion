@@ -27,6 +27,92 @@ namespace AICompanion.Tests.EditMode
                 model.Tick(Step);
         }
 
+        // ---- screen edges (Windows log on 960aab3: walks from the left edge never started) ----
+
+        static DesktopPresenceModel AtLeftEdge()
+        {
+            var model = Model();
+            model.PlaceAt(0, model.GroundY);
+            return model;
+        }
+
+        [Test]
+        public void AtTheLeftEdge_AWalkRightWithAStandingGait_IsNotEndedByTheEdgeBehindHer()
+        {
+            // 2D mode: the speed is 0 until the walk clip is on screen.
+            var model = AtLeftEdge();
+            model.SetGait(0f, 3.8f, 0f);
+            model.RequestWalk(1f, 30f);
+            Run(model, 0.5f);
+
+            Assert.AreEqual(PresenceState.Walking, model.State);
+            Assert.AreEqual(0, model.EndedAtEdge);
+            Assert.AreEqual(0f, model.X, 0.001f);
+
+            model.SetGait(200f, 3.8f, 0f);
+            Run(model, 1f);
+            Assert.AreEqual(PresenceState.Walking, model.State);
+            Assert.AreEqual(200f, model.X, 4f);
+        }
+
+        [Test]
+        public void AtTheRightEdge_AWalkLeftWithAStandingGait_IsNotEndedByTheEdgeBehindHer()
+        {
+            var model = Model();
+            model.PlaceAt(4000 - 480, model.GroundY);
+            model.SetGait(0f, 3.8f, 0f);
+            model.RequestWalk(-1f, 30f);
+            Run(model, 0.5f);
+
+            Assert.AreEqual(PresenceState.Walking, model.State);
+            Assert.AreEqual(0, model.EndedAtEdge);
+        }
+
+        [Test]
+        public void AtTheLeftEdge_AWalkLeft_StillEndsAtOnce_AndSaysWhichEdge()
+        {
+            var model = AtLeftEdge();
+            model.SetGait(0f, 3.8f, 0f);
+            model.RequestWalk(-1f, 30f);
+            model.Tick(Step);
+
+            Assert.AreEqual(PresenceState.Idle, model.State);
+            Assert.AreEqual(-1, model.EndedAtEdge);
+
+            // The next walk clears it.
+            model.RequestWalk(1f, 30f);
+            Assert.AreEqual(0, model.EndedAtEdge);
+        }
+
+        [Test]
+        public void WalkingIntoTheRightEdge_EndsThere_WithAndWithoutAGait()
+        {
+            foreach (var gait in new[] { false, true })
+            {
+                var model = Model();
+                model.PlaceAt(4000 - 480 - 30, model.GroundY);
+                if (gait)
+                    model.SetGait(200f, 0f, 0f);
+                model.RequestWalk(1f, 30f);
+                Run(model, 1f);
+
+                Assert.AreEqual(PresenceState.Idle, model.State, gait ? "gait" : "no gait");
+                Assert.AreEqual(4000f - 480f, model.X, 0.001f);
+                Assert.AreEqual(1, model.EndedAtEdge);
+            }
+        }
+
+        [Test]
+        public void WithoutAGait_AWalkAwayFromTheEdge_MovesAsBefore()
+        {
+            var model = AtLeftEdge();
+            model.RequestWalk(1f, 10f);
+            Run(model, 1f);
+
+            Assert.AreEqual(PresenceState.Walking, model.State);
+            Assert.AreEqual(DesktopPresenceModel.DefaultWalkSpeed, model.X, 2f);
+        }
+
         [Test]
         public void WithoutAGait_AStopIsImmediate_AsBefore()
         {

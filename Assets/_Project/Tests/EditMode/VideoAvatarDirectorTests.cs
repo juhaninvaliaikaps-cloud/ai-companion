@@ -1269,6 +1269,109 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(expected, VideoMaskSync.SignedOffset(color, mask, count));
         }
 
+        // ---- the sync log (Windows log on 960aab3) --------------------------------------
+
+        [Test]
+        public void SyncCounter_CountsEachPictureFrameOnce_NotEachAppFrame()
+        {
+            var sync = new VideoSyncCounter();
+            long offset;
+
+            // The app draws at 60 fps, the clip plays at 24: each picture frame is seen 2 or 3 times.
+            for (var app = 0; app < 60; app++)
+            {
+                var frame = (long)(app * 24 / 60);
+                sync.Sample(frame, frame, 124, true, out offset);
+            }
+
+            Assert.AreEqual(24, sync.Frames);
+            Assert.AreEqual(24, sync.InStep);
+        }
+
+        [Test]
+        public void SyncCounter_ARewindOrSeekInFlight_IsSkipped_NotCountedAsDrift()
+        {
+            var sync = new VideoSyncCounter();
+            long offset;
+
+            // After a rewind the picture is on 0 while the mask still reports its old frame.
+            Assert.IsFalse(sync.Sample(0, 87, 124, false, out offset));
+            Assert.IsFalse(sync.Sample(1, 87, 124, false, out offset));
+            // No frame yet from the mask.
+            Assert.IsFalse(sync.Sample(2, -1, 124, true, out offset));
+            // Settled.
+            Assert.IsTrue(sync.Sample(3, 3, 124, true, out offset));
+
+            Assert.AreEqual(1, sync.Frames);
+            Assert.AreEqual(0, sync.OffByMore);
+            Assert.AreEqual(3, sync.Skipped);
+        }
+
+        [Test]
+        public void SyncCounter_TheLoopPoint_IsOneFrame_NotTheWholeClip()
+        {
+            var sync = new VideoSyncCounter();
+            long offset;
+
+            sync.Sample(123, 0, 124, true, out offset);
+            Assert.AreEqual(1, offset);
+            sync.Sample(0, 0, 124, true, out offset);
+
+            Assert.AreEqual(1, sync.OffByOne);
+            Assert.AreEqual(1, sync.InStep);
+            Assert.AreEqual(0, sync.OffByMore);
+        }
+
+        [Test]
+        public void SyncCounter_ANewRun_CountsItsFirstFrameEvenWhenTheNumberRepeats()
+        {
+            var sync = new VideoSyncCounter();
+            long offset;
+
+            sync.Sample(0, 0, 124, true, out offset);
+            sync.Restart();
+            sync.Sample(0, 0, 124, true, out offset);
+
+            Assert.AreEqual(2, sync.Frames);
+        }
+
+        [Test]
+        public void SyncCounter_Report_NamesTheFiles_AndCoversPackedClips()
+        {
+            var sync = new VideoSyncCounter();
+            long offset;
+            Assert.IsNull(sync.Report("idle", "idle.sbs.mp4", 1));
+
+            for (var f = 0L; f < 10; f++)
+                sync.Sample(f, f, 124, true, out offset);
+            var packed = sync.Report("idle", "idle.sbs.mp4", 1);
+            StringAssert.Contains("sync idle file=idle.sbs.mp4 decoders=1 frames=10", packed);
+            StringAssert.DoesNotContain("offByMore", packed);
+
+            // Reading it starts a new count.
+            Assert.IsNull(sync.Report("idle", "idle.sbs.mp4", 1));
+
+            sync.Sample(0, 0, 124, true, out offset);
+            sync.Sample(1, 3, 124, true, out offset);
+            sync.Sample(2, 3, 124, true, out offset);
+            sync.Sample(3, 3, 124, false, out offset);
+            sync.CountSeek();
+            var pair = sync.Report("walk", "walk.mp4+walk.mask.mp4", 2);
+            Assert.AreEqual(
+                "sync walk file=walk.mp4+walk.mask.mp4 decoders=2 frames=3 inStep=33.3% offByOne=33.3% offByMore=33.3% skipped=1 seeks=1",
+                pair);
+        }
+
+        [Test]
+        public void SyncCounter_OnlySkippedFrames_ReportNoPercentages()
+        {
+            var sync = new VideoSyncCounter();
+            long offset;
+            sync.Sample(0, 50, 124, false, out offset);
+
+            StringAssert.Contains("frames=0 inStep=n/a", sync.Report("walk", "walk.mp4+walk.mask.mp4", 2));
+        }
+
         [Test]
         public void MaskSync_OneFrameOff_IsNudgedBack_NotJumped()
         {

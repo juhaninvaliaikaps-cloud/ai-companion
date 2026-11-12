@@ -180,6 +180,10 @@ Consequences:
 - **Feet:** the clips have 23 to 31 px of empty space under the feet, so the manifest lowers each clip by 1.7% of its height.
 - The source folder has unkeyed turn clips (`turn_around`, `walk_turn180`, `walk_pivot180`). A keyed turn would remove the hard cut at the start of a walk.
 
+## Screen edges
+
+A walk toward the screen edge she stands at ends at once. A walk away from it starts normally. Before the fix on this branch, a walk away from an edge also ended at once in 2D mode, because she stands still for a moment while the walk clip starts. After she had walked to an edge, every walk in either direction went straight to the walk-stop. `Player.log` now says `Walk: ended at the left screen edge` when an edge ends a walk.
+
 ## Reactions
 
 A reaction is a play-once clip with the role `reaction`. Without a manifest, any clip whose name is not an idle, a walk or a stop is a reaction.
@@ -225,7 +229,13 @@ The keys do nothing while a text field has focus.
 - **Switching.** The next clip is started first. The previous clip stays on screen until the next one has a picture of its own. Then the picture, the mask and the mirror flag change in the same frame. Nothing blank and no unmasked picture is drawn in between.
 - **Playback and looping.** A mask one frame behind the picture plays 8% faster until it is in step, and one frame ahead plays 8% slower. That closes the gap in about half a second without a jump. A mask more than one frame away is moved onto the picture's frame, at most twice a second. At a loop point, a mask on the last frame and a picture on the first count as one frame apart.
 - **Why one frame matters.** In the delivered walk, a mask one frame off changes about 16% of her outline area on average and up to 27%. The masks themselves are in step with their pictures in the files (measured), and hide about 0.3% of her. So a visible slip points at playback, not at the files. This is a measurement of the files, not of the player.
-- **Sync log.** Every 15 seconds `Player.log` gets one line per playing pair, for example `VideoAvatar: sync walk frames=360 inStep=97% offByOne=3% offByMore=0% seeks=0`. A high `offByOne` or any `offByMore` while the outline slips confirms the two decoders as the cause. Each clip change logs `VideoAvatar: showing walk act=Walk mask=MaskVideo`.
+- **Sync log.** Each clip's run ends with one line, and a long run also gets one every 15 seconds:
+  - pair: `VideoAvatar: sync walk file=walk.mp4+walk.mask.mp4 decoders=2 frames=96 inStep=97.9% offByOne=2.1% offByMore=0.0% skipped=3 seeks=0`
+  - packed: `VideoAvatar: sync idle file=idle.sbs.mp4 decoders=1 frames=310 skipped=2 (one decoder: the mask is always on the picture's frame)`
+  - `frames` counts picture frames of the clip, each once. `skipped` counts frames that could not be measured: a rewind or a resync seek was in flight, or the run had not shown its first frame yet. Those are not drift. `seeks` counts the jumps made to bring the mask back.
+  - Each clip change logs `VideoAvatar: showing walk act=Walk mask=Packed file=walk.sbs.mp4`, and each load logs the folder and whether `video-avatar.json` was used.
+  - **Logs from builds before this change are not reliable.** They counted app frames, not clip frames, counted a rewind in flight as drift, and wrote nothing for packed clips.
+- **A lead on the pairs slipping (not confirmed).** All the clips are H.264 High profile with B-frames. Windows Media Foundation warns about these files when loading ("not encoded with the baseline profile", and for `walk.mask.mp4` "First video frame not zero: 4"). The files themselves start at 0 s (checked with ffprobe), so this is the decoder. Two decoders starting a few frames apart would slip the outline, and a packed clip cannot. A test: re-encode a pair without B-frames into a new folder, for example `ffmpeg -i walk.mask.mp4 -c:v libx264 -bf 0 -crf 16 -pix_fmt yuv420p out\walk.mask.mp4`, and compare its sync lines. Your original files stay as they are.
 - **Play-once clips** are paused one frame before their end, so the last picture stays on screen.
 - **After use** a clip is rewound in the background, ready for next time. An idle variation is unloaded after it plays.
 - A packed `.sbs.mp4` clip needs none of this, because one decoder produces both halves. Each half is read half a pixel inside its own edges, so the picture and the mask never blend at the middle of the file.
@@ -369,7 +379,7 @@ Mark each line. Lines 1 to 6 repeat what was verified before, on the new code.
 30. Portrait: turn **Expression portrait** on in 3D mode. Switch to 2D: the portrait is gone. Walk left and right, stop: still gone. Switch to 3D: it is back beside her head. Repeat the switch twice.
 31. Portrait fallback: in 2D mode set **Video folder** to an empty folder and press **Reload video**. The 3D model and the portrait both show.
 32. Reactions: in the front idle press **Test: happy**, **Test: concerned**, **Test: spin (turn360)**, one at a time. Each plays once and returns to the idle. Note the size of the jump at the start and the end. Press one while she walks: nothing happens.
-33. After a walk test, open `Player.log` and find the `VideoAvatar: sync` lines. Note `offByOne` and `offByMore` for the walk.
+33. After a walk test, open `Player.log` and find the `VideoAvatar: sync` lines. Check that each names the file you expect. For pairs note `offByOne`, `offByMore` and `seeks` for the idle and the walk.
 
 ## Tests
 

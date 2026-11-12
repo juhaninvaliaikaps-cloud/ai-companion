@@ -378,16 +378,20 @@ namespace AICompanion.Overlay
 
                 case PresenceState.Walking:
                     _x += _direction * CurrentSpeed * step;
-                    if (_x <= _area.Left)
+                    // An edge ends a walk toward it at once. There is no room to slow down in.
+                    // A walk away from the edge carries on: with a gait she can stand still
+                    // for a moment at the start, and must not be stopped by the edge behind her.
+                    if (_direction < 0 && _x <= _area.Left)
                     {
-                        // An edge ends the walk at once. There is no room to slow down in.
                         _x = _area.Left;
                         StopWalking();
+                        EndedAtEdge = -1;
                     }
-                    else if (_x >= _area.Right - _windowWidth)
+                    else if (_direction > 0 && _x >= _area.Right - _windowWidth)
                     {
                         _x = _area.Right - _windowWidth;
                         StopWalking();
+                        EndedAtEdge = 1;
                     }
                     else if (_stopPhase != PresenceStopPhase.None)
                     {
@@ -426,10 +430,18 @@ namespace AICompanion.Overlay
         /// Walks for a bounded time in the requested direction. A drop in progress is left
         /// alone so the request cannot teleport her off the ground.
         /// </summary>
+        /// <summary>
+        /// -1 when the last walk ended at the left edge, 1 at the right edge, 0 otherwise.
+        /// Cleared by the next walk.
+        /// </summary>
+        public int EndedAtEdge { get; private set; }
+
         public void RequestWalk(float direction, float seconds)
         {
             if (State == PresenceState.Falling)
                 return;
+
+            EndedAtEdge = 0;
 
             State = PresenceState.Walking;
             _direction = direction < 0f ? -1 : 1;

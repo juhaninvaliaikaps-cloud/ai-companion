@@ -241,7 +241,10 @@ namespace AICompanion.Overlay
             // that was applied a line earlier. Apply only once she is not falling.
             TryApplyPending();
 
+            var wasWalking = _model.State == PresenceState.Walking;
             var frame = _model.Tick(deltaSeconds);
+            if (wasWalking && _model.State != PresenceState.Walking && _model.EndedAtEdge != 0)
+                Debug.Log("Walk: ended at the " + (_model.EndedAtEdge < 0 ? "left" : "right") + " screen edge");
             ApplyLocomotion(frame.Walking, frame.Falling, frame.FacingRight);
             return frame;
         }

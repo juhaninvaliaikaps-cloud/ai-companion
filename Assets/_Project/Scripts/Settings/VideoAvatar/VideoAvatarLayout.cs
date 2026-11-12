@@ -151,6 +151,111 @@ namespace AICompanion.Settings
     /// A mask clip is a second decoder, so it can drift from the picture. This says when
     /// the mask is far enough off to be moved back onto the picture's frame.
     /// </summary>
+    /// <summary>
+    /// Counts how well a clip's mask kept to its picture, once per picture frame.
+    /// A frame is measured only when both decoders have settled: no seek in flight and
+    /// a frame from this run. Frames that cannot be measured are counted as skipped, so a
+    /// rewind or a resync is never reported as drift. A packed clip has one decoder: its
+    /// frames are counted and are in step by construction.
+    /// </summary>
+    public sealed class VideoSyncCounter
+    {
+        long _lastFrame = long.MinValue;
+
+        public int Frames { get; private set; }
+        public int InStep { get; private set; }
+        public int OffByOne { get; private set; }
+        public int OffByMore { get; private set; }
+        public int Skipped { get; private set; }
+        public int Seeks { get; private set; }
+
+        /// <summary>A new run starts: the next frame is counted even if its number repeats the last run's.</summary>
+        public void Restart()
+        {
+            _lastFrame = long.MinValue;
+        }
+
+        /// <summary>
+        /// One app frame. True when a new picture frame was measured; then
+        /// <paramref name="offset"/> is the mask's offset in frames. Repeated picture
+        /// frames (the app draws faster than the clip plays) are ignored.
+        /// </summary>
+        public bool Sample(long colorFrame, long maskFrame, long frameCount, bool settled, out long offset)
+        {
+            offset = 0;
+            if (colorFrame < 0 || colorFrame == _lastFrame)
+                return false;
+
+            _lastFrame = colorFrame;
+            if (!settled || maskFrame < 0)
+            {
+                Skipped++;
+                return false;
+            }
+
+            offset = VideoMaskSync.SignedOffset(colorFrame, maskFrame, frameCount);
+            Frames++;
+            if (offset == 0)
+                InStep++;
+            else if (offset == 1 || offset == -1)
+                OffByOne++;
+            else
+                OffByMore++;
+            return true;
+        }
+
+        public void CountSeek()
+        {
+            Seeks++;
+        }
+
+        public bool HasData
+        {
+            get { return Frames + Skipped > 0; }
+        }
+
+        /// <summary>
+        /// One log line, then a new count. Null when nothing was counted. <paramref name="files"/>
+        /// names the file or files the clip was read from.
+        /// </summary>
+        public string Report(string name, string files, int decoders)
+        {
+            if (!HasData)
+                return null;
+
+            string line;
+            if (decoders < 2)
+            {
+                line = "sync " + name + " file=" + files + " decoders=1 frames=" + Frames
+                    + " skipped=" + Skipped + " (one decoder: the mask is always on the picture's frame)";
+            }
+            else
+            {
+                line = "sync " + name + " file=" + files + " decoders=2 frames=" + Frames
+                    + " inStep=" + Percent(InStep, Frames)
+                    + " offByOne=" + Percent(OffByOne, Frames)
+                    + " offByMore=" + Percent(OffByMore, Frames)
+                    + " skipped=" + Skipped
+                    + " seeks=" + Seeks;
+            }
+
+            Frames = 0;
+            InStep = 0;
+            OffByOne = 0;
+            OffByMore = 0;
+            Skipped = 0;
+            Seeks = 0;
+            return line;
+        }
+
+        static string Percent(int part, int whole)
+        {
+            if (whole <= 0)
+                return "n/a";
+            return (100f * part / whole).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "%";
+        }
+    }
+
     public static class VideoMaskSync
     {
         public const long ToleranceFrames = 1;

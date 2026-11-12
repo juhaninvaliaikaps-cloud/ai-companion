@@ -21,6 +21,7 @@ namespace AICompanion.Settings
         // A rewind is waited for only this long. A leftover picture is kept off the screen
         // by the freshness test in any case, so a slow rewind must not delay a walk.
         const float SeekTimeoutSeconds = 0.2f;
+        const float StaleSeekSeconds = 1f;
         const float FreshTimeoutSeconds = 1.5f;
         const float ResyncCooldownSeconds = 0.5f;
 
@@ -42,10 +43,7 @@ namespace AICompanion.Settings
         float _sinceBegin;
         float _resyncIn;
         float _maskSpeed = 1f;
-        int _syncSamples;
-        int _syncOffByOne;
-        int _syncOffByMore;
-        int _syncSeeks;
+        readonly VideoSyncCounter _sync = new VideoSyncCounter();
 
         public VideoClipPlayer(VideoClipSpec spec)
         {
@@ -201,6 +199,7 @@ namespace AICompanion.Settings
             _lastFrame = -1;
             _sinceBegin = 0f;
             _resyncIn = ResyncCooldownSeconds;
+            _sync.Restart();
             if (_mask != null && !Mathf.Approximately(_maskSpeed, 1f) && _mask.canSetPlaybackSpeed)
                 _mask.playbackSpeed = 1f;
             _maskSpeed = 1f;
@@ -261,17 +260,23 @@ namespace AICompanion.Settings
 
             if (Seeking)
                 _seekingFor += deltaSeconds;
+            // A seek whose completion never arrives must not stop the measuring for good.
+            if (Seeking && _begun && _seekingFor > StaleSeekSeconds)
+            {
+                _colorSeeking = false;
+                _maskSeeking = false;
+            }
             if (!_begun || _ended)
                 return VideoClipEvent.None;
 
             _sinceBegin += deltaSeconds;
             var frame = _color.frame;
             var count = (long)_color.frameCount;
-            SyncMask(frame, count, deltaSeconds);
 
             // Until the decoder reports a frame from this run, its frame number can be a
             // leftover from before the rewind. Nothing is decided on a leftover.
             var started = VideoClipProgress.IsFresh(frame, _sinceBegin, FrameRate) || _sinceBegin > FreshTimeoutSeconds;
+            SyncMask(frame, count, started, deltaSeconds);
             var result = VideoClipEvent.None;
             if (!_spec.Loop)
             {
@@ -332,46 +337,37 @@ namespace AICompanion.Settings
         }
 
         /// <summary>
-        /// How well the mask kept up with the picture since the last call, as one log line,
-        /// or null when nothing was measured. Reading it starts a new count.
+        /// How well the mask kept to the picture since the last call, as one log line that
+        /// names the file or files, or null when nothing played. Reading it starts a new count.
         /// </summary>
         public string TakeSyncReport()
         {
-            if (_mask == null || _syncSamples == 0)
-                return null;
-
-            var samples = _syncSamples;
-            var report = "sync " + _spec.Name
-                + " frames=" + samples
-                + " inStep=" + Percent(samples - _syncOffByOne - _syncOffByMore, samples)
-                + " offByOne=" + Percent(_syncOffByOne, samples)
-                + " offByMore=" + Percent(_syncOffByMore, samples)
-                + " seeks=" + _syncSeeks;
-            _syncSamples = 0;
-            _syncOffByOne = 0;
-            _syncOffByMore = 0;
-            _syncSeeks = 0;
-            return report;
+            var files = VideoAvatarFiles.FileName(_spec.ColorPath);
+            if (_mask != null)
+                files += "+" + VideoAvatarFiles.FileName(_spec.MaskPath);
+            return _sync.Report(_spec.Name, files, _mask != null ? 2 : 1);
         }
 
-        static string Percent(int part, int whole)
+        void SyncMask(long frame, long count, bool started, float deltaSeconds)
         {
-            return (100f * part / whole).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "%";
-        }
-
-        void SyncMask(long frame, long count, float deltaSeconds)
-        {
+            // Measure only settled frames: during a rewind or a resync seek, and before this
+            // run's first frame, the decoders report numbers that do not match the picture.
+            var settled = started && !Seeking;
+            long offset;
             if (_mask == null)
+            {
+                _sync.Sample(frame, frame, count, settled, out offset);
+                return;
+            }
+
+            var maskFrame = _mask.frame;
+            _sync.Sample(frame, maskFrame, count, settled, out offset);
+            _resyncIn -= deltaSeconds;
+            if (!settled)
                 return;
 
-            var offset = VideoMaskSync.SignedOffset(frame, _mask.frame, count);
-            _syncSamples++;
-            if (offset == 1 || offset == -1)
-                _syncOffByOne++;
-            else if (offset != 0)
-                _syncOffByMore++;
-
             // One frame off: nudge the mask's speed until the numbers match again.
+            offset = VideoMaskSync.SignedOffset(frame, maskFrame, count);
             var speed = VideoMaskSync.MaskSpeed(offset);
             if (!Mathf.Approximately(speed, _maskSpeed) && _mask.canSetPlaybackSpeed)
             {
@@ -379,16 +375,17 @@ namespace AICompanion.Settings
                 _mask.playbackSpeed = speed;
             }
 
-            _resyncIn -= deltaSeconds;
             if (_resyncIn > 0f)
                 return;
-            if (!VideoMaskSync.NeedsResync(frame, _mask.frame, count))
+            if (!VideoMaskSync.NeedsResync(frame, maskFrame, count))
                 return;
 
-            // More than one frame off: jump.
+            // More than one frame off: jump. The seek is in flight until seekCompleted.
+            _maskSeeking = true;
+            _seekingFor = 0f;
             _mask.frame = frame;
             _resyncIn = ResyncCooldownSeconds;
-            _syncSeeks++;
+            _sync.CountSeek();
         }
 
         VideoPlayer CreateDecoder(Transform parent, string objectName, string path)
