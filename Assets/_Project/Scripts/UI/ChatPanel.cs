@@ -538,6 +538,7 @@ namespace AICompanion.UI
             // the reply, and the model gets one hint line. The reply cue replaces the face.
             var mood = UserMoodDetector.Detect(text);
             Debug.Log(mood.ToLogString());
+            CompanionMoodInputs.ReportUserMood(mood);
             prompt = UserMoodPrompt.Append(prompt, mood);
             if (director != null && UserMoodReaction.TryGetCue(mood, out var moodCue))
                 director.Play(moodCue);
@@ -755,6 +756,8 @@ namespace AICompanion.UI
             // What the model really wrote, so a missing or broken cue shows in Player.log.
             Debug.Log(AnimationCueParser.DescribeTag(_exchange.LastCueTag, _exchange.LastCueStatus));
             Debug.Log(EmotionNames.FormatFieldLog(_exchange.LastCue.EmotionField));
+            // JUH-103: her own cue moves her lasting mood. Phase 1 only records it.
+            CompanionMoodInputs.ReportCue(_exchange.LastCue);
             var director = GetComponent<Director>();
             if (director != null)
                 director.Play(_exchange.LastCue);
