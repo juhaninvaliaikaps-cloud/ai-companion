@@ -133,6 +133,15 @@ namespace AICompanion.AnimationDirector
                     return fromGesture;
             }
 
+            // A walk or stop cue never reaches the face: Play returns after the movement. So the
+            // emotion's own clip is asked for here. It waits for the walk and plays after it.
+            if ((gesture == WalkCue || gesture == StopCue) && cue.Emotion != Emotion.Neutral)
+            {
+                var fromEmotion = AvatarReactionCatalog.Find(cue.Emotion.ToString());
+                if (fromEmotion.Length > 0)
+                    return fromEmotion;
+            }
+
             var word = AvatarReactionCatalog.Find(cue.EmotionField);
             return word.Length > 0 && !IsPlainEmotion(word) ? word : string.Empty;
         }
@@ -181,8 +190,9 @@ namespace AICompanion.AnimationDirector
             if (!CompanionPause.ReactionsAllowed(_suppressed))
                 return;
 
-            // A body reaction (2D video avatar) goes to the avatar, then the cue carries on:
-            // the emotion still sets the face, and a walk still walks.
+            // A body reaction (2D video avatar) goes to the avatar, then the cue carries on.
+            // A walk or stop returns below before the face is set (as it always has), so for
+            // those ReactionName asks for the emotion's own clip instead.
             TryRequestReaction(cue);
 
             // Walk and stop are not catalog clips. Handling them first keeps a walk row

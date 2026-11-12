@@ -227,6 +227,25 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void ReactionName_AWalkOrStopWithAnEmotion_AsksForTheEmotionsClip()
+        {
+            // Play returns after a walk or stop before the face is set (Bugbot on PR #56), so
+            // the 2D emotion clip would never start from the face.
+            AvatarReactionCatalog.Set(new[] { "happy", "concerned", "pout" });
+
+            Assert.AreEqual("happy", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"happy\" gesture=\"walk\" direction=\"left\" />\nx").Cue));
+            Assert.AreEqual("concerned", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"concerned\" gesture=\"stop\" />\nx").Cue));
+            // Neutral, or an emotion without a clip: nothing.
+            Assert.AreEqual(string.Empty, Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"neutral\" gesture=\"walk\" />\nx").Cue));
+            Assert.AreEqual(string.Empty, Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"surprised\" gesture=\"walk\" />\nx").Cue));
+            // A named reaction still wins, and a reaction word as the emotion still counts.
+            Assert.AreEqual("pout", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"happy\" gesture=\"walk\" reaction=\"pout\" />\nx").Cue));
+            Assert.AreEqual("pout", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"pout\" gesture=\"walk\" />\nx").Cue));
+            // Without a walk, a plain emotion still goes through the face only.
+            Assert.AreEqual(string.Empty, Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"happy\" />\nx").Cue));
+        }
+
+        [Test]
         public void Catalog_Find_IsTheNameOrTheOnlyNameStartingWithTheWord()
         {
             AvatarReactionCatalog.Set(new[] { "pout", "turn_around_back", "turn_around_front", "wink_dance" });
