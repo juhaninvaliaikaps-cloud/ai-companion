@@ -74,7 +74,8 @@
       "color": "embarrassed.mp4",
       "mask": "embarrassed.mask.mp4",
       "playback": "once",
-      "offsetY": -0.017
+      "offsetY": -0.017,
+      "sound": true
     },
     {
       "name": "flustered",
@@ -82,7 +83,8 @@
       "color": "flustered.mp4",
       "mask": "flustered.mask.mp4",
       "playback": "once",
-      "offsetY": -0.017
+      "offsetY": -0.017,
+      "sound": true
     },
     {
       "name": "pout",
@@ -90,7 +92,8 @@
       "color": "pout.mp4",
       "mask": "pout.mask.mp4",
       "playback": "once",
-      "offsetY": -0.017
+      "offsetY": -0.017,
+      "sound": true
     },
     {
       "name": "wink_dance",
@@ -98,7 +101,8 @@
       "color": "wink_dance.mp4",
       "mask": "wink_dance.mask.mp4",
       "playback": "once",
-      "offsetY": -0.017
+      "offsetY": -0.017,
+      "sound": true
     },
     {
       "name": "turn_around_back",
@@ -107,7 +111,8 @@
       "mask": "turn_around_back.mask.mp4",
       "playback": "once",
       "after": "back_idle",
-      "offsetY": -0.017
+      "offsetY": -0.017,
+      "sound": true
     },
     {
       "name": "back_idle",
@@ -116,7 +121,8 @@
       "mask": "back_idle.mask.mp4",
       "playback": "loop",
       "hold": 12,
-      "offsetY": -0.017
+      "offsetY": -0.017,
+      "sound": true
     }
   ]
 }

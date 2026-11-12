@@ -316,6 +316,45 @@ namespace AICompanion.Settings
         }
     }
 
+    /// <summary>
+    /// How loud a clip's own sound plays. Only clips the manifest marks with "sound": true
+    /// have sound, only with the setting on, never while speech is muted, and never over
+    /// her TTS voice: while she speaks the clip is silent and continues silently.
+    /// </summary>
+    public static class VideoClipSound
+    {
+        public const float DefaultVolume = 0.7f;
+
+        public static float ClampVolume(float volume)
+        {
+            if (float.IsNaN(volume) || float.IsInfinity(volume))
+                return DefaultVolume;
+            return Mathf.Clamp01(volume);
+        }
+
+        public static float Volume(bool settingOn, float settingVolume, bool clipHasSound, bool speechMuted, bool speaking)
+        {
+            if (!settingOn || !clipHasSound || speechMuted || speaking)
+                return 0f;
+            return ClampVolume(settingVolume);
+        }
+
+        /// <summary>One log line when a clip with sound starts, so Player.log says why it was or was not heard.</summary>
+        public static string Describe(string clipName, bool settingOn, bool speechMuted, bool speaking)
+        {
+            string state;
+            if (!settingOn)
+                state = "off (Play clip sounds is off)";
+            else if (speechMuted)
+                state = "silent (speech is muted)";
+            else if (speaking)
+                state = "silent while she speaks";
+            else
+                state = "on";
+            return "clip sound " + clipName + ": " + state;
+        }
+    }
+
     /// <summary>Which head the expression portrait is placed beside.</summary>
     public enum PortraitAnchorSource
     {

@@ -103,6 +103,12 @@ namespace AICompanion.Settings
         /// <summary>Walking speed of the 2D avatar in clip heights per second. 0 uses the walk clip's own value.</summary>
         public float VideoAvatarWalkSpeed;
 
+        /// <summary>Plays the sound of clips the manifest marks with "sound": true. Off by default.</summary>
+        public bool PlayClipSounds;
+
+        /// <summary>Clip sound volume, 0 to 1.</summary>
+        public float ClipSoundVolume = VideoClipSound.DefaultVolume;
+
         public static CompanionSettings CreateDefault()
         {
             return new CompanionSettings();
@@ -163,6 +169,7 @@ namespace AICompanion.Settings
             if (float.IsNaN(VideoAvatarWalkSpeed) || float.IsInfinity(VideoAvatarWalkSpeed) || VideoAvatarWalkSpeed < 0f)
                 VideoAvatarWalkSpeed = 0f;
             VideoAvatarWalkSpeed = Math.Min(VideoAvatarWalkSpeed, VideoAvatarManifest.MaxWalkSpeed);
+            ClipSoundVolume = VideoClipSound.ClampVolume(ClipSoundVolume);
         }
 
         static string CleanToken(string value, string fallback, int max)
@@ -485,6 +492,10 @@ namespace AICompanion.Settings
                 settings.VideoAvatarOffsetY = (float)number;
             if (TryNumber(json, "videoAvatarWalkSpeed", out number))
                 settings.VideoAvatarWalkSpeed = (float)number;
+            if (TryBool(json, "playClipSounds", out flag))
+                settings.PlayClipSounds = flag;
+            if (TryNumber(json, "clipSoundVolume", out number))
+                settings.ClipSoundVolume = (float)number;
             settings.Normalize();
             return settings;
         }
@@ -541,6 +552,8 @@ namespace AICompanion.Settings
             Number(sb, "videoAvatarOffsetX", source.VideoAvatarOffsetX, false);
             Number(sb, "videoAvatarOffsetY", source.VideoAvatarOffsetY, false);
             Number(sb, "videoAvatarWalkSpeed", source.VideoAvatarWalkSpeed, false);
+            Bool(sb, "playClipSounds", source.PlayClipSounds);
+            Number(sb, "clipSoundVolume", source.ClipSoundVolume, false);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;

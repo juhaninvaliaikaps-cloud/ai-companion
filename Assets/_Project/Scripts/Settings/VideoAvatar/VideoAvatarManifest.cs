@@ -47,6 +47,8 @@ namespace AICompanion.Settings
         public string after;
         /// <summary>A pose that follows a reaction: seconds to hold it before facing front. 0 uses the default.</summary>
         public float hold;
+        /// <summary>True plays the clip's own sound track (with the "Play clip sounds" setting on).</summary>
+        public bool sound;
     }
 
     /// <summary>The whole video-avatar.json file.</summary>
@@ -110,6 +112,9 @@ namespace AICompanion.Settings
         /// <summary>Only read on a pose clip: seconds it is held before she faces front again, at a loop point.</summary>
         public float HoldSeconds = VideoAvatarManifest.DefaultHoldSeconds;
 
+        /// <summary>The clip's own sound track is played (manifest "sound": true). Without a manifest, never.</summary>
+        public bool Sound;
+
         /// <summary>How often a variation is picked against the others.</summary>
         public float Weight = 1f;
 
@@ -133,6 +138,7 @@ namespace AICompanion.Settings
                 && ThenIdle == other.ThenIdle
                 && string.Equals(After, other.After, StringComparison.OrdinalIgnoreCase)
                 && Mathf.Approximately(HoldSeconds, other.HoldSeconds)
+                && Sound == other.Sound
                 && Mathf.Approximately(Weight, other.Weight);
         }
     }
@@ -158,6 +164,42 @@ namespace AICompanion.Settings
         public bool Found
         {
             get { return Idle >= 0; }
+        }
+
+        /// <summary>True when the clip is a pose held after another reaction ("back_idle" after "turn_around_back").</summary>
+        public bool IsPoseTarget(int clip)
+        {
+            if (clip < 0 || clip >= Clips.Count)
+                return false;
+            for (var i = 0; i < Clips.Count; i++)
+            {
+                if (i != clip && Clips[i].Role == VideoClipRole.Reaction
+                    && string.Equals(Clips[i].After, Clips[clip].Name, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// The reactions the companion may ask for in a cue: every reaction clip except a pose
+        /// held after another reaction, and except walk turns ("walk_pivot180"), which are not
+        /// played on their own yet.
+        /// </summary>
+        public List<string> OfferedReactions()
+        {
+            var names = new List<string>();
+            for (var i = 0; i < Clips.Count; i++)
+            {
+                var clip = Clips[i];
+                if (clip.Role != VideoClipRole.Reaction || IsPoseTarget(i))
+                    continue;
+                if (clip.Name.StartsWith("walk", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                names.Add(clip.Name);
+            }
+
+            return names;
         }
 
         /// <summary>Index of a reaction clip by name, or -1.</summary>
@@ -320,6 +362,7 @@ namespace AICompanion.Settings
                 // On a reaction, "after" names the pose that follows it. "idle" is the default anyway.
                 if (spec.Role == VideoClipRole.Reaction && !spec.ThenIdle)
                     spec.After = Clean(entry.after);
+                spec.Sound = entry.sound;
                 spec.HoldSeconds = entry.hold > 0f && IsNumber(entry.hold) ? Mathf.Min(entry.hold, MaxHoldSeconds) : DefaultHoldSeconds;
                 spec.Weight = entry.weight > 0f && IsNumber(entry.weight) ? entry.weight : 1f;
                 Add(set, spec);

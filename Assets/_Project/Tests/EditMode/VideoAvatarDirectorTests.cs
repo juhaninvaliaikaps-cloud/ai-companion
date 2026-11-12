@@ -1145,7 +1145,7 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void Reaction_IsIgnoredWhileSheWalksStopsOrPlaysAnotherClip()
+        public void Reaction_DoesNotStartWhileSheWalksStopsOrPlaysAnotherClip()
         {
             var set = ReactionSet();
             var director = new VideoAvatarDirector(set, 1);
@@ -1395,6 +1395,220 @@ namespace AICompanion.Tests.EditMode
                     continue;
                 Assert.AreEqual(emotion.ToString().ToLowerInvariant(), VideoReactionNames.For(emotion));
             }
+        }
+
+        // ---- reactions asked for while she is busy (JUH-99, 2026-11-12) -------------------
+
+        [Test]
+        public void Request_WhileWalking_WaitsAndPlaysWhenSheIsBackOnTheIdle()
+        {
+            var set = VideoAvatarManifest.Resolve(PoseManifest, PackedFolder());
+            var director = new VideoAvatarDirector(set, 1);
+            var pout = set.FindReaction("pout");
+
+            director.SetMovement(true, false, false, false);
+            Assert.AreEqual(AICompanion.Core.AvatarReactionResult.Waiting, director.Request("pout", true));
+            Assert.AreEqual(pout, director.PendingReaction);
+            Assert.AreEqual(-1, director.Queued);
+
+            // Still walking: it waits.
+            director.Tick(1f);
+            Assert.AreEqual(pout, director.PendingReaction);
+
+            // She stops and is back on the idle within the wait: it is queued and starts when loaded.
+            director.SetMovement(false, false, false, false);
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            director.Tick(0.1f);
+            Assert.AreEqual(-1, director.PendingReaction);
+            Assert.AreEqual(pout, director.Queued);
+            Assert.IsTrue(director.QueuedIsReaction);
+            director.OnQueuedReady();
+            Assert.AreEqual(VideoAvatarAct.Reaction, director.Act);
+            Assert.AreEqual(pout, director.Clip);
+        }
+
+        [Test]
+        public void Request_ThatWaitsTooLong_IsDropped()
+        {
+            var set = VideoAvatarManifest.Resolve(PoseManifest, PackedFolder());
+            var director = new VideoAvatarDirector(set, 1);
+
+            director.SetMovement(true, false, false, false);
+            director.Request("pout", true);
+            director.Tick(VideoAvatarDirector.PendingSeconds + 0.1f);
+            Assert.AreEqual(-1, director.PendingReaction);
+
+            director.SetMovement(false, false, false, false);
+            director.Tick(0.1f);
+            Assert.AreEqual(-1, director.Queued);
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+        }
+
+        [Test]
+        public void Request_DuringAnotherReaction_PlaysAfterIt_AndTheLatestWins()
+        {
+            var set = VideoAvatarManifest.Resolve(PoseManifest, PackedFolder());
+            var director = new VideoAvatarDirector(set, 1);
+
+            director.Request("embarrassed", true);
+            director.OnQueuedReady();
+            Assert.AreEqual(VideoAvatarAct.Reaction, director.Act);
+
+            Assert.AreEqual(AICompanion.Core.AvatarReactionResult.Waiting, director.Request("pout", true));
+            Assert.AreEqual(AICompanion.Core.AvatarReactionResult.Waiting, director.Request("turn_around_back", true));
+            Assert.AreEqual(set.FindReaction("turn_around_back"), director.PendingReaction);
+
+            director.OnEnded();
+            director.Tick(0.1f);
+            Assert.AreEqual(set.FindReaction("turn_around_back"), director.Queued);
+        }
+
+        [Test]
+        public void Request_DuringAVariation_PlaysAfterIt()
+        {
+            var set = ReactionSet();
+            var director = new VideoAvatarDirector(set, 1);
+
+            director.Tick(1.5f);
+            director.OnBoundary(true);
+            Assert.AreEqual(VideoAvatarAct.Variation, director.Act);
+
+            Assert.AreEqual(AICompanion.Core.AvatarReactionResult.Waiting, director.Request("happy", true));
+            director.OnEnded();
+            director.Tick(0.1f);
+            Assert.AreEqual(set.FindReaction("happy"), director.Queued);
+            Assert.IsTrue(director.QueuedIsReaction);
+        }
+
+        [Test]
+        public void Request_FromAnEmotion_NeverReplacesOneTheReplyNamed()
+        {
+            var set = ReactionSet();
+
+            // Loading on the idle.
+            var idle = new VideoAvatarDirector(set, 1);
+            Assert.AreEqual(AICompanion.Core.AvatarReactionResult.Started, idle.Request("concerned", true));
+            Assert.AreEqual(AICompanion.Core.AvatarReactionResult.Refused, idle.Request("happy", false));
+            Assert.AreEqual(set.FindReaction("concerned"), idle.Queued);
+            // A newer named one does replace it.
+            Assert.AreEqual(AICompanion.Core.AvatarReactionResult.Started, idle.Request("turn360", true));
+            Assert.AreEqual(set.FindReaction("turn360"), idle.Queued);
+
+            // Waiting while she walks.
+            var walking = new VideoAvatarDirector(set, 1);
+            walking.SetMovement(true, false, false, false);
+            walking.Request("concerned", true);
+            Assert.AreEqual(AICompanion.Core.AvatarReactionResult.Refused, walking.Request("happy", false));
+            Assert.AreEqual(set.FindReaction("concerned"), walking.PendingReaction);
+
+            // An emotion reaction does give way to a named one.
+            var emotion = new VideoAvatarDirector(set, 1);
+            emotion.Request("happy", false);
+            Assert.AreEqual(AICompanion.Core.AvatarReactionResult.Started, emotion.Request("concerned", true));
+            Assert.AreEqual(set.FindReaction("concerned"), emotion.Queued);
+        }
+
+        [Test]
+        public void Request_UnknownClipOrAHeldPose_IsRefused()
+        {
+            var set = VideoAvatarManifest.Resolve(PoseManifest, PackedFolder());
+            var director = new VideoAvatarDirector(set, 1);
+
+            Assert.AreEqual(AICompanion.Core.AvatarReactionResult.Refused, director.Request("moonwalk", true));
+            Assert.AreEqual(AICompanion.Core.AvatarReactionResult.Refused, director.Request(null, true));
+            // back_idle only follows turn_around_back. On its own it would start with her back turned.
+            Assert.AreEqual(AICompanion.Core.AvatarReactionResult.Refused, director.Request("back_idle", true));
+            Assert.AreEqual(-1, director.Queued);
+            Assert.AreEqual(-1, director.PendingReaction);
+        }
+
+        [Test]
+        public void Request_WaitingForAClipThatFailsToLoad_IsDropped()
+        {
+            var set = VideoAvatarManifest.Resolve(PoseManifest, PackedFolder());
+            var director = new VideoAvatarDirector(set, 1);
+
+            director.SetMovement(true, false, false, false);
+            director.Request("pout", true);
+            director.SetUnavailable(set.FindReaction("pout"));
+            Assert.AreEqual(-1, director.PendingReaction);
+        }
+
+        [Test]
+        public void OfferedReactions_LeaveOutHeldPosesAndWalkTurns()
+        {
+            var poses = VideoAvatarManifest.Resolve(PoseManifest, PackedFolder());
+            CollectionAssert.AreEquivalent(new[] { "embarrassed", "pout", "turn_around_back" }, poses.OfferedReactions());
+
+            var files = VideoAvatarManifest.Resolve(null, Files(
+                "idle.sbs.mp4", "walk.sbs.mp4", "happy.sbs.mp4", "pout.sbs.mp4", "walk_pivot180.sbs.mp4"));
+            CollectionAssert.AreEquivalent(new[] { "happy", "pout" }, files.OfferedReactions());
+        }
+
+        // ---- clip sound -----------------------------------------------------------------
+
+        [Test]
+        public void Manifest_Sound_IsOnlyForClipsThatSayIt()
+        {
+            const string json = @"{ ""clips"": [
+                { ""name"": ""idle"", ""color"": ""idle.sbs.mp4"" },
+                { ""name"": ""pout"", ""role"": ""reaction"", ""color"": ""pout.sbs.mp4"", ""sound"": true } ] }";
+
+            var set = VideoAvatarManifest.Resolve(json, PackedFolder());
+
+            Assert.IsTrue(set.Clips[set.FindReaction("pout")].Sound);
+            Assert.IsFalse(set.Clips[set.Idle].Sound);
+            Assert.IsFalse(VideoAvatarManifest.Resolve(null, PackedFolder()).Clips[0].Sound, "Without a manifest no clip has sound.");
+        }
+
+        [Test]
+        public void ClipSound_IsSilentWhenOff_Muted_OrWhileSheSpeaks()
+        {
+            Assert.AreEqual(0.7f, VideoClipSound.Volume(true, 0.7f, true, false, false), 0.0001f);
+            Assert.AreEqual(0f, VideoClipSound.Volume(false, 0.7f, true, false, false));
+            Assert.AreEqual(0f, VideoClipSound.Volume(true, 0.7f, false, false, false));
+            Assert.AreEqual(0f, VideoClipSound.Volume(true, 0.7f, true, true, false), "The Mute button silences clip sound too.");
+            Assert.AreEqual(0f, VideoClipSound.Volume(true, 0.7f, true, false, true), "Never over her TTS voice.");
+            Assert.AreEqual(1f, VideoClipSound.Volume(true, 3f, true, false, false));
+            Assert.AreEqual(VideoClipSound.DefaultVolume, VideoClipSound.ClampVolume(float.NaN));
+
+            Assert.AreEqual("clip sound pout: silent while she speaks", VideoClipSound.Describe("pout", true, false, true));
+            Assert.AreEqual("clip sound pout: off (Play clip sounds is off)", VideoClipSound.Describe("pout", false, false, false));
+        }
+
+        [Test]
+        public void Settings_ClipSound_IsOffByDefault_AndSurvivesASaveAndLoad()
+        {
+            var fresh = CompanionSettings.CreateDefault();
+            Assert.IsFalse(fresh.PlayClipSounds);
+            Assert.AreEqual(VideoClipSound.DefaultVolume, fresh.ClipSoundVolume, 0.0001f);
+
+            fresh.PlayClipSounds = true;
+            fresh.ClipSoundVolume = 0.35f;
+            var loaded = CompanionSettings.Parse(CompanionSettings.Write(fresh), default(SettingsLegacyPrefs));
+            Assert.IsTrue(loaded.PlayClipSounds);
+            Assert.AreEqual(0.35f, loaded.ClipSoundVolume, 0.001f);
+
+            var broken = CompanionSettings.Parse("{ \"clipSoundVolume\": 7 }", default(SettingsLegacyPrefs));
+            Assert.AreEqual(1f, broken.ClipSoundVolume, 0.0001f);
+            Assert.IsFalse(broken.PlayClipSounds);
+        }
+
+        [Test]
+        public void ShippedManifest_IsPackedAndMarksTheSixVoiceClips()
+        {
+            var path = Path.Combine(Application.dataPath, "..", "tools", "video-avatar", "leia-keyed.video-avatar.json");
+            var set = VideoAvatarManifest.Resolve(File.ReadAllText(path), PackedFolder());
+
+            Assert.AreEqual(0, set.Warnings.Count);
+            Assert.AreEqual(13, set.Clips.Count);
+            foreach (var clip in set.Clips)
+                Assert.AreEqual(VideoMaskKind.Packed, clip.Mask, clip.Name);
+            foreach (var name in new[] { "embarrassed", "flustered", "pout", "wink_dance", "turn_around_back", "back_idle" })
+                Assert.IsTrue(set.Clips[set.FindReaction(name)].Sound, name);
+            Assert.IsFalse(set.Clips[set.Idle].Sound);
+            Assert.IsFalse(set.Clips[set.Walk].Sound);
+            Assert.AreEqual("back_idle", set.Clips[set.FindReaction("turn_around_back")].After);
         }
 
         // ---- keeping the mask on the picture's frame -------------------------------------

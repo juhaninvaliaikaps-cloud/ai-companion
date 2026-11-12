@@ -66,28 +66,32 @@
       "role": "reaction",
       "color": "embarrassed.sbs.mp4",
       "playback": "once",
-      "offsetY": -0.017
+      "offsetY": -0.017,
+      "sound": true
     },
     {
       "name": "flustered",
       "role": "reaction",
       "color": "flustered.sbs.mp4",
       "playback": "once",
-      "offsetY": -0.017
+      "offsetY": -0.017,
+      "sound": true
     },
     {
       "name": "pout",
       "role": "reaction",
       "color": "pout.sbs.mp4",
       "playback": "once",
-      "offsetY": -0.017
+      "offsetY": -0.017,
+      "sound": true
     },
     {
       "name": "wink_dance",
       "role": "reaction",
       "color": "wink_dance.sbs.mp4",
       "playback": "once",
-      "offsetY": -0.017
+      "offsetY": -0.017,
+      "sound": true
     },
     {
       "name": "turn_around_back",
@@ -95,7 +99,8 @@
       "color": "turn_around_back.sbs.mp4",
       "playback": "once",
       "after": "back_idle",
-      "offsetY": -0.017
+      "offsetY": -0.017,
+      "sound": true
     },
     {
       "name": "back_idle",
@@ -103,7 +108,8 @@
       "color": "back_idle.sbs.mp4",
       "playback": "loop",
       "hold": 12,
-      "offsetY": -0.017
+      "offsetY": -0.017,
+      "sound": true
     }
   ]
 }

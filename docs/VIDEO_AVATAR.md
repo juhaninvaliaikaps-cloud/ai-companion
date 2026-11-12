@@ -21,9 +21,11 @@ Reaction clips (`happy`, `concerned`, `turn360`, `embarrassed`, `flustered`, `po
 | Idle variations, walking, walk-stop, mirroring and clip switching with the picture + mask pairs | Jussi, manual test of commit 905d671 on Windows: "work pretty well". Two faults were reported and are addressed after that commit, see the next rows |
 | Expression portrait beside her head in 2D mode, steady while she walks | Automated tests of the anchor, the position and every mode switch. **Not yet seen in a player** |
 | Outline that slips (mask clipping) | Jussi, Windows build of e4e5657, 2026-11-12, with the reliable sync log. **Pairs drift:** walk runs 80.0%, 82.1%, 94.7% in step, with 14.8% to 17.2% of frames one frame off and 2.8% to 3.1% more than one; one idle run 89.2% in step, other idle runs 99.6 to 100%; walk-stop and the reactions 100%. **Packed: one decoder, so no drift is possible.** Every run was counted, with at most 1 frame skipped. The speed nudge did not keep the walk pair in step. Use the packed clips |
-| A walk cue from the chat model in 2D mode | Automated test from the reply text to the walk clip. In the player logs seen so far the model wrote no cue at all. See [Known behaviour](#known-behaviour) |
+| A walk cue from the chat model in 2D mode | Automated test from the reply text to the walk clip. **Not seen working in a player:** the local model wrote no cue tag (see the next row). |
 | Reaction clips `happy`, `concerned`, `turn360` | Jussi, Windows build of e4e5657: played once and returned to the idle (sync log). |
-| Reaction clips `embarrassed`, `flustered`, `pout`, `wink_dance`, and `turn_around_back` → `back_idle` | Automated tests of the rules. **Not run in a player** |
+| Reaction clips `embarrassed`, `flustered`, `pout`, `wink_dance`, and `turn_around_back` → `back_idle`; `idle_breeze` variations | Jussi, Windows build of 1d5d498, 2026-11-12, packed clips: all 13 clips play, `decoders=1`, at most 1 frame skipped; every test button works; variations play on their own. |
+| AI-triggered reactions | **Not working in the player on 1d5d498:** every reply logged `Cue emotion: (none)` and `AnimationDirector: no cue -> neutral`; the local model (Rocinante-X-12B) wrote no cue tag. Changed after that: the tag goes first, a reminder on each turn, a more tolerant parser, the `reaction` attribute, the reaction list in the prompt, the raw tag in `Player.log`, and a short wait for a busy avatar. Automated tests only. **Not run in a player.** |
+| Clip sound | Automated tests of the rules and the manifest field. The audio tool's ffmpeg commands were run on the six voice clips (video stream bit-identical, all frames kept). **Not heard in a player.** |
 | Movement speed against the feet, 10 minute run | **Not run in a player.** Use the [Windows checklist](#windows-checklist) |
 
 ## Turn it on and off
@@ -108,6 +110,7 @@ Put a file named `video-avatar.json` in the clip folder to list the clips yourse
 | `moveRamp` | Seconds to reach full speed after `moveStart` and to lose it before `moveEnd`. | `0.25` |
 | `hold` | A pose that follows a reaction. Seconds she holds it before facing front again, at a loop point. | `12` |
 | `after` | On a reaction: the name of a looping reaction clip played after it as a held pose, for example `"turn_around_back"` → `"back_idle"`. On the walk-stop: `idle` if the clip ends facing front in the idle pose, so the default idle may follow. Leave it out to hold the last frame. | hold |
+| `sound` | `true` plays the clip's own sound track, with **Play clip sounds** on. See [Sound](#sound). | `false` |
 | `weight` | Idle variation only. How often it is picked against the others. | `1` |
 | `variationMinSeconds`, `variationMaxSeconds` | Top level. Time on the default idle before a variation is queued. | `12`, `30` |
 | `headX`, `headY` | Top level. Where her head is in the default idle's frame, as shares from its left and its top. The expression portrait sits beside it in 2D mode. | `0.5`, `0.15` |
@@ -187,14 +190,17 @@ A walk toward the screen edge she stands at ends at once. A walk away from it st
 
 A reaction is a play-once clip with the role `reaction`. Without a manifest, any clip whose name is not an idle, a walk or a stop is a reaction.
 
-- **When.** When the avatar's emotion changes to one that has a clip of the same name: `happy`, `sad`, `surprised`, `thinking`, `embarrassed`, `shy`, `flustered`, `concerned`. The emotion is the one the 3D face already uses, so it comes from the reply's `<animation emotion="..."/>` cue. The same emotion twice in a row plays once. The Avatar tab also has a **Test** button for each delivered reaction. `pout` and `wink_dance` are not emotion names, so they play only from their buttons for now.
-- **From where.** Only from the default idle. While she walks, stops, holds the side pose or plays a variation or another reaction, the request is dropped, not kept for later.
+- **Asked for by the reply.** The cue tag can name a reaction: `<animation emotion="sad" reaction="pout" />`. While the 2D avatar plays, the system prompt lists the reactions in the loaded folder, so a new clip is offered as soon as it is in the folder and the manifest. The list leaves out a pose held after another reaction (`back_idle`) and walk turns (`walk_pivot180`). A model that writes the reaction as the emotion (`emotion="pout"`) gets it too, when that word is a listed reaction.
+- **From an emotion.** When the avatar's emotion changes to one that has a clip of the same name: `happy`, `sad`, `surprised`, `thinking`, `embarrassed`, `shy`, `flustered`, `concerned`. The emotion is the one the 3D face already uses. The same emotion twice in a row plays once. A reaction the reply named always wins over one from an emotion change.
+- **Test buttons.** The Avatar tab has a **Test** button for each delivered reaction.
+- **From where.** It starts from the default idle. Asked for while she walks, stops, holds a pose, or plays a variation or another reaction, it waits up to 5 seconds and plays when she is back on the default idle. A newer request replaces a waiting one. After 5 seconds it is dropped.
+- **In Player.log.** Every reply logs the tag the model wrote: `Cue tag: <animation emotion="sad" reaction="pout" />`, `Cue tag (not readable, used neutral): ...`, or `Cue tag: none found in the reply`. A reaction logs `AnimationDirector: reaction pout -> started`, `-> waiting`, `-> refused`, or `-> no reaction avatar (2D video mode is off)`.
 - **How.** The clip is loaded when it is asked for, starts as soon as it has a picture, without waiting for the idle's loop point, and is unloaded after. A walk interrupts it.
 - **The delivered clips, measured.** `happy`, `concerned` and `turn360` are 124 frames at 24 fps, start in the idle's first pose and end close to it. The cut from any idle frame into them is 0.6 to 2.6 on the scale where a normal idle frame step is 0.14 and the idle's own loop jump is 1.6. So expect a small jump at the start and at the end, about as large as the idle's loop jump. **Not seen in a player.**
 - **New on 2026-11-12, measured on the packed files.** `embarrassed`, `flustered`, `pout` (124 frames) and `wink_dance` (243 frames, 10 s; she turns around mid-dance) start and end close to the idle pose. The jump into them and back is 0.4 to 2.3 on the same scale, about the idle's own loop jump.
 - **A held pose after a reaction: `turn_around_back` → `back_idle`.** `turn_around_back` (158 frames) starts in the idle pose and ends with her back turned, looking over her shoulder. `back_idle` loops that pose: its start matches the turn's end (0.78) and it loops almost cleanly (0.42). The manifest plays the turn, then holds `back_idle` for `hold` seconds (12), then she faces front at a loop point. **There is no clip that turns her back to the front, so facing front is a hard cut** (11 on the same scale, like the cut from the idle into the walk). A walk, the Up arrow or **Test: back to the front idle** ends the pose at once, also with that cut. Without a manifest `turn_around_back` returns straight to the idle, with the same cut, and `back_idle` is a plain reaction. A keyed turn-to-front clip would remove the cut.
 - **Not used yet: `walk_pivot180`.** It starts in the walk's first pose facing left and ends in the mirrored walk pose facing right: a change of direction during a walk. Using it needs the window to hold its direction until the pivot ends, which is not built. Today a change of direction flips the walk clip at once. By file name it is registered as a reaction, so it is not mistaken for a second walk loop.
-- There is no emotion detection here and no new cue. If the chat model writes no `<animation>` tag, no reaction plays, as with walking.
+- There is no emotion detection from the reply's words and no lasting mood state (that is JUH-103). If the chat model writes no `<animation>` tag, no reaction plays, as with walking.
 
 ## Walking
 
@@ -245,7 +251,31 @@ At most the default idle, the walk, the walk-stop, a side idle and one idle vari
 
 ## Sound
 
-No clip's sound is ever played. Every decoder is created with `VideoAudioOutputMode.None`. The companion's voice is a separate path and is not changed.
+Some original Comfy clips have her voice and sounds. A clip plays its sound only when all of these hold:
+
+- the manifest marks it `"sound": true` (without a manifest, no clip has sound),
+- **Play clip sounds** is on in the Avatar tab (off by default), with **Clip sound volume** 0 to 1,
+- speech is not muted (the Mute button and F6 silence clip sound too),
+- she is not speaking. While her TTS voice plays, the clip runs on silently. A reaction from a reply usually plays while she still speaks that reply, so its sound is often skipped.
+
+Only the clip on screen sounds. A clip with sound logs `VideoAvatar: clip sound pout: on`, `silent while she speaks`, `silent (speech is muted)` or `off (Play clip sounds is off)` when it shows.
+
+### The packed clips have no sound: adding it
+
+Keying wrote the `.sbs.mp4` files without an audio track (checked with ffprobe: video only, all 14). The original Comfy clips have one: stereo AAC, 32 kHz, the same length as the video. The six "voice" sources have real sound (mean −19 to −28 dB): `embarrassed`, `flustered`, `pout`, `wink_dance`, `turn_around_back`, `back_idle`. The other sources are silent (−91 dB), except `walk`, which has a loud track of unknown content, left off.
+
+`tools/video-avatar/add-clip-audio.ps1` finds each clip's source through its `NAME.key.json` and writes a new `NAME.sbs.mp4` with the packed video copied unchanged and the source's audio track added. It needs ffmpeg on PATH (`winget install ffmpeg`). Nothing in `keyd` or the source folders is changed, and it refuses to write into `keyd`.
+
+```powershell
+$repo = "E:\LOOT\ai-companion-pr56"
+$keyd = "C:\Users\Jussi\Downloads\portraits\animations\keyd"
+$withAudio = "C:\Users\Jussi\Downloads\portraits\animations\keyd-audio"
+& "$repo\tools\video-avatar\add-clip-audio.ps1" -KeydFolder $keyd -OutFolder $withAudio
+# Then copy the six over the same names in the video folder:
+Copy-Item "$withAudio\*.sbs.mp4" (Join-Path $env:APPDATA "ProjectLeia\video-avatar-packed") -Force
+```
+
+By default it takes every clip whose source name contains `_voice_`. `-Names pout, wink_dance` picks clips, `-Force` replaces files already in the output folder. Checked here on the six voice clips with the same ffmpeg commands: video stream bit-identical, frame counts kept (124, 158 and 243). The shipped manifest already marks those six `"sound": true`.
 
 ## Size and position
 
@@ -281,7 +311,7 @@ To make her larger than the window allows, raise **Size** on the Overlay tab.
 - Cues from the model still drive the hidden 3D face.
 - **The expression portrait shows in both modes, beside the head of the avatar on screen.** In 3D mode it follows the 3D model's head bone, as before. In 2D mode it sits beside the video avatar's head, taken from the default idle's frame (centre, 15% down from the top, measured on the delivered idle). That point does not change between clips, so the portrait stays in one place in the window while she walks, stops or reacts, and moves only with the window and the size and position settings. Before this, 2D mode followed the hidden 3D model's head bone, which keeps animating behind the video: once she walked, the portrait slid onto her chest and stayed there. A manifest can set `"headX"` and `"headY"` (shares of the idle frame from its left and its top) for clips framed differently.
 - An AI walk cue of a few seconds lasts longer in 2D mode, because the stop waits for the walk loop and the walk-stop.
-- **A walk cue needs the chat model to write it.** The path from a reply's `<animation gesture="walk" direction="left" />` to the walk clip is the same in both modes and has a test. In the player logs from 2026-11-11 the local model (Rocinante-X-12B) wrote no `<animation>` tag in any reply: every reply logs `Cue emotion: (none)` and `AnimationDirector: no cue -> neutral`. Then nothing can walk, in 3D or 2D. When a cue does arrive, the log has `Walk: request received dir=-1 secs=12` and `AnimationDirector: cue walk -> requested`.
+- **Walks and reactions need the chat model to write the cue tag.** The path from a reply's tag to the walk clip or a reaction is the same for every model and has tests. In the player logs from 2026-11-11 and 2026-11-12 the local model (Rocinante-X-12B) wrote no tag in any reply. It wrote roleplay narration (*her cheeks flush*) instead. Three things worked against it: the tag was asked for at the end of the reply, after the narration; the chat history the model sees never shows a tag, because tags are taken out of the transcript on purpose (so it does not copy the last emotion); and a tag without the closing slash, with unquoted values, or with an unknown emotion word was thrown away. Now the instruction asks for the tag first, each request adds a one-line reminder to the newest user message (the model sees it, the transcript and memory do not), and the parser reads those sloppy forms. Whether this model follows it is **not yet seen in a player**. `Cue tag:` lines in Player.log show what arrives.
 - At a screen edge the walk-stop plays its steps on the spot.
 - Rotate, zoom and Ctrl+scroll still act on the hidden 3D model.
 - While she only stands, the overlay drops to 15 fps after a few seconds without the pointer, and the idle is shown at that rate. Variations, walking and clip changes run at the full rate.
@@ -381,10 +411,15 @@ Mark each line. Lines 1 to 6 repeat what was verified before, on the new code.
 31. Portrait fallback: in 2D mode set **Video folder** to an empty folder and press **Reload video**. The 3D model shows with its portrait beside its head.
 32. Reactions: in the front idle press **Test: happy**, **Test: concerned**, **Test: spin (turn360)**, one at a time. Each plays once and returns to the idle. Note the size of the jump at the start and the end. Press one while she walks: nothing happens.
 33. After a walk test, open `Player.log` and find the `VideoAvatar: sync` lines. Check that each names the file you expect. For pairs note `offByOne`, `offByMore` and `seeks` for the idle and the walk.
+34. Chat: ask her to pout, to dance, to look away, and say something that should fluster her. For each reply, find `Cue tag:` and `AnimationDirector: reaction` in Player.log. A reaction should play from the front idle, or wait for it if she was walking.
+35. Clip sound: install the audio clips (see [Sound](#sound)), turn **Play clip sounds** on, press **Test: pout** and **Test: wink dance**. Her sound plays with the clip. Press **Mute**: silent. Unmute, and play one while she speaks a reply: silent until she stops, the clip goes on.
 
 ## Tests
 
 - `VideoAvatarDirectorTests`: reactions (start from the idle when loaded, return to the idle, refused elsewhere, interrupted by a walk, failed clips, names per emotion, the pivot not taken for a walk), the packed clip preferred over the pair, the mask offset across the loop point and the speed nudge, the packed halves' edges, the portrait rule through every mode switch and fallback, clip lookup by file name with the delivered names, the manifest, missing clips and masks, variations only at the loop point, walk and stop, interruptions, a new walk during the stop, clips that failed to load, speed that follows the clip, the frame rules for a fresh picture and for the loop point, and the layout for a set of clips.
+- `VideoAvatarDirectorTests` (2026-11-12): a reaction asked for while she walks, plays a variation or another reaction waits and then plays; one waiting too long is dropped; the latest wins; an emotion reaction never replaces a named one; held poses and unknown clips are refused; the offered list; the `sound` field; the clip sound rules; the two settings survive a save and load; the shipped manifest is packed and marks the six voice clips.
+- `CueReactionTests`: the tag as models write it (case, spacing, attribute order, single or no quotes, no closing slash, at the start, in the middle, at the end, a loose `<reaction=.../>`), a reaction kept with an unknown emotion, a broken second tag, the raw tag for the log, the stream filter with the tag first, the reaction list and the prompt (the instruction is sent even without a gesture catalog), and which reaction a cue asks for.
+- `CueTranscriptTests`: the turn reminder reaches the model and nothing else; the raw tag and "none found" for the log.
 - `DesktopPresenceGaitTests`: the gait on the presence, and that nothing changes without it.
 - `WalkRequestWiringTests.ReplyWalk_In2DVideoMode_...`: a reply's walk cue moves the presence at the clip's speed and starts the walk clip, and a stop cue goes through the walk-stop.
 - `VideoAvatarTests`: the earlier tests for modes, settings, the single-clip lookup, the layout, the mask sync rule, the shader and the build setting.

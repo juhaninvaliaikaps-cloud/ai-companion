@@ -27,7 +27,7 @@ namespace AICompanion.Settings
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(215)]
-    public sealed class VideoAvatar : MonoBehaviour, IOverlayKeepAwake
+    public sealed class VideoAvatar : MonoBehaviour, IOverlayKeepAwake, IAvatarReactions
     {
         const string ShaderResource = "VideoAvatar";
         const float RetrySeconds = 2f;
@@ -49,6 +49,9 @@ namespace AICompanion.Settings
         AvatarMount _mount;
         IAvatarAnimator _animator;
         Component _animatorObject;
+        ISpeechOutput _speech;
+        Component _speechObject;
+        bool _clipSoundsOn;
         Emotion _lastEmotion = Emotion.Neutral;
         DesktopPresence _presence;
 
@@ -152,7 +155,18 @@ namespace AICompanion.Settings
         /// </summary>
         public bool PlayReaction(string name)
         {
-            return _director != null && _state == VideoAvatarState.Playing && _director.RequestReaction(name);
+            return RequestReaction(name) != AvatarReactionResult.Refused;
+        }
+
+        /// <summary>
+        /// A reaction the reply asked for by name (the cue's reaction attribute). It plays from
+        /// the default idle, or waits a few seconds for it. Refused unless a clip is playing.
+        /// </summary>
+        public AvatarReactionResult RequestReaction(string name)
+        {
+            if (_director == null || _state != VideoAvatarState.Playing)
+                return AvatarReactionResult.Refused;
+            return _director.Request(name, true);
         }
 
         /// <summary>Test control: return to the default idle from a held pose, the side idle, or a variation.</summary>
@@ -164,6 +178,7 @@ namespace AICompanion.Settings
 
         void OnDestroy()
         {
+            AvatarReactionCatalog.Clear();
             ReleaseAll();
             if (_presence != null && _gaitSet)
                 _presence.ClearGait();
@@ -223,6 +238,11 @@ namespace AICompanion.Settings
             {
                 _animator = GetComponent<IAvatarAnimator>();
                 _animatorObject = _animator as Component;
+            }
+            if (_speechObject == null)
+            {
+                _speech = GetComponent<ISpeechOutput>();
+                _speechObject = _speech as Component;
             }
         }
 
@@ -420,6 +440,7 @@ namespace AICompanion.Settings
                 return;
 
             RefreshPicture();
+            ApplyClipSound(settings);
             ReportSync(delta);
             EnsureCamera();
             Place(settings);
@@ -448,7 +469,7 @@ namespace AICompanion.Settings
             _lastEmotion = emotion;
             var name = VideoReactionNames.For(emotion);
             if (name != null)
-                _director.RequestReaction(name);
+                _director.Request(name, false);
         }
 
         bool QueuedReady()
@@ -592,6 +613,36 @@ namespace AICompanion.Settings
                 LogSync(_players[i]);
         }
 
+        bool SpeechMuted
+        {
+            get { return _speech != null && _speechObject != null && _speech.IsMuted; }
+        }
+
+        bool Speaking
+        {
+            get { return _speech != null && _speechObject != null && _speech.IsSpeaking; }
+        }
+
+        /// <summary>
+        /// Only the clip on screen may sound, at the setting's volume, and never while speech
+        /// is muted or she speaks: the clip then runs on silently.
+        /// </summary>
+        void ApplyClipSound(CompanionSettings settings)
+        {
+            _clipSoundsOn = settings.PlayClipSounds;
+            var muted = SpeechMuted;
+            var speaking = Speaking;
+            for (var i = 0; i < _players.Length; i++)
+            {
+                var player = _players[i];
+                if (player == null || !player.HasSound)
+                    continue;
+                player.SetVolume(i == _shown
+                    ? VideoClipSound.Volume(settings.PlayClipSounds, settings.ClipSoundVolume, true, muted, speaking)
+                    : 0f);
+            }
+        }
+
         static void LogSync(VideoClipPlayer player)
         {
             var report = player != null ? player.TakeSyncReport() : null;
@@ -607,6 +658,8 @@ namespace AICompanion.Settings
                 files += "+" + VideoAvatarFiles.FileName(player.Spec.MaskPath);
             Debug.Log("VideoAvatar: showing " + player.Spec.Name + " act=" + (_director != null ? _director.Act.ToString() : "Idle")
                 + " mask=" + player.Spec.Mask + " file=" + files + (mirrored ? " mirrored" : string.Empty));
+            if (player.HasSound)
+                Debug.Log("VideoAvatar: " + VideoClipSound.Describe(player.Spec.Name, _clipSoundsOn, SpeechMuted, Speaking));
             _shown = index;
             _shownMirrored = mirrored;
             _image.texture = player.Texture;
@@ -951,6 +1004,11 @@ namespace AICompanion.Settings
         void SetState(VideoAvatarState state)
         {
             _state = state;
+            // The prompt offers her reactions only while the 2D avatar really plays.
+            if (state == VideoAvatarState.Playing && _set != null)
+                AvatarReactionCatalog.Set(_set.OfferedReactions());
+            else
+                AvatarReactionCatalog.Clear();
             if (state != VideoAvatarState.Playing)
                 _portraitHeadKnown = false;
             _status = state == VideoAvatarState.Playing && _set != null

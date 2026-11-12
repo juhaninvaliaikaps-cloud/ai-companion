@@ -61,29 +61,73 @@ namespace AICompanion.AnimationDirector
         {
             get
             {
-                if (catalog == null)
+                // The cue instruction is always sent. It used to be dropped with an empty
+                // gesture catalog, and then the model was never told to write a cue at all.
+                var list = catalog == null ? string.Empty : catalog.BuildPromptList();
+                var text = new System.Text.StringBuilder();
+                if (list.Length > 0)
                 {
-                    return string.Empty;
+                    text.Append("\n\nAnimations you can use. Name the gesture id in the cue tag.\n")
+                        .Append(list)
+                        .Append('\n');
+                }
+                else
+                {
+                    text.Append("\n\n");
                 }
 
-                var list = catalog.BuildPromptList();
-                if (list.Length == 0)
-                {
-                    return string.Empty;
-                }
+                var reactions = AvatarReactionCatalog.PromptLine();
+                if (reactions.Length > 0)
+                    text.Append(reactions).Append('\n');
 
-                return "\n\nAnimations you can use. Name the gesture id in the cue tag.\n"
-                    + list
-                    + "\n"
-                    + AnimationCueParser.Instruction
-                    + "\n"
-                    + EmotionNames.CatalogLine;
+                text.Append(AnimationCueParser.Instruction)
+                    .Append('\n')
+                    .Append(EmotionNames.CatalogLine);
+                return text.ToString();
             }
         }
 
         void Awake()
         {
             Resolve();
+        }
+
+        /// <summary>
+        /// The reaction named in the cue, or else an emotion word that is a reaction's name
+        /// (a model may write emotion="pout"). Nothing happens without a reaction avatar.
+        /// </summary>
+        void TryRequestReaction(AnimationCue cue)
+        {
+            var name = ReactionName(cue);
+            if (name.Length == 0)
+                return;
+
+            var target = GetComponent<IAvatarReactions>();
+            if (target == null || !(target is Component))
+            {
+                Debug.Log("AnimationDirector: reaction " + name + " -> no reaction avatar (2D video mode is off)");
+                return;
+            }
+
+            var result = target.RequestReaction(name);
+            Debug.Log("AnimationDirector: reaction " + name + " -> " + result.ToString().ToLowerInvariant());
+        }
+
+        /// <summary>The reaction to ask for: the cue's reaction attribute, or an emotion word that names an offered reaction.</summary>
+        public static string ReactionName(AnimationCue cue)
+        {
+            if (!string.IsNullOrEmpty(cue.Reaction))
+                return cue.Reaction;
+            var word = AnimationCueParser.SanitizeGesture(cue.EmotionField);
+            return word.Length > 0 && AvatarReactionCatalog.Contains(word) && !IsPlainEmotion(word) ? word : string.Empty;
+        }
+
+        // A plain emotion such as "happy" reaches the 2D avatar through the face, not here,
+        // so it is not asked for twice.
+        static bool IsPlainEmotion(string word)
+        {
+            Emotion emotion;
+            return EmotionNames.TryParse(word, out emotion) && string.Equals(emotion.ToString(), word, System.StringComparison.OrdinalIgnoreCase);
         }
 
         public void Resolve()
@@ -116,6 +160,10 @@ namespace AICompanion.AnimationDirector
         {
             if (!CompanionPause.ReactionsAllowed(_suppressed))
                 return;
+
+            // A body reaction (2D video avatar) goes to the avatar, then the cue carries on:
+            // the emotion still sets the face, and a walk still walks.
+            TryRequestReaction(cue);
 
             // Walk and stop are not catalog clips. Handling them first keeps a walk row
             // with an Animator state from playing an on-the-spot loop instead of moving.

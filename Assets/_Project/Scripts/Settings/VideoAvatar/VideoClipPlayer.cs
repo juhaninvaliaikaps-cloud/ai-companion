@@ -43,6 +43,20 @@ namespace AICompanion.Settings
         float _resyncIn;
         float _maskSpeed = 1f;
         readonly VideoSyncCounter _sync = new VideoSyncCounter();
+        AudioSource _audio;
+
+        /// <summary>True when the clip's sound track is routed (manifest "sound": true).</summary>
+        public bool HasSound
+        {
+            get { return _audio != null; }
+        }
+
+        /// <summary>Sets the clip's sound volume, 0 to 1. Nothing happens for a clip without sound.</summary>
+        public void SetVolume(float volume)
+        {
+            if (_audio != null && !Mathf.Approximately(_audio.volume, volume))
+                _audio.volume = volume;
+        }
 
         public VideoClipPlayer(VideoClipSpec spec)
         {
@@ -174,10 +188,10 @@ namespace AICompanion.Settings
                 return;
             }
 
-            _color = CreateDecoder(parent, "VideoAvatar " + _spec.Name, _spec.ColorPath);
+            _color = CreateDecoder(parent, "VideoAvatar " + _spec.Name, _spec.ColorPath, _spec.Sound);
             _maskPrepared = _spec.Mask != VideoMaskKind.MaskVideo;
             if (_spec.Mask == VideoMaskKind.MaskVideo)
-                _mask = CreateDecoder(parent, "VideoAvatar " + _spec.Name + " mask", _spec.MaskPath);
+                _mask = CreateDecoder(parent, "VideoAvatar " + _spec.Name + " mask", _spec.MaskPath, false);
 
             _preparingFor = 0f;
             _color.Prepare();
@@ -310,6 +324,7 @@ namespace AICompanion.Settings
         {
             DestroyDecoder(_color);
             DestroyDecoder(_mask);
+            _audio = null;
             _color = null;
             _mask = null;
             _colorPrepared = false;
@@ -384,7 +399,7 @@ namespace AICompanion.Settings
             _sync.CountSeek();
         }
 
-        VideoPlayer CreateDecoder(Transform parent, string objectName, string path)
+        VideoPlayer CreateDecoder(Transform parent, string objectName, string path, bool withSound)
         {
             var host = new GameObject(objectName);
             host.hideFlags = HideFlags.DontSave;
@@ -394,8 +409,25 @@ namespace AICompanion.Settings
             player.source = VideoSource.Url;
             player.url = path;
             player.isLooping = _spec.Loop;
-            // The clip's sound is never routed anywhere. The companion's voice is a separate path.
-            player.audioOutputMode = VideoAudioOutputMode.None;
+            if (withSound)
+            {
+                // The clip's own sound goes through an AudioSource, so VideoAvatar can silence
+                // it for the mute and while she speaks. It starts silent.
+                _audio = host.AddComponent<AudioSource>();
+                _audio.playOnAwake = false;
+                _audio.spatialBlend = 0f;
+                _audio.volume = 0f;
+                player.audioOutputMode = VideoAudioOutputMode.AudioSource;
+                player.controlledAudioTrackCount = 1;
+                player.EnableAudioTrack(0, true);
+                player.SetTargetAudioSource(0, _audio);
+            }
+            else
+            {
+                // No sound for this clip. The companion's voice is a separate path.
+                player.audioOutputMode = VideoAudioOutputMode.None;
+            }
+
             player.renderMode = VideoRenderMode.APIOnly;
             player.waitForFirstFrame = true;
             player.skipOnDrop = true;

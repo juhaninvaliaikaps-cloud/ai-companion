@@ -230,7 +230,7 @@ namespace AICompanion.Tests.EditMode
 
                 StringAssert.Contains(AnimationCueParser.Instruction, prompt);
                 StringAssert.Contains("<animation emotion=\"happy\" intensity=\"0.8\" gesture=\"wave_hello\" />", prompt);
-                StringAssert.Contains("End every reply with one cue tag on its own line", prompt);
+                StringAssert.Contains("Start every reply with one cue tag on its own first line", prompt);
                 StringAssert.Contains("- wave_hello:", prompt);
                 StringAssert.Contains("gesture: wave", prompt);
             }
@@ -254,7 +254,7 @@ namespace AICompanion.Tests.EditMode
                 var prompt = director.SystemPromptSuffix;
 
                 StringAssert.Contains("<animation emotion=\"happy\" intensity=\"0.8\" gesture=\"wave_hello\" />", prompt);
-                StringAssert.Contains("End every reply with one cue tag on its own line", prompt);
+                StringAssert.Contains("Start every reply with one cue tag on its own first line", prompt);
                 StringAssert.Contains("Leave the gesture attribute out for an emotion only", prompt);
                 StringAssert.Contains("Walk to the left is <animation emotion=\"neutral\" gesture=\"walk\" direction=\"left\" />", prompt);
                 StringAssert.Contains("direction=\"right\"", prompt);

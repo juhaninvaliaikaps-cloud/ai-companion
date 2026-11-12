@@ -107,6 +107,18 @@ namespace AICompanion.Settings
                 speedLabel.text = VideoSpeedText(_settings.VideoAvatarWalkSpeed);
                 ApplyLive();
             });
+            AddToggle("Play clip sounds", _settings.PlayClipSounds, value =>
+            {
+                _settings.PlayClipSounds = value;
+                ApplyLive();
+            });
+            AddLabel("Clip sound volume");
+            AddSlider(_settings.ClipSoundVolume, 0f, 1f, false, value =>
+            {
+                _settings.ClipSoundVolume = value;
+                ApplyLive();
+            });
+            Note("Clip sounds are her own sounds in clips marked \"sound\": true in video-avatar.json. They follow the Mute button and stay silent while she speaks.");
             Note("With this panel closed and the window focused, the arrow keys do the same: left and right walk, down stops, up returns to the front idle. Raise the speed if her feet slide backwards, lower it if they slide forwards. The settings below are for the 3D avatar.");
         }
 
@@ -139,8 +151,11 @@ namespace AICompanion.Settings
         {
             VideoTest(avatar =>
             {
-                if (!avatar.PlayReaction(name))
-                    SetStatus("No \"" + name + "\" clip in the video folder, or she is not in the front idle.");
+                var result = avatar.RequestReaction(name);
+                if (result == AICompanion.Core.AvatarReactionResult.Refused)
+                    SetStatus("No playable \"" + name + "\" clip in the video folder.");
+                else if (result == AICompanion.Core.AvatarReactionResult.Waiting)
+                    SetStatus("\"" + name + "\" plays when she is back on the front idle (within " + VideoAvatarDirector.PendingSeconds.ToString("0") + " s).");
             });
         }
 

@@ -330,6 +330,18 @@ namespace AICompanion.UI
         /// <summary>The cue parsed from the last successful reply.</summary>
         public AnimationCue LastCue { get; private set; }
 
+        /// <summary>The tag as the model wrote it in the last reply, for the log. Empty when it wrote none.</summary>
+        public string LastCueTag { get; private set; }
+
+        /// <summary>How the last reply's tag was read: none, parsed, or not readable.</summary>
+        public CueParseStatus LastCueStatus { get; private set; }
+
+        /// <summary>
+        /// Added to the newest user message in each request, never to the transcript, the
+        /// display or memory. Empty sends the message as typed.
+        /// </summary>
+        public string TurnReminder;
+
         CueStreamFilter _filter;
         int _generation;
         bool _sawPiece;
@@ -353,11 +365,14 @@ namespace AICompanion.UI
                 return Task.FromResult(missing);
             }
 
+            AddTurnReminder(request, TurnReminder);
             var generation = _conversation.Generation;
             _generation = generation;
             _filter = new CueStreamFilter();
             _sawPiece = false;
             LastCue = AnimationCueParser.NeutralCue;
+            LastCueTag = string.Empty;
+            LastCueStatus = CueParseStatus.None;
             if (Talking != null)
                 Talking(true);
 
@@ -458,6 +473,8 @@ namespace AICompanion.UI
                     }
 
                     LastCue = _filter.Cue;
+                    LastCueTag = _filter.RawTag;
+                    LastCueStatus = _filter.Status;
                     _conversation.ReplaceStreamingAssistant(_generation, _filter.Text);
                     result = ChatResult.Success(_filter.Text);
                 }
@@ -465,6 +482,22 @@ namespace AICompanion.UI
 
             _conversation.Complete(result);
             return result;
+        }
+
+        /// <summary>Appends <paramref name="reminder"/> to the last user message of the request only.</summary>
+        public static void AddTurnReminder(ChatRequest request, string reminder)
+        {
+            if (request == null || request.Messages == null || string.IsNullOrWhiteSpace(reminder))
+                return;
+
+            for (var i = request.Messages.Count - 1; i >= 0; i--)
+            {
+                var message = request.Messages[i];
+                if (message.Role != ChatRole.User)
+                    continue;
+                request.Messages[i] = new ChatMessage(ChatRole.User, message.Content + "\n\n" + reminder.Trim());
+                return;
+            }
         }
 
         void Speak(string piece)

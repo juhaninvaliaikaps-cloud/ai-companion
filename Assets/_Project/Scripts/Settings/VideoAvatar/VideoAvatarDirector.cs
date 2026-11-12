@@ -1,4 +1,5 @@
 using System;
+using AICompanion.Core;
 
 namespace AICompanion.Settings
 {
@@ -59,7 +60,14 @@ namespace AICompanion.Settings
         float _untilVariation;
         int _queued = -1;
         bool _queuedReaction;
+        bool _queuedExplicit;
         float _poseLeft;
+        int _pendingClip = -1;
+        bool _pendingExplicit;
+        float _pendingLeft;
+
+        /// <summary>Seconds a reaction asked for while she is busy waits for the default idle before it is dropped.</summary>
+        public const float PendingSeconds = 5f;
         int _lastVariation = -1;
         bool _stopPending;
         bool _facingRight;
@@ -99,21 +107,92 @@ namespace AICompanion.Settings
         }
 
         /// <summary>
-        /// Asks for a reaction clip by name. True when it was accepted: the clip exists and
-        /// she is in the default idle. It takes the place of an idle variation that was waiting.
+        /// Asks for a reaction clip by name, from the default idle. True when it starts
+        /// (as soon as its clip is loaded). See <see cref="Request"/> for the full answer.
         /// </summary>
         public bool RequestReaction(string name)
         {
-            if (Act != VideoAvatarAct.Idle)
-                return false;
+            return Request(name, true) == AvatarReactionResult.Started;
+        }
 
+        /// <summary>
+        /// Asks for a reaction clip by name.
+        /// <list type="bullet">
+        /// <item>On the default idle it starts as soon as its clip is loaded, in place of a waiting idle variation.</item>
+        /// <item>While she walks, stops, holds a pose, or plays a variation or another reaction, it waits
+        /// <see cref="PendingSeconds"/> for the default idle, then plays; a newer request replaces it.</item>
+        /// <item><paramref name="explicitRequest"/> marks a reaction the reply named. One that follows an
+        /// emotion change never replaces an explicit one that is waiting or loading.</item>
+        /// </list>
+        /// A clip that is missing, failed to load, or is a pose held after another reaction is refused.
+        /// </summary>
+        public AvatarReactionResult Request(string name, bool explicitRequest)
+        {
             var clip = _set.FindReaction(name);
-            if (!Usable(clip))
-                return false;
+            if (!Usable(clip) || _set.IsPoseTarget(clip))
+                return AvatarReactionResult.Refused;
+            if (!explicitRequest && ExplicitWaiting())
+                return AvatarReactionResult.Refused;
 
-            _queued = clip;
+            if (Act == VideoAvatarAct.Idle)
+            {
+                ClearPending();
+                _queued = clip;
+                _queuedReaction = true;
+                _queuedExplicit = explicitRequest;
+                return AvatarReactionResult.Started;
+            }
+
+            _pendingClip = clip;
+            _pendingExplicit = explicitRequest;
+            _pendingLeft = PendingSeconds;
+            return AvatarReactionResult.Waiting;
+        }
+
+        /// <summary>The reaction waiting for the default idle, or -1. For tests and the log.</summary>
+        public int PendingReaction
+        {
+            get { return _pendingClip; }
+        }
+
+        bool ExplicitWaiting()
+        {
+            return (_queued >= 0 && _queuedReaction && _queuedExplicit) || (_pendingClip >= 0 && _pendingExplicit);
+        }
+
+        void ClearPending()
+        {
+            _pendingClip = -1;
+            _pendingExplicit = false;
+            _pendingLeft = 0f;
+        }
+
+        /// <summary>A waiting reaction starts once she is back on the default idle, or is dropped when it waited too long.</summary>
+        void TickPending(float deltaSeconds)
+        {
+            if (_pendingClip < 0)
+                return;
+            if (deltaSeconds > 0f)
+                _pendingLeft -= deltaSeconds;
+            if (_pendingLeft <= 0f || !Usable(_pendingClip))
+            {
+                ClearPending();
+                return;
+            }
+
+            if (Act != VideoAvatarAct.Idle)
+                return;
+            // An explicit reaction already loading is not replaced by an emotion one.
+            if (_queued >= 0 && _queuedReaction && _queuedExplicit && !_pendingExplicit)
+            {
+                ClearPending();
+                return;
+            }
+
+            _queued = _pendingClip;
             _queuedReaction = true;
-            return true;
+            _queuedExplicit = _pendingExplicit;
+            ClearPending();
         }
 
         /// <summary>The queued clip is loaded. A reaction starts now. An idle variation keeps waiting for the loop point.</summary>
@@ -157,10 +236,13 @@ namespace AICompanion.Settings
                 return;
 
             _unavailable[clip] = true;
+            if (_pendingClip == clip)
+                ClearPending();
             if (_queued == clip)
             {
                 _queued = -1;
                 _queuedReaction = false;
+                _queuedExplicit = false;
                 ScheduleVariation();
             }
 
@@ -173,6 +255,7 @@ namespace AICompanion.Settings
         {
             if (Act == VideoAvatarAct.Pose && deltaSeconds > 0f)
                 _poseLeft -= deltaSeconds;
+            TickPending(deltaSeconds);
 
             if (Act != VideoAvatarAct.Idle || _queued >= 0 || deltaSeconds <= 0f)
                 return;
@@ -337,6 +420,7 @@ namespace AICompanion.Settings
             Entry++;
             _queued = -1;
             _queuedReaction = false;
+            _queuedExplicit = false;
             if (act == VideoAvatarAct.Idle)
                 ScheduleVariation();
         }
