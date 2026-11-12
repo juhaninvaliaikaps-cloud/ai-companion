@@ -26,15 +26,29 @@ namespace AICompanion.AI
     {
         public static readonly string[] CommercialHosts =
         {
-            "api.x.ai",
-            "api.openai.com",
-            "api.anthropic.com",
-            "generativelanguage.googleapis.com",
-            "api.deepseek.com",
+            "x.ai",
+            "openai.com",
+            "openai.azure.com",
+            "anthropic.com",
+            "googleapis.com",
+            "deepseek.com",
             "openrouter.ai",
-            "api.groq.com",
-            "api.mistral.ai",
-            "api.together.xyz",
+            "groq.com",
+            "mistral.ai",
+            "together.xyz",
+            "together.ai",
+            "fireworks.ai",
+            "perplexity.ai",
+            "cohere.com",
+            "cohere.ai",
+            "deepinfra.com",
+            "cerebras.ai",
+            "huggingface.co",
+            "api.nvidia.com",
+            "sambanova.ai",
+            "novita.ai",
+            "moonshot.ai",
+            "aliyuncs.com",
         };
 
         public const string MissingAddress =

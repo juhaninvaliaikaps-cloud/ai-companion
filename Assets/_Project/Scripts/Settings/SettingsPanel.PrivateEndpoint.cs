@@ -68,7 +68,8 @@ namespace AICompanion.Settings
                 if (!_privateProbeBusy)
                     TestPrivateConnection();
             });
-            Note("Test connection calls /models. The key stays in the request header and is never written to the log.");
+            Note("Test connection calls /models. The key stays in the request header and is never written to the log."); 
+            Note("A self-hosted proxy that forwards to a commercial cloud API is not Private mode.");
         }
 
         void SavePrivateKey()
@@ -95,9 +96,26 @@ namespace AICompanion.Settings
 
         void RemovePrivateKey()
         {
-            PrivateApiKeyStore.Delete();
-            SetStatus("Private API key removed.");
+            try
+            {
+                PrivateApiKeyStore.Delete();
+                SetStatus("Private API key removed.");
+            }
+            catch (System.Exception)
+            {
+                SetStatus("The private API key could not be removed.");
+            }
+
             _rebuild = true;
+        }
+
+        /// <summary>Builds the Test connection line; the key is passed only to redact an echoed copy.</summary>
+        public static string PrivateProbeStatus(int responseCode, string error, string body, string key, string warning)
+        {
+            var status = ConnectionProbe.FormatResult(responseCode, error, body, key);
+            if (!string.IsNullOrEmpty(warning))
+                status += " " + warning;
+            return status;
         }
 
         static bool HasPrivateKey()
@@ -131,17 +149,19 @@ namespace AICompanion.Settings
             using (var request = UnityWebRequest.Get(url))
             {
                 request.timeout = 20;
+                request.redirectLimit = 0;
                 if (hasKey)
                     request.SetRequestHeader("Authorization", "Bearer " + key.Trim());
-                key = null;
                 yield return request.SendWebRequest();
                 if (serial != _privateProbeSerial)
+                {
+                    key = null;
                     yield break;
+                }
 
                 var body = request.downloadHandler != null ? request.downloadHandler.text : string.Empty;
-                var status = ConnectionProbe.FormatResult((int)request.responseCode, request.error, body, key);
-                if (!string.IsNullOrEmpty(warning))
-                    status += " " + warning;
+                var status = PrivateProbeStatus((int)request.responseCode, request.error, body, key, warning);
+                key = null;
                 SetStatus(status);
                 Debug.Log("Private endpoint test: " + status);
             }

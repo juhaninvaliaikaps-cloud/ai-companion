@@ -66,6 +66,7 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(ChatDefaults.LocalId, OutboundPrivacy.ChatProviderId(true, ChatDefaults.GrokId, PrivateEndpointTypes.Local));
             Assert.AreEqual(ChatDefaults.GrokId, OutboundPrivacy.ChatProviderId(false, ChatDefaults.GrokId, PrivateEndpointTypes.Custom));
             Assert.AreEqual(ChatDefaults.GrokId, OutboundPrivacy.ChatProviderId(false, ChatDefaults.CustomId, PrivateEndpointTypes.Custom));
+            Assert.AreEqual("Custom · qwen2.5 · private", ActiveChatLabel.Format(ChatDefaults.CustomId, true, "grok-4.7", "llama3.2", "qwen2.5"));
         }
 
         [Test]
@@ -78,9 +79,59 @@ namespace AICompanion.Tests.EditMode
                 StringAssert.Contains("commercial cloud provider", error, host);
             }
 
+            Assert.IsNotNull(PrivateEndpointRules.ValidateAddress("HTTPS://API.OPENAI.COM./v1"));
+            Assert.IsNull(PrivateEndpointRules.ValidateAddress("https://api.openai.com.evil.test/v1"));
+            Assert.IsNotNull(PrivateEndpointRules.ValidateAddress("https://foo.openai.azure.com/v1"));
+            Assert.IsNotNull(PrivateEndpointRules.ValidateAddress("https://auth.anthropic.com/v1"));
             Assert.IsNull(PrivateEndpointRules.ValidateAddress("https://gpu.example.com/v1"));
+            Assert.IsNull(PrivateEndpointRules.ValidateAddress("https://api.mycompany.test/v1"));
             Assert.IsNull(PrivateEndpointRules.ValidateAddress("http://127.0.0.1:8000/v1"));
             Assert.IsNull(PrivateEndpointRules.ValidateAddress("http://localhost:8000/v1"));
+        }
+
+        [Test]
+        public void PrivateProbeStatus_RedactsAnEchoedKey()
+        {
+            const string key = "sk-private-echo";
+            var status = SettingsPanel.PrivateProbeStatus(
+                401,
+                "Unauthorized",
+                "{\"error\":\"Incorrect API key " + key + "\"}",
+                key,
+                null);
+
+            Assert.IsFalse(status.Contains(key));
+            StringAssert.Contains("[redacted]", status);
+        }
+
+        [Test]
+        public void CustomProvider_ScrubsAnEchoedKeyFromMessages()
+        {
+            const string key = "sk-custom-echo";
+            var chat = ScriptableObject.CreateInstance<ChatSettings>();
+            try
+            {
+                chat.privateEndpointType = PrivateEndpointTypes.Custom;
+                chat.privateBaseUrl = "https://gpu.example.com/v1";
+                chat.privateModel = "demo-model";
+                var transport = new RecordingTransport
+                {
+                    Result = ChatHttpResult.Http(401, "{\"error\":\"Incorrect API key " + key + "\"}")
+                };
+                var registry = ChatProviderFactory.Create(chat, new FixedKey("cloud-key"), transport, null, new FixedKey(key));
+                Assert.IsTrue(registry.TryGet(ChatDefaults.CustomId, out var custom));
+
+                var result = custom.StreamChat(new ChatRequest(), null, CancellationToken.None).GetAwaiter().GetResult();
+
+                Assert.AreEqual(ChatErrorKind.InvalidApiKey, result.Error);
+                Assert.IsFalse(result.UserMessage.Contains(key), result.UserMessage);
+                Assert.IsFalse(result.LogMessage.Contains(key), result.LogMessage);
+                StringAssert.Contains("[redacted]", result.LogMessage);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(chat);
+            }
         }
 
         [Test]
@@ -188,12 +239,13 @@ namespace AICompanion.Tests.EditMode
         {
             public int Calls;
             public ChatHttpRequest Last;
+            public ChatHttpResult Result = ChatHttpResult.Network();
 
             public Task<ChatHttpResult> PostAsync(ChatHttpRequest request, Action<string> onBodyChunk, CancellationToken cancellationToken)
             {
                 Calls++;
                 Last = request;
-                return Task.FromResult(ChatHttpResult.Network());
+                return Task.FromResult(Result);
             }
         }
 

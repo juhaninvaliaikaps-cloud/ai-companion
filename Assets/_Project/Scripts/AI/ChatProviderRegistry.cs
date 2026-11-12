@@ -53,6 +53,13 @@ namespace AICompanion.AI
             IApiKeySource privateKeys = null)
         {
             var registry = new ChatProviderRegistry();
+            Func<string> privateKey = () =>
+            {
+                string key;
+                if (privateKeys != null && privateKeys.TryGet(out key) && !string.IsNullOrWhiteSpace(key))
+                    return key;
+                return PrivateApiKeyStore.TryLoad(out key) ? key : null;
+            };
             registry.Register(Wrap(decorator, new OpenAiCompatibleChatProvider(new OpenAiProviderConfig
             {
                 ProviderId = ChatDefaults.GrokId,
@@ -88,13 +95,9 @@ namespace AICompanion.AI
                 BaseUrl = () => settings == null ? string.Empty : (settings.privateBaseUrl ?? string.Empty).Trim(),
                 Model = () => settings == null ? string.Empty : (settings.privateModel ?? string.Empty).Trim(),
                 TimeoutSeconds = () => settings != null ? settings.timeoutSeconds : ChatDefaults.TimeoutSeconds,
-                ApiKey = () =>
-                {
-                    string key;
-                    if (privateKeys != null && privateKeys.TryGet(out key) && !string.IsNullOrWhiteSpace(key))
-                        return key;
-                    return PrivateApiKeyStore.TryLoad(out key) ? key : null;
-                },
+                ApiKey = privateKey,
+                Secret = privateKey,
+                BeforeRequest = () => PrivateEndpointNotice.LogPlainHttpOnce(settings == null ? null : settings.privateBaseUrl),
                 ConfigurationError = () => settings == null
                     ? PrivateEndpointRules.MissingAddress
                     : PrivateEndpointRules.ValidateForChat(settings.privateBaseUrl, settings.privateModel),

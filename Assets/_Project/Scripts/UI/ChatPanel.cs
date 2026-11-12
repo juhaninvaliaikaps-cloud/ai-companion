@@ -44,6 +44,7 @@ namespace AICompanion.UI
         string _badgeProvider = string.Empty;
         string _badgeGrok = string.Empty;
         string _badgeLocal = string.Empty;
+        string _badgePrivateModel = string.Empty;
         bool _badgePrivate;
         Text _micLabel;
         Image _micImage;
@@ -387,7 +388,9 @@ namespace AICompanion.UI
 
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = privacy != null && privacy.PrivateMode;
-            var providerId = ChatDefaults.LocalId;
+            var providerId = settings != null
+                ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
+                : ChatDefaults.LocalId;
             if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
             {
                 _conversation.AddSystem(ChatErrors.UnknownProvider(providerId));
@@ -445,7 +448,9 @@ namespace AICompanion.UI
 
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = privacy != null && privacy.PrivateMode;
-            var providerId = ChatDefaults.LocalId;
+            var providerId = settings != null
+                ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
+                : ChatDefaults.LocalId;
             if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
                 return false;
 
@@ -460,11 +465,11 @@ namespace AICompanion.UI
                 Ephemeral = true,
                 BlockCloud = true
             };
-            RunAutoObservation(provider, text, prompt, privateMode, options, observation, _cancel.Token);
+            RunAutoObservation(provider, text, prompt, privateMode, providerId, options, observation, _cancel.Token);
             return true;
         }
 
-        async void RunAutoObservation(IChatProvider provider, string text, string prompt, bool privateMode, ChatTurnOptions options, string observation, CancellationToken token)
+        async void RunAutoObservation(IChatProvider provider, string text, string prompt, bool privateMode, string providerId, ChatTurnOptions options, string observation, CancellationToken token)
         {
             var result = await _exchange.Run(provider, text, prompt, settings.temperature, settings.maxTokens, token, options);
             if (!_alive || !result.Ok)
@@ -474,7 +479,7 @@ namespace AICompanion.UI
             if (ScreenLookCue.IsSilent(reply))
                 return;
 
-            BeginSpeech(privateMode, ChatDefaults.LocalId);
+            BeginSpeech(privateMode, providerId);
             _conversation.AddAssistant(reply);
             ScreenObservationMemory.Remember(observation);
             ApplyCue();
@@ -518,14 +523,8 @@ namespace AICompanion.UI
             BindSpeech();
             if (_speech != null)
             {
-                var local = privateMode || ActiveChatLabel.IsLocal(providerId);
                 _speech.Cancel();
-                _speech.BeginUtterance(new SpeechOrigin
-                {
-                    ChatProviderId = local ? ChatDefaults.LocalId : providerId,
-                    Model = local ? settings.localModel : settings.model,
-                    Private = privateMode
-                });
+                _speech.BeginUtterance(SpeechOriginFor(privateMode, providerId));
             }
 
             var suffix = string.Empty;
@@ -555,14 +554,35 @@ namespace AICompanion.UI
             if (_speech == null)
                 return;
 
-            var local = privateMode || ActiveChatLabel.IsLocal(providerId);
             _speech.Cancel();
-            _speech.BeginUtterance(new SpeechOrigin
+            _speech.BeginUtterance(SpeechOriginFor(privateMode, providerId));
+        }
+
+        /// <summary>
+        /// The voice follows the effective chat provider. A Custom server is still private,
+        /// so the origin names it but the voice route stays local.
+        /// </summary>
+        SpeechOrigin SpeechOriginFor(bool privateMode, string providerId)
+        {
+            if (privateMode && string.Equals(providerId, ChatDefaults.CustomId, StringComparison.OrdinalIgnoreCase))
+            {
+                return new SpeechOrigin
+                {
+                    ChatProviderId = ChatDefaults.CustomId,
+                    Model = settings != null ? settings.privateModel : string.Empty,
+                    Private = true
+                };
+            }
+
+            var local = privateMode || ActiveChatLabel.IsLocal(providerId);
+            return new SpeechOrigin
             {
                 ChatProviderId = local ? ChatDefaults.LocalId : providerId,
-                Model = local ? settings.localModel : settings.model,
+                Model = local
+                    ? (settings != null ? settings.localModel : string.Empty)
+                    : (settings != null ? settings.model : string.Empty),
                 Private = privateMode
-            });
+            };
         }
 
         string DirectorSuffix()
@@ -810,25 +830,30 @@ namespace AICompanion.UI
 
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = privacy != null && privacy.PrivateMode;
-            var provider = settings.providerId ?? string.Empty;
-            var grok = settings.model ?? string.Empty;
-            var local = settings.localModel ?? string.Empty;
+            var provider = settings != null
+                ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
+                : string.Empty;
+            var grok = settings != null ? settings.model ?? string.Empty : string.Empty;
+            var local = settings != null ? settings.localModel ?? string.Empty : string.Empty;
+            var privateModel = settings != null ? settings.privateModel ?? string.Empty : string.Empty;
             if (_modelBadge.text.Length > 0
                 && privateMode == _badgePrivate
                 && string.Equals(provider, _badgeProvider, StringComparison.Ordinal)
                 && string.Equals(grok, _badgeGrok, StringComparison.Ordinal)
-                && string.Equals(local, _badgeLocal, StringComparison.Ordinal))
+                && string.Equals(local, _badgeLocal, StringComparison.Ordinal)
+                && string.Equals(privateModel, _badgePrivateModel, StringComparison.Ordinal))
                 return;
 
             _badgePrivate = privateMode;
             _badgeProvider = provider;
             _badgeGrok = grok;
             _badgeLocal = local;
+            _badgePrivateModel = privateModel;
             var localNow = privateMode || ActiveChatLabel.IsLocal(provider);
             _modelBadge.color = localNow
                 ? new Color(0.72f, 0.90f, 0.78f, 0.96f)
                 : new Color(0.98f, 0.86f, 0.62f, 0.96f);
-            _modelBadge.text = ActiveChatLabel.Format(provider, privateMode, grok, local);
+            _modelBadge.text = ActiveChatLabel.Format(provider, privateMode, grok, local, privateModel);
         }
 
         void RefreshMuteLabel()

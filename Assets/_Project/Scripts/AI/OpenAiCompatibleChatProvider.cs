@@ -19,6 +19,12 @@ namespace AICompanion.AI
 
         /// <summary>A non-empty value is shown as the chat error instead of calling the server.</summary>
         public Func<string> ConfigurationError;
+
+        /// <summary>Optional bearer token, used only to redact it from an error body.</summary>
+        public Func<string> Secret;
+
+        /// <summary>Called once just before a request leaves the app. Never receives the key.</summary>
+        public Action BeforeRequest;
     }
 
     /// <summary>
@@ -78,6 +84,9 @@ namespace AICompanion.AI
             if (_config.Transport == null)
                 return Task.FromResult(ChatResult.Fail(ChatErrorKind.Unreachable, ChatErrors.Unreachable(DisplayName)));
 
+            if (_config.BeforeRequest != null)
+                _config.BeforeRequest();
+
             var model = request.Model;
             if (string.IsNullOrWhiteSpace(model) && _config.Model != null)
                 model = _config.Model();
@@ -116,7 +125,7 @@ namespace AICompanion.AI
                 if (httpTask.IsFaulted || httpTask.IsCanceled)
                     return Task.FromResult(FailedTask(httpTask, DisplayName));
                 state.Flush(onDelta);
-                return Task.FromResult(ChatErrors.FromTransport(DisplayName, httpTask.Result, state.Text, state.Done, state.Malformed, model));
+                return Task.FromResult(ChatErrors.FromTransport(DisplayName, httpTask.Result, state.Text, state.Done, state.Malformed, model, Secret()));
             }
 
             return Finish(httpTask, state, onDelta, model);
@@ -277,10 +286,10 @@ namespace AICompanion.AI
             if (http.TimedOut)
                 return ChatResult.Fail(ChatErrorKind.Timeout, ChatErrors.TimedOut(DisplayName));
             if (http.NetworkFailed || (http.StatusCode == 0 && string.IsNullOrEmpty(accumulated) && string.IsNullOrEmpty(http.Body)))
-                return ChatErrors.FromTransport(DisplayName, http, string.Empty, false, false, model);
+                return ChatErrors.FromTransport(DisplayName, http, string.Empty, false, false, model, Secret());
 
             if (http.StatusCode >= 400 || http.StatusCode == 0)
-                return ChatErrors.FromTransport(DisplayName, http, string.Empty, false, true, model);
+                return ChatErrors.FromTransport(DisplayName, http, string.Empty, false, true, model, Secret());
 
             var json = string.IsNullOrEmpty(accumulated) ? http.Body : accumulated;
             if (json != null && json.Length > VisionCapability.MaxResponseChars)
@@ -340,7 +349,12 @@ namespace AICompanion.AI
             }
 
             state.Flush(onDelta);
-            return ChatErrors.FromTransport(DisplayName, http, state.Text, state.Done, state.Malformed, model);
+            return ChatErrors.FromTransport(DisplayName, http, state.Text, state.Done, state.Malformed, model, Secret());
+        }
+
+        string Secret()
+        {
+            return _config.Secret != null ? _config.Secret() : null;
         }
 
         static ChatResult FailedTask(Task<ChatHttpResult> httpTask, string displayName)
