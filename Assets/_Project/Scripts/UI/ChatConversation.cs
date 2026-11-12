@@ -384,6 +384,12 @@ namespace AICompanion.UI
         public CueParseStatus LastCueStatus { get; private set; }
 
         /// <summary>
+        /// Goes up by one each time a reply finishes and <see cref="LastCue"/> is read from it.
+        /// Lets a listener act on each reply's cue exactly once.
+        /// </summary>
+        public int CueSerial { get; private set; }
+
+        /// <summary>
         /// Added to the newest user message in each request, never to the transcript, the
         /// display or memory. Empty sends the message as typed.
         /// </summary>
@@ -529,6 +535,7 @@ namespace AICompanion.UI
                     LastCue = _filter.Cue;
                     LastCueTag = _filter.RawTag;
                     LastCueStatus = _filter.Status;
+                    CueSerial++;
                     _conversation.ReplaceStreamingAssistant(_generation, _filter.Text);
                     result = ChatResult.Success(_filter.Text);
                 }
