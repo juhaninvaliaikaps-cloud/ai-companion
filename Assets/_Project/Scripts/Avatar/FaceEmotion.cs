@@ -17,8 +17,6 @@ namespace AICompanion.Avatar
 
             switch (name)
             {
-                case "embarrassed_worried":
-                    return Emotion.Embarrassed;
                 case "pouty":
                 case "pout":
                 case "angry":

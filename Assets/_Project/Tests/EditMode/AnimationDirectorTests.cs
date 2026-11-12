@@ -241,6 +241,24 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void ShippedCatalog_PoutyGestureUsesThePoutyPortrait()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>("Assets/_Project/Settings/AnimationCatalog.asset");
+            Assert.IsNotNull(catalog);
+            var model = new AnimationDirectorModel(catalog);
+
+            var pouty = AnimationCueParser.Parse("<animation emotion=\"sad\" intensity=\"0.45\" gesture=\"pouty\" />").Cue;
+            var poutDecision = model.Decide(pouty);
+            Assert.AreEqual(Emotion.Sad, poutDecision.Emotion);
+            Assert.AreEqual("pouty", poutDecision.Portrait);
+
+            var crying = AnimationCueParser.Parse("<animation emotion=\"crying\" gesture=\"crying\" />").Cue;
+            var cryDecision = model.Decide(crying);
+            Assert.AreEqual(DirectorAction.Emotion, cryDecision.Action, "gesture=crying must be an emotion look, not a body gesture.");
+            Assert.AreEqual("crying", cryDecision.Portrait);
+        }
+
+        [Test]
         public void ShippedCatalog_SuffixAsksForTheCueTag()
         {
             var catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>("Assets/_Project/Settings/AnimationCatalog.asset");
@@ -400,7 +418,7 @@ namespace AICompanion.Tests.EditMode
             var poutDecision = model.Decide(pouty);
             Assert.AreEqual(DirectorAction.Emotion, poutDecision.Action);
             Assert.AreEqual(Emotion.Sad, poutDecision.Emotion);
-            Assert.AreEqual("angry", poutDecision.Portrait);
+            Assert.AreEqual("pouty", poutDecision.Portrait);
 
             var sleepy = AnimationCueParser.Parse("<animation emotion=\"sleepy\" />").Cue;
             var sleepyDecision = model.Decide(sleepy);
