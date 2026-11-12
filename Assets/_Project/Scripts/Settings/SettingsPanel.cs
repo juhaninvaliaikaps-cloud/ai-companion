@@ -1102,6 +1102,12 @@ namespace AICompanion.Settings
 
         void TestConnection()
         {
+            if (_settings.PrivateMode && PrivateEndpointTypes.IsCustom(_settings.PrivateEndpointType))
+            {
+                SetStatus("Use Test connection under Private endpoint to test the custom server.");
+                return;
+            }
+
             _probeSerial++;
             _probeBusy = true;
             SetStatus("Testing connection...");

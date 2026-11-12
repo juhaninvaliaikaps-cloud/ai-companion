@@ -6,6 +6,17 @@ namespace AICompanion.AI
     /// </summary>
     public static class PrivateChatRouting
     {
+        /// <summary>
+        /// Screen observations are always local unless Private mode is on with the Custom server.
+        /// With Private mode off they must not follow the cloud chat provider to Grok.
+        /// </summary>
+        public static string ObservationProviderId(bool privateMode, string privateEndpointType)
+        {
+            return privateMode && PrivateEndpointTypes.IsCustom(privateEndpointType)
+                ? ChatDefaults.CustomId
+                : ChatDefaults.LocalId;
+        }
+
         public static string ProviderId(bool privateMode, string selected, string privateEndpointType)
         {
             if (privateMode)

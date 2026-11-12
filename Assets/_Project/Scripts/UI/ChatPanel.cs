@@ -389,7 +389,7 @@ namespace AICompanion.UI
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = privacy != null && privacy.PrivateMode;
             var providerId = settings != null
-                ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
+                ? PrivateChatRouting.ObservationProviderId(privateMode, settings.privateEndpointType)
                 : ChatDefaults.LocalId;
             if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
             {
@@ -449,7 +449,7 @@ namespace AICompanion.UI
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = privacy != null && privacy.PrivateMode;
             var providerId = settings != null
-                ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
+                ? PrivateChatRouting.ObservationProviderId(privateMode, settings.privateEndpointType)
                 : ChatDefaults.LocalId;
             if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
                 return false;

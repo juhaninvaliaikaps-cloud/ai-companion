@@ -69,6 +69,15 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("Custom · qwen2.5 · private", ActiveChatLabel.Format(ChatDefaults.CustomId, true, "grok-4.7", "llama3.2", "qwen2.5"));
         }
 
+        [TestCase(false, PrivateEndpointTypes.Custom, ChatDefaults.LocalId)]
+        [TestCase(false, PrivateEndpointTypes.Local, ChatDefaults.LocalId)]
+        [TestCase(true, PrivateEndpointTypes.Custom, ChatDefaults.CustomId)]
+        [TestCase(true, PrivateEndpointTypes.Local, ChatDefaults.LocalId)]
+        public void ObservationProviderId_NeverUsesCloudGrok(bool privateMode, string endpointType, string expected)
+        {
+            Assert.AreEqual(expected, PrivateChatRouting.ObservationProviderId(privateMode, endpointType));
+        }
+
         [Test]
         public void CommercialHosts_AreRefusedAsPrivateEndpoints()
         {
