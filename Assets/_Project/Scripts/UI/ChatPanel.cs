@@ -364,7 +364,7 @@ namespace AICompanion.UI
                 _cancel.Dispose();
             _cancel = new CancellationTokenSource();
             BeginSpeech(privateMode, providerId);
-            var prompt = VisionPrompt.Append(DirectorPrompt.Append(settings.systemPrompt, DirectorSuffix()));
+            var prompt = VisionPrompt.Append(DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), DirectorSuffix()));
             var options = new ChatTurnOptions
             {
                 Image = image,
@@ -405,7 +405,7 @@ namespace AICompanion.UI
                 _cancel.Dispose();
             _cancel = new CancellationTokenSource();
             BeginSpeech(true, providerId);
-            var prompt = VisionPrompt.AppendLocalChat(DirectorPrompt.Append(settings.systemPrompt, DirectorSuffix()));
+            var prompt = VisionPrompt.AppendLocalChat(DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), DirectorSuffix()));
             var options = new ChatTurnOptions
             {
                 SingleTurn = true,
@@ -458,7 +458,7 @@ namespace AICompanion.UI
             if (_cancel != null)
                 _cancel.Dispose();
             _cancel = new CancellationTokenSource();
-            var prompt = VisionPrompt.AppendAutoLook(DirectorPrompt.Append(settings.systemPrompt, DirectorSuffix()));
+            var prompt = VisionPrompt.AppendAutoLook(DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), DirectorSuffix()));
             var text = VisionPrompt.AutoObservationTurn(observation);
             var options = new ChatTurnOptions
             {
@@ -538,16 +538,17 @@ namespace AICompanion.UI
             var director = GetComponent<Director>();
             if (director != null)
                 suffix = director.SystemPromptSuffix;
-            var prompt = DirectorPrompt.Append(settings.systemPrompt, suffix);
+            var prompt = DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), suffix);
 
             // JUH-21: read the user's mood on this machine. The face reacts now, before
             // the reply, and the model gets one hint line. The reply cue replaces the face.
             var mood = UserMoodDetector.Detect(text);
             Debug.Log(mood.ToLogString());
-            CompanionMoodInputs.ReportUserMood(mood);
             prompt = UserMoodPrompt.Append(prompt, mood);
+            // The face reaction is shaded by her mood before the user's mood moves it.
             if (director != null && UserMoodReaction.TryGetCue(mood, out var moodCue))
                 director.Play(moodCue);
+            CompanionMoodInputs.ReportUserMood(mood);
 
             var temperature = settings.temperature;
             var maxTokens = settings.maxTokens;
@@ -764,6 +765,11 @@ namespace AICompanion.UI
             // What the model really wrote, so a missing or broken cue shows in Player.log.
             Debug.Log(AnimationCueParser.DescribeTag(_exchange.LastCueTag, _exchange.LastCueStatus));
             Debug.Log(EmotionNames.FormatFieldLog(_exchange.LastCue.EmotionField));
+            // JUH-103 phase 2: the director shades the cue by the mood she had before this
+            // reply, so it plays first and the cue moves the mood after.
+            var director = GetComponent<Director>();
+            if (director != null)
+                director.Play(_exchange.LastCue);
             // JUH-103: her own cue moves her lasting mood, once per finished reply. The
             // screen-look remark paths call this without a new reply, and must not push the
             // last cue again.
@@ -772,9 +778,6 @@ namespace AICompanion.UI
                 _moodCueSerial = _exchange.CueSerial;
                 CompanionMoodInputs.ReportCue(_exchange.LastCue);
             }
-            var director = GetComponent<Director>();
-            if (director != null)
-                director.Play(_exchange.LastCue);
         }
 
         public void ShowSpeechNote(string message)
