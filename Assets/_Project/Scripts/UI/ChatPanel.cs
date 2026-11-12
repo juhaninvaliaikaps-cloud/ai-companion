@@ -1132,6 +1132,9 @@ namespace AICompanion.UI
             if (!newContent && !widthChanged)
                 return;
 
+            // A reader at the latest message stays there through a resize; one scrolled up
+            // keeps their place (Bugbot on #64).
+            var atBottom = _scroll == null || _scroll.verticalNormalizedPosition <= 0.01f;
             _shownRevision = _conversation.Revision;
             _view.Update(_conversation.Lines);
             _laidOutWidth = textWidth;
@@ -1189,8 +1192,9 @@ namespace AICompanion.UI
             var height = Mathf.Max(8f, y - MessageSpacing);
             _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
             _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
-            // Only new content jumps to the latest message; a resize keeps the reading spot.
-            if (_scroll != null && newContent)
+            // New content jumps to the latest message. A resize keeps a reader at the bottom
+            // there, and leaves someone reading older messages where they were.
+            if (_scroll != null && (newContent || atBottom))
                 _scroll.verticalNormalizedPosition = 0f;
         }
 
