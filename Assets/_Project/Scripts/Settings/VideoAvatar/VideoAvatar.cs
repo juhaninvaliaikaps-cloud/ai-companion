@@ -654,15 +654,29 @@ namespace AICompanion.Settings
             if (_shown < 0 || _imageRect == null || _players[_shown] == null)
                 return;
 
-            var idleRect = VideoAvatarLayout.Compute(
-                Screen.width,
-                Screen.height,
-                _referenceWidth,
-                _referenceHeight,
-                settings.VideoAvatarSize,
-                settings.VideoAvatarOffsetX,
-                settings.VideoAvatarOffsetY);
-            _portraitHeadKnown = idleRect.height > 0f && _set != null;
+            // The idle clip's own rectangle on screen, with its scale and offsets, not mirrored.
+            // It is the same whatever clip shows, so the portrait does not move with the clips.
+            var idleRect = new Rect(0f, 0f, 0f, 0f);
+            if (_set != null && _set.Idle >= 0)
+            {
+                var idleSpec = _set.Clips[_set.Idle];
+                idleRect = VideoAvatarLayout.ComputeAligned(
+                    Screen.width,
+                    Screen.height,
+                    _referenceWidth,
+                    _referenceHeight,
+                    _referenceWidth,
+                    _referenceHeight,
+                    settings.VideoAvatarSize,
+                    settings.VideoAvatarOffsetX,
+                    settings.VideoAvatarOffsetY,
+                    idleSpec.Scale,
+                    idleSpec.OffsetX,
+                    idleSpec.OffsetY,
+                    false);
+            }
+
+            _portraitHeadKnown = idleRect.height > 0f;
             if (_portraitHeadKnown)
                 _portraitHead = PortraitAnchor.VideoHead(idleRect, Screen.height, _set.HeadX, _set.HeadY);
 

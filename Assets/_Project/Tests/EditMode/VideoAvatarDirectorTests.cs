@@ -1504,14 +1504,19 @@ namespace AICompanion.Tests.EditMode
         [Test]
         public void Portrait_VideoHead_StaysPutWhileSheWalksStopsAndReacts()
         {
-            // The head comes from the default idle's rectangle, which every clip of the set
-            // shares, so a walk, a mirrored walk, or a reaction cannot move it.
-            var idle = VideoAvatarLayout.Compute(912f, 1368f, 768f, 1344f, 1f, 0f, -0.017f);
+            // The head comes from the default idle's own rectangle (with the idle's offsetY
+            // from the delivered manifest), which no other clip changes, so a walk, a mirrored
+            // walk, or a reaction cannot move it.
+            var idle = VideoAvatarLayout.ComputeAligned(912f, 1368f, 768f, 1344f, 768f, 1344f, 1f, 0f, 0f, 1f, 0f, -0.017f, false);
             var before = PortraitAnchor.VideoHead(idle, 1368f, PortraitAnchor.DefaultHeadX, PortraitAnchor.DefaultHeadY);
 
             var walk = VideoAvatarLayout.ComputeAligned(912f, 1368f, 768f, 1344f, 768f, 1344f, 1f, 0f, -0.017f, 1f, 0.05f, 0f, true);
             Assert.AreNotEqual(idle, walk);
-            var again = VideoAvatarLayout.Compute(912f, 1368f, 768f, 1344f, 1f, 0f, -0.017f);
+            var again = VideoAvatarLayout.ComputeAligned(912f, 1368f, 768f, 1344f, 768f, 1344f, 1f, 0f, 0f, 1f, 0f, -0.017f, false);
+            // The idle's offset moves the head with her: 1.7% of her height lower than without it.
+            var unshifted = VideoAvatarLayout.Compute(912f, 1368f, 768f, 1344f, 1f, 0f, 0f);
+            var plainHead = PortraitAnchor.VideoHead(unshifted, 1368f, PortraitAnchor.DefaultHeadX, PortraitAnchor.DefaultHeadY);
+            Assert.AreEqual(plainHead.y + 0.017f * unshifted.height, before.y, 0.5f);
             Assert.AreEqual(before, PortraitAnchor.VideoHead(again, 1368f, PortraitAnchor.DefaultHeadX, PortraitAnchor.DefaultHeadY));
 
             // The portrait beside that head is the same rectangle every frame, and it is not on her body.
