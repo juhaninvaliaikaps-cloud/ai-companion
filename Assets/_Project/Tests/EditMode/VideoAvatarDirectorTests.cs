@@ -1449,28 +1449,13 @@ namespace AICompanion.Tests.EditMode
         // ---- the expression portrait and the avatar mode ---------------------------------
 
         [Test]
-        public void Portrait_ShowsWithThe3DModel_AndNeverOverThe2DVideo()
-        {
-            // On in settings, 3D model visible: show.
-            Assert.IsTrue(PortraitModePolicy.Allows(true, false));
-            // On in settings, video on screen (model hidden): hide.
-            Assert.IsFalse(PortraitModePolicy.Allows(true, true));
-            // Off in settings: hidden in both modes.
-            Assert.IsFalse(PortraitModePolicy.Allows(false, false));
-            Assert.IsFalse(PortraitModePolicy.Allows(false, true));
-        }
-
-        [Test]
-        public void Portrait_FollowsEveryModeSwitch_IncludingTheFallbackTo3D()
+        public void Portrait_FollowsTheHeadOfTheAvatarOnScreen_ThroughEveryModeSwitch()
         {
             var host = new GameObject("portrait-mode-host");
             try
             {
                 var mount = host.AddComponent<AICompanion.Avatar.AvatarMount>();
-
-                // 3D at start.
-                Assert.IsFalse(mount.ModelHidden);
-                Assert.IsTrue(PortraitModePolicy.Allows(true, mount.ModelHidden));
+                Assert.AreEqual(PortraitAnchorSource.Model3D, PortraitAnchor.Source(mount.ModelHidden, false));
 
                 // The states the video avatar goes through, in the order a session can see them.
                 var states = new[]
@@ -1482,22 +1467,71 @@ namespace AICompanion.Tests.EditMode
                 };
                 for (var i = 0; i < states.Length; i++)
                 {
-                    // VideoAvatar hides the model in exactly the states HidesModel names.
+                    // VideoAvatar hides the model in exactly the states HidesModel names, and
+                    // knows her head only while a clip plays.
                     mount.SetModelHidden(VideoAvatarStatus.HidesModel(states[i]));
-                    var videoOnScreen = states[i] == VideoAvatarState.Playing;
-
-                    Assert.AreEqual(videoOnScreen, mount.ModelHidden, states[i].ToString());
-                    Assert.AreEqual(!videoOnScreen, PortraitModePolicy.Allows(true, mount.ModelHidden), states[i].ToString());
-                    Assert.IsFalse(PortraitModePolicy.Allows(false, mount.ModelHidden), states[i].ToString());
+                    var playing = states[i] == VideoAvatarState.Playing;
+                    var expected = playing ? PortraitAnchorSource.Video : PortraitAnchorSource.Model3D;
+                    Assert.AreEqual(expected, PortraitAnchor.Source(mount.ModelHidden, playing), states[i].ToString());
                 }
 
-                // Back in 3D at the end: the portrait is allowed again.
-                Assert.IsTrue(PortraitModePolicy.Allows(true, mount.ModelHidden));
+                // Never the hidden 3D head: before the video's head is known, a fixed point.
+                Assert.AreEqual(PortraitAnchorSource.Fixed, PortraitAnchor.Source(true, false));
+                Assert.AreEqual(PortraitAnchorSource.Model3D, PortraitAnchor.Source(mount.ModelHidden, false));
             }
             finally
             {
                 Object.DestroyImmediate(host);
             }
+        }
+
+        [Test]
+        public void Portrait_VideoHead_IsAtTheIdleHead_InTopLeftPixels()
+        {
+            // A 912 x 1368 window, the idle 760 tall from 20 px above the bottom.
+            var idle = new Rect(100f, 20f, 434f, 760f);
+            var head = PortraitAnchor.VideoHead(idle, 1368f, PortraitAnchor.DefaultHeadX, PortraitAnchor.DefaultHeadY);
+
+            Assert.AreEqual(100f + 434f * 0.5f, head.x, 0.01f);
+            // 15% down from the top of the frame: 20 + 760 * 0.85 from the bottom.
+            Assert.AreEqual(1368f - (20f + 760f * 0.85f), head.y, 0.01f);
+
+            // Unset or broken values use the defaults.
+            Assert.AreEqual(head, PortraitAnchor.VideoHead(idle, 1368f, 0f, 0f));
+            Assert.AreEqual(head, PortraitAnchor.VideoHead(idle, 1368f, float.NaN, 2f));
+        }
+
+        [Test]
+        public void Portrait_VideoHead_StaysPutWhileSheWalksStopsAndReacts()
+        {
+            // The head comes from the default idle's rectangle, which every clip of the set
+            // shares, so a walk, a mirrored walk, or a reaction cannot move it.
+            var idle = VideoAvatarLayout.Compute(912f, 1368f, 768f, 1344f, 1f, 0f, -0.017f);
+            var before = PortraitAnchor.VideoHead(idle, 1368f, PortraitAnchor.DefaultHeadX, PortraitAnchor.DefaultHeadY);
+
+            var walk = VideoAvatarLayout.ComputeAligned(912f, 1368f, 768f, 1344f, 768f, 1344f, 1f, 0f, -0.017f, 1f, 0.05f, 0f, true);
+            Assert.AreNotEqual(idle, walk);
+            var again = VideoAvatarLayout.Compute(912f, 1368f, 768f, 1344f, 1f, 0f, -0.017f);
+            Assert.AreEqual(before, PortraitAnchor.VideoHead(again, 1368f, PortraitAnchor.DefaultHeadX, PortraitAnchor.DefaultHeadY));
+
+            // The portrait beside that head is the same rectangle every frame, and it is not on her body.
+            var none = new Rect(0f, 0f, 0f, 0f);
+            var first = PortraitPlacement.Beside(before, 912f, 1368f, none, none, false);
+            var second = PortraitPlacement.Beside(before, 912f, 1368f, none, none, false);
+            Assert.AreEqual(first, second);
+            Assert.Less(first.center.y, 1368f - (idle.y + idle.height * 0.7f), "The portrait is level with her head, not her chest.");
+        }
+
+        [Test]
+        public void Manifest_HeadPosition_CanBeSet_AndDefaultsOtherwise()
+        {
+            var plain = VideoAvatarManifest.Resolve(null, DeliveredFiles());
+            Assert.AreEqual(PortraitAnchor.DefaultHeadX, plain.HeadX);
+            Assert.AreEqual(PortraitAnchor.DefaultHeadY, plain.HeadY);
+
+            var set = VideoAvatarManifest.Resolve(@"{ ""headX"": 0.45, ""headY"": 0.12, ""clips"": [ { ""name"": ""idle"", ""color"": ""idle.sbs.mp4"" } ] }", DeliveredFiles());
+            Assert.AreEqual(0.45f, set.HeadX, 0.0001f);
+            Assert.AreEqual(0.12f, set.HeadY, 0.0001f);
         }
 
         // ---- layout for a set of clips ---------------------------------------------------

@@ -26,6 +26,7 @@ namespace AICompanion.Settings
         SettingsPanel _settings;
         ChatPanel _chat;
         AvatarMount _mount;
+        VideoAvatar _video;
         Component _animatorObject;
         IAvatarAnimator _animator;
         Component _mouthObject;
@@ -204,6 +205,8 @@ namespace AICompanion.Settings
                 _settings = GetComponent<SettingsPanel>();
             if (_chat == null)
                 _chat = GetComponent<ChatPanel>();
+            if (_video == null)
+                _video = GetComponent<VideoAvatar>();
             if (_mount == null)
             {
                 _mount = GetComponent<AvatarMount>();
@@ -243,10 +246,8 @@ namespace AICompanion.Settings
             if (_settings == null || _settings.CurrentSettings == null)
                 return false;
 
-            // The portrait sits beside the 3D head. While the 2D video avatar shows, that head
-            // is hidden behind the video, so the portrait would sit on top of her.
-            var modelHidden = _mount != null && _mount.ModelHidden;
-            return PortraitModePolicy.Allows(_settings.CurrentSettings.ShowExpressionPortrait, modelHidden);
+            // Shown in both avatar modes. Where it goes is decided in HeadPoint.
+            return _settings.CurrentSettings.ShowExpressionPortrait;
         }
 
         string RequestedPortraitFolder()
@@ -560,6 +561,19 @@ namespace AICompanion.Settings
         Vector2 HeadPoint(float delta)
         {
             var fallback = new Vector2(Screen.width * 0.62f, Screen.height * 0.34f);
+
+            // In 2D mode the hidden 3D model still animates, and its head bone wanders around
+            // the window. Beside the video avatar's head the portrait keeps one place.
+            var videoHead = fallback;
+            var videoKnown = _video != null && _video.TryGetPortraitHead(out videoHead);
+            switch (PortraitAnchor.Source(_mount != null && _mount.ModelHidden, videoKnown))
+            {
+                case PortraitAnchorSource.Video:
+                    return videoHead;
+                case PortraitAnchorSource.Fixed:
+                    return fallback;
+            }
+
             if (_head == null)
             {
                 _headRetry -= delta;

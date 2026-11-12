@@ -54,6 +54,9 @@ namespace AICompanion.Settings
         public VideoAvatarManifestClip[] clips;
         public float variationMinSeconds;
         public float variationMaxSeconds;
+        /// <summary>Where her head is in the default idle's frame, as shares from the left and the top. 0 uses the default.</summary>
+        public float headX;
+        public float headY;
     }
 
     /// <summary>One clip that exists on disk, with every value filled in.</summary>
@@ -133,6 +136,9 @@ namespace AICompanion.Settings
         public int SideIdle = -1;
         public float VariationMinSeconds = VideoAvatarManifest.DefaultVariationMinSeconds;
         public float VariationMaxSeconds = VideoAvatarManifest.DefaultVariationMaxSeconds;
+        /// <summary>Her head in the default idle's frame, for the expression portrait. See <see cref="PortraitAnchor"/>.</summary>
+        public float HeadX = PortraitAnchor.DefaultHeadX;
+        public float HeadY = PortraitAnchor.DefaultHeadY;
         public bool FromManifest;
 
         /// <summary>False when there is no default idle. The 3D avatar stays on screen then.</summary>
@@ -234,6 +240,10 @@ namespace AICompanion.Settings
         {
             var set = new VideoAvatarClipSet { FromManifest = true };
             ApplyVariationTiming(set, file.variationMinSeconds, file.variationMaxSeconds);
+            if (file.headX > 0f && file.headX < 1f)
+                set.HeadX = file.headX;
+            if (file.headY > 0f && file.headY < 1f)
+                set.HeadY = file.headY;
 
             for (var i = 0; i < file.clips.Length; i++)
             {

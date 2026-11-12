@@ -316,21 +316,53 @@ namespace AICompanion.Settings
         }
     }
 
-    /// <summary>
-    /// The expression portrait belongs to the 3D avatar: it sits beside the 3D model's
-    /// head. While the 2D video avatar is on screen that head is hidden and somewhere
-    /// behind the video, so the portrait would land on top of her.
-    /// </summary>
-    public static class PortraitModePolicy
+    /// <summary>Which head the expression portrait is placed beside.</summary>
+    public enum PortraitAnchorSource
     {
-        /// <summary>
-        /// True when the portrait may show. <paramref name="modelHidden"/> is
-        /// <c>AvatarMount.ModelHidden</c>: true only while a video clip is really playing.
-        /// A 2D mode that fell back to the 3D avatar therefore keeps its portrait.
-        /// </summary>
-        public static bool Allows(bool showExpressionPortrait, bool modelHidden)
+        /// <summary>The 3D model's head bone. 3D mode, and 2D mode that fell back to 3D.</summary>
+        Model3D = 0,
+
+        /// <summary>The 2D video avatar's head, from the idle's framing. Steady while she walks.</summary>
+        Video = 1,
+
+        /// <summary>The 3D model is hidden and the video's head is not known yet: a fixed point.</summary>
+        Fixed = 2,
+    }
+
+    /// <summary>
+    /// The expression portrait shows in both avatar modes, beside the head of the avatar
+    /// that is on screen. In 2D mode the hidden 3D model keeps playing its own animations,
+    /// so its head bone wanders around the window; following it put the portrait on her body
+    /// once she walked. The video's head is taken from the default idle's rectangle, which
+    /// does not change between clips, so the portrait keeps one place in the window.
+    /// </summary>
+    public static class PortraitAnchor
+    {
+        /// <summary>Head centre across the idle frame, measured on the delivered idle: 0.498.</summary>
+        public const float DefaultHeadX = 0.5f;
+
+        /// <summary>Head centre down from the top of the idle frame, measured on the delivered idle: 0.149 to 0.155.</summary>
+        public const float DefaultHeadY = 0.15f;
+
+        public static PortraitAnchorSource Source(bool modelHidden, bool videoHeadKnown)
         {
-            return showExpressionPortrait && !modelHidden;
+            if (!modelHidden)
+                return PortraitAnchorSource.Model3D;
+            return videoHeadKnown ? PortraitAnchorSource.Video : PortraitAnchorSource.Fixed;
+        }
+
+        /// <summary>
+        /// The video avatar's head in window pixels from the top-left (as the portrait uses),
+        /// from the idle's rectangle in pixels from the bottom-left (as the video canvas uses).
+        /// <paramref name="headX"/> and <paramref name="headY"/> are shares of the frame, from
+        /// its left and its top. A value outside 0..1 uses the default.
+        /// </summary>
+        public static Vector2 VideoHead(Rect idleRect, float windowHeight, float headX, float headY)
+        {
+            var x = headX > 0f && headX < 1f ? headX : DefaultHeadX;
+            var y = headY > 0f && headY < 1f ? headY : DefaultHeadY;
+            var fromBottom = idleRect.y + idleRect.height * (1f - y);
+            return new Vector2(idleRect.x + idleRect.width * x, windowHeight - fromBottom);
         }
     }
 

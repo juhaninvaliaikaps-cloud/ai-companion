@@ -77,6 +77,8 @@ namespace AICompanion.Settings
         string _appData = string.Empty;
         string _persistent = string.Empty;
         Rect _placed;
+        Vector2 _portraitHead;
+        bool _portraitHeadKnown;
         float _retryIn;
         float _rescanIn;
         float _syncReportIn = SyncReportSeconds;
@@ -635,10 +637,34 @@ namespace AICompanion.Settings
             }
         }
 
+        /// <summary>
+        /// Her head in window pixels from the top-left, for the expression portrait. False
+        /// unless a clip is playing. Taken from the default idle's rectangle, so it stays put
+        /// while she walks, stops, or plays a reaction; it moves only with the size and
+        /// position settings.
+        /// </summary>
+        public bool TryGetPortraitHead(out Vector2 head)
+        {
+            head = _portraitHead;
+            return _portraitHeadKnown && _state == VideoAvatarState.Playing;
+        }
+
         void Place(CompanionSettings settings)
         {
             if (_shown < 0 || _imageRect == null || _players[_shown] == null)
                 return;
+
+            var idleRect = VideoAvatarLayout.Compute(
+                Screen.width,
+                Screen.height,
+                _referenceWidth,
+                _referenceHeight,
+                settings.VideoAvatarSize,
+                settings.VideoAvatarOffsetX,
+                settings.VideoAvatarOffsetY);
+            _portraitHeadKnown = idleRect.height > 0f && _set != null;
+            if (_portraitHeadKnown)
+                _portraitHead = PortraitAnchor.VideoHead(idleRect, Screen.height, _set.HeadX, _set.HeadY);
 
             var texture = _image.texture;
             if (texture == null)
@@ -907,6 +933,8 @@ namespace AICompanion.Settings
         void SetState(VideoAvatarState state)
         {
             _state = state;
+            if (state != VideoAvatarState.Playing)
+                _portraitHeadKnown = false;
             _status = state == VideoAvatarState.Playing && _set != null
                 ? VideoAvatarStatus.DescribeSet(_set)
                 : VideoAvatarStatus.Describe(state, _folder, IdleClip(), _error);

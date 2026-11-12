@@ -19,7 +19,7 @@ Reaction clips (`happy`, `concerned`, `turn360`) play once from the default idle
 | Clip lookup, manifest, transitions, interruptions, gait, layout, settings | Automated EditMode tests |
 | C# compiles for the Windows player | CI job "Windows player script compile" |
 | Idle variations, walking, walk-stop, mirroring and clip switching with the picture + mask pairs | Jussi, manual test of commit 905d671 on Windows: "work pretty well". Two faults were reported and are addressed after that commit, see the next rows |
-| Expression portrait hidden while the video shows | Automated test of the rule and of every mode switch. **Not yet seen in a player** |
+| Expression portrait beside her head in 2D mode, steady while she walks | Automated tests of the anchor, the position and every mode switch. **Not yet seen in a player** |
 | Outline that slips (mask clipping) | Cause **not established**. The packed clips, the mask speed nudge and the sync log lines are **not yet run in a player**. See [Keeping the picture and the mask together](#keeping-the-picture-and-the-mask-together) |
 | A walk cue from the chat model in 2D mode | Automated test from the reply text to the walk clip. In the player logs seen so far the model wrote no cue at all. See [Known behaviour](#known-behaviour) |
 | Reaction clips `happy`, `concerned`, `turn360` | Automated tests of the rules. **Not run in a player** |
@@ -108,6 +108,7 @@ Put a file named `video-avatar.json` in the clip folder to list the clips yourse
 | `after` | Walk-stop only. `idle` if the clip ends facing front in the idle pose, so the default idle may follow. Leave it out to hold the last frame. | hold |
 | `weight` | Idle variation only. How often it is picked against the others. | `1` |
 | `variationMinSeconds`, `variationMaxSeconds` | Top level. Time on the default idle before a variation is queued. | `12`, `30` |
+| `headX`, `headY` | Top level. Where her head is in the default idle's frame, as shares from its left and its top. The expression portrait sits beside it in 2D mode. | `0.5`, `0.15` |
 
 To add a reaction later, add a clip with `"role": "reaction"` and a name such as `happy`, `concerned`, `surprised` or `annoyed`. `VideoAvatarClipSet.FindReaction(name)` finds it. Playing it is a later change.
 
@@ -278,7 +279,7 @@ To make her larger than the window allows, raise **Size** on the Overlay tab.
 
 - She loops the idle while she speaks. There is no talking clip and no lip sync.
 - Cues from the model still drive the hidden 3D face.
-- **The expression portrait is hidden while the video shows.** It is placed beside the 3D model's head and drawn above the video, so in 2D mode it landed in the middle of her body. It comes back when the 3D model does: in 3D mode, and when the video cannot play and the app falls back to 3D. The setting itself is not changed.
+- **The expression portrait shows in both modes, beside the head of the avatar on screen.** In 3D mode it follows the 3D model's head bone, as before. In 2D mode it sits beside the video avatar's head, taken from the default idle's frame (centre, 15% down from the top, measured on the delivered idle). That point does not change between clips, so the portrait stays in one place in the window while she walks, stops or reacts, and moves only with the window and the size and position settings. Before this, 2D mode followed the hidden 3D model's head bone, which keeps animating behind the video: once she walked, the portrait slid onto her chest and stayed there. A manifest can set `"headX"` and `"headY"` (shares of the idle frame from its left and its top) for clips framed differently.
 - An AI walk cue of a few seconds lasts longer in 2D mode, because the stop waits for the walk loop and the walk-stop.
 - **A walk cue needs the chat model to write it.** The path from a reply's `<animation gesture="walk" direction="left" />` to the walk clip is the same in both modes and has a test. In the player logs from 2026-11-11 the local model (Rocinante-X-12B) wrote no `<animation>` tag in any reply: every reply logs `Cue emotion: (none)` and `AnimationDirector: no cue -> neutral`. Then nothing can walk, in 3D or 2D. When a cue does arrive, the log has `Walk: request received dir=-1 secs=12` and `AnimationDirector: cue walk -> requested`.
 - At a screen edge the walk-stop plays its steps on the spot.
@@ -376,8 +377,8 @@ Mark each line. Lines 1 to 6 repeat what was verified before, on the new code.
 27. Ask the model something that makes her walk. She walks and stops.
 28. Leave it running for 10 minutes. Check that the outline still fits and memory use is steady.
 29. Repeat 7 to 18 with the packed `.sbs.mp4` clips (see [Packed clips](#packed-clips-the-test-for-the-slipping-outline)). Compare the outline with the pairs.
-30. Portrait: turn **Expression portrait** on in 3D mode. Switch to 2D: the portrait is gone. Walk left and right, stop: still gone. Switch to 3D: it is back beside her head. Repeat the switch twice.
-31. Portrait fallback: in 2D mode set **Video folder** to an empty folder and press **Reload video**. The 3D model and the portrait both show.
+30. Portrait: turn **Expression portrait** on in 3D mode. Switch to 2D: the portrait is beside her head. Walk left and right, stop, play a reaction: it stays in the same place in the window and never moves onto her body. Switch to 3D: it is beside the 3D head. Repeat the switch twice.
+31. Portrait fallback: in 2D mode set **Video folder** to an empty folder and press **Reload video**. The 3D model shows with its portrait beside its head.
 32. Reactions: in the front idle press **Test: happy**, **Test: concerned**, **Test: spin (turn360)**, one at a time. Each plays once and returns to the idle. Note the size of the jump at the start and the end. Press one while she walks: nothing happens.
 33. After a walk test, open `Player.log` and find the `VideoAvatar: sync` lines. Check that each names the file you expect. For pairs note `offByOne`, `offByMore` and `seeks` for the idle and the walk.
 
