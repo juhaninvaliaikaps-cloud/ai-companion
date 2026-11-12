@@ -38,14 +38,17 @@ One table, `CompanionMoodTable` (`Assets/_Project/Scripts/Core/CompanionMoodTabl
 | angry | annoyed 0.35 |
 | tsundere | annoyed 0.25, flustered 0.1 |
 | smug | happy 0.2 |
-| loving, affectionate / kiss | affectionate 0.3 / 0.35 |
-| laughing / excited / playful | happy 0.35 / 0.3 / 0.25 |
+| loving, affectionate, love / kiss | affectionate 0.3 / 0.35 |
+| laughing / excited / playful / smug_wink | happy 0.35 / 0.3 / 0.25 / 0.2 |
 | crying / hurt | sad 0.45 / 0.35 |
-| scared / shocked / worried, nervous | anxious 0.35 / 0.3 / 0.25 |
-| sleepy / tired | sleepy 0.25 / 0.2 |
-| seductive | intimate 0.3 (gated), affectionate 0.1 |
+| scared, afraid, fear / shocked, shock / worried, worry, nervous | anxious 0.35 / 0.3 / 0.25 |
+| embarrassed_worried | flustered 0.2, anxious 0.1 |
+| sleepy / tired / bored | sleepy 0.25 / 0.2 / 0.15 |
+| seductive, flirty | intimate 0.3 (gated), affectionate 0.1 |
 
 Otherwise the emotion: happy → happy 0.25, sad → sad 0.3, surprised → anxious 0.1, embarrassed → flustered 0.3, shy → flustered 0.2 + affectionate 0.1, flustered → flustered 0.35, concerned → anxious 0.2 + sad 0.1. Neutral and thinking move nothing.
+
+Her cue counts once per chat turn. The screen-look remarks, which reuse the last reply's cue, do not push it again.
 
 **The user's detected mood** (JUH-21, local rules, each message): happy → happy 0.2, sad → sad 0.15, angry → annoyed 0.15, anxious → anxious 0.15, affectionate → affectionate 0.25. Neutral, surprised and confused move nothing.
 
@@ -61,7 +64,7 @@ Otherwise the emotion: happy → happy 0.25, sad → sad 0.3, surprised → anxi
 
 ## Watching it
 
-Settings → **Overlay** → **Show mood readout (debug)**. Off by default. A small box at the top left shows the mood and the three strongest moods, for example:
+Settings → **Overlay** → **Show mood readout (debug)**. Off by default. A small box at the top left, just below the overlay's status box, shows the mood and the three strongest moods, for example:
 
 ```
 Mood: annoyed

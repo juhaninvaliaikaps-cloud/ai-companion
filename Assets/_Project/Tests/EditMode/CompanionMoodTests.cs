@@ -360,6 +360,41 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void TheWordTable_HasAPushForEveryWord()
+        {
+            // Words and pushes are two parallel arrays: check each word maps somewhere real.
+            foreach (var word in new[] { "pout", "pouty", "angry", "annoyed", "tsundere", "grumpy", "smug", "loving", "kiss",
+                "affectionate", "love", "laughing", "excited", "playful", "smug_wink", "crying", "hurt", "scared", "shocked",
+                "worried", "nervous", "afraid", "fear", "shock", "worry", "embarrassed_worried", "sleepy", "tired", "bored",
+                "seductive", "flirty" })
+            {
+                var cue = new AnimationCue(Emotion.Neutral, 0.5f, string.Empty, 0f, word);
+                Assert.Greater(CompanionMoodTable.ForCue(cue).Length, 0, word);
+            }
+        }
+
+        [Test]
+        public void Aliases_LandInTheirOwnMoodFamily_NotTheFaceTheyAliasTo()
+        {
+            // "love" aliases to a happy face, "flirty" to a shy one: their moods are Affectionate and (gated) Intimate.
+            var love = new CompanionMoodState();
+            CompanionMoodTable.ApplyCue(love, new AnimationCue(Emotion.Happy, 0.6f, string.Empty, 0f, "love"));
+            Assert.Greater(love.Strength(CompanionMood.Affectionate), 0f);
+            Assert.AreEqual(0f, love.Strength(CompanionMood.Happy));
+
+            var flirtyClosed = new CompanionMoodState();
+            CompanionMoodTable.ApplyCue(flirtyClosed, new AnimationCue(Emotion.Shy, 0.6f, string.Empty, 0f, "flirty"));
+            Assert.AreEqual(0f, flirtyClosed.Strength(CompanionMood.Intimate));
+            Assert.AreEqual(0f, flirtyClosed.Strength(CompanionMood.Flustered));
+            Assert.Greater(flirtyClosed.Strength(CompanionMood.Affectionate), 0f);
+
+            var flirtyOpen = new CompanionMoodState();
+            flirtyOpen.SetIntimateAllowed(true);
+            CompanionMoodTable.ApplyCue(flirtyOpen, new AnimationCue(Emotion.Shy, 0.6f, string.Empty, 0f, "flirty"));
+            Assert.Greater(flirtyOpen.Strength(CompanionMood.Intimate), 0f);
+        }
+
+        [Test]
         public void ANeutralOrThinkingCue_LeavesHerMoodAlone()
         {
             var mood = new CompanionMoodState();

@@ -27,12 +27,12 @@ namespace AICompanion.Core
         static readonly string[] CueWords =
         {
             "pout", "pouty", "angry", "annoyed", "tsundere", "grumpy", "smug",
-            "loving", "kiss", "affectionate",
-            "laughing", "excited", "playful",
+            "loving", "kiss", "affectionate", "love",
+            "laughing", "excited", "playful", "smug_wink",
             "crying", "hurt",
-            "scared", "shocked", "worried", "nervous",
-            "sleepy", "tired",
-            "seductive",
+            "scared", "shocked", "worried", "nervous", "afraid", "fear", "shock", "worry", "embarrassed_worried",
+            "sleepy", "tired", "bored",
+            "seductive", "flirty",
         };
 
         static readonly CompanionMoodPush[][] CueWordPushes =
@@ -47,18 +47,27 @@ namespace AICompanion.Core
             new[] { new CompanionMoodPush(CompanionMood.Affectionate, 0.3f) },   // loving
             new[] { new CompanionMoodPush(CompanionMood.Affectionate, 0.35f) },  // kiss
             new[] { new CompanionMoodPush(CompanionMood.Affectionate, 0.3f) },   // affectionate
+            new[] { new CompanionMoodPush(CompanionMood.Affectionate, 0.3f) },   // love
             new[] { new CompanionMoodPush(CompanionMood.Happy, 0.35f) },         // laughing
             new[] { new CompanionMoodPush(CompanionMood.Happy, 0.3f) },          // excited
             new[] { new CompanionMoodPush(CompanionMood.Happy, 0.25f) },         // playful
+            new[] { new CompanionMoodPush(CompanionMood.Happy, 0.2f) },          // smug_wink
             new[] { new CompanionMoodPush(CompanionMood.Sad, 0.45f) },           // crying
             new[] { new CompanionMoodPush(CompanionMood.Sad, 0.35f) },           // hurt
             new[] { new CompanionMoodPush(CompanionMood.Anxious, 0.35f) },       // scared
             new[] { new CompanionMoodPush(CompanionMood.Anxious, 0.3f) },        // shocked
             new[] { new CompanionMoodPush(CompanionMood.Anxious, 0.25f) },       // worried
             new[] { new CompanionMoodPush(CompanionMood.Anxious, 0.25f) },       // nervous
+            new[] { new CompanionMoodPush(CompanionMood.Anxious, 0.35f) },       // afraid
+            new[] { new CompanionMoodPush(CompanionMood.Anxious, 0.35f) },       // fear
+            new[] { new CompanionMoodPush(CompanionMood.Anxious, 0.3f) },        // shock
+            new[] { new CompanionMoodPush(CompanionMood.Anxious, 0.25f) },       // worry
+            new[] { new CompanionMoodPush(CompanionMood.Flustered, 0.2f), new CompanionMoodPush(CompanionMood.Anxious, 0.1f) }, // embarrassed_worried
             new[] { new CompanionMoodPush(CompanionMood.Sleepy, 0.25f) },        // sleepy
             new[] { new CompanionMoodPush(CompanionMood.Sleepy, 0.2f) },         // tired
+            new[] { new CompanionMoodPush(CompanionMood.Sleepy, 0.15f) },        // bored
             new[] { new CompanionMoodPush(CompanionMood.Intimate, 0.3f), new CompanionMoodPush(CompanionMood.Affectionate, 0.1f) }, // seductive
+            new[] { new CompanionMoodPush(CompanionMood.Intimate, 0.3f), new CompanionMoodPush(CompanionMood.Affectionate, 0.1f) }, // flirty
         };
 
         // ---- her own cue: the emotion, when the word is not in the list above ------------

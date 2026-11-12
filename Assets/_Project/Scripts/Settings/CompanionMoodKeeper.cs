@@ -96,7 +96,8 @@ namespace AICompanion.Settings
                 _style.normal.textColor = Color.white;
             }
 
-            var rect = new Rect(8f, 8f, 360f, 36f);
+            // Below the overlay HUD (OverlayWindow draws it at 8, 8, 360 x 108).
+            var rect = new Rect(8f, 122f, 360f, 36f);
             GUI.color = new Color(0f, 0f, 0f, 0.55f);
             GUI.DrawTexture(rect, Texture2D.whiteTexture);
             GUI.color = Color.white;
