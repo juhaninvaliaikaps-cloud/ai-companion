@@ -98,7 +98,9 @@ namespace AICompanion.Tests.EditMode
             var empty = DirectorPrompt.Append("   ", suffix);
             StringAssert.Contains(AnimationCueParser.Instruction, empty);
             StringAssert.Contains(EmotionNames.CatalogLine, empty);
-            Assert.AreEqual("Hello", DirectorPrompt.Append("Hello  ", null));
+            Assert.AreEqual("Hello\n\n" + IntimateBoundaries.Current, DirectorPrompt.Append("Hello  ", null));
+            Assert.AreEqual("Hello", DirectorPrompt.Append("Hello  ", null, null));
+            StringAssert.Contains(IntimateBoundaries.ConsentRule, prompt);
 
             var send = File.ReadAllText(Path.Combine(Application.dataPath, "_Project", "Scripts", "UI", "ChatPanel.cs"));
             StringAssert.Contains("DirectorPrompt.Append", send);

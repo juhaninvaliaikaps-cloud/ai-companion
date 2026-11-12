@@ -74,7 +74,7 @@ namespace AICompanion.Core
 
         /// <summary>
         /// The offered reaction a model's word stands for: the same name, a known spelling
-        /// such as "pouty" for "pout", or else the one offered name that starts with the
+        /// such as "pouty" for "pout" or "teary_happy" for "happy", or else the one offered name that starts with the
         /// word and an underscore (turn_around -> turn_around_back, wink -> wink_dance).
         /// Empty when none or more than one fit.
         /// </summary>
@@ -119,6 +119,15 @@ namespace AICompanion.Core
                 case "pouty":
                 case "pouting":
                     return "pout";
+                // JUH-113: gesture="teary_happy" is a portrait name, not a clip. Happy tears
+                // play the happy clip; distressed and anxious play the concerned one.
+                case "teary_happy":
+                case "teary":
+                    return "happy";
+                case "distressed":
+                case "anxious":
+                case "upset":
+                    return "concerned";
                 default:
                     return token;
             }

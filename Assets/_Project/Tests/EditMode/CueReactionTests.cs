@@ -315,6 +315,45 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(string.Empty, AvatarReactionCatalog.Find(""));
             Assert.AreEqual(string.Empty, AvatarReactionCatalog.Find(null));
         }
+
+        [Test]
+        public void DistressedAndTearyHappy_AreReadable_AndPickTheClosestClip()
+        {
+            // JUH-113: the 2026-11-12 log tag, written exactly as the model wrote it.
+            AvatarReactionCatalog.Set(new[] { "happy", "concerned", "pout", "flustered" });
+            var parsed = AnimationCueParser.Parse("<animation emotion=\"distressed\" intensity=\"0.7\" gesture=\"teary_happy\">\nOh. Thank you.");
+            Assert.AreEqual(CueParseStatus.Parsed, parsed.Status);
+            Assert.AreEqual(Emotion.Concerned, parsed.Cue.Emotion);
+            Assert.AreEqual(0.7f, parsed.Cue.Intensity, 0.0001f);
+            Assert.AreEqual("happy", Director.ReactionName(parsed.Cue));
+
+            Assert.AreEqual("happy", AvatarReactionCatalog.Find("teary_happy"));
+            Assert.AreEqual("happy", AvatarReactionCatalog.Alias("teary_happy"));
+            Assert.AreEqual("concerned", AvatarReactionCatalog.Find("distressed"));
+            Assert.AreEqual("concerned", Director.ReactionName(AnimationCueParser.Parse("<animation reaction=\"distressed\" />\nx").Cue));
+            Assert.AreEqual("concerned", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"distressed\" gesture=\"walk\" direction=\"left\" />\nx").Cue));
+            // A plain emotion word still drives only the face, as emotion="concerned" does.
+            Assert.AreEqual(string.Empty, Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"distressed\" />\nx").Cue));
+            // Unknown words are untouched by the alias.
+            Assert.AreEqual("wave", AvatarReactionCatalog.Alias("wave"));
+        }
+
+        [TestCase("distressed", Emotion.Concerned)]
+        [TestCase("anxious", Emotion.Concerned)]
+        [TestCase("nervous", Emotion.Concerned)]
+        [TestCase("upset", Emotion.Concerned)]
+        [TestCase("teary_happy", Emotion.Happy)]
+        [TestCase("hurt", Emotion.Sad)]
+        [TestCase("grumpy", Emotion.Sad)]
+        [TestCase("playful", Emotion.Happy)]
+        [TestCase("affectionate", Emotion.Happy)]
+        public void MoodWords_ParseAsAFace(string word, Emotion expected)
+        {
+            Assert.IsTrue(EmotionNames.TryParse(word, out var emotion), word);
+            Assert.AreEqual(expected, emotion, word);
+            var parsed = AnimationCueParser.Parse("<animation emotion=\"" + word + "\" />\nx");
+            Assert.AreEqual(CueParseStatus.Parsed, parsed.Status, word);
+        }
     }
 
     /// <summary>Records the reaction name the director asks for in the Play tests.</summary>

@@ -52,6 +52,18 @@ The default map in `PortraitMap.CreateDefaults()` includes the drawn portrait se
 
 The `finger_*` set is suggestive rather than explicit. It is gated by **Settings -> Avatar -> Intimate expressions (18+)**, which is off by default and works only in Private mode (local model). While it is off, those portraits are not registered or resolved (the cue falls back to the normal flustered or shy face), and their names are not in the prompt. When it is on, the files load only from `%APPDATA%\ProjectLeia\portraits-adult`; if that folder is missing, the feature stays off and one warning is logged. The finger referred to is the user's finger. `finger_suck_hold_00`..`07` is a drawn sequence, but the panel shows a single frame, so only `_00` is registered.
 
+### Boundaries (JUH-112)
+
+Every system prompt carries `IntimateBoundaries` between the persona text and the cue catalog, so no persona can remove it:
+
+- **Always:** intimacy is mutual and willing. She is never shown as unwilling, pressured, coerced, scared or distressed in an intimate moment. If the user pushes a scene that way, she says no and steers somewhere else, even in role-play.
+- **Gate closed** (setting off, not Private mode, or no `portraits-adult` folder): no sexual or explicit scenes; affection stays light.
+- **Gate open:** `IntimateExpressions.KeepsLocal` makes every outbound check treat the session as private, so chat, TTS, vision and the voice agent stay local even if a caller's private flag is stale.
+
+A prompt can steer an uncensored local model but cannot force it. The hard limits are the cue gate (`finger_*` only resolves when the gate is open) and the local-only routing.
+
+The `Voice: TTS request starting` log line names the engine that really runs (`Kokoro`, `Piper` or `xAI`). Before JUH-112 it printed `engine=xAI` for Kokoro too.
+
 Synonyms choose the same portraits: `afraid`/`fear` -> `scared`, `annoyed` -> `tsundere`, `teasing` -> `smug`, `focused` -> `determined`, `tired` -> `sleepy`, `love` -> `kiss`, `flirty` -> `seductive`, `overwhelmed` -> `flustered_heavy`. A strong `sad` (intensity 0.9 or more) uses `crying`; a strong `surprised` uses `shocked`. Unknown words still fall back to neutral. `pouty` keeps its older drawing.
 
 The prompt lists these names and the synonym rules in `EmotionNames.CatalogLine`, so the model can choose them. The 3D face uses the existing presets in the last column; the drawn portrait and the face may differ in how expressive they are.
