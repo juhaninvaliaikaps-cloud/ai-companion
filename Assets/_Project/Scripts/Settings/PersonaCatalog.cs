@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using AICompanion.AI;
+using AICompanion.Core;
 using UnityEngine;
 
 namespace AICompanion.Settings
@@ -135,10 +135,14 @@ namespace AICompanion.Settings
             Array.Sort(files, StringComparer.OrdinalIgnoreCase);
             for (var i = 0; i < files.Length; i++)
             {
+                var read = ProtectedLocalFile.Read(files[i]);
+                if (read.Status != LocalReadStatus.Ready)
+                    continue;
+
                 PersonaDefinition persona = null;
                 try
                 {
-                    persona = PersonaJson.Parse(File.ReadAllText(files[i]));
+                    persona = PersonaJson.Parse(read.Text);
                 }
                 catch (Exception)
                 {
@@ -147,6 +151,7 @@ namespace AICompanion.Settings
 
                 if (persona == null)
                 {
+                    ProtectedLocalFile.Quarantine(files[i]);
                     Debug.LogWarning("Persona file could not be read: " + Path.GetFileName(files[i]));
                     continue;
                 }
@@ -238,8 +243,6 @@ namespace AICompanion.Settings
 
     public static class PersonaStore
     {
-        static readonly UTF8Encoding Utf8 = new UTF8Encoding(false);
-
         public static bool Save(string directory, PersonaDefinition persona)
         {
             if (persona == null || string.IsNullOrWhiteSpace(directory))
@@ -264,8 +267,7 @@ namespace AICompanion.Settings
                 if (CompanionSettingsSecrets.ContainsForbiddenSecretField(json))
                     return false;
 
-                File.WriteAllText(path, json, Utf8);
-                return true;
+                return ProtectedLocalFile.Write(path, json);
             }
             catch (Exception)
             {
@@ -298,7 +300,9 @@ namespace AICompanion.Settings
                     PersonaDefinition parsed = null;
                     try
                     {
-                        parsed = PersonaJson.Parse(File.ReadAllText(files[i]));
+                        var read = ProtectedLocalFile.Read(files[i]);
+                        if (read.Status == LocalReadStatus.Ready)
+                            parsed = PersonaJson.Parse(read.Text);
                     }
                     catch (Exception)
                     {

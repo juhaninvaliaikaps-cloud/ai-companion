@@ -12,7 +12,7 @@ Do not put the pictures in the git repository. This repo is public. The player r
 
 `%APPDATA%\ProjectLeia\portraits\`
 
-On a typical Windows account that is `C:\Users\<you>\AppData\Roaming\ProjectLeia\portraits\`.
+On a typical Windows account that is `C:\Users\<you>\AppData\Roaming\ProjectLeia\portraits\`. The images stay unencrypted so the frame can read them by path. They are copied by export and removed by wipe. See [LOCAL_STORAGE.md](LOCAL_STORAGE.md).
 
 If that `portraits` folder is missing, the player looks in `Application.persistentDataPath\ProjectLeia\portraits` (the same fallback settings use when the roaming profile path is empty). If neither folder exists, or the neutral open image is missing, the frame stays hidden and the Console logs one warning.
 

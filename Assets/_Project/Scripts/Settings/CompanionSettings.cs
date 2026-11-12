@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using AICompanion.AI;
+using AICompanion.Core;
 using AICompanion.Overlay;
 using AICompanion.Voice;
 
@@ -695,19 +696,19 @@ namespace AICompanion.Settings
 
     public static class CompanionSettingsStore
     {
-        static readonly UTF8Encoding Utf8 = new UTF8Encoding(false);
-
         public static CompanionSettings Load(string path, SettingsLegacyPrefs legacy)
         {
-            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            var read = ProtectedLocalFile.Read(path);
+            if (read.Status != LocalReadStatus.Ready)
                 return CompanionSettingsJson.Parse(null, legacy);
 
             try
             {
-                return CompanionSettingsJson.Parse(File.ReadAllText(path, Utf8), SettingsLegacyPrefs.None);
+                return CompanionSettingsJson.Parse(read.Text, SettingsLegacyPrefs.None);
             }
             catch (Exception)
             {
+                ProtectedLocalFile.Quarantine(path);
                 return CompanionSettingsJson.Parse(null, legacy);
             }
         }
@@ -721,10 +722,8 @@ namespace AICompanion.Settings
             if (CompanionSettingsSecrets.ContainsForbiddenSecretField(json))
                 throw new InvalidOperationException("Settings cannot store an API key.");
 
-            var directory = Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(directory))
-                Directory.CreateDirectory(directory);
-            File.WriteAllText(path, json, Utf8);
+            if (!ProtectedLocalFile.Write(path, json))
+                throw new IOException("Settings were not written.");
         }
     }
 }

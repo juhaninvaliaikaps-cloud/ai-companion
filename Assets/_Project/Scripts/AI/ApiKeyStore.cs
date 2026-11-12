@@ -152,6 +152,25 @@ namespace AICompanion.AI
         static extern IntPtr LocalFree(IntPtr handle);
     }
 
+    /// <summary>
+    /// A Windows player never stores the API key as plaintext. Editor and CI may,
+    /// and that file is labeled with <c>"protected": false</c>.
+    /// </summary>
+    public static class SecretWritePolicy
+    {
+        internal static Func<bool> IsWindowsPlayer = () =>
+            Application.platform == RuntimePlatform.WindowsPlayer;
+
+        public static bool AllowUnprotectedPayload(bool protectorProtects, bool protectFailed, bool windowsPlayer)
+        {
+            if (!protectorProtects)
+                return true;
+            if (!protectFailed)
+                return false;
+            return !windowsPlayer;
+        }
+    }
+
     public static class SecretProtector
     {
         public static ISecretProtector Create()
@@ -252,6 +271,8 @@ namespace AICompanion.AI
                 }
                 catch (Exception)
                 {
+                    if (!SecretWritePolicy.AllowUnprotectedPayload(true, true, SecretWritePolicy.IsWindowsPlayer()))
+                        throw new InvalidOperationException("The API key was not written.");
                     protect = false;
                     payload = key.Trim();
                 }

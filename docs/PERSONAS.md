@@ -16,7 +16,7 @@ Edits and new personas are saved on this PC, outside the repository:
 
 `%APPDATA%\ProjectLeia\personas\<id>.json`
 
-On a typical Windows account that is `C:\Users\<you>\AppData\Roaming\ProjectLeia\personas\`. A saved file with the same id replaces the built-in for you. The file in the repository is not changed.
+On a typical Windows account that is `C:\Users\<you>\AppData\Roaming\ProjectLeia\personas\`. A saved file with the same id replaces the built-in for you. The file in the repository is not changed. The copy under `%APPDATA%` is encrypted. The built-in files in the repository stay plain JSON. See [LOCAL_STORAGE.md](LOCAL_STORAGE.md).
 
 `settings.json` stores `personaId` and, when a portrait folder was found, `portraitFolder`. It does not store the personality text or an API key.
 
