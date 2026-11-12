@@ -35,7 +35,13 @@ namespace AICompanion.UI
         RectTransform _panelRect;
         ScrollRect _scroll;
         RectTransform _content;
-        Text _transcript;
+        // JUH-111: one Text per shown message, reused. See ChatTranscriptView.
+        readonly ChatTranscriptView _view = new ChatTranscriptView();
+        readonly System.Collections.Generic.List<Text> _messageTexts = new System.Collections.Generic.List<Text>();
+        readonly System.Collections.Generic.List<float> _messageHeights = new System.Collections.Generic.List<float>();
+        Font _transcriptFont;
+        float _laidOutWidth = -1f;
+        const float MessageSpacing = 8f;
         Text _actionLabel;
         Text _lookLabel;
         Button _lookButton;
@@ -1101,30 +1107,91 @@ namespace AICompanion.UI
 
         void RefreshTranscript(bool force)
         {
-            if (_conversation == null || _transcript == null)
+            if (_conversation == null || _content == null)
                 return;
             if (!force && _shownRevision == _conversation.Revision)
                 return;
 
             _shownRevision = _conversation.Revision;
-            _transcript.text = _conversation.FormatTranscript();
-            var width = _content != null ? _content.rect.width : _guiRect.width - 16f;
+            _view.Update(_conversation.Lines);
+            var width = _content.rect.width;
             if (width < 8f)
                 width = Mathf.Max(8f, _guiRect.width - 16f);
+            var textWidth = Mathf.Max(8f, width - 8f);
+            var widthChanged = Mathf.Abs(textWidth - _laidOutWidth) > 0.5f;
+            _laidOutWidth = textWidth;
 
-            var textRect = _transcript.rectTransform;
-            textRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
-            Canvas.ForceUpdateCanvases();
-            var height = Mathf.Max(8f, _transcript.preferredHeight);
-            textRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
-            if (_content != null)
+            var count = _view.Count;
+            while (_messageTexts.Count < count)
+                AddMessageText();
+
+            var measure = false;
+            for (var i = 0; i < _messageTexts.Count; i++)
             {
-                _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
-                _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+                var text = _messageTexts[i];
+                if (i >= count)
+                {
+                    // Unused: empty and hidden, so it holds no mesh.
+                    if (text.gameObject.activeSelf)
+                    {
+                        text.text = string.Empty;
+                        text.gameObject.SetActive(false);
+                    }
+
+                    continue;
+                }
+
+                if (!text.gameObject.activeSelf)
+                    text.gameObject.SetActive(true);
+                if (_view.Changed(i) || widthChanged || _messageHeights[i] <= 0f)
+                {
+                    text.text = _view.Entry(i);
+                    text.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, textWidth);
+                    _messageHeights[i] = -1f;
+                    measure = true;
+                }
             }
 
+            if (measure)
+            {
+                Canvas.ForceUpdateCanvases();
+                for (var i = 0; i < count; i++)
+                {
+                    if (_messageHeights[i] < 0f)
+                        _messageHeights[i] = Mathf.Max(8f, _messageTexts[i].preferredHeight);
+                }
+            }
+
+            var y = 0f;
+            for (var i = 0; i < count; i++)
+            {
+                var rect = _messageTexts[i].rectTransform;
+                rect.anchoredPosition = new Vector2(4f, -y);
+                rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, _messageHeights[i]);
+                y += _messageHeights[i] + MessageSpacing;
+            }
+
+            var height = Mathf.Max(8f, y - MessageSpacing);
+            _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+            _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
             if (_scroll != null)
                 _scroll.verticalNormalizedPosition = 0f;
+        }
+
+        void AddMessageText()
+        {
+            var text = CreateText(_content, _transcriptFont, 14, TextAnchor.UpperLeft, string.Empty);
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.raycastTarget = false;
+            var rect = text.rectTransform;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(Mathf.Max(8f, _laidOutWidth), 8f);
+            _messageTexts.Add(text);
+            _messageHeights.Add(-1f);
         }
 
         void BuildUi()
@@ -1236,15 +1303,8 @@ namespace AICompanion.UI
             _content.sizeDelta = new Vector2(0f, 8f);
             _scroll.content = _content;
 
-            _transcript = CreateText(content.transform, font, 14, TextAnchor.UpperLeft, string.Empty);
-            _transcript.horizontalOverflow = HorizontalWrapMode.Wrap;
-            _transcript.verticalOverflow = VerticalWrapMode.Overflow;
-            var transcriptRect = _transcript.rectTransform;
-            transcriptRect.anchorMin = new Vector2(0f, 1f);
-            transcriptRect.anchorMax = new Vector2(1f, 1f);
-            transcriptRect.pivot = new Vector2(0.5f, 1f);
-            transcriptRect.anchoredPosition = Vector2.zero;
-            transcriptRect.sizeDelta = new Vector2(-8f, 8f);
+            // The messages are Texts created on demand under the content (RefreshTranscript).
+            _transcriptFont = font;
 
             var mic = CreateHoldButton(_panel.transform, font, "Mic");
             var micRect = mic.GetComponent<RectTransform>();
