@@ -494,20 +494,20 @@ namespace AICompanion.NewUI
             }
         }
 
+        /// <summary>Her name, refreshed every two seconds (the persona catalog is read from disk).</summary>
         string CompanionName()
         {
-            if (_settings != null)
+            if (_companionName == null || Time.unscaledTime >= _companionNameAt)
             {
-                var persona = _settings.Personas.ActiveDisplayName();
-                if (!string.IsNullOrEmpty(persona))
-                    return persona;
-                var settings = _settings.CurrentSettings;
-                if (settings != null && !string.IsNullOrEmpty(settings.CompanionName))
-                    return settings.CompanionName;
+                _companionNameAt = Time.unscaledTime + 2f;
+                _companionName = Wheel.HappiNames.Companion(_settings);
             }
 
-            return CompanionPersona.DefaultName;
+            return _companionName;
         }
+
+        string _companionName;
+        float _companionNameAt;
 
         void RefreshDialogue()
         {

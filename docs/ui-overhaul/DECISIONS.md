@@ -152,3 +152,52 @@ covered by EditMode tests; the morning checklist has the manual chat test.
 
 **C10. Mode remembered per PC.** Auto/Step is a UI preference in PlayerPrefs
 (`happi.vn-mode`, like the chat-open flag), not a settings-file key.
+
+## PR D
+
+**D1. Right-click only over her.** The overlay already decides "on a visible pixel of her"
+(framebuffer alpha) before it toggles rotate mode. It now asks `AvatarContextMenu.TryOpen`
+first; the new UI's handler opens the wheel. Empty areas stay click-through because the
+overlay's rule is unchanged; the wheel adds a transparent raycast disk only under itself, so
+only the wheel blocks clicks while it is open. With New UI off there is no handler and
+right-click toggles rotate mode as on main.
+
+**D2. Rotate mode stays reachable.** Shift+right-click on her still toggles rotate mode (Shift
+is read with `GetAsyncKeyState`, because right-clicking her does not focus the window). While
+rotate mode is on, a plain right-click leaves it as before. Esc and R work as before.
+
+**D3. Slices are sprites, not a custom mesh.** A first version drew slices with a custom
+`MaskableGraphic` mesh; its geometry tested correct but it did not render properly in the
+transparent player window, and that could not be debugged overnight. Slices are now ordinary
+uGUI Images from code-generated sprites (one fill/border/glow set per wheel shape, rotated per
+slice, cached by size). The coverage maths is unit-tested and the look was checked by
+screenshot: gaps, outline, hover pop, glow and dark hover text as in the mockup.
+
+**D4. Placement.** Above her head (2D video head point or the humanoid head bone, the same
+sources as the expression portrait), clamped inside the overlay window, which keeps it on
+screen at monitor edges because the window itself is kept inside the work area. When her head
+is near the top of the window the wheel overlaps her head instead of leaving the window. It
+re-places every frame, so it follows her. The wheel scale is the DPI scale, reduced when the
+window is too small for it.
+
+**D5. What each slice does.** Talk opens the (new) chat. Watch my screen: on/off (same as Read
+a window), Look now, Pick a monitor (only with whole-screen consent, B7), Screen settings.
+Mood: her mood and why (B9) plus the mood-readout toggle. Persona: quick switch (up to 7 + More
+→ settings). Do something: existing reactions/actions only (B8), paged. Leave me alone: Focus
+mode (Pause), Mute/Unmute, Hide (tray brings her back; new `CompanionTray.HideCompanion`, same
+as the tray item); while paused the slice reads **Come back** and unpauses. Memories: list with
+two-step Forget. Settings: opens settings (old panel until PR E).
+
+**D6. Closing.** Escape (the wheel focuses the window when it opens, so Esc reaches it), any
+click outside the wheel (global mouse state, like the overlay's own drag code), the centre
+button, or after an action. Esc steps back from a submenu or card first.
+
+**D7. Greying out.** `WheelSliceGates.Rule` is the hook. Default rule: only "Do something" can
+be refused, when she is annoyed or sleepy at 0.6 or more; clicking it shows her refusal. A rule
+that throws fails open.
+
+**D8. Body-part wheels.** `RadialWheelView` takes any slice count, a centre label and hint,
+per-slice accent (pink for intimate), and draws a connector line to an anchor. JUH-101 plugs
+in through `BodyPartWheels.HitZones` and `BodyPartWheels.Register`; nothing is registered, so
+right-click always opens the main wheel now and no touch reactions were added. Slices marked
+`RequiresIntimateGate` are left out unless `IntimateExpressions.Active`.
