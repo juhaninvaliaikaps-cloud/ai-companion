@@ -153,6 +153,9 @@ namespace AICompanion.Settings
         /// <summary>Adult drawn expressions from the separate portraits-adult folder. Off by default.</summary>
         public bool IntimateExpressions;
 
+        /// <summary>Shows her current mood and the three strongest moods in a corner (JUH-103 debug). Off by default.</summary>
+        public bool ShowMoodDebug;
+
         public static CompanionSettings CreateDefault()
         {
             return new CompanionSettings();
@@ -571,6 +574,8 @@ namespace AICompanion.Settings
                 settings.ClipSoundVolume = (float)number;
             if (TryBool(json, "intimateExpressions", out flag))
                 settings.IntimateExpressions = flag;
+            if (TryBool(json, "showMoodDebug", out flag))
+                settings.ShowMoodDebug = flag;
             settings.Normalize();
             return settings;
         }
@@ -642,6 +647,7 @@ namespace AICompanion.Settings
             Bool(sb, "playClipSounds", source.PlayClipSounds);
             Number(sb, "clipSoundVolume", source.ClipSoundVolume, false);
             Bool(sb, "intimateExpressions", source.IntimateExpressions);
+            Bool(sb, "showMoodDebug", source.ShowMoodDebug);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;

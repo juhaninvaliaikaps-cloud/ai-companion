@@ -110,6 +110,8 @@ namespace AICompanion.Settings
 
             PersonaRuntime.ApplySelected(_settings, Folder());
             EnsureVideoAvatar();
+            if (GetComponent<CompanionMoodKeeper>() == null)
+                gameObject.AddComponent<CompanionMoodKeeper>();
 
             _applying = true;
             try
@@ -939,6 +941,8 @@ namespace AICompanion.Settings
             Note("Saved now. The Windows player writes the Run key. It takes effect the next time you sign in. The Editor cannot write that key.");
             AddToggle("Pause", _settings.Paused, value => _settings.Paused = value);
             Note("Pause matches the tray checkmark. Speech, push-to-talk, and animation cues stay off while it is on.");
+            AddToggle("Show mood readout (debug)", _settings.ShowMoodDebug, value => _settings.ShowMoodDebug = value);
+            Note("Her current mood and the three strongest moods, top left. Mood changes are also in Player.log.");
         }
 
         void BuildPrivacy()

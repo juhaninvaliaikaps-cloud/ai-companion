@@ -14,6 +14,7 @@ AES-256-GCM, file by file. The name is bound into the ciphertext, so a file copi
 | `personality.json` | Encrypted. |
 | `memory.json`, `memory-<persona>.json` | Encrypted. One file per persona. The empty id keeps `memory.json`. |
 | `chat-history.json`, `chat-history-<persona>.json` | Encrypted. |
+| `mood.json`, `mood-<persona>.json` | Encrypted. Her mood per persona (JUH-103, see [MOOD.md](MOOD.md)). Intimate is never written. |
 | `personas\<id>.json` | Encrypted. These are personas you saved or edited. |
 | `secrets.json` | Not AES. The API key is already wrapped with Windows DPAPI for the current user (`CryptProtectData`, no machine scope). The file says `"protected": true`. See [CHAT_PROVIDERS.md](CHAT_PROVIDERS.md). |
 | `install-key.leia` | The AES key, not a data file. On Windows this is a DPAPI blob (`LEIAKEY1`). It is not exported. |
