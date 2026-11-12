@@ -72,6 +72,18 @@ namespace AICompanion.ScreenLook
 #endif
         }
 
+        public static CapturedWindowFrame CaptureMonitor(MonitorTarget target)
+        {
+            if (target == null || target.Handle == System.IntPtr.Zero)
+                return CapturedWindowFrame.Fail(ScreenLookPolicy.NeedMonitor);
+
+#if UNITY_EDITOR_WIN || (UNITY_STANDALONE_WIN && !UNITY_EDITOR)
+            return WindowsGraphicsCaptureBackend.CaptureMonitor(target);
+#else
+            return CapturedWindowFrame.Fail(ScreenLookPolicy.PlayerOnly);
+#endif
+        }
+
         static string Message(TargetValidity validity)
         {
             switch (validity)

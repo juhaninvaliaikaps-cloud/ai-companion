@@ -8,6 +8,9 @@ namespace AICompanion.Settings
     public sealed partial class SettingsPanel
     {
         int _screenRevision = -1;
+        bool _screenPreviewBig;
+        bool _screenPreviewFit = true;
+        GameObject _screenPreviewRoot;
 
         void TrackScreen()
         {
@@ -55,6 +58,73 @@ namespace AICompanion.Settings
                 _rebuild = true;
             });
             var localChat = _settings.PrivateMode || _settings.ProviderId == ChatDefaults.LocalId;
+            if (look != null)
+                look.RefreshMonitors();
+            AddToggle("Whole screen instead of a window", _settings.ScreenCaptureWholeMonitor, value =>
+            {
+                _settings.ScreenCaptureWholeMonitor = value;
+                ApplyLive();
+                _rebuild = true;
+            });
+            if (_settings.ScreenCaptureWholeMonitor)
+            {
+                AddToggle("Allow whole-screen capture", _settings.ScreenWholeMonitorConsent, value =>
+                {
+                    _settings.ScreenWholeMonitorConsent = value;
+                    ApplyLive();
+                    _rebuild = true;
+                });
+                NoteBlock("Whole-screen capture is a separate consent from window capture. It includes every window on that display. A failed window grab never widens into this, and a failed display grab never widens into another display. Private mode keeps it local.");
+                if (_settings.ScreenWholeMonitorConsent && look != null)
+                {
+                    var monitors = look.Monitors;
+                    if (monitors == null || monitors.Count == 0)
+                        Note("No displays were reported by Windows. Nothing is captured.");
+                    else
+                    {
+                        for (var i = 0; i < monitors.Count; i++)
+                        {
+                            var monitor = monitors[i];
+                            var chosen = look.SelectedMonitor == monitor;
+                            AddButton((chosen ? "Selected: " : string.Empty) + monitor.Label, () => look.SelectMonitor(monitor));
+                        }
+                    }
+                }
+            }
+
+            AddToggle("Let her look during chat", _settings.ScreenAutoLook, value =>
+            {
+                _settings.ScreenAutoLook = value;
+                ApplyLive();
+                _rebuild = true;
+            });
+            if (_settings.ScreenAutoLook)
+            {
+                AddToggle("Pause automatic looks", _settings.ScreenAutoLookPaused, value =>
+                {
+                    _settings.ScreenAutoLookPaused = value;
+                    ApplyLive();
+                    _rebuild = true;
+                });
+                NoteBlock(_settings.ScreenAutoLookPaused
+                    ? "Paused. The permission is still granted, but she cannot look until you unpause."
+                    : "She may ask for one look while replying, at most once per reply and no more than once every " + Mathf.RoundToInt(ScreenLookController.AutoLookCooldownSeconds) + " seconds. The observation is only spoken when it is worth saying. It stays on this PC.");
+            }
+            else
+            {
+                NoteBlock("Automatic looks are off. She never captures the screen on her own; the Look button still works.");
+            }
+
+            AddToggle("Fast screen replies", _settings.ScreenFastReply, value =>
+            {
+                _settings.ScreenFastReply = value;
+                ApplyLive();
+                _rebuild = true;
+            });
+            NoteBlock(_settings.ScreenFastReply
+                ? "The vision model writes the screen remark, so the chat model is not reloaded. Faster, with a simpler voice. What it saw is kept in this session's context so later replies can remember it; it is not saved to disk."
+                : "The chat model writes the screen remark after the vision model. Slower, because the larger model reloads, but it keeps the full persona.");
+
             var decision = look != null ? look.CurrentDecision() : new ScreenLookDecision(false, ScreenLookRoute.None, string.Empty);
             var plansLocal = look != null && look.PlansLocalVision();
             var visionEngine = plansLocal
@@ -100,7 +170,7 @@ namespace AICompanion.Settings
                 _rebuild = true;
             });
 
-            var windows = look.Windows;
+            var windows = _settings.ScreenCaptureWholeMonitor ? null : look.Windows;
             if (windows != null)
             {
                 for (var i = 0; i < windows.Count; i++)
@@ -111,12 +181,20 @@ namespace AICompanion.Settings
                 }
             }
 
-            if (look.Selected == null)
+            if (_settings.ScreenCaptureWholeMonitor)
+            {
+                Note(look.SelectedMonitor != null
+                    ? "Selected display: " + look.SelectedMonitor.Label + ". The whole display is captured, including every window on it."
+                    : "Choose a display. Nothing is captured until you do.");
+            }
+            else if (look.Selected == null)
                 Note("No window selected.");
             else
                 Note("Selected: " + WindowLabel(look.Selected) + ". That name is the window title from Windows, not text read from the picture.");
 
             AddPreview(look);
+            if (look != null && look.PreviewTexture != null)
+                AddButton("Inspect exact frame", OpenExactFrame);
             var lookButton = AddButton("Look at screen", () =>
             {
                 if (look.IsBusy)
@@ -128,8 +206,126 @@ namespace AICompanion.Settings
             if (lookWidget != null)
                 lookWidget.interactable = ScreenLookPolicy.LookButtonInteractable(decision.SendButtonEnabled, look.IsBusy);
             AddButton(look.IsBusy ? "Stop" : "Stop look", () => look.Stop());
-            AddButton("Clear window", () => look.ClearSelection());
+            AddButton("Clear window", () =>
+            {
+                look.ClearSelection();
+                if (_settings.ScreenCaptureWholeMonitor)
+                    look.RefreshMonitors();
+            });
             NoteBlock("Stop cancels the current frame. Clear window drops the selection and the preview. Game support, exclusive fullscreen, and the performance target are not verified in this build.");
+            DestroyExactPreview();
+            if (_screenPreviewBig && look.PreviewTexture != null)
+                BuildExactFrame(look);
+        }
+
+        void OpenExactFrame()
+        {
+            _screenPreviewBig = true;
+            _screenPreviewFit = true;
+            _rebuild = true;
+        }
+
+        void CloseExactFrame()
+        {
+            _screenPreviewBig = false;
+            DestroyExactPreview();
+        }
+
+        void DestroyExactPreview()
+        {
+            if (_screenPreviewRoot != null)
+                Destroy(_screenPreviewRoot);
+            _screenPreviewRoot = null;
+        }
+
+        /// <summary>
+        /// Full-panel view of the exact decoded JPEG that was sent. Fit shows the whole frame;
+        /// 1:1 shows real pixels and scrolls. It only reads the in-memory texture and never
+        /// writes the frame to disk.
+        /// </summary>
+        void BuildExactFrame(ScreenLookController look)
+        {
+            var tex = look.PreviewTexture;
+            if (tex == null)
+                return;
+
+            var root = new GameObject("ExactFrame");
+            root.transform.SetParent(_canvasObject.transform, false);
+            var rootRect = root.AddComponent<RectTransform>();
+            Stretch(rootRect, 0f, 0f, 0f, 0f);
+            var backdrop = root.AddComponent<Image>();
+            backdrop.sprite = _white;
+            backdrop.color = new Color(0.02f, 0.02f, 0.03f, 0.98f);
+            backdrop.raycastTarget = true;
+            _screenPreviewRoot = root;
+
+            var details = string.IsNullOrEmpty(look.PreviewDetails) ? look.DeliveryNote : look.PreviewDetails;
+            var title = CreateText(root.transform, _font, 12, TextAnchor.UpperLeft,
+                "Exact frame sent to the vision model. " + details);
+            title.horizontalOverflow = HorizontalWrapMode.Wrap;
+            var titleRect = title.rectTransform;
+            titleRect.anchorMin = new Vector2(0f, 1f);
+            titleRect.anchorMax = new Vector2(1f, 1f);
+            titleRect.pivot = new Vector2(0f, 1f);
+            titleRect.offsetMin = new Vector2(10f, -60f);
+            titleRect.offsetMax = new Vector2(-10f, -8f);
+
+            var close = CreateButton(root.transform, "Close", CloseExactFrame);
+            var closeRect = close.GetComponent<RectTransform>();
+            closeRect.anchorMin = new Vector2(1f, 1f);
+            closeRect.anchorMax = new Vector2(1f, 1f);
+            closeRect.pivot = new Vector2(1f, 1f);
+            closeRect.sizeDelta = new Vector2(70f, 24f);
+            closeRect.anchoredPosition = new Vector2(-10f, -8f);
+
+            var zoom = CreateButton(root.transform, _screenPreviewFit ? "1:1" : "Fit", () =>
+            {
+                _screenPreviewFit = !_screenPreviewFit;
+                _rebuild = true;
+            });
+            var zoomRect = zoom.GetComponent<RectTransform>();
+            zoomRect.anchorMin = new Vector2(1f, 1f);
+            zoomRect.anchorMax = new Vector2(1f, 1f);
+            zoomRect.pivot = new Vector2(1f, 1f);
+            zoomRect.sizeDelta = new Vector2(70f, 24f);
+            zoomRect.anchoredPosition = new Vector2(-86f, -8f);
+
+            var viewport = new GameObject("Viewport");
+            viewport.transform.SetParent(root.transform, false);
+            var viewportRect = viewport.AddComponent<RectTransform>();
+            Stretch(viewportRect, 10f, 64f, 10f, 10f);
+            viewport.AddComponent<RectMask2D>();
+
+            var content = new GameObject("Image");
+            content.transform.SetParent(viewport.transform, false);
+            var contentRect = content.AddComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(0f, 1f);
+            contentRect.pivot = new Vector2(0f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+            var raw = content.AddComponent<RawImage>();
+            raw.texture = tex;
+            raw.raycastTarget = false;
+
+            var scroll = root.AddComponent<ScrollRect>();
+            scroll.viewport = viewportRect;
+            scroll.content = contentRect;
+            scroll.horizontal = true;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 60f;
+
+            // Fit uses the panel size, so it needs no layout pass. Upscaling is capped at 1:1
+            // so fitted text is not blurred by filtering.
+            var panel = _panelRect != null ? _panelRect.rect.size : new Vector2(420f, 640f);
+            var viewW = Mathf.Max(60f, panel.x - 20f);
+            var viewH = Mathf.Max(60f, panel.y - 74f);
+            var scale = _screenPreviewFit
+                ? Mathf.Min(1f, Mathf.Min(viewW / tex.width, viewH / tex.height))
+                : 1f;
+            contentRect.sizeDelta = new Vector2(tex.width * scale, tex.height * scale);
+            if (_screenPreviewFit)
+                contentRect.anchoredPosition = new Vector2(Mathf.Max(0f, (viewW - tex.width * scale) * 0.5f), 0f);
         }
 
         void AddPreview(ScreenLookController look)

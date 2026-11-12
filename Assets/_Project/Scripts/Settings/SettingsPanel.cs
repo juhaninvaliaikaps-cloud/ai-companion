@@ -268,6 +268,8 @@ namespace AICompanion.Settings
             _confirmClear = false;
             _probeSerial++;
             _probeBusy = false;
+            _screenPreviewBig = false;
+            DestroyExactPreview();
             if (_keyInput != null)
                 _keyInput.text = string.Empty;
             BlurFields();
@@ -618,6 +620,9 @@ namespace AICompanion.Settings
 
             _building = true;
             _fieldGeneration++;
+            // The exact-frame overlay belongs to the Screen tab only; a rebuild on any tab
+            // clears it, and BuildScreen adds it back when it is still open.
+            DestroyExactPreview();
             for (var i = _body.childCount - 1; i >= 0; i--)
                 Destroy(_body.GetChild(i).gameObject);
             _fields.Clear();

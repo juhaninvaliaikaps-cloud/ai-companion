@@ -20,6 +20,15 @@ namespace AICompanion.Core
 
         void RequestLook();
 
+        /// <summary>
+        /// A look the model asked for through the [look] cue. Returns false when the feature,
+        /// the automatic-look consent, the cooldown or a running look blocks it.
+        /// </summary>
+        bool RequestAutoLook();
+
+        /// <summary>True when the user has allowed her to look during chat.</summary>
+        bool AutoLookEnabled { get; }
+
         void Stop();
     }
 }

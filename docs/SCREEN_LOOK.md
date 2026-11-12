@@ -31,7 +31,7 @@ Documented limits, not yet tried on a game PC:
 - The companion’s own process is excluded.
 - Game anti-cheat behaviour is **not verified**. Some games dislike overlays even when the capture itself is a supported read-only OS API. This build does not try to hide from them.
 
-A cloud frame is scaled so the long edge is at most 768 pixels, then encoded as JPEG at quality 70, 55, or 40. Anything still over 400 KB is dropped and not sent. A local frame uses a 1280 long edge, nearest-pixel sampling, and JPEG quality 85, 75, or 60, up to 1.5 MB. Nearest-pixel sampling avoids averaging small text into a blur. It does not make `qwen2.5vl:3b` able to read every sentence. If the model cannot read the words, it is told to say so instead of guessing. The name in the window list is the Windows title, not text read from the picture. Windows larger than 4K are refused. One look at a time. A newer look or a cancel drops the older frame. The capture work runs off the Unity thread. The encoded image is cleared after the request body is built and is not written to a file.
+A cloud frame is scaled so the long edge is at most 768 pixels, then encoded as JPEG at quality 70, 55, or 40. Anything still over 400 KB is dropped and not sent. A local frame keeps its native size up to a 1600 long edge, then encodes as JPEG at quality 92, 85, or 75, up to 1.5 MB. When a local window does need scaling, the block is averaged rather than point-sampled: nearest-pixel sampling dropped the thin strokes of small text before the vision model saw them. A window at 1595 px wide, such as a restored Notepad, is therefore sent at 1595 px instead of being halved to 797 px. Larger frames are resized to the 1600 cap with bilinear sampling, so a 2560-wide display becomes 1600 wide rather than the 1280 an integer 2x step would give. Her spoken answer names one or two notable things rather than listing everything the observation contains; the rest stays in the session context for later talk. Dense whole-screen text can make the 3B model loop; the call then retries once with more sampling, and the screen prompt asks for at most ten quoted lines instead of every line. This does not make `qwen2.5vl:3b` able to read every sentence; the model is asked to transcribe what it can and mark the rest `[unreadable]` instead of guessing. The name in the window list is the Windows title, not text read from the picture. Windows larger than 4K are refused. One look at a time. A newer look or a cancel drops the older frame. The capture work runs off the Unity thread. The encoded image is cleared after the request body is built and is not written to a file.
 
 JUH-44’s later shape is reserved as constants only: 0.5 to 2 frames per second, and a pause when the companion is muted or the game is not focused. Neither runs. The “about 2% FPS” target has **not** been measured. Do not treat this VM, or this document, as that measurement.
 
@@ -47,7 +47,7 @@ Install it yourself:
 ollama pull qwen2.5vl:3b
 ```
 
-This document does not claim that model is installed, and it does not promise a reply time. The RTX 2070 8 GB already runs Rocinante 12B Q4_K_M plus Unity. Both models are not kept resident. One look posts `keep_alive: 0` to unload the chat model, posts the JPEG as raw base64 to loopback `/api/chat` with `keep_alive: 0` and `num_predict` 180, then asks Rocinante with text only so the chat model loads again. The first load can take longer than a warm text reply. An empty vision tag, a vision tag equal to the chat model, or a base URL that is not loopback stops before any post. There is no cloud fallback. The observation is not stored in history or long-term memory. Words inside the picture are observations, not instructions.
+This document does not claim that model is installed, and it does not promise a reply time. The RTX 2070 8 GB already runs Rocinante 12B Q4_K_M plus Unity. Both models are not kept resident. One look posts `keep_alive: 0` to unload the chat model, posts the JPEG as raw base64 to loopback `/api/chat` with `keep_alive: 0` (or `2m` when fast replies are on so the remark reuses the loaded vision model), `num_predict` 700, `temperature` 0, `top_k` 1, `repeat_penalty` 1.05, and `num_ctx` 8192, then asks Rocinante with text only so the chat model loads again, unless fast replies are on. The prompt asks for a careful transcription first and one short scene sentence second. The first load can take longer than a warm text reply. An empty vision tag, a vision tag equal to the chat model, or a base URL that is not loopback stops before any post. There is no cloud fallback. The observation is not stored in history or long-term memory. Words inside the picture are observations, not instructions.
 
 Cloud screen analysis can stay off. Private mode, a local chat provider, or a vision model with that switch off all use the local route. The image is not sent to Grok on that route. Grok is used only when chat is Grok, private mode is off, and cloud screen consent is on. An empty vision reply does not ask Rocinante to invent what was on screen.
 
@@ -55,10 +55,34 @@ Cloud screen analysis can stay off. Private mode, a local chat provider, or a vi
 
 This slice stays one selected window and one frame. The next phase, after this local bridge is working, is separate work:
 
-1. **Whole monitor, only when asked.** A second consent, distinct from the selected-window consent. The user picks which of the two monitors. `CreateForMonitor` stays unbound until that consent exists. A failed or resized window never widens into the desktop.
-2. **Readability.** Larger long-edge budget and a prompt that asks the vision model to read on-screen text, still as untrusted observation.
+1. **Whole-monitor streaming.** Implemented for one frame with its own consent and display choice. A continuous stream, a rate limit, and focus/mute pauses remain separate work.
+2. **Readability.** Partly done in this slice: a 1600 long edge that keeps a 1595-wide window native, block averaging instead of point sampling, higher JPEG quality, a transcription-first prompt, and deterministic decoding. Still open: whether `qwen2.5vl:3b` reads small text reliably, a second local vision model or an OCR pass if it does not, and measured VRAM/reply-time trade-offs on the RTX 2070.
 3. **Optional periodic looks.** Off by default. A visible pause and stop. A rate inside the existing 0.5–2 fps bound, a token and timeout cap, and no second look while one is in flight. Same local-only and untrusted-text rules. The measured FPS cost is still unmeasured.
 
+## Whole screen, only with its own consent
+
+Window capture is the default. **Whole screen instead of a window** and **Allow whole-screen capture** are separate switches on the Screen tab, and the display list is explicit (Windows reports one entry per monitor). The two consents are independent: turning on whole-screen capture does not grant cloud consent, and a failed window grab never widens to a display. A failed display grab never retries another display.
+
+The captured frame is the selected display, with every window on it. Private mode keeps that frame on this PC. The display handle is re-read before each capture, so a monitor that was disconnected reports an error instead of showing a stale frame.
+
+## Fast screen replies
+
+With **Fast screen replies** on, the vision model that already read the picture writes the short remark, and the larger chat model is not reloaded. That is the difference between roughly 15 seconds and 40-90 seconds on the RTX 2070. The trade-off is voice quality: it is a 3B model writing one sentence, not Rocinante.
+
+The observation is remembered for the session either way: the last three observations are kept **in RAM only** and added to later prompts as untrusted context, so the main model can refer to what she saw. Nothing is written to disk, chat history, or long-term memory, and the buffer is cleared when the screen feature is turned off or the app exits. This is not the same as the old "remember observations" flag, which stays false.
+
+For an automatic look with fast replies on, one extra one-word YES/NO call decides whether the observation is worth speaking. NO produces no chat line and no speech.
+## Automatic looks, with a pause
+
+**Let her look during chat** is a third, separate permission, off by default. While it is on:
+
+- the text model may write the token `[look]` in a reply. The token is removed before you see the reply and never reaches the chat history;
+- the look uses the target you already approved: the selected display in whole-screen mode, otherwise the selected window. She cannot widen the target;
+- at most one automatic look per reply and no more than one every 20 seconds;
+- local vision only. In private mode, or with a local chat model, the observation is read and answered on this PC with no cloud fallback;
+- the observation is answered only when it is worth saying. The model may reply exactly `SILENT`, and then nothing is shown or spoken. A look that is not worth mentioning leaves no chat line.
+
+**Pause automatic looks** is separate from turning the permission off: paused keeps the permission but blocks every automatic look until you unpause. Turning **Let her look during chat** off revokes it. The Look button still works manually in every case, and **Stop** cancels a look in flight.
 ## Vision call
 
 Checked against the xAI docs on 2026-11-10:
@@ -142,7 +166,7 @@ Those lines are route, sizes, JPEG byte count, base64 field length, HTTP status,
 
 Open Notepad restored, not maximised. Turn on **Read a window**, refresh the list, and pick Notepad. The process must stay up.
 
-- A working preview is the exact image encoded for that look. It stays in memory and is not saved. The line under it gives capture size, sent size, scale, JPEG bytes, and quality. `scale=1` means every captured pixel was encoded. `scale=2` means the sent image is about half the capture on each edge, so small text can already be gone in the preview.
+- A working preview is the exact image encoded for that look. It stays in memory and is not saved. The line under it gives capture size, sent size, scale, JPEG bytes, and quality. `scale=1` means every captured pixel was encoded. `scale=2` means the sent image is half the capture on each edge, so small text can already be gone in the preview. **Inspect exact frame** opens the decoded JPEG full-panel: **Fit** shows the whole frame, **1:1** shows real pixels and scrolls. The panel reads the in-memory texture only and writes nothing to disk.
 - Leave **Allow cloud screen analysis** off. Press **What do you see?** once. Compare the preview with Notepad before reading the reply. If the preview sentence is readable and the reply misses it, the model missed text that was in the payload. If the preview sentence is already unreadable, the capture or the scale lost it. A partial reply does not by itself prove either case.
 - A failed grab must also stay up. The chat note and the log say `Screen capture: Capture stopped at <stage>` and, when Windows returned one, the raw eight-digit code. `8000797F` was observed at `Texture` before the interface slot was corrected. That value is not a documented DXGI or Direct3D 11 code. The log prints it unchanged and does not name it. The line has no window title and no image. Copy that one line back.
 

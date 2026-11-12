@@ -172,7 +172,7 @@ namespace AICompanion.UI
                 }
                 else
                 {
-                    SealAssistant(result.Text);
+                    SealAssistant(ScreenLookCue.Strip(result.Text));
                 }
 
                 return;
@@ -190,6 +190,15 @@ namespace AICompanion.UI
                 AddSystem(note);
         }
 
+        /// <summary>A reply that was not triggered by a visible user turn, used by automatic looks.</summary>
+        public void AddAssistant(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+
+            _lines.Add(new ChatLine(ChatLineKind.Assistant, text.Trim(), false));
+            Touch();
+        }
         public void AddSystem(string text)
         {
             if (string.IsNullOrWhiteSpace(text))

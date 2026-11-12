@@ -22,7 +22,11 @@ namespace AICompanion.Settings
         readonly ScreenLookInput _buttonInput = new ScreenLookInput();
         readonly Queue<Action> _main = new Queue<Action>();
         WindowTarget _selected;
+        MonitorTarget _monitor;
         Texture2D _preview;
+        bool _automaticLook;
+        float _lastAutoLook = -1000f;
+        public const float AutoLookCooldownSeconds = 20f;
         bool _waitingForChat;
         bool _alive = true;
         CancellationTokenSource _visionCancel;
@@ -47,7 +51,113 @@ namespace AICompanion.Settings
 
         public Texture2D PreviewTexture => _preview;
 
+        /// <summary>Size and byte count of the exact frame shown in the preview. No pixels or text.</summary>
+        public string PreviewDetails { get; private set; } = string.Empty;
+
         public IReadOnlyList<WindowTarget> Windows { get; private set; } = new WindowTarget[0];
+
+        public IReadOnlyList<MonitorTarget> Monitors { get; private set; } = new MonitorTarget[0];
+
+        public MonitorTarget SelectedMonitor => _monitor;
+
+        public bool AutoLookEnabled
+        {
+            get
+            {
+                var settings = CurrentSettings();
+                return settings != null && settings.ScreenLookEnabled && settings.ScreenAutoLook && !settings.ScreenAutoLookPaused;
+            }
+        }
+
+        public bool WholeMonitorMode
+        {
+            get
+            {
+                var settings = CurrentSettings();
+                return settings != null && settings.ScreenCaptureWholeMonitor;
+            }
+        }
+
+        CompanionSettings CurrentSettings()
+        {
+            var panel = GetComponent<SettingsPanel>();
+            return panel != null ? panel.CurrentSettings : null;
+        }
+
+        CapturedWindowFrame CaptureSelected()
+        {
+            var settings = CurrentSettings();
+            if (settings != null && settings.ScreenCaptureWholeMonitor && _monitor != null)
+                return WindowCapture.CaptureMonitor(_monitor);
+            return WindowCapture.CaptureWindow(_selected);
+        }
+
+        public void RefreshMonitors()
+        {
+            Monitors = MonitorList.Read();
+            var settings = CurrentSettings();
+            var device = settings != null ? settings.ScreenMonitorDevice : string.Empty;
+            MonitorTarget chosen = null;
+            for (var i = 0; i < Monitors.Count; i++)
+            {
+                if (!string.IsNullOrEmpty(device) && Monitors[i].DeviceName == device)
+                {
+                    chosen = Monitors[i];
+                    break;
+                }
+            }
+
+            if (chosen == null)
+            {
+                for (var i = 0; i < Monitors.Count; i++)
+                {
+                    if (Monitors[i].IsPrimary)
+                    {
+                        chosen = Monitors[i];
+                        break;
+                    }
+                }
+            }
+
+            _monitor = chosen != null ? chosen : (Monitors.Count > 0 ? Monitors[0] : null);
+        }
+
+        public void SelectMonitor(MonitorTarget monitor)
+        {
+            if (monitor == null || IsBusy || !Enabled())
+                return;
+
+            _monitor = monitor;
+            var settings = CurrentSettings();
+            if (settings != null)
+                settings.ScreenMonitorDevice = monitor.DeviceName;
+            PreviewMonitor();
+        }
+
+        void PreviewMonitor()
+        {
+            if (!WindowCapture.IsSupported || _monitor == null)
+                return;
+            if (!_gate.TryEnter(out var generation))
+                return;
+
+            _activeGeneration = generation;
+            var target = _monitor;
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                CapturedWindowFrame frame;
+                try
+                {
+                    frame = WindowCapture.CaptureMonitor(target);
+                }
+                catch (Exception ex)
+                {
+                    frame = CapturedWindowFrame.Fail(CaptureDiagnostics.Stopped(ex.GetType().Name, 0));
+                }
+
+                Post(() => OnPreviewFrame(generation, frame));
+            });
+        }
 
         void Update()
         {
@@ -87,7 +197,49 @@ namespace AICompanion.Settings
             if (IsBusy)
                 return;
 
+            StartCapture(false);
+        }
+
+        /// <summary>
+        /// A look she asked for herself, through the [look] cue. Local only, rate limited,
+        /// and it needs the separate Let her look switch. The reply is written only when the
+        /// observation has something worth saying.
+        /// </summary>
+        public bool RequestAutoLook()
+        {
+            var settings = CurrentSettings();
+            if (!Enabled() || settings == null || !settings.ScreenAutoLook || settings.ScreenAutoLookPaused)
+                return false;
+            if (IsBusy)
+                return false;
+            if (Time.unscaledTime - _lastAutoLook < AutoLookCooldownSeconds)
+                return false;
+
+            if (WholeMonitorMode && _monitor == null)
+                RefreshMonitors();
             var input = BuildInput();
+            input.Automatic = true;
+            input.AutoLookConsent = settings.ScreenAutoLook;
+            var decision = ScreenLookPolicy.Evaluate(input);
+            if (decision.Route != ScreenLookRoute.Local || !decision.AllowSend)
+                return false;
+            if (!WindowCapture.IsSupported)
+                return false;
+
+            _lastAutoLook = Time.unscaledTime;
+            StartCapture(true);
+            return true;
+        }
+
+        void StartCapture(bool automatic)
+        {
+            var input = BuildInput();
+            if (automatic)
+            {
+                input.Automatic = true;
+                input.AutoLookConsent = true;
+            }
+
             var decision = ScreenLookPolicy.Evaluate(input);
             Debug.Log(CaptureDiagnostics.RouteLine(
                 decision.Route.ToString(),
@@ -111,6 +263,9 @@ namespace AICompanion.Settings
                 return;
             }
 
+            if (WholeMonitorMode && _monitor == null)
+                RefreshMonitors();
+
             if (!_gate.TryEnter(out var generation))
             {
                 Note(ScreenLookPolicy.Busy);
@@ -119,14 +274,14 @@ namespace AICompanion.Settings
             }
 
             _activeGeneration = generation;
-            Touch("Capturing the selected window.");
-            var target = _selected;
+            _automaticLook = automatic;
+            Touch(automatic ? "She is having a quick look." : (WholeMonitorMode ? "Capturing the selected display." : "Capturing the selected window."));
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 CapturedWindowFrame frame;
                 try
                 {
-                    frame = WindowCapture.CaptureWindow(target);
+                    frame = CaptureSelected();
                 }
                 catch (Exception ex)
                 {
@@ -305,7 +460,16 @@ namespace AICompanion.Settings
 
             var localFrame = decision.Route == ScreenLookRoute.Local;
             var maxEdge = localFrame ? ScreenImageBudget.LocalMaxEdge : ScreenImageBudget.MaxEdge;
-            ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out var small, out var width, out var height, maxEdge, true);
+            // Local vision resizes to the exact cap with bilinear sampling: a 2560-wide display
+            // becomes 1600 wide, not the 1280 an integer 2x step would give. Nearest sampling
+            // drops the thin strokes of small text before the model can see them.
+            byte[] small;
+            int width;
+            int height;
+            if (localFrame && Mathf.Max(frame.Width, frame.Height) > maxEdge)
+                ScreenImageBudget.DownscaleFit(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out small, out width, out height, maxEdge);
+            else
+                ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out small, out width, out height, maxEdge, true);
             Wipe(frame);
             if (small == null || ScreenImageBudget.LooksBlank(small, width, height))
             {
@@ -333,13 +497,17 @@ namespace AICompanion.Settings
 
             var scale = ScreenImageBudget.ScaleFor(frame.Width, frame.Height, maxEdge);
             var imageChars = OllamaVision.ImageFieldChars(jpeg);
+            // Replace the quick preview with the exact JPEG that is sent, so the 1:1 inspection
+            // shows decoder output and not the pre-encode buffer.
+            ApplyJpeg(jpeg);
             DeliveryNote = "Preview is the exact image encoded for this look. Capture " + frame.Width + "x" + frame.Height
                 + ", sent " + width + "x" + height
                 + ", scale " + scale
                 + ", JPEG " + jpeg.Length + " bytes, quality " + quality
                 + ". It stays in memory on this PC and is not saved.";
             Log(true, width, height, null);
-            Debug.Log(CaptureDiagnostics.FrameLine(decision.Route.ToString(), frame.Width, frame.Height, width, height, scale, quality, jpeg.Length, imageChars));
+            Debug.Log(CaptureDiagnostics.FrameLine(decision.Route.ToString(), frame.Width, frame.Height, width, height, scale, quality, jpeg.Length, imageChars,
+                localFrame ? (WholeMonitorMode ? OllamaVision.AskScreenPrompt.Length : OllamaVision.AskPrompt.Length) : VisionPrompt.Addendum.Length));
             Touch(localFrame ? "Local look started. The preview is the encoded image." : "Cloud look started. The preview is the encoded image.");
 
             if (decision.Route == ScreenLookRoute.Local)
@@ -400,11 +568,38 @@ namespace AICompanion.Settings
             }
         }
 
+        /// <summary>Decode the encoded JPEG so the preview and the 1:1 inspection are exact.</summary>
+        void ApplyJpeg(byte[] jpeg)
+        {
+            if (jpeg == null || jpeg.Length == 0)
+                return;
+
+            var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            if (!ImageConversion.LoadImage(tex, jpeg, false))
+            {
+                Destroy(tex);
+                return;
+            }
+
+            tex.hideFlags = HideFlags.HideAndDontSave;
+            if (_preview != null)
+                Destroy(_preview);
+            _preview = tex;
+            PreviewDetails = "Encoded frame " + tex.width + "x" + tex.height
+                + ", JPEG " + jpeg.Length + " bytes. This is the decoded image that was sent.";
+        }
+
         void ShowPreview(CapturedWindowFrame frame)
         {
             var local = ScreenLookPolicy.UseLocalVision(BuildInput());
             var edge = local ? ScreenImageBudget.LocalMaxEdge : ScreenImageBudget.MaxEdge;
-            ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out var small, out var width, out var height, edge, true);
+            byte[] small;
+            int width;
+            int height;
+            if (local && Mathf.Max(frame.Width, frame.Height) > edge)
+                ScreenImageBudget.DownscaleFit(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out small, out width, out height, edge);
+            else
+                ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out small, out width, out height, edge, true);
             if (small == null)
                 return;
             ApplyTexture(ScreenImageBudget.BgraTopDownToRgbaBottomUp(small, width, height), width, height);
@@ -471,9 +666,12 @@ namespace AICompanion.Settings
             input.CloudModel = current != null ? current.Model : ChatDefaults.Model;
             input.ChatModel = current != null ? current.LocalModel : ChatDefaults.LocalModel;
             input.LocalVisionModel = current != null ? current.LocalVisionModel : string.Empty;
+            input.MonitorRequested = current != null && current.ScreenCaptureWholeMonitor;
+            input.WholeMonitorConsent = current != null && current.ScreenWholeMonitorConsent;
+            input.Monitor = _monitor;
+            input.AutoLookConsent = current != null && current.ScreenAutoLook && !current.ScreenAutoLookPaused;
             input.Busy = false;
             input.Automatic = false;
-            input.MonitorRequested = false;
             input.Target = _selected;
         }
 
@@ -498,6 +696,8 @@ namespace AICompanion.Settings
                     timeout = 30f;
                 if (timeout > 180f)
                     timeout = 180f;
+                var fast = current != null && current.ScreenFastReply;
+                var screenPrompt = WholeMonitorMode ? OllamaVision.AskScreenPrompt : null;
                 var result = await LocalVisionExchange.Run(
                     new UnityChatTransport(this),
                     current != null ? current.LocalBaseUrl : ChatDefaults.LocalBaseUrl,
@@ -505,7 +705,9 @@ namespace AICompanion.Settings
                     vision,
                     jpeg,
                     timeout,
-                    cts.Token);
+                    cts.Token,
+                    fast ? "2m" : "0",
+                    screenPrompt);
                 if (!_alive)
                     return;
                 var observationChars = result.Observation == null ? 0 : result.Observation.Length;
@@ -529,7 +731,32 @@ namespace AICompanion.Settings
                     return;
                 }
 
+                if (!_automaticLook)
+                    ScreenObservationMemory.Remember(result.Observation);
+
+                if (fast)
+                {
+                    var automaticFast = _automaticLook;
+                    _automaticLook = false;
+                    await FinishFastLook(generation, cts.Token, current, result.Observation, automaticFast, timeout);
+                    return;
+                }
+
                 var chat = GetComponent<ChatPanel>();
+                var automatic = _automaticLook;
+                _automaticLook = false;
+                if (automatic)
+                {
+                    // She looked on her own. The reply is optional: a silent filter decides
+                    // whether the observation is worth saying. The gate can be released here
+                    // because the vision model has already finished.
+                    _gate.Leave(generation);
+                    var autoStarted = chat != null && chat.SubmitAutoObservation(result.Observation);
+                    Debug.Log(CaptureDiagnostics.ChatLine("local", false, "observationChars", observationChars, autoStarted));
+                    Touch(autoStarted ? "She glanced at the screen." : "She looked, and had nothing to say.");
+                    return;
+                }
+
                 _waitingForChat = chat != null && chat.SubmitTextObservation(result.Observation);
                 Debug.Log(CaptureDiagnostics.ChatLine("local", false, "observationChars", observationChars, _waitingForChat));
                 if (!_waitingForChat)
@@ -558,6 +785,56 @@ namespace AICompanion.Settings
                     _visionCancel = null;
                 cts.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Fast screen reply: the vision model that already read the picture writes the remark,
+        /// so the chat model is not reloaded. The observation is kept in session context by
+        /// ChatPanel. For an automatic look a one-word YES/NO check decides whether to speak.
+        /// </summary>
+        async System.Threading.Tasks.Task FinishFastLook(
+            int generation, CancellationToken token, CompanionSettings settings,
+            string observation, bool automatic, float timeout)
+        {
+            var transport = new UnityChatTransport(this);
+            var baseUrl = settings != null ? settings.LocalBaseUrl : ChatDefaults.LocalBaseUrl;
+            var vision = settings != null ? settings.LocalVisionModel : string.Empty;
+
+            if (automatic)
+            {
+                var worth = await LocalVisionExchange.SilentCheck(transport, baseUrl, vision, observation, timeout, token);
+                if (!_alive || token.IsCancellationRequested)
+                    return;
+                _gate.Leave(generation);
+                if (!worth)
+                {
+                    Touch("She looked and had nothing to say.");
+                    return;
+                }
+
+                ScreenObservationMemory.Remember(observation);
+            }
+
+            var name = settings != null ? settings.CompanionName : string.Empty;
+            var system = OllamaVision.FastReplySystem(name);
+            var reply = await LocalVisionExchange.FastReply(transport, baseUrl, vision, system, observation, timeout, token);
+            _gate.Leave(generation);
+            if (!_alive || token.IsCancellationRequested)
+                return;
+
+            if (!automatic)
+                _gate.Leave(generation);
+            if (!reply.Ok || string.IsNullOrWhiteSpace(reply.Observation))
+            {
+                Touch("The fast screen reply did not answer. Nothing was spoken.");
+                return;
+            }
+
+            var chat = GetComponent<ChatPanel>();
+            var started = chat != null && chat.SubmitFastObservation(observation, reply.Observation);
+            Debug.Log(CaptureDiagnostics.ChatLine("local", false, "observationChars",
+                observation != null ? observation.Length : 0, started));
+            Touch(started ? "She answered from the local vision model." : "The fast reply did not start.");
         }
 
         void Log(bool ok, int width, int height, string error)

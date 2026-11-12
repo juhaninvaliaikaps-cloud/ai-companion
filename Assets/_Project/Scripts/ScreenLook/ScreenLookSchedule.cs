@@ -8,7 +8,7 @@ namespace AICompanion.ScreenLook
     {
         public const float FutureMinFps = 0.5f;
         public const float FutureMaxFps = 2f;
-        public const bool AutomaticSamplingEnabled = false;
+        public const bool AutomaticSamplingEnabled = true;
         public const bool FocusAndMutePauseImplemented = false;
         public const bool PerformanceImpactMeasured = false;
     }

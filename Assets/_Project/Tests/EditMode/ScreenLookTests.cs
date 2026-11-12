@@ -20,12 +20,12 @@ namespace AICompanion.Tests.EditMode
             settings.Normalize();
             Assert.IsFalse(settings.ScreenLookEnabled);
             Assert.IsFalse(settings.ScreenCloudConsent);
-            Assert.IsFalse(ScreenLookSchedule.AutomaticSamplingEnabled);
+            Assert.IsTrue(ScreenLookSchedule.AutomaticSamplingEnabled);
             Assert.IsFalse(ScreenLookSchedule.FocusAndMutePauseImplemented);
             Assert.IsFalse(ScreenLookSchedule.PerformanceImpactMeasured);
             Assert.AreEqual(0.5f, ScreenLookSchedule.FutureMinFps);
             Assert.AreEqual(2f, ScreenLookSchedule.FutureMaxFps);
-            Assert.IsFalse(CapturePlan.MonitorCaptureAllowed);
+            Assert.IsTrue(CapturePlan.MonitorCaptureAllowed);
             Assert.IsFalse(ScreenLookPolicy.RememberObservations);
         }
 
@@ -210,6 +210,45 @@ namespace AICompanion.Tests.EditMode
             monitor.MonitorRequested = true;
             Assert.AreEqual(ScreenLookPolicy.MonitorRefused, ScreenLookPolicy.Evaluate(monitor).Message);
             Assert.IsFalse(ScreenLookPolicy.Evaluate(monitor).AllowPreview);
+
+            var missing = Ready();
+            missing.MonitorRequested = true;
+            missing.WholeMonitorConsent = true;
+            Assert.AreEqual(ScreenLookPolicy.NeedMonitor, ScreenLookPolicy.Evaluate(missing).Message);
+
+            var allowed = Ready();
+            allowed.PrivateMode = true;
+            allowed.LocalVisionModel = OllamaVision.RecommendedTag;
+            allowed.MonitorRequested = true;
+            allowed.WholeMonitorConsent = true;
+            allowed.Monitor = new MonitorTarget { Handle = new IntPtr(5), DeviceName = "\\\\.\\DISPLAY1" };
+            Assert.AreEqual(ScreenLookRoute.Local, ScreenLookPolicy.Evaluate(allowed).Route);
+
+            var auto = Ready();
+            auto.PrivateMode = true;
+            auto.LocalVisionModel = OllamaVision.RecommendedTag;
+            auto.Automatic = true;
+            auto.AutoLookConsent = true;
+            Assert.AreEqual(ScreenLookRoute.Local, ScreenLookPolicy.Evaluate(auto).Route);
+
+            var noAutoConsent = Ready();
+            noAutoConsent.Automatic = true;
+            Assert.AreEqual(ScreenLookPolicy.AutomaticRefused, ScreenLookPolicy.Evaluate(noAutoConsent).Message);
+
+            // A paused permission is passed as no consent, so the model cannot look while paused.
+            var paused = Ready();
+            paused.PrivateMode = true;
+            paused.LocalVisionModel = OllamaVision.RecommendedTag;
+            paused.Automatic = true;
+            paused.AutoLookConsent = false;
+            Assert.AreEqual(ScreenLookPolicy.AutomaticRefused, ScreenLookPolicy.Evaluate(paused).Message);
+
+            Assert.IsTrue(ScreenLookCue.Requests("Sure, let me see. [look]"));
+            Assert.IsFalse(ScreenLookCue.Requests("No cue here."));
+            Assert.AreEqual("Sure, let me see.", ScreenLookCue.Strip("Sure, let me see. [look]"));
+            Assert.IsTrue(ScreenLookCue.IsSilent("SILENT"));
+            Assert.IsTrue(ScreenLookCue.IsSilent("  \"SILENT\"  "));
+            Assert.IsFalse(ScreenLookCue.IsSilent("I see a window."));
         }
 
         [Test]
@@ -256,8 +295,11 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(1, sharpH);
             Assert.AreEqual(255, sharp[0]);
             Assert.Less(soft[0], 255);
-            Assert.AreEqual(1280, ScreenImageBudget.LocalMaxEdge);
+            Assert.AreEqual(1600, ScreenImageBudget.LocalMaxEdge);
             Assert.AreEqual(768, ScreenImageBudget.MaxEdge);
+            Assert.AreEqual(92, ScreenImageBudget.LocalQualities[0]);
+            Assert.AreEqual(1, ScreenImageBudget.ScaleFor(1595, 1076, ScreenImageBudget.LocalMaxEdge));
+            Assert.AreEqual(2, ScreenImageBudget.ScaleFor(1920, 1080, ScreenImageBudget.LocalMaxEdge));
 
             var bgra = new byte[] { 10, 20, 30, 255, 1, 2, 3, 255 };
             var rgba = ScreenImageBudget.BgraTopDownToRgbaBottomUp(bgra, 1, 2);
@@ -277,6 +319,20 @@ namespace AICompanion.Tests.EditMode
             Assert.IsNull(ScreenImageBudget.FitJpeg(_ => new byte[] { 1, 2, 3, 4 }, out _));
         }
 
+        [Test]
+        public void LargeDisplay_ResizesToTheCapWithoutIntegerJump()
+        {
+            var wide = new byte[2560 * 4 * 1440];
+            ScreenImageBudget.DownscaleFit(wide, 2560, 1440, 2560 * 4, out var fit, out var fw, out var fh, ScreenImageBudget.LocalMaxEdge);
+            Assert.AreEqual(1600, fw);
+            Assert.AreEqual(900, fh);
+            Assert.AreEqual(fw * fh * 4, fit.Length);
+
+            var small = new byte[800 * 4 * 600];
+            ScreenImageBudget.DownscaleFit(small, 800, 600, 800 * 4, out _, out var sw, out var sh, ScreenImageBudget.LocalMaxEdge);
+            Assert.AreEqual(800, sw);
+            Assert.AreEqual(600, sh);
+        }
         [Test]
         public void Observation_IsNotAGameEventAndIsLeftOutOfHistory()
         {
@@ -429,6 +485,7 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("quality=85", frame);
             StringAssert.Contains("jpegBytes=12000", frame);
             StringAssert.Contains("imageFieldChars=16000", frame);
+            StringAssert.Contains("promptChars=12", CaptureDiagnostics.FrameLine("local", 1920, 1080, 960, 540, 2, 85, 12000, 16000, 12));
             Assert.IsFalse(frame.Contains("one short sentence"));
             Assert.AreEqual(1, ScreenImageBudget.ScaleFor(800, 600, ScreenImageBudget.LocalMaxEdge));
             Assert.AreEqual(2, ScreenImageBudget.ScaleFor(1920, 1080, ScreenImageBudget.LocalMaxEdge));
@@ -438,6 +495,8 @@ namespace AICompanion.Tests.EditMode
             var sample = new byte[] { 0xFF, 0xD8, 0xFF, 0xD9 };
             var field = OllamaVision.ImageFieldChars(sample);
             var body = OllamaVision.BuildLook(OllamaVision.RecommendedTag, OllamaVision.AskPrompt, sample);
+            StringAssert.Contains("\"keep_alive\":0", body);
+            StringAssert.Contains("\"keep_alive\":\"2m\"", OllamaVision.BuildLook(OllamaVision.RecommendedTag, OllamaVision.AskPrompt, sample, "2m"));
             StringAssert.Contains(Convert.ToBase64String(sample), body);
             Assert.AreEqual(Convert.ToBase64String(sample).Length, field);
             Assert.IsFalse(body.Contains("data:image"));
@@ -484,13 +543,40 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void FastReply_AndSessionMemory_AreBounded()
+        {
+            var body = OllamaVision.BuildFastReply("qwen2.5vl:3b", "You are Yumi.", "horses horses");
+            StringAssert.Contains("\"keep_alive\":\"2m\"", body);
+            StringAssert.Contains("horses horses", body);
+            StringAssert.Contains("You are Yumi.", body);
+            StringAssert.Contains("\"num_predict\":220", body);
+
+            var check = OllamaVision.BuildSilentCheck("qwen2.5vl:3b", "a window");
+            StringAssert.Contains("YES", check);
+            StringAssert.Contains("a window", check);
+
+            ScreenObservationMemory.Clear();
+            Assert.AreEqual(string.Empty, ScreenObservationMemory.PromptLine());
+            ScreenObservationMemory.Remember("first");
+            ScreenObservationMemory.Remember("second");
+            ScreenObservationMemory.Remember("third");
+            Assert.AreEqual(3, ScreenObservationMemory.Count);
+            var line = ScreenObservationMemory.PromptLine();
+            StringAssert.Contains("first", line);
+            StringAssert.Contains("third", line);
+            ScreenObservationMemory.Clear();
+            Assert.AreEqual(0, ScreenObservationMemory.Count);
+        }
+        [Test]
         public void WindowsCapture_BindsAWindowAndNotTheMonitor()
         {
             var source = File.ReadAllText(Path.Combine(Application.dataPath, "_Project", "Scripts", "ScreenLook", "WindowsGraphicsCapture.cs"));
             StringAssert.Contains("CreateForWindow", source);
             StringAssert.Contains("CaptureAbi.DxgiGetInterfaceSlot", source);
             Assert.IsFalse(source.Contains("GetInterfaceFn>(access, 6)"));
-            Assert.IsFalse(source.Contains("CreateForMonitor"));
+            // Whole-monitor capture exists, but only behind its own consent and a separate entry point.
+            StringAssert.Contains("CreateForMonitor", source);
+            StringAssert.Contains("WholeMonitorConsent", File.ReadAllText(Path.Combine(Application.dataPath, "_Project", "Scripts", "ScreenLook", "ScreenLookPolicy.cs")));
             Assert.IsFalse(source.Contains("BitBlt"));
             Assert.IsFalse(source.Contains("ReadProcessMemory"));
         }
@@ -511,8 +597,23 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(VisionPrompt.HasObservation("A window."));
             var turn = VisionPrompt.LocalObservationTurn("One short sentence is visible.");
             Assert.IsFalse(turn.Contains("Untitled"));
-            StringAssert.Contains("cannot read it", OllamaVision.AskPrompt);
-            StringAssert.Contains("\"num_predict\":360", OllamaVision.BuildLook(OllamaVision.RecommendedTag, OllamaVision.AskPrompt, new byte[] { 1, 2, 3, 4 }));
+            StringAssert.Contains("one or two notable things", turn);
+            StringAssert.Contains("one or two notable things", VisionPrompt.LocalChatAddendum);
+            Assert.IsFalse(VisionPrompt.LocalChatAddendum.Contains("repeat that text"));
+            StringAssert.Contains("Only say that the words were not read", VisionPrompt.LocalChatAddendum);
+            Assert.IsFalse(VisionPrompt.LocalChatAddendum.Contains("does not quote the words"));
+            StringAssert.Contains("transcribe", OllamaVision.AskPrompt);
+            StringAssert.Contains("[unreadable]", OllamaVision.AskPrompt);
+            var look = OllamaVision.BuildLook(OllamaVision.RecommendedTag, OllamaVision.AskPrompt, new byte[] { 1, 2, 3, 4 });
+            StringAssert.Contains("\"num_predict\":700", look);
+            StringAssert.Contains("\"temperature\":0.2", look);
+            StringAssert.Contains("\"top_k\":2", look);
+            StringAssert.Contains("\"repeat_penalty\":1.3", look);
+            StringAssert.Contains("\"repeat_last_n\":2048", look);
+            StringAssert.Contains("\"num_ctx\":8192", look);
+            StringAssert.Contains("ten short lines", OllamaVision.AskScreenPrompt);
+            StringAssert.Contains("\"messages\":[{\"role\":\"user\",\"content\":", look);
+            Assert.AreEqual(700, OllamaVision.MaxPredict);
         }
 
         static ScreenLookInput Ready()

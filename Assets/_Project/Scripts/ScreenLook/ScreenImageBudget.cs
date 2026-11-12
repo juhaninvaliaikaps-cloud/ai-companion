@@ -9,10 +9,15 @@ namespace AICompanion.ScreenLook
     public static class ScreenImageBudget
     {
         public const int MaxEdge = 768;
-        public const int LocalMaxEdge = 1280;
+        /// <summary>
+        /// Local vision keeps the window at its native size up to this edge. The earlier 1280
+        /// halved a 1595 px Notepad window, which turned 11-16 px text into 5-8 px and made the
+        /// 3B vision model guess. Above this edge the scale still uses whole-number blocks.
+        /// </summary>
+        public const int LocalMaxEdge = 1600;
         public const int LocalMaxBytes = 1536 * 1024;
         public static readonly int[] Qualities = { 70, 55, 40 };
-        public static readonly int[] LocalQualities = { 85, 75, 60 };
+        public static readonly int[] LocalQualities = { 92, 85, 75 };
 
         public static void Downscale(byte[] bgra, int width, int height, int stride, out byte[] pixels, out int dstWidth, out int dstHeight)
         {
@@ -102,6 +107,61 @@ namespace AICompanion.ScreenLook
             }
         }
 
+        /// <summary>
+        /// Resize to a long edge of at most maxEdge with bilinear sampling, so a 2560-wide
+        /// display becomes 1600 wide instead of the 1280 an integer 2x step would give.
+        /// Text survives better than point sampling and the aspect ratio is kept.
+        /// </summary>
+        public static void DownscaleFit(byte[] bgra, int width, int height, int stride, out byte[] pixels, out int dstWidth, out int dstHeight, int maxEdge)
+        {
+            pixels = null;
+            dstWidth = 0;
+            dstHeight = 0;
+            if (bgra == null || width <= 0 || height <= 0)
+                return;
+            if (stride < width * 4)
+                stride = width * 4;
+            if (maxEdge < 1)
+                maxEdge = MaxEdge;
+
+            var longEdge = width > height ? width : height;
+            var scale = longEdge > maxEdge ? (float)maxEdge / longEdge : 1f;
+            dstWidth = Math.Max(1, (int)Math.Round(width * scale));
+            dstHeight = Math.Max(1, (int)Math.Round(height * scale));
+            pixels = new byte[dstWidth * dstHeight * 4];
+
+            for (var y = 0; y < dstHeight; y++)
+            {
+                var sy = (y + 0.5f) / scale - 0.5f;
+                var y0 = (int)Math.Floor(sy);
+                var wy = sy - y0;
+                var y1 = y0 + 1;
+                if (y0 < 0) { y0 = 0; wy = 0f; }
+                if (y1 >= height) { y1 = height - 1; wy = 0f; }
+
+                for (var x = 0; x < dstWidth; x++)
+                {
+                    var sx = (x + 0.5f) / scale - 0.5f;
+                    var x0 = (int)Math.Floor(sx);
+                    var wx = sx - x0;
+                    var x1 = x0 + 1;
+                    if (x0 < 0) { x0 = 0; wx = 0f; }
+                    if (x1 >= width) { x1 = width - 1; wx = 0f; }
+
+                    var i00 = y0 * stride + x0 * 4;
+                    var i10 = y0 * stride + x1 * 4;
+                    var i01 = y1 * stride + x0 * 4;
+                    var i11 = y1 * stride + x1 * 4;
+                    var o = (y * dstWidth + x) * 4;
+                    for (var c = 0; c < 4; c++)
+                    {
+                        var top = bgra[i00 + c] * (1f - wx) + bgra[i10 + c] * wx;
+                        var bottom = bgra[i01 + c] * (1f - wx) + bgra[i11 + c] * wx;
+                        pixels[o + c] = (byte)(top * (1f - wy) + bottom * wy);
+                    }
+                }
+            }
+        }
         /// <summary>
         /// Unity textures are bottom-up. The first pixel of the returned buffer is the
         /// bottom-left of a top-down BGRA image, and BGRA is swapped to RGBA.

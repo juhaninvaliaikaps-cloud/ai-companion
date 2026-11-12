@@ -45,7 +45,7 @@ namespace AICompanion.ScreenLook
     /// </summary>
     public static class CapturePlan
     {
-        public const bool MonitorCaptureAllowed = false;
+        public const bool MonitorCaptureAllowed = true;
 
         public static bool TryForWindow(WindowTarget target, out long hwnd, out TargetValidity validity)
         {
