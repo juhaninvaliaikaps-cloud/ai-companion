@@ -165,6 +165,14 @@ namespace AICompanion.Settings
         public const string Kiss = "kiss";
         public const string SmugWinkAnimated = "smug_wink";
 
+        // Suggestive drawn set. finger_suck and finger_suck_deep have blink and talk frames;
+        // finger_pull, finger_pull_start and finger_suck_hold are stills.
+        public const string FingerSuck = "finger_suck";
+        public const string FingerSuckDeep = "finger_suck_deep";
+        public const string FingerSuckHold = "finger_suck_hold_00";
+        public const string FingerPull = "finger_pull_02_smile";
+        public const string FingerPullStart = "finger_pull_01";
+
         public const string NeutralOpen = "neutral_open";
         public const string NeutralBlinkHalf = "neutral_blink_half";
         public const string NeutralBlinkClosed = "neutral_blink_closed";

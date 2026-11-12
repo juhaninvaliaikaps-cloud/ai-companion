@@ -121,6 +121,9 @@ namespace AICompanion.Settings
         public string PortraitFolder = string.Empty;
         public bool ShowExpressionPortrait;
 
+        /// <summary>Adult drawn expressions from the separate portraits-adult folder. Off by default.</summary>
+        public bool IntimateExpressions;
+
         public static CompanionSettings CreateDefault()
         {
             return new CompanionSettings();
@@ -501,6 +504,8 @@ namespace AICompanion.Settings
                 settings.PortraitFolder = text;
             if (TryBool(json, "showExpressionPortrait", out flag))
                 settings.ShowExpressionPortrait = flag;
+            if (TryBool(json, "intimateExpressions", out flag))
+                settings.IntimateExpressions = flag;
             settings.Normalize();
             return settings;
         }
@@ -560,6 +565,7 @@ namespace AICompanion.Settings
             String(sb, "personaId", source.PersonaId);
             String(sb, "portraitFolder", source.PortraitFolder);
             Bool(sb, "showExpressionPortrait", source.ShowExpressionPortrait);
+            Bool(sb, "intimateExpressions", source.IntimateExpressions);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;

@@ -77,7 +77,8 @@ namespace AICompanion.AnimationDirector
                     + "\n"
                     + AnimationCueParser.Instruction
                     + "\n"
-                    + EmotionNames.CatalogLine;
+                    + EmotionNames.CatalogLine
+                    + (IntimateExpressions.Active ? "\n" + EmotionNames.IntimateCatalogLine : string.Empty);
             }
         }
 

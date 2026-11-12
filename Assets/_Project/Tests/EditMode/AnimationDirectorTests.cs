@@ -259,6 +259,59 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void ShippedCatalog_GatesIntimateExpressions()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>("Assets/_Project/Settings/AnimationCatalog.asset");
+            Assert.IsNotNull(catalog);
+            var model = new AnimationDirectorModel(catalog);
+            var host = new GameObject("intimate-gate-director");
+            try
+            {
+                var director = host.AddComponent<Director>();
+                AssignCatalog(director, catalog);
+                IntimateExpressions.Reset();
+
+                var cue = AnimationCueParser.Parse("<animation emotion=\"finger_suck\" intensity=\"0.8\" />").Cue;
+                var off = model.Decide(cue);
+                Assert.AreEqual(DirectorAction.Emotion, off.Action);
+                Assert.AreEqual(Emotion.Flustered, off.Emotion, "off means the normal flustered face");
+                Assert.AreEqual(string.Empty, off.Portrait, "the finger portrait is not resolved while off");
+                Assert.IsFalse(director.SystemPromptSuffix.Contains("Intimate drawn expressions"), "the prompt has no intimate line while off");
+                Assert.IsFalse(director.SystemPromptSuffix.Contains("finger_"), "the prompt has no finger ids while off");
+
+                IntimateExpressions.Configure(true, false, true);
+                var localOff = model.Decide(cue);
+                Assert.AreEqual(Emotion.Flustered, localOff.Emotion, "private mode off means the normal flustered face");
+                Assert.AreEqual(string.Empty, localOff.Portrait, "the finger portrait is not resolved outside Private mode");
+                Assert.IsFalse(director.SystemPromptSuffix.Contains("finger_"), "private mode off removes the finger ids from the prompt immediately");
+                Assert.IsFalse(director.SystemPromptSuffix.Contains("Intimate drawn expressions"), "private mode off removes the intimate line immediately");
+
+                IntimateExpressions.Configure(true, true, true);
+                try
+                {
+                    var on = model.Decide(cue);
+                    Assert.AreEqual(DirectorAction.Emotion, on.Action);
+                    Assert.AreEqual("finger_suck", on.Portrait);
+                    StringAssert.Contains(EmotionNames.IntimateCatalogLine, director.SystemPromptSuffix);
+                    Assert.IsTrue(director.SystemPromptSuffix.Contains("finger_suck:"), "the prompt lists the gated expression");
+
+                    var smile = AnimationCueParser.Parse("<animation emotion=\"neutral\" gesture=\"smile\" />").Cue;
+                    var smileDecision = model.Decide(smile);
+                    Assert.AreNotEqual("finger_pull", smileDecision.Portrait, "a generic smile cue must not pick the finger set");
+                }
+                finally
+                {
+                    IntimateExpressions.Reset();
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+                IntimateExpressions.Reset();
+            }
+        }
+
+        [Test]
         public void ShippedCatalog_SuffixAsksForTheCueTag()
         {
             var catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>("Assets/_Project/Settings/AnimationCatalog.asset");

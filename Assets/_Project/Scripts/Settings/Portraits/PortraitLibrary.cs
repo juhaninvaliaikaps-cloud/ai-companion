@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using AICompanion.Core;
 
 namespace AICompanion.Settings
 {
@@ -34,6 +35,15 @@ namespace AICompanion.Settings
     {
         public const string FolderName = "portraits";
         public const string MapFileName = "portraits.json";
+
+        /// <summary>The adult portrait folder sits next to the normal one. Never merged while the gate is off.</summary>
+        public static string Adult(string applicationData, string persistentDataPath)
+        {
+            var root = SettingsLocations.Folder(applicationData, persistentDataPath);
+            if (string.IsNullOrEmpty(root))
+                return null;
+            return Path.Combine(root, "portraits-adult");
+        }
 
         public static string Primary(string applicationData, string persistentDataPath)
         {
@@ -110,6 +120,15 @@ namespace AICompanion.Settings
 
         public static PortraitLibrary Load(string folder)
         {
+            return Load(folder, false);
+        }
+
+        /// <summary>
+        /// Loads a folder. The normal portraits folder skips the gated adult stems; the
+        /// portraits-adult folder is loaded explicitly with includeIntimate true.
+        /// </summary>
+        public static PortraitLibrary Load(string folder, bool includeIntimate)
+        {
             var library = new PortraitLibrary();
             if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder))
                 return library;
@@ -125,7 +144,12 @@ namespace AICompanion.Settings
             }
 
             for (var i = 0; i < files.Length; i++)
-                library.Add(Path.GetFileName(files[i]), files[i]);
+            {
+                var name = Path.GetFileName(files[i]);
+                if (!includeIntimate && IntimateExpressions.IsIntimateId(Path.GetFileNameWithoutExtension(name)))
+                    continue;
+                library.Add(name, files[i]);
+            }
             return library;
         }
 
@@ -142,6 +166,15 @@ namespace AICompanion.Settings
             string current;
             if (!_paths.TryGetValue(stem, out current) || Prefers(fileName, current))
                 _paths[stem] = fullPath;
+        }
+
+        /// <summary>Adds every file from another library. Used for the gated adult folder.</summary>
+        public void Merge(PortraitLibrary other)
+        {
+            if (other == null || other == this)
+                return;
+            foreach (var pair in other._paths)
+                _paths[pair.Key] = pair.Value;
         }
 
         public string Existing(string stemOrFile)
