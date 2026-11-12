@@ -22,7 +22,9 @@ namespace AICompanion.UI
                 for (var i = 0; i < lines.Count && written < MaxLines; i++)
                 {
                     var line = lines[i];
-                    if (line == null || line.Streaming && string.IsNullOrEmpty(line.Text))
+                    if (line == null || !line.KeepInHistory)
+                        continue;
+                    if (line.Streaming && string.IsNullOrEmpty(line.Text))
                         continue;
                     if (string.IsNullOrEmpty(line.Text))
                         continue;

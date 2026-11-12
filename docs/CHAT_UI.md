@@ -14,6 +14,7 @@ The system prompt lives on `ChatSettings.systemPrompt`. A persona selected in Se
 | **Enter** | Message field focused | Send the draft. Send is ignored while a reply is streaming. A new send also stops any speech still playing. |
 | **Esc** | A reply is streaming, speech is playing, or the field is focused | Cancel the reply and stop speech. Also leaves the text field. |
 | **Stop** | While a reply is streaming, or while speech is still playing | Same cancel as Esc. The button reads **Send** when idle. |
+| **What do you see?** | The button under the title. It reads **Stop look** while a look is in progress | Asks about the window selected under Settings → Screen. See [SCREEN_LOOK.md](SCREEN_LOOK.md). |
 | **Mute** / **F6** | **F6** is ignored while a text field is focused | Mute or unmute speech. Saved in `PlayerPrefs` (`ai-companion.tts-muted`). See [VOICE.md](VOICE.md). |
 | **F9** | Panel field is not focused | Cycle the expression portrait preview. It does not open the panel, send the draft, or start a greeting. See [PORTRAITS.md](PORTRAITS.md). |
 | **V** / **Mic** | **V** is ignored while a text field is focused. **Mic** is a hold | Record speech, then send the transcript as a **You** line. See [VOICE.md](VOICE.md). |

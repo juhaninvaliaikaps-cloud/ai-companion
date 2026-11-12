@@ -37,6 +37,8 @@ namespace AICompanion.UI
         RectTransform _content;
         Text _transcript;
         Text _actionLabel;
+        Text _lookLabel;
+        Button _lookButton;
         Text _muteLabel;
         Text _modelBadge;
         string _badgeProvider = string.Empty;
@@ -135,6 +137,9 @@ namespace AICompanion.UI
                 BindSpeech();
                 if (_speech != null && _speech.IsSpeaking)
                     return true;
+                var look = GetComponent<IScreenLook>();
+                if (look != null && look.IsBusy)
+                    return true;
                 if (_input != null && _input.isFocused)
                     return true;
                 return _keyInput != null && _keyInput.isFocused;
@@ -205,6 +210,9 @@ namespace AICompanion.UI
 
             if (Input.GetKeyDown(KeyCode.Escape))
             {
+                var look = GetComponent<IScreenLook>();
+                if (look != null && look.IsBusy)
+                    look.Stop();
                 if (_conversation != null && _conversation.IsBusy)
                     CancelReply();
                 else
@@ -227,6 +235,17 @@ namespace AICompanion.UI
             var speaking = _speech != null && _speech.IsSpeaking;
             if (_actionLabel != null)
                 _actionLabel.text = busy || speaking ? "Stop" : "Send";
+            if (_lookLabel != null)
+            {
+                var look = GetComponent<IScreenLook>();
+                _lookLabel.text = look != null && look.IsBusy ? "Stop look" : "What do you see?";
+                if (_lookButton != null)
+                {
+                    var interactable = look == null || look.LookButtonInteractable;
+                    if (_lookButton.interactable != interactable)
+                        _lookButton.interactable = interactable;
+                }
+            }
             RefreshMuteLabel();
             RefreshMic();
             RefreshModelBadge();
@@ -271,9 +290,136 @@ namespace AICompanion.UI
             return TrySend(text);
         }
 
+        public void CancelActiveReply()
+        {
+            CancelReply();
+        }
+
+        public bool SubmitObservation(ChatImageAttachment image, string windowTitle)
+        {
+            if (!_alive || image == null)
+            {
+                if (image != null)
+                    image.Wipe();
+                return false;
+            }
+
+            if (!_started)
+                StartCompanion();
+            if (!_visible)
+                SetVisible(true, false);
+            if (_conversation == null || _conversation.IsBusy)
+            {
+                image.Wipe();
+                return false;
+            }
+
+            var privacy = GetComponent<IPrivacyMode>();
+            var privateMode = privacy != null && privacy.PrivateMode;
+            var providerId = settings != null ? settings.providerId : string.Empty;
+            if (privateMode)
+                providerId = ChatDefaults.LocalId;
+            var model = settings != null ? settings.model : string.Empty;
+            if (privateMode || !OutboundAllowsVision(privateMode))
+            {
+                _conversation.AddSystem(VisionCapability.PrivateRefusal);
+                image.Wipe();
+                RefreshTranscript(true);
+                return false;
+            }
+
+            if (ActiveChatLabel.IsLocal(providerId))
+            {
+                _conversation.AddSystem(VisionCapability.LocalRefusal);
+                image.Wipe();
+                RefreshTranscript(true);
+                return false;
+            }
+
+            if (!VisionCapability.CloudModelAcceptsImages(model) || !VisionCapability.AcceptsPayload(image))
+            {
+                _conversation.AddSystem(!VisionCapability.CloudModelAcceptsImages(model) ? VisionCapability.ModelRefusal : VisionCapability.PayloadRefusal);
+                image.Wipe();
+                RefreshTranscript(true);
+                return false;
+            }
+
+            if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
+            {
+                var message = ChatErrors.UnknownProvider(providerId);
+                _conversation.AddSystem(message);
+                image.Wipe();
+                RefreshTranscript(true);
+                return false;
+            }
+
+            if (_cancel != null)
+                _cancel.Dispose();
+            _cancel = new CancellationTokenSource();
+            BeginSpeech(privateMode, providerId);
+            var prompt = VisionPrompt.Append(DirectorPrompt.Append(settings.systemPrompt, DirectorSuffix()));
+            var options = new ChatTurnOptions
+            {
+                Image = image,
+                SingleTurn = true,
+                Ephemeral = true,
+                BlockCloud = privateMode
+            };
+            Dispatch(provider, VisionPrompt.UserLine(windowTitle), prompt, settings.temperature, settings.maxTokens, _cancel.Token, options, false);
+            return true;
+        }
+
+        /// <summary>
+        /// Text-only follow-up after a local vision model has already described the window.
+        /// The image is not attached. The turn stays out of history and memory.
+        /// </summary>
+        public bool SubmitTextObservation(string observation)
+        {
+            if (!_alive || !VisionPrompt.HasObservation(observation))
+                return false;
+            if (!_started)
+                StartCompanion();
+            if (!_visible)
+                SetVisible(true, false);
+            if (_conversation == null || _conversation.IsBusy)
+                return false;
+
+            var privacy = GetComponent<IPrivacyMode>();
+            var privateMode = privacy != null && privacy.PrivateMode;
+            var providerId = ChatDefaults.LocalId;
+            if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
+            {
+                _conversation.AddSystem(ChatErrors.UnknownProvider(providerId));
+                RefreshTranscript(true);
+                return false;
+            }
+
+            if (_cancel != null)
+                _cancel.Dispose();
+            _cancel = new CancellationTokenSource();
+            BeginSpeech(true, providerId);
+            var prompt = VisionPrompt.AppendLocalChat(DirectorPrompt.Append(settings.systemPrompt, DirectorSuffix()));
+            var options = new ChatTurnOptions
+            {
+                SingleTurn = true,
+                Ephemeral = true,
+                BlockCloud = true
+            };
+            Dispatch(provider, VisionPrompt.LocalObservationTurn(observation), prompt, settings.temperature, settings.maxTokens, _cancel.Token, options, false);
+            return true;
+        }
+
+        static bool OutboundAllowsVision(bool privateMode)
+        {
+            return !privateMode;
+        }
+
         bool TrySend(string text)
         {
             if (_conversation == null || _conversation.IsBusy || string.IsNullOrWhiteSpace(text))
+                return false;
+            var look = GetComponent<IScreenLook>();
+            if (look != null && look.IsBusy)
                 return false;
 
             var privacy = GetComponent<IPrivacyMode>();
@@ -313,20 +459,69 @@ namespace AICompanion.UI
             var prompt = DirectorPrompt.Append(settings.systemPrompt, suffix);
             var temperature = settings.temperature;
             var maxTokens = settings.maxTokens;
-            Dispatch(provider, text, prompt, temperature, maxTokens, _cancel.Token);
+            Dispatch(provider, text, prompt, temperature, maxTokens, _cancel.Token, null, true);
             return true;
         }
 
-        async void Dispatch(IChatProvider provider, string text, string prompt, float temperature, int maxTokens, CancellationToken token)
+        void BeginSpeech(bool privateMode, string providerId)
         {
-            var result = await _exchange.Run(provider, text, prompt, temperature, maxTokens, token);
+            BindSpeech();
+            if (_speech == null)
+                return;
+
+            var local = privateMode || ActiveChatLabel.IsLocal(providerId);
+            _speech.Cancel();
+            _speech.BeginUtterance(new SpeechOrigin
+            {
+                ChatProviderId = local ? ChatDefaults.LocalId : providerId,
+                Model = local ? settings.localModel : settings.model,
+                Private = privateMode
+            });
+        }
+
+        string DirectorSuffix()
+        {
+            var director = GetComponent<Director>();
+            if (director == null)
+                return string.Empty;
+            return director.SystemPromptSuffix;
+        }
+
+        void OnLookClick()
+        {
+            var look = GetComponent<IScreenLook>();
+            if (look == null)
+            {
+                if (_conversation != null)
+                {
+                    _conversation.AddSystem(ScreenLookMissing);
+                    RefreshTranscript(true);
+                }
+
+                return;
+            }
+
+            if (look.IsBusy)
+                look.Stop();
+            else
+                look.RequestLook();
+        }
+
+        const string ScreenLookMissing = "Window capture is not available in this session.";
+
+        async void Dispatch(IChatProvider provider, string text, string prompt, float temperature, int maxTokens, CancellationToken token, ChatTurnOptions options, bool remember)
+        {
+            var result = await _exchange.Run(provider, text, prompt, temperature, maxTokens, token, options);
+            if (options != null && options.Image != null)
+                options.Image.Wipe();
             if (!_alive)
                 return;
 
             if (result.Ok)
             {
                 ApplyCue();
-                CaptureMemory(provider, text, result.Text);
+                if (remember)
+                    CaptureMemory(provider, text, result.Text);
             }
 
             BindSpeech();
@@ -338,8 +533,10 @@ namespace AICompanion.UI
                     _speech.Cancel();
             }
 
-            if (result.Ok)
+            if (result.Ok && remember)
                 Debug.Log("Chat reply: " + result.Text);
+            else if (result.Ok)
+                Debug.Log("Screen look finished");
             else if (!string.IsNullOrEmpty(result.LogMessage))
                 Debug.LogWarning(result.LogMessage);
             else if (!string.IsNullOrEmpty(result.UserMessage))
@@ -900,10 +1097,20 @@ namespace AICompanion.UI
             actionRect.sizeDelta = new Vector2(64f, 22f);
             _actionLabel = action.GetComponentInChildren<Text>();
 
+            _lookButton = CreateButton(_panel.transform, font, "What do you see?", OnLookClick);
+            var look = _lookButton.gameObject;
+            var lookRect = look.GetComponent<RectTransform>();
+            lookRect.anchorMin = new Vector2(0f, 1f);
+            lookRect.anchorMax = new Vector2(1f, 1f);
+            lookRect.pivot = new Vector2(0.5f, 1f);
+            lookRect.anchoredPosition = new Vector2(0f, -30f);
+            lookRect.sizeDelta = new Vector2(-12f, 22f);
+            _lookLabel = look.GetComponentInChildren<Text>();
+
             var scrollObject = new GameObject("History");
             scrollObject.transform.SetParent(_panel.transform, false);
             var scrollRect = scrollObject.AddComponent<RectTransform>();
-            Stretch(scrollRect, 6f, 30f, 6f, 64f);
+            Stretch(scrollRect, 6f, 56f, 6f, 64f);
             _scroll = scrollObject.AddComponent<ScrollRect>();
             _scroll.horizontal = false;
             _scroll.vertical = true;

@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 
 namespace AICompanion.AI
@@ -59,6 +60,7 @@ namespace AICompanion.AI
             if (string.IsNullOrEmpty(text))
                 return string.Empty;
 
+            text = RedactDataImages(text);
             var sb = new StringBuilder(text.Length);
             for (var i = 0; i < text.Length;)
             {
@@ -237,6 +239,34 @@ namespace AICompanion.AI
                 }
 
                 sb.Append(c);
+            }
+
+            return sb.ToString();
+        }
+
+        static string RedactDataImages(string text)
+        {
+            const string marker = "data:image";
+            var at = text.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (at < 0)
+                return text;
+
+            var sb = new StringBuilder(text.Length);
+            var i = 0;
+            while (i < text.Length)
+            {
+                at = text.IndexOf(marker, i, StringComparison.OrdinalIgnoreCase);
+                if (at < 0)
+                {
+                    sb.Append(text, i, text.Length - i);
+                    break;
+                }
+
+                sb.Append(text, i, at - i);
+                sb.Append("[image]");
+                i = at + marker.Length;
+                while (i < text.Length && text[i] != '"' && !char.IsWhiteSpace(text[i]))
+                    i++;
             }
 
             return sb.ToString();
