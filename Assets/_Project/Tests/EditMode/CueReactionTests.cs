@@ -250,11 +250,63 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void ReactionName_PoutAndPouty_ResolveToPoutOnEveryPath()
+        {
+            AvatarReactionCatalog.Set(new[] { "happy", "pout", "wink_dance" });
+
+            Assert.AreEqual("pout", Director.ReactionName(AnimationCueParser.Parse("<animation reaction=\"pout\" />\nx").Cue));
+            Assert.AreEqual("pout", Director.ReactionName(AnimationCueParser.Parse("<animation reaction=\"pouty\" />\nx").Cue));
+            Assert.AreEqual("pout", Director.ReactionName(AnimationCueParser.Parse("<animation gesture=\"pout\" />\nx").Cue));
+            Assert.AreEqual("pout", Director.ReactionName(AnimationCueParser.Parse("<animation gesture=\"pouty\" />\nx").Cue));
+            Assert.AreEqual("pout", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"pout\" />\nx").Cue));
+            Assert.AreEqual("pout", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"pouty\" />\nx").Cue));
+            Assert.AreEqual("pout", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"pout\" gesture=\"walk\" direction=\"left\" />\nx").Cue));
+            Assert.AreEqual("pout", Director.ReactionName(AnimationCueParser.Parse("<animation emotion=\"pouty\" gesture=\"walk\" direction=\"left\" />\nx").Cue));
+            Assert.AreEqual("pout", Director.ReactionName(AnimationCueParser.Parse("<animation reaction=\"pouty\" gesture=\"walk\" direction=\"left\" />\nx").Cue));
+        }
+
+        [Test]
+        public void Play_PoutCue_RequestsThePoutClipOnEveryPath()
+        {
+            AvatarReactionCatalog.Set(new[] { "happy", "pout", "wink_dance" });
+            var host = new GameObject("director-pout-play");
+            try
+            {
+                var director = host.AddComponent<Director>();
+                var reactions = host.AddComponent<RecordingReactions>();
+                var tags = new[]
+                {
+                    "<animation reaction=\"pout\" />",
+                    "<animation reaction=\"pouty\" />",
+                    "<animation gesture=\"pout\" />",
+                    "<animation gesture=\"pouty\" />",
+                    "<animation emotion=\"pout\" intensity=\"0.6\" />",
+                    "<animation emotion=\"pouty\" intensity=\"0.6\" face=\"pouty\" />",
+                    "<animation emotion=\"pout\" gesture=\"walk\" direction=\"left\" />",
+                    "<animation emotion=\"pouty\" gesture=\"walk\" direction=\"left\" />",
+                };
+
+                foreach (var tag in tags)
+                {
+                    reactions.Last = null;
+                    director.Play(AnimationCueParser.Parse(tag + "\nFine.").Cue);
+                    Assert.AreEqual("pout", reactions.Last, tag);
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
         public void Catalog_Find_IsTheNameOrTheOnlyNameStartingWithTheWord()
         {
             AvatarReactionCatalog.Set(new[] { "pout", "turn_around_back", "turn_around_front", "wink_dance" });
 
             Assert.AreEqual("pout", AvatarReactionCatalog.Find("POUT"));
+            Assert.AreEqual("pout", AvatarReactionCatalog.Find("pouty"));
+            Assert.AreEqual("pout", AvatarReactionCatalog.Find("pouting"));
             Assert.AreEqual("wink_dance", AvatarReactionCatalog.Find("wink"));
             // Two fit: none.
             Assert.AreEqual(string.Empty, AvatarReactionCatalog.Find("turn_around"));
@@ -262,6 +314,18 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(string.Empty, AvatarReactionCatalog.Find("po"));
             Assert.AreEqual(string.Empty, AvatarReactionCatalog.Find(""));
             Assert.AreEqual(string.Empty, AvatarReactionCatalog.Find(null));
+        }
+    }
+
+    /// <summary>Records the reaction name the director asks for in the Play tests.</summary>
+    public sealed class RecordingReactions : MonoBehaviour, IAvatarReactions
+    {
+        public string Last;
+
+        public AvatarReactionResult RequestReaction(string name)
+        {
+            Last = name;
+            return AvatarReactionResult.Started;
         }
     }
 }

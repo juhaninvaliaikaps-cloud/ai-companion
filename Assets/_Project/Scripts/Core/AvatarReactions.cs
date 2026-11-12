@@ -73,13 +73,14 @@ namespace AICompanion.Core
         }
 
         /// <summary>
-        /// The offered reaction a model's word stands for: the same name, or else the one
-        /// offered name that starts with the word and an underscore (turn_around ->
-        /// turn_around_back, wink -> wink_dance). Empty when none or more than one fit.
+        /// The offered reaction a model's word stands for: the same name, a known spelling
+        /// such as "pouty" for "pout", or else the one offered name that starts with the
+        /// word and an underscore (turn_around -> turn_around_back, wink -> wink_dance).
+        /// Empty when none or more than one fit.
         /// </summary>
         public static string Find(string word)
         {
-            var token = AnimationCueParser.SanitizeGesture(word);
+            var token = Canonical(AnimationCueParser.SanitizeGesture(word));
             if (token.Length == 0)
                 return string.Empty;
             if (_names.Contains(token))
@@ -97,6 +98,30 @@ namespace AICompanion.Core
             }
 
             return found;
+        }
+
+        /// <summary>
+        /// The clip name for a spelling the model may write. Only known aliases change;
+        /// every other name is returned untouched so existing reactions keep resolving
+        /// exactly as before. Used for the reaction attribute, which skips <see cref="Find"/>.
+        /// </summary>
+        public static string Alias(string name)
+        {
+            var token = AnimationCueParser.SanitizeGesture(name);
+            var canonical = Canonical(token);
+            return string.Equals(canonical, token, StringComparison.Ordinal) ? name : canonical;
+        }
+
+        static string Canonical(string token)
+        {
+            switch (token)
+            {
+                case "pouty":
+                case "pouting":
+                    return "pout";
+                default:
+                    return token;
+            }
         }
 
         /// <summary>The prompt line for the current list, or empty when there is none.</summary>
