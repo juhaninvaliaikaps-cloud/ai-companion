@@ -1,5 +1,7 @@
 # Avatars
 
+This page is about the 3D avatar. The optional looping 2D clip is in [VIDEO_AVATAR.md](VIDEO_AVATAR.md).
+
 The overlay shows one humanoid at a time. `AvatarMount` loads it and hides the pink capsule while a model is showing. Drag and click-through follow the rendered silhouette (the framebuffer pixel under the cursor), so the empty space around the mesh stays click-through. The capsule comes back if nothing loads.
 
 `Assets/_Project/Settings/AvatarSelection.asset` chooses the model. Preference `Auto` uses the first source that exists:

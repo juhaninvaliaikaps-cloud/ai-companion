@@ -22,11 +22,15 @@ namespace AICompanion.Core
         /// <summary>The visible text after the last <see cref="Flush"/>.</summary>
         public string Text { get; private set; }
 
+        /// <summary>The tag as the model wrote it, after the last <see cref="Flush"/>. Empty when there was none.</summary>
+        public string RawTag { get; private set; }
+
         public CueStreamFilter()
         {
             Cue = AnimationCueParser.NeutralCue;
             Status = CueParseStatus.None;
             Text = string.Empty;
+            RawTag = string.Empty;
         }
 
         public string Push(string piece)
@@ -45,6 +49,7 @@ namespace AICompanion.Core
             Cue = result.Cue;
             Status = result.Status;
             Text = result.Text;
+            RawTag = result.RawTag;
             return TakeNew(result.Text);
         }
 

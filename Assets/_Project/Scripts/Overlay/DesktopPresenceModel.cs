@@ -43,6 +43,21 @@ namespace AICompanion.Overlay
         Falling = 2,
     }
 
+    /// <summary>
+    /// How a walk is ending when a gait is set. Without a gait a walk ends at once and
+    /// this is always <see cref="None"/>.
+    /// </summary>
+    public enum PresenceStopPhase
+    {
+        None = 0,
+
+        /// <summary>A stop was asked. She keeps full speed until the walk animation reaches its loop point.</summary>
+        Lead = 1,
+
+        /// <summary>She slows to a halt while the stop animation plays.</summary>
+        Glide = 2,
+    }
+
     public readonly struct PresenceFrame
     {
         public PresenceFrame(int x, int y, PresenceState state, bool facingRight, bool moved)
@@ -87,6 +102,8 @@ namespace AICompanion.Overlay
         public const float DefaultMinWalk = 1.5f;
         public const float DefaultMaxWalk = 4.5f;
         public const float MaxStepSeconds = 0.1f;
+        public const float MaxStopLeadSeconds = 15f;
+        public const float MaxStopGlideSeconds = 5f;
 
         readonly Random _random;
         readonly float _walkSpeed;
@@ -108,6 +125,16 @@ namespace AICompanion.Overlay
         float _timer;
         int _direction = 1;
         float _footOffsetPx;
+
+        // Gait of a walking animation that is not the 3D one. All zero means "no gait":
+        // the walk uses the constructor speed and ends at once, as it always did.
+        bool _hasGait;
+        float _gaitSpeed;
+        float _gaitLeadSeconds;
+        float _gaitGlideSeconds;
+        PresenceStopPhase _stopPhase;
+        float _stopTimer;
+        float _glideTotal;
 
         public DesktopPresenceModel(
             int windowWidth,
@@ -157,6 +184,67 @@ namespace AICompanion.Overlay
         public DesktopWorkArea WorkArea
         {
             get { return _area; }
+        }
+
+        /// <summary>True when <see cref="SetGait"/> has set a walking speed. That speed may be zero.</summary>
+        public bool HasGait
+        {
+            get { return _hasGait; }
+        }
+
+        /// <summary>None unless she is walking and a stop is in progress.</summary>
+        public PresenceStopPhase StopPhase
+        {
+            get { return State == PresenceState.Walking ? _stopPhase : PresenceStopPhase.None; }
+        }
+
+        /// <summary>Pixels per second she moves right now. Zero when she is not walking.</summary>
+        public float CurrentSpeed
+        {
+            get
+            {
+                if (State != PresenceState.Walking)
+                    return 0f;
+
+                var speed = _hasGait ? _gaitSpeed : _walkSpeed;
+                if (_stopPhase == PresenceStopPhase.Glide)
+                    return _glideTotal > 0f ? speed * Math.Max(0f, _stopTimer / _glideTotal) : 0f;
+                return speed;
+            }
+        }
+
+        /// <summary>
+        /// Matches the window's movement to a walking animation. <paramref name="speed"/>
+        /// is pixels per second and may change every frame, also during a stop, so the
+        /// caller can follow the feet in the clip. When a walk ends she keeps walking for
+        /// <paramref name="stopLeadSeconds"/> (the time the animation still needs to finish
+        /// its steps), then slows to zero over <paramref name="stopGlideSeconds"/>. The two
+        /// durations in force when the stop begins are the ones used.
+        /// </summary>
+        public void SetGait(float speed, float stopLeadSeconds, float stopGlideSeconds)
+        {
+            _hasGait = true;
+            _gaitSpeed = IsUsable(speed) ? Math.Max(0f, speed) : 0f;
+            _gaitLeadSeconds = IsUsable(stopLeadSeconds) ? Math.Min(Math.Max(stopLeadSeconds, 0f), MaxStopLeadSeconds) : 0f;
+            _gaitGlideSeconds = IsUsable(stopGlideSeconds) ? Math.Min(Math.Max(stopGlideSeconds, 0f), MaxStopGlideSeconds) : 0f;
+        }
+
+        /// <summary>Back to the constructor speed and an immediate stop.</summary>
+        public void ClearGait()
+        {
+            _hasGait = false;
+            _gaitSpeed = 0f;
+            _gaitLeadSeconds = 0f;
+            _gaitGlideSeconds = 0f;
+            // A stop that was under way belongs to the gait (the 2D walk-stop). Without the
+            // gait a stop is immediate, so finish it now instead of sliding on at full speed.
+            if (State == PresenceState.Walking && _stopPhase != PresenceStopPhase.None)
+                StopWalking();
+        }
+
+        static bool IsUsable(float value)
+        {
+            return !float.IsNaN(value) && !float.IsInfinity(value);
         }
 
         /// <summary>
@@ -293,22 +381,31 @@ namespace AICompanion.Overlay
                     break;
 
                 case PresenceState.Walking:
-                    _x += _direction * _walkSpeed * step;
-                    if (_x <= _area.Left)
+                    _x += _direction * CurrentSpeed * step;
+                    // An edge ends a walk toward it at once. There is no room to slow down in.
+                    // A walk away from the edge carries on: with a gait she can stand still
+                    // for a moment at the start, and must not be stopped by the edge behind her.
+                    if (_direction < 0 && _x <= _area.Left)
                     {
                         _x = _area.Left;
                         StopWalking();
+                        EndedAtEdge = -1;
                     }
-                    else if (_x >= _area.Right - _windowWidth)
+                    else if (_direction > 0 && _x >= _area.Right - _windowWidth)
                     {
                         _x = _area.Right - _windowWidth;
                         StopWalking();
+                        EndedAtEdge = 1;
+                    }
+                    else if (_stopPhase != PresenceStopPhase.None)
+                    {
+                        TickStop(step);
                     }
                     else
                     {
                         _timer -= step;
                         if (_timer <= 0f)
-                            StopWalking();
+                            BeginStop();
                     }
                     break;
 
@@ -337,26 +434,79 @@ namespace AICompanion.Overlay
         /// Walks for a bounded time in the requested direction. A drop in progress is left
         /// alone so the request cannot teleport her off the ground.
         /// </summary>
+        /// <summary>
+        /// -1 when the last walk ended at the left edge, 1 at the right edge, 0 otherwise.
+        /// Cleared by the next walk.
+        /// </summary>
+        public int EndedAtEdge { get; private set; }
+
         public void RequestWalk(float direction, float seconds)
         {
             if (State == PresenceState.Falling)
                 return;
 
+            EndedAtEdge = 0;
+
             State = PresenceState.Walking;
             _direction = direction < 0f ? -1 : 1;
             _timer = Math.Min(30f, Math.Max(0.2f, seconds));
+            // A new walk during a stop cancels the stop, so she never moves two ways at once.
+            _stopPhase = PresenceStopPhase.None;
+            _stopTimer = 0f;
         }
 
         public void RequestStop()
         {
-            if (State == PresenceState.Walking)
+            if (State == PresenceState.Walking && _stopPhase == PresenceStopPhase.None)
+                BeginStop();
+        }
+
+        /// <summary>
+        /// Ends a walk. With no gait she stands still at once. With a gait she keeps
+        /// walking through the lead and then slows down through the glide.
+        /// </summary>
+        void BeginStop()
+        {
+            if (!_hasGait || (_gaitLeadSeconds <= 0f && _gaitGlideSeconds <= 0f))
+            {
                 StopWalking();
+                return;
+            }
+
+            _glideTotal = _gaitGlideSeconds;
+            if (_gaitLeadSeconds > 0f)
+            {
+                _stopPhase = PresenceStopPhase.Lead;
+                _stopTimer = _gaitLeadSeconds;
+                return;
+            }
+
+            _stopPhase = PresenceStopPhase.Glide;
+            _stopTimer = _glideTotal;
+        }
+
+        void TickStop(float step)
+        {
+            _stopTimer -= step;
+            if (_stopTimer > 0f)
+                return;
+
+            if (_stopPhase == PresenceStopPhase.Lead && _glideTotal > 0f)
+            {
+                _stopPhase = PresenceStopPhase.Glide;
+                _stopTimer = _glideTotal;
+                return;
+            }
+
+            StopWalking();
         }
 
         void StartWalking()
         {
             State = PresenceState.Walking;
             _timer = NextWalk();
+            _stopPhase = PresenceStopPhase.None;
+            _stopTimer = 0f;
 
             var atLeft = _x <= _area.Left + 0.5f;
             var atRight = _x >= _area.Right - _windowWidth - 0.5f;
@@ -372,6 +522,8 @@ namespace AICompanion.Overlay
         {
             State = PresenceState.Idle;
             _timer = NextPause();
+            _stopPhase = PresenceStopPhase.None;
+            _stopTimer = 0f;
         }
 
         float ClampX(float x)

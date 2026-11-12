@@ -158,12 +158,14 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void Parse_TagWithoutSelfClosingSlash_IsInvalid()
+        public void Parse_TagWithoutSelfClosingSlash_IsRead()
         {
+            // Models drop the slash. Since JUH-99 that tag is read instead of thrown away.
             var result = AnimationCueParser.Parse("Hello\n<animation emotion=\"happy\">");
 
             Assert.AreEqual("Hello", result.Text);
-            Assert.AreEqual(CueParseStatus.Invalid, result.Status);
+            Assert.AreEqual(CueParseStatus.Parsed, result.Status);
+            Assert.AreEqual(Emotion.Happy, result.Cue.Emotion);
         }
 
         [Test]

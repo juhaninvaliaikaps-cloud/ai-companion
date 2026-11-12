@@ -101,6 +101,78 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void ReplyWalk_In2DVideoMode_MovesThePresenceAtTheClipSpeedAndStartsTheWalkClip()
+        {
+            // JUH-99. The 2D video avatar sets a gait on the presence every frame. A reply's
+            // walk cue must still walk her, at that gait, and the video director must pick
+            // the walk clip from what the presence reports.
+            var host = Track(new GameObject("video-walk-host"));
+            host.AddComponent<RecordingAvatar>();
+            host.AddComponent<RecordingLocomotion>();
+            var director = host.AddComponent<Director>();
+            var presence = host.AddComponent<DesktopPresence>();
+            AssignCatalog(director, WalkCatalog());
+
+            var clips = AICompanion.Settings.VideoAvatarManifest.Resolve(null, new[] { "idle.sbs.mp4", "walk.sbs.mp4", "walk_stop.sbs.mp4" });
+            var video = new AICompanion.Settings.VideoAvatarDirector(clips, 1);
+
+            Step(presence, 0.1f, 800, true);
+            Step(presence, 0.1f, 800, false);
+            // Standing in 2D mode: the walk clip is not on screen, so the speed is zero.
+            presence.SetGait(0f, 3.8f, 0f);
+            Step(presence, 0.1f, 800, false);
+            Assert.AreEqual(PresenceState.Idle, presence.Model.State);
+            var start = presence.Model.X;
+
+            var filter = new CueStreamFilter();
+            filter.Push("On my way.\n<animation emotion=\"neutral\" gesture=\"walk\" direction=\"left\" />");
+            filter.Flush();
+            LogAssert.Expect(LogType.Log, "Walk: request received dir=-1 secs=12");
+            LogAssert.Expect(LogType.Log, "AnimationDirector: cue walk -> requested");
+            director.Play(filter.Cue);
+
+            // The same frame order as the player: the video avatar reads the presence, then the presence steps.
+            Step(presence, 0.1f, 800, false);
+            Assert.AreEqual(PresenceState.Walking, presence.Model.State);
+            Assert.AreEqual(start, presence.Model.X, 0.001f, "The window waits until the walk clip is on screen.");
+
+            var model = presence.Model;
+            video.SetMovement(model.State == PresenceState.Walking, model.FacingRight, model.StopPhase == PresenceStopPhase.Lead, model.StopPhase == PresenceStopPhase.Glide);
+            Assert.AreEqual(AICompanion.Settings.VideoAvatarAct.Walk, video.Act);
+            Assert.AreEqual(clips.Walk, video.Clip);
+            Assert.IsFalse(video.Mirrored);
+
+            // The walk clip shows: the video avatar now reports its speed.
+            for (var i = 0; i < 10; i++)
+            {
+                presence.SetGait(200f, 3.8f, 0f);
+                Step(presence, 0.1f, 800, false);
+            }
+
+            Assert.AreEqual(PresenceState.Walking, presence.Model.State);
+            Assert.AreEqual(start - 200f, presence.Model.X, 8f);
+
+            // A stop cue in 2D mode does not halt her mid-stride. The presence keeps walking
+            // for the lead, and the video director waits for the walk's loop point.
+            LogAssert.Expect(LogType.Log, "AnimationDirector: cue stop -> requested");
+            var stop = new CueStreamFilter();
+            stop.Push("Okay.\n<animation emotion=\"neutral\" gesture=\"stop\" />");
+            stop.Flush();
+            director.Play(stop.Cue);
+            Assert.AreEqual(PresenceState.Walking, presence.Model.State);
+            Assert.AreEqual(PresenceStopPhase.Lead, presence.Model.StopPhase);
+
+            video.SetMovement(true, model.FacingRight, true, false);
+            Assert.AreEqual(AICompanion.Settings.VideoAvatarAct.Walk, video.Act);
+            video.OnBoundary(false);
+            Assert.AreEqual(AICompanion.Settings.VideoAvatarAct.WalkStop, video.Act);
+
+            for (var i = 0; i < 45; i++)
+                Step(presence, 0.1f, 800, false);
+            Assert.AreEqual(PresenceState.Idle, presence.Model.State);
+        }
+
+        [Test]
         public void ReplyWalk_OnAnotherObject_StillMovesThatPresence()
         {
             var directorHost = Track(new GameObject("director-only"));

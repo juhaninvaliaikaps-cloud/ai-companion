@@ -18,13 +18,20 @@ namespace AICompanion.Core
         /// <summary>The emotion attribute text, trimmed, before aliasing. Empty when the tag omitted it.</summary>
         public string EmotionField { get; }
 
-        public AnimationCue(Emotion emotion, float intensity, string gesture, float direction = 0f, string emotionField = null)
+        /// <summary>
+        /// A body reaction clip the reply asks for by name, such as "pout" (2D video avatar).
+        /// Lower case letters, digits and underscores. Empty when the tag named none.
+        /// </summary>
+        public string Reaction { get; }
+
+        public AnimationCue(Emotion emotion, float intensity, string gesture, float direction = 0f, string emotionField = null, string reaction = null)
         {
             Emotion = emotion;
             Intensity = ClampIntensity(intensity);
             Gesture = gesture ?? string.Empty;
             Direction = NormalizeDirection(direction);
             EmotionField = EmotionNames.SanitizeField(emotionField);
+            Reaction = AnimationCueParser.SanitizeGesture(reaction);
         }
 
         /// <summary>-1 left, +1 right, 0 when the side was not named or the value is not a number.</summary>

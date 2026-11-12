@@ -121,6 +121,30 @@ namespace AICompanion.Settings
         public string PortraitFolder = string.Empty;
         public bool ShowExpressionPortrait;
 
+        /// <summary>"3d" for the humanoid model, "video" for the looping 2D clip.</summary>
+        public string AvatarMode = AvatarModeNames.ThreeD;
+
+        /// <summary>Optional clip folder. Empty uses %APPDATA%\ProjectLeia\video-avatar.</summary>
+        public string VideoAvatarFolder = string.Empty;
+
+        /// <summary>Share of the largest size that fits the window, 0.2 to 1.</summary>
+        public float VideoAvatarSize = VideoAvatarLayout.DefaultSize;
+
+        /// <summary>Sideways shift as a share of the window width. Negative is left.</summary>
+        public float VideoAvatarOffsetX;
+
+        /// <summary>Upward shift as a share of the window height. Negative sinks the clip below the window edge.</summary>
+        public float VideoAvatarOffsetY;
+
+        /// <summary>Walking speed of the 2D avatar in clip heights per second. 0 uses the walk clip's own value.</summary>
+        public float VideoAvatarWalkSpeed;
+
+        /// <summary>Plays the sound of clips the manifest marks with "sound": true. Off by default.</summary>
+        public bool PlayClipSounds;
+
+        /// <summary>Clip sound volume, 0 to 1.</summary>
+        public float ClipSoundVolume = VideoClipSound.DefaultVolume;
+
         /// <summary>Adult drawn expressions from the separate portraits-adult folder. Off by default.</summary>
         public bool IntimateExpressions;
 
@@ -176,6 +200,17 @@ namespace AICompanion.Settings
             Relationship = RelationshipStyles.Normalize(Relationship);
             PersonaId = PersonaIds.Normalize(PersonaId);
             PortraitFolder = PersonaDefinition.CleanPath(PortraitFolder);
+            AvatarMode = AvatarModeNames.Normalize(AvatarMode);
+            VideoAvatarFolder = PersonaDefinition.CleanPath(VideoAvatarFolder);
+            if (VideoAvatarFolders.LooksRemote(VideoAvatarFolder))
+                VideoAvatarFolder = string.Empty;
+            VideoAvatarSize = VideoAvatarLayout.ClampSize(VideoAvatarSize);
+            VideoAvatarOffsetX = VideoAvatarLayout.ClampOffsetX(VideoAvatarOffsetX);
+            VideoAvatarOffsetY = VideoAvatarLayout.ClampOffsetY(VideoAvatarOffsetY);
+            if (float.IsNaN(VideoAvatarWalkSpeed) || float.IsInfinity(VideoAvatarWalkSpeed) || VideoAvatarWalkSpeed < 0f)
+                VideoAvatarWalkSpeed = 0f;
+            VideoAvatarWalkSpeed = Math.Min(VideoAvatarWalkSpeed, VideoAvatarManifest.MaxWalkSpeed);
+            ClipSoundVolume = VideoClipSound.ClampVolume(ClipSoundVolume);
         }
 
         static string CleanToken(string value, string fallback, int max)
@@ -504,6 +539,22 @@ namespace AICompanion.Settings
                 settings.PortraitFolder = text;
             if (TryBool(json, "showExpressionPortrait", out flag))
                 settings.ShowExpressionPortrait = flag;
+            if (TryString(json, "avatarMode", out text))
+                settings.AvatarMode = text;
+            if (TryString(json, "videoAvatarFolder", out text))
+                settings.VideoAvatarFolder = text;
+            if (TryNumber(json, "videoAvatarSize", out number))
+                settings.VideoAvatarSize = (float)number;
+            if (TryNumber(json, "videoAvatarOffsetX", out number))
+                settings.VideoAvatarOffsetX = (float)number;
+            if (TryNumber(json, "videoAvatarOffsetY", out number))
+                settings.VideoAvatarOffsetY = (float)number;
+            if (TryNumber(json, "videoAvatarWalkSpeed", out number))
+                settings.VideoAvatarWalkSpeed = (float)number;
+            if (TryBool(json, "playClipSounds", out flag))
+                settings.PlayClipSounds = flag;
+            if (TryNumber(json, "clipSoundVolume", out number))
+                settings.ClipSoundVolume = (float)number;
             if (TryBool(json, "intimateExpressions", out flag))
                 settings.IntimateExpressions = flag;
             settings.Normalize();
@@ -565,6 +616,14 @@ namespace AICompanion.Settings
             String(sb, "personaId", source.PersonaId);
             String(sb, "portraitFolder", source.PortraitFolder);
             Bool(sb, "showExpressionPortrait", source.ShowExpressionPortrait);
+            String(sb, "avatarMode", source.AvatarMode);
+            String(sb, "videoAvatarFolder", source.VideoAvatarFolder);
+            Number(sb, "videoAvatarSize", source.VideoAvatarSize, false);
+            Number(sb, "videoAvatarOffsetX", source.VideoAvatarOffsetX, false);
+            Number(sb, "videoAvatarOffsetY", source.VideoAvatarOffsetY, false);
+            Number(sb, "videoAvatarWalkSpeed", source.VideoAvatarWalkSpeed, false);
+            Bool(sb, "playClipSounds", source.PlayClipSounds);
+            Number(sb, "clipSoundVolume", source.ClipSoundVolume, false);
             Bool(sb, "intimateExpressions", source.IntimateExpressions);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {

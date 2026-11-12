@@ -1,0 +1,115 @@
+{
+  "variationMinSeconds": 12,
+  "variationMaxSeconds": 30,
+  "clips": [
+    {
+      "name": "idle",
+      "role": "idle",
+      "color": "idle.sbs.mp4",
+      "playback": "loop",
+      "offsetY": -0.017
+    },
+    {
+      "name": "idle_breeze",
+      "role": "idleVariation",
+      "color": "idle_breeze.sbs.mp4",
+      "playback": "once",
+      "offsetY": -0.017
+    },
+    {
+      "name": "walk",
+      "role": "walk",
+      "color": "walk.sbs.mp4",
+      "playback": "loop",
+      "facing": "left",
+      "speed": 0.27,
+      "moveStart": 0.15,
+      "moveEnd": 4.95,
+      "moveRamp": 0.3,
+      "offsetY": -0.017
+    },
+    {
+      "name": "walk_stop",
+      "role": "walkStop",
+      "color": "walk_stop.sbs.mp4",
+      "playback": "once",
+      "facing": "left",
+      "moveStart": 0.15,
+      "moveEnd": 3.8,
+      "moveRamp": 0.4,
+      "after": "idle",
+      "offsetY": -0.017
+    },
+    {
+      "name": "happy",
+      "role": "reaction",
+      "color": "happy.sbs.mp4",
+      "playback": "once",
+      "offsetY": -0.017
+    },
+    {
+      "name": "concerned",
+      "role": "reaction",
+      "color": "concerned.sbs.mp4",
+      "playback": "once",
+      "offsetY": -0.017
+    },
+    {
+      "name": "turn360",
+      "role": "reaction",
+      "color": "turn360.sbs.mp4",
+      "playback": "once",
+      "offsetY": -0.017
+    },
+    {
+      "name": "embarrassed",
+      "role": "reaction",
+      "color": "embarrassed.sbs.mp4",
+      "playback": "once",
+      "offsetY": -0.017,
+      "sound": true
+    },
+    {
+      "name": "flustered",
+      "role": "reaction",
+      "color": "flustered.sbs.mp4",
+      "playback": "once",
+      "offsetY": -0.017,
+      "sound": true
+    },
+    {
+      "name": "pout",
+      "role": "reaction",
+      "color": "pout.sbs.mp4",
+      "playback": "once",
+      "offsetY": -0.017,
+      "sound": true
+    },
+    {
+      "name": "wink_dance",
+      "role": "reaction",
+      "color": "wink_dance.sbs.mp4",
+      "playback": "once",
+      "offsetY": -0.017,
+      "sound": true
+    },
+    {
+      "name": "turn_around_back",
+      "role": "reaction",
+      "color": "turn_around_back.sbs.mp4",
+      "playback": "once",
+      "after": "back_idle",
+      "offsetY": -0.017,
+      "sound": true
+    },
+    {
+      "name": "back_idle",
+      "role": "reaction",
+      "color": "back_idle.sbs.mp4",
+      "playback": "loop",
+      "hold": 12,
+      "offsetY": -0.017,
+      "sound": true
+    }
+  ]
+}

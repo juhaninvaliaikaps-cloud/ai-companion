@@ -157,6 +157,7 @@ namespace AICompanion.UI
             _conversation = new ChatConversation();
             _exchange = new ChatExchange(_conversation);
             _exchange.SpokenDelta = ForwardSpeech;
+            _exchange.TurnReminder = AnimationCueParser.TurnReminder;
             _registry = ChatProviderFactory.Create(settings, new EnvironmentApiKeySource(), new UnityChatTransport(this), MemoryRuntime.Decorator);
             _visible = PlayerPrefs.GetInt(OpenPref, 1) != 0;
             BuildUi();
@@ -751,6 +752,8 @@ namespace AICompanion.UI
         /// </summary>
         void ApplyCue()
         {
+            // What the model really wrote, so a missing or broken cue shows in Player.log.
+            Debug.Log(AnimationCueParser.DescribeTag(_exchange.LastCueTag, _exchange.LastCueStatus));
             Debug.Log(EmotionNames.FormatFieldLog(_exchange.LastCue.EmotionField));
             var director = GetComponent<Director>();
             if (director != null)
