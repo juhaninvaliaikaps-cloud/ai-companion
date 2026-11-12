@@ -751,18 +751,19 @@ namespace AICompanion.UI
         /// never reached the transcript or speech, so the avatar reacts to what was said
         /// rather than to markup.
         /// </summary>
-        int _moodCueGeneration = -1;
+        int _moodCueSerial;
 
         void ApplyCue()
         {
             // What the model really wrote, so a missing or broken cue shows in Player.log.
             Debug.Log(AnimationCueParser.DescribeTag(_exchange.LastCueTag, _exchange.LastCueStatus));
             Debug.Log(EmotionNames.FormatFieldLog(_exchange.LastCue.EmotionField));
-            // JUH-103: her own cue moves her lasting mood, once per chat turn. The screen-look
-            // remark paths call this without a new reply, and must not push the last cue again.
-            if (_conversation != null && _conversation.Generation != _moodCueGeneration)
+            // JUH-103: her own cue moves her lasting mood, once per finished reply. The
+            // screen-look remark paths call this without a new reply, and must not push the
+            // last cue again.
+            if (_exchange.CueSerial != _moodCueSerial)
             {
-                _moodCueGeneration = _conversation.Generation;
+                _moodCueSerial = _exchange.CueSerial;
                 CompanionMoodInputs.ReportCue(_exchange.LastCue);
             }
             var director = GetComponent<Director>();
