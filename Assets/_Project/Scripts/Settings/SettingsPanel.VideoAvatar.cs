@@ -94,6 +94,11 @@ namespace AICompanion.Settings
             AddButton("Test: happy", () => VideoReaction("happy"));
             AddButton("Test: concerned", () => VideoReaction("concerned"));
             AddButton("Test: spin (turn360)", () => VideoReaction("turn360"));
+            AddButton("Test: embarrassed", () => VideoReaction("embarrassed"));
+            AddButton("Test: flustered", () => VideoReaction("flustered"));
+            AddButton("Test: pout", () => VideoReaction("pout"));
+            AddButton("Test: wink dance", () => VideoReaction("wink_dance"));
+            AddButton("Test: turn around (back)", () => VideoReaction("turn_around_back"));
             var speedLabel = AddLabel(VideoSpeedText(_settings.VideoAvatarWalkSpeed));
             AddSlider(_settings.VideoAvatarWalkSpeed, 0f, 1f, false, value =>
             {

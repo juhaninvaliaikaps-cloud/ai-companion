@@ -9,7 +9,7 @@ What plays:
 - a walk loop while the desktop presence moves the window, mirrored for the other direction
 - a walk-stop, played once when the walk ends
 
-Reaction clips (`happy`, `concerned`, `turn360`) play once from the default idle and return to it. See [Reactions](#reactions). `walk_pivot180` is registered and not played yet.
+Reaction clips (`happy`, `concerned`, `turn360`, `embarrassed`, `flustered`, `pout`, `wink_dance`) play once from the default idle and return to it. `turn_around_back` is followed by the held back pose `back_idle`. See [Reactions](#reactions). `walk_pivot180` is registered and not played yet.
 
 ## What is verified and what is not
 
@@ -22,7 +22,8 @@ Reaction clips (`happy`, `concerned`, `turn360`) play once from the default idle
 | Expression portrait beside her head in 2D mode, steady while she walks | Automated tests of the anchor, the position and every mode switch. **Not yet seen in a player** |
 | Outline that slips (mask clipping) | Jussi, Windows build of e4e5657, 2026-11-12, with the reliable sync log. **Pairs drift:** walk runs 80.0%, 82.1%, 94.7% in step, with 14.8% to 17.2% of frames one frame off and 2.8% to 3.1% more than one; one idle run 89.2% in step, other idle runs 99.6 to 100%; walk-stop and the reactions 100%. **Packed: one decoder, so no drift is possible.** Every run was counted, with at most 1 frame skipped. The speed nudge did not keep the walk pair in step. Use the packed clips |
 | A walk cue from the chat model in 2D mode | Automated test from the reply text to the walk clip. In the player logs seen so far the model wrote no cue at all. See [Known behaviour](#known-behaviour) |
-| Reaction clips `happy`, `concerned`, `turn360` | Automated tests of the rules. **Not run in a player** |
+| Reaction clips `happy`, `concerned`, `turn360` | Jussi, Windows build of e4e5657: played once and returned to the idle (sync log). |
+| Reaction clips `embarrassed`, `flustered`, `pout`, `wink_dance`, and `turn_around_back` → `back_idle` | Automated tests of the rules. **Not run in a player** |
 | Movement speed against the feet, 10 minute run | **Not run in a player.** Use the [Windows checklist](#windows-checklist) |
 
 ## Turn it on and off
@@ -75,7 +76,7 @@ If there is no `idle` but there are idle variations, the first variation in alph
 
 Put a file named `video-avatar.json` in the clip folder to list the clips yourself. Then only the listed clips are used. File names in it are names inside the clip folder. A path is cut down to its file name.
 
-`tools/video-avatar/leia-keyed.video-avatar.json` is a ready manifest for the clips DeepSeek delivered on 2026-11-11.
+`tools/video-avatar/leia-keyed.video-avatar.json` is the ready manifest for the delivered keyed clips, in the **packed** form (`name.sbs.mp4`). Packed is the default since the Windows sync measurement on 2026-11-12: one decoder per clip, so the outline cannot slip. `tools/video-avatar/leia-keyed-pairs.video-avatar.json` lists the same clips as picture + mask pairs, for comparison.
 
 ```json
 {
@@ -105,7 +106,8 @@ Put a file named `video-avatar.json` in the clip folder to list the clips yourse
 | `speed` | Walk only. Window speed in clip heights per second. | `0.3` |
 | `moveStart`, `moveEnd` | Walk and walk-stop. Seconds into the clip between which her feet carry her. The window stands still outside it. `moveEnd` 0 means the end of the clip. | `0`, clip end |
 | `moveRamp` | Seconds to reach full speed after `moveStart` and to lose it before `moveEnd`. | `0.25` |
-| `after` | Walk-stop only. `idle` if the clip ends facing front in the idle pose, so the default idle may follow. Leave it out to hold the last frame. | hold |
+| `hold` | A pose that follows a reaction. Seconds she holds it before facing front again, at a loop point. | `12` |
+| `after` | On a reaction: the name of a looping reaction clip played after it as a held pose, for example `"turn_around_back"` → `"back_idle"`. On the walk-stop: `idle` if the clip ends facing front in the idle pose, so the default idle may follow. Leave it out to hold the last frame. | hold |
 | `weight` | Idle variation only. How often it is picked against the others. | `1` |
 | `variationMinSeconds`, `variationMaxSeconds` | Top level. Time on the default idle before a variation is queued. | `12`, `30` |
 | `headX`, `headY` | Top level. Where her head is in the default idle's frame, as shares from its left and its top. The expression portrait sits beside it in 2D mode. | `0.5`, `0.15` |
@@ -116,39 +118,35 @@ After editing the manifest or the folder, press **Reload video** on the Avatar t
 
 ## Install the delivered clips for a test
 
-This copies files into a new folder and changes one setting. Nothing is overwritten. To undo it, clear **Video folder** or choose **Avatar: 3D model**.
+This copies files into a new folder and changes one setting. Nothing in your source folder is changed. To undo it, clear **Video folder** or choose **Avatar: 3D model**.
 
 ```powershell
-$src  = "C:\Users\Jussi\Downloads\portraits\animations\keyd"
-$dst  = Join-Path $env:APPDATA "ProjectLeia\video-avatar-test"
-$repo = "C:\path\to\ai-companion-pr56"     # the PR #56 checkout, see below
+$src   = "C:\Users\Jussi\Downloads\portraits\animations\keyd"
+$dst   = Join-Path $env:APPDATA "ProjectLeia\video-avatar-packed"
+$repo  = "C:\path\to\ai-companion-pr56"     # the PR #56 checkout, see below
+$clips = "idle", "idle_breeze", "walk", "walk_stop", "happy", "concerned", "turn360",
+         "embarrassed", "flustered", "pout", "wink_dance", "turn_around_back", "back_idle"
 
 New-Item -ItemType Directory -Force $dst | Out-Null
-foreach ($name in "idle", "idle_breeze", "walk", "walk_stop", "happy", "concerned", "turn360") {
-    Copy-Item "$src\$name.mp4", "$src\$name.mask.mp4" $dst
-}
+foreach ($name in $clips) { Copy-Item "$src\$name.sbs.mp4" $dst }
 Copy-Item "$repo\tools\video-avatar\leia-keyed.video-avatar.json" (Join-Path $dst "video-avatar.json")
 Get-ChildItem $dst | Select-Object Name, Length
 ```
 
-Then, in the app: **F12** → **Avatar** → **Avatar: 2D video**, and set **Video folder** to the path printed by `$dst`.
+Then, in the app: **F12** → **Avatar** → **Avatar: 2D video**, set **Video folder** to the path printed by `$dst`, and press **Reload video**.
 
-Expected files in the folder: a `.mp4` and a `.mask.mp4` for each of `idle`, `idle_breeze`, `walk`, `walk_stop`, `happy`, `concerned`, `turn360`, and `video-avatar.json`. Copying again over an earlier test folder replaces its `video-avatar.json` with the new one, which is what adds the reactions.
+Expected files in the folder: a `.sbs.mp4` for each name in `$clips`, and `video-avatar.json`. Copying again over an earlier folder replaces its `video-avatar.json` with the new one, which is what adds new clips.
 
-### Packed clips: the test for the slipping outline
+### Picture + mask pairs, for comparison
 
-The packed clips use one decoder per clip, so the picture and the mask cannot be on different frames. This copies them into a second new folder. The first folder is not touched.
+The pairs use two decoders per clip, which drift apart on the walk (see [What is verified](#what-is-verified-and-what-is-not)). Only for comparison:
 
 ```powershell
-$dst2 = Join-Path $env:APPDATA "ProjectLeia\video-avatar-packed"
+$dst2 = Join-Path $env:APPDATA "ProjectLeia\video-avatar-test"
 New-Item -ItemType Directory -Force $dst2 | Out-Null
-foreach ($name in "idle", "idle_breeze", "walk", "walk_stop", "happy", "concerned", "turn360") {
-    Copy-Item "$src\$name.sbs.mp4" $dst2
-}
-Copy-Item "$repo\tools\video-avatar\leia-keyed-packed.video-avatar.json" (Join-Path $dst2 "video-avatar.json")
+foreach ($name in $clips) { Copy-Item "$src\$name.mp4", "$src\$name.mask.mp4" $dst2 }
+Copy-Item "$repo\tools\video-avatar\leia-keyed-pairs.video-avatar.json" (Join-Path $dst2 "video-avatar.json")
 ```
-
-Set **Video folder** to `$dst2` and press **Reload video**. If the outline holds with the packed clips and slips with the pairs, the cause is the two decoders. If it slips in both, it is in the clips or the shader. The packed path has not been run in a player.
 
 ## What the delivered clips are, measured
 
@@ -189,10 +187,12 @@ A walk toward the screen edge she stands at ends at once. A walk away from it st
 
 A reaction is a play-once clip with the role `reaction`. Without a manifest, any clip whose name is not an idle, a walk or a stop is a reaction.
 
-- **When.** When the avatar's emotion changes to one that has a clip of the same name: `happy`, `sad`, `surprised`, `thinking`, `embarrassed`, `shy`, `flustered`, `concerned`. The emotion is the one the 3D face already uses, so it comes from the reply's `<animation emotion="..."/>` cue. The same emotion twice in a row plays once. The Avatar tab also has **Test: happy**, **Test: concerned** and **Test: spin (turn360)**.
+- **When.** When the avatar's emotion changes to one that has a clip of the same name: `happy`, `sad`, `surprised`, `thinking`, `embarrassed`, `shy`, `flustered`, `concerned`. The emotion is the one the 3D face already uses, so it comes from the reply's `<animation emotion="..."/>` cue. The same emotion twice in a row plays once. The Avatar tab also has a **Test** button for each delivered reaction. `pout` and `wink_dance` are not emotion names, so they play only from their buttons for now.
 - **From where.** Only from the default idle. While she walks, stops, holds the side pose or plays a variation or another reaction, the request is dropped, not kept for later.
 - **How.** The clip is loaded when it is asked for, starts as soon as it has a picture, without waiting for the idle's loop point, and is unloaded after. A walk interrupts it.
 - **The delivered clips, measured.** `happy`, `concerned` and `turn360` are 124 frames at 24 fps, start in the idle's first pose and end close to it. The cut from any idle frame into them is 0.6 to 2.6 on the scale where a normal idle frame step is 0.14 and the idle's own loop jump is 1.6. So expect a small jump at the start and at the end, about as large as the idle's loop jump. **Not seen in a player.**
+- **New on 2026-11-12, measured on the packed files.** `embarrassed`, `flustered`, `pout` (124 frames) and `wink_dance` (243 frames, 10 s; she turns around mid-dance) start and end close to the idle pose. The jump into them and back is 0.4 to 2.3 on the same scale, about the idle's own loop jump.
+- **A held pose after a reaction: `turn_around_back` → `back_idle`.** `turn_around_back` (158 frames) starts in the idle pose and ends with her back turned, looking over her shoulder. `back_idle` loops that pose: its start matches the turn's end (0.78) and it loops almost cleanly (0.42). The manifest plays the turn, then holds `back_idle` for `hold` seconds (12), then she faces front at a loop point. **There is no clip that turns her back to the front, so facing front is a hard cut** (11 on the same scale, like the cut from the idle into the walk). A walk, the Up arrow or **Test: back to the front idle** ends the pose at once, also with that cut. Without a manifest `turn_around_back` returns straight to the idle, with the same cut, and `back_idle` is a plain reaction. A keyed turn-to-front clip would remove the cut.
 - **Not used yet: `walk_pivot180`.** It starts in the walk's first pose facing left and ends in the mirrored walk pose facing right: a change of direction during a walk. Using it needs the window to hold its direction until the pivot ends, which is not built. Today a change of direction flips the walk clip at once. By file name it is registered as a reaction, so it is not mistaken for a second walk loop.
 - There is no emotion detection here and no new cue. If the chat model writes no `<animation>` tag, no reaction plays, as with walking.
 
@@ -219,7 +219,7 @@ With the settings panel closed and the window focused (click her first):
 | Left arrow | walk left until stopped, at most 30 s |
 | Right arrow | walk right, mirrored |
 | Down arrow | stop |
-| Up arrow | back to the front idle from a held pose, a side idle or a variation |
+| Up arrow | back to the front idle from a held pose (the side pose or the back pose), a side idle or a variation |
 
 The keys do nothing while a text field has focus.
 

@@ -25,6 +25,13 @@ namespace AICompanion.Settings
 
         /// <summary>A reaction clip such as "happy", played once from the default idle.</summary>
         Reaction = 6,
+
+        /// <summary>
+        /// A looping pose that follows a reaction, such as her back turned after
+        /// "turn_around_back". Held for its hold time, then she faces front at a loop point.
+        /// There is no clip back to the front, so that is a cut.
+        /// </summary>
+        Pose = 7,
     }
 
     /// <summary>
@@ -52,6 +59,7 @@ namespace AICompanion.Settings
         float _untilVariation;
         int _queued = -1;
         bool _queuedReaction;
+        float _poseLeft;
         int _lastVariation = -1;
         bool _stopPending;
         bool _facingRight;
@@ -115,6 +123,27 @@ namespace AICompanion.Settings
                 Enter(VideoAvatarAct.Reaction, _queued, false);
         }
 
+        /// <summary>
+        /// The pose that will follow the showing reaction, so it can be loaded while the
+        /// reaction plays. -1 when none.
+        /// </summary>
+        public int Next
+        {
+            get
+            {
+                if (Act != VideoAvatarAct.Reaction || Clip < 0)
+                    return -1;
+                var pose = _set.FindReaction(_set.Clips[Clip].After);
+                return Usable(pose) ? pose : -1;
+            }
+        }
+
+        /// <summary>Seconds left in the held pose. For tests.</summary>
+        public float PoseLeft
+        {
+            get { return Act == VideoAvatarAct.Pose ? Math.Max(0f, _poseLeft) : 0f; }
+        }
+
         /// <summary>Seconds until the next variation is queued. For tests and the status line.</summary>
         public float UntilVariation
         {
@@ -142,6 +171,9 @@ namespace AICompanion.Settings
         /// <summary>Counts down to the next idle variation. Only the default idle counts.</summary>
         public void Tick(float deltaSeconds)
         {
+            if (Act == VideoAvatarAct.Pose && deltaSeconds > 0f)
+                _poseLeft -= deltaSeconds;
+
             if (Act != VideoAvatarAct.Idle || _queued >= 0 || deltaSeconds <= 0f)
                 return;
             if (!HasVariation())
@@ -164,6 +196,13 @@ namespace AICompanion.Settings
                 return;
             }
 
+            // The pose was held long enough: face front at its loop point.
+            if (Act == VideoAvatarAct.Pose && _poseLeft <= 0f)
+            {
+                EnterIdle();
+                return;
+            }
+
             if (Act == VideoAvatarAct.Idle && _queued >= 0 && queuedReady && Usable(_queued))
             {
                 var clip = _queued;
@@ -181,8 +220,23 @@ namespace AICompanion.Settings
         /// <summary>The showing play-once clip has reached its end.</summary>
         public void OnEnded()
         {
-            if (Act == VideoAvatarAct.Variation || Act == VideoAvatarAct.Reaction)
+            if (Act == VideoAvatarAct.Reaction)
+            {
+                var pose = Next;
+                if (pose >= 0)
+                {
+                    Enter(VideoAvatarAct.Pose, pose, false);
+                    _poseLeft = _set.Clips[pose].HoldSeconds;
+                    return;
+                }
+
                 EnterIdle();
+            }
+            else if (Act == VideoAvatarAct.Variation || Act == VideoAvatarAct.Pose)
+            {
+                // A pose clip that was not set to loop ends here.
+                EnterIdle();
+            }
             else if (Act == VideoAvatarAct.WalkStop)
                 Rest();
         }
@@ -225,7 +279,7 @@ namespace AICompanion.Settings
                 BeginStop();
         }
 
-        /// <summary>Manual: face front again from the side pose, the side idle, or a variation. Ignored while walking.</summary>
+        /// <summary>Manual: face front again from the side pose, the side idle, a held pose, or a variation. Ignored while walking.</summary>
         public void RequestFront()
         {
             if (Act == VideoAvatarAct.Walk || Act == VideoAvatarAct.Idle)

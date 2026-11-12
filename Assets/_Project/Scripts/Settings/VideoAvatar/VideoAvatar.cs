@@ -118,6 +118,7 @@ namespace AICompanion.Settings
                     || _director.Queued >= 0
                     || _director.Act == VideoAvatarAct.Variation
                     || _director.Act == VideoAvatarAct.Reaction
+                    || _director.Act == VideoAvatarAct.Pose
                     || _director.Act == VideoAvatarAct.Walk
                     || _director.Act == VideoAvatarAct.WalkStop;
             }
@@ -398,6 +399,9 @@ namespace AICompanion.Settings
 
             if (_director.Queued >= 0)
                 EnsurePlayer(_director.Queued);
+            // Load the pose that follows a reaction while the reaction plays.
+            if (_director.Next >= 0)
+                EnsurePlayer(_director.Next);
             if (_shown == _director.Clip && _director.Entry == _shownEntry)
             {
                 // A reaction does not wait for the idle's loop point. The delivered reactions

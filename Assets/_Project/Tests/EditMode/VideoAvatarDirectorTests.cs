@@ -1233,6 +1233,153 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
         }
 
+        // ---- the clips delivered on 2026-11-12 and the held back pose -----------------------
+
+        static readonly string[] PackedNames =
+        {
+            "idle", "idle_breeze", "walk", "walk_stop", "happy", "concerned", "turn360",
+            "embarrassed", "flustered", "pout", "wink_dance", "turn_around_back", "back_idle",
+        };
+
+        static string[] PackedFolder()
+        {
+            var names = new string[PackedNames.Length];
+            for (var i = 0; i < names.Length; i++)
+                names[i] = PackedNames[i] + ".sbs.mp4";
+            return Files(names);
+        }
+
+        // The same entries as tools/video-avatar/leia-keyed.video-avatar.json for the new clips.
+        const string PoseManifest = @"{ ""clips"": [
+            { ""name"": ""idle"", ""color"": ""idle.sbs.mp4"" },
+            { ""name"": ""walk"", ""color"": ""walk.sbs.mp4"" },
+            { ""name"": ""embarrassed"", ""role"": ""reaction"", ""color"": ""embarrassed.sbs.mp4"", ""playback"": ""once"" },
+            { ""name"": ""pout"", ""role"": ""reaction"", ""color"": ""pout.sbs.mp4"", ""playback"": ""once"" },
+            { ""name"": ""turn_around_back"", ""role"": ""reaction"", ""color"": ""turn_around_back.sbs.mp4"", ""playback"": ""once"", ""after"": ""back_idle"" },
+            { ""name"": ""back_idle"", ""role"": ""reaction"", ""color"": ""back_idle.sbs.mp4"", ""playback"": ""loop"", ""hold"": 12 } ] }";
+
+        [Test]
+        public void FileNames_TheNewClips_AreReactions_AndBackIdleIsNotARandomIdleVariation()
+        {
+            var set = VideoAvatarManifest.Resolve(null, PackedFolder());
+
+            Assert.AreEqual(0, set.Warnings.Count);
+            Assert.AreEqual(1, set.Variations.Count, "Only idle_breeze is a variation. back_idle must never play at random.");
+            foreach (var name in new[] { "embarrassed", "flustered", "pout", "wink_dance", "turn_around_back", "back_idle" })
+            {
+                var clip = set.FindReaction(name);
+                Assert.GreaterOrEqual(clip, 0, name);
+                Assert.AreEqual(VideoMaskKind.Packed, set.Clips[clip].Mask, name);
+                Assert.IsFalse(set.Clips[clip].Loop, name);
+                Assert.AreEqual(string.Empty, set.Clips[clip].After, name);
+            }
+        }
+
+        [Test]
+        public void Manifest_TurnAroundBack_IsFollowedByTheHeldBackPose()
+        {
+            var set = VideoAvatarManifest.Resolve(PoseManifest, PackedFolder());
+            Assert.AreEqual(0, set.Warnings.Count);
+
+            var turn = set.FindReaction("turn_around_back");
+            var back = set.FindReaction("back_idle");
+            Assert.AreEqual("back_idle", set.Clips[turn].After);
+            Assert.IsTrue(set.Clips[back].Loop);
+            Assert.AreEqual(12f, set.Clips[back].HoldSeconds, 0.001f);
+            Assert.AreEqual(string.Empty, set.Clips[set.FindReaction("pout")].After);
+        }
+
+        [Test]
+        public void Pose_FollowsTheReaction_IsHeld_ThenSheFacesFrontAtALoopPoint()
+        {
+            var set = VideoAvatarManifest.Resolve(PoseManifest, PackedFolder());
+            var director = new VideoAvatarDirector(set, 1);
+            var back = set.FindReaction("back_idle");
+
+            Assert.IsTrue(director.RequestReaction("turn_around_back"));
+            director.OnQueuedReady();
+            Assert.AreEqual(VideoAvatarAct.Reaction, director.Act);
+            // The pose is loaded while the turn plays.
+            Assert.AreEqual(back, director.Next);
+
+            director.OnEnded();
+            Assert.AreEqual(VideoAvatarAct.Pose, director.Act);
+            Assert.AreEqual(back, director.Clip);
+            Assert.IsFalse(director.Mirrored);
+            Assert.AreEqual(-1, director.Next);
+            Assert.AreEqual(12f, director.PoseLeft, 0.001f);
+
+            // Held: a loop point before the time is up keeps the pose, and nothing else starts.
+            director.Tick(5f);
+            director.OnBoundary(true);
+            Assert.AreEqual(VideoAvatarAct.Pose, director.Act);
+            Assert.IsFalse(director.RequestReaction("pout"));
+            Assert.AreEqual(-1, director.Queued);
+
+            // Time is up: she faces front at the next loop point, not in the middle of the loop.
+            director.Tick(8f);
+            Assert.AreEqual(VideoAvatarAct.Pose, director.Act);
+            director.OnBoundary(false);
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual(set.Idle, director.Clip);
+        }
+
+        [Test]
+        public void Pose_EndsAtOnce_ForTheFrontButtonOrAWalk()
+        {
+            var set = VideoAvatarManifest.Resolve(PoseManifest, PackedFolder());
+
+            var front = new VideoAvatarDirector(set, 1);
+            front.RequestReaction("turn_around_back");
+            front.OnQueuedReady();
+            front.OnEnded();
+            front.RequestFront();
+            Assert.AreEqual(VideoAvatarAct.Idle, front.Act);
+
+            var walk = new VideoAvatarDirector(set, 1);
+            walk.RequestReaction("turn_around_back");
+            walk.OnQueuedReady();
+            walk.OnEnded();
+            walk.SetMovement(true, false, false, false);
+            Assert.AreEqual(VideoAvatarAct.Walk, walk.Act);
+        }
+
+        [Test]
+        public void Pose_ThatFailsToLoad_SendsHerBackToTheIdle()
+        {
+            var set = VideoAvatarManifest.Resolve(PoseManifest, PackedFolder());
+            var director = new VideoAvatarDirector(set, 1);
+            var back = set.FindReaction("back_idle");
+
+            director.RequestReaction("turn_around_back");
+            director.OnQueuedReady();
+            director.SetUnavailable(back);
+            Assert.AreEqual(-1, director.Next);
+            director.OnEnded();
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+        }
+
+        [Test]
+        public void Manifest_AfterThatIsNotALoopingReaction_IsIgnoredWithAWarning()
+        {
+            const string json = @"{ ""clips"": [
+                { ""name"": ""idle"", ""color"": ""idle.sbs.mp4"" },
+                { ""name"": ""turn_around_back"", ""role"": ""reaction"", ""color"": ""turn_around_back.sbs.mp4"", ""after"": ""back_idle"" },
+                { ""name"": ""back_idle"", ""role"": ""reaction"", ""color"": ""back_idle.sbs.mp4"" },
+                { ""name"": ""pout"", ""role"": ""reaction"", ""color"": ""pout.sbs.mp4"", ""after"": ""nowhere"" } ] }";
+
+            var set = VideoAvatarManifest.Resolve(json, PackedFolder());
+
+            Assert.AreEqual(2, set.Warnings.Count);
+            Assert.AreEqual(string.Empty, set.Clips[set.FindReaction("turn_around_back")].After);
+            Assert.AreEqual(string.Empty, set.Clips[set.FindReaction("pout")].After);
+            var director = new VideoAvatarDirector(set, 1);
+            director.RequestReaction("turn_around_back");
+            director.OnQueuedReady();
+            director.OnEnded();
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+        }
+
         [Test]
         public void Reaction_NamesFollowTheEmotions()
         {

@@ -45,6 +45,8 @@ namespace AICompanion.Settings
         public float moveEnd;
         public float moveRamp;
         public string after;
+        /// <summary>A pose that follows a reaction: seconds to hold it before facing front. 0 uses the default.</summary>
+        public float hold;
     }
 
     /// <summary>The whole video-avatar.json file.</summary>
@@ -99,6 +101,15 @@ namespace AICompanion.Settings
         /// </summary>
         public bool ThenIdle;
 
+        /// <summary>
+        /// Only read on a reaction. The name of a looping reaction clip that follows it as a
+        /// held pose ("turn_around_back" then "back_idle"). Empty: back to the default idle.
+        /// </summary>
+        public string After = string.Empty;
+
+        /// <summary>Only read on a pose clip: seconds it is held before she faces front again, at a loop point.</summary>
+        public float HoldSeconds = VideoAvatarManifest.DefaultHoldSeconds;
+
         /// <summary>How often a variation is picked against the others.</summary>
         public float Weight = 1f;
 
@@ -120,6 +131,8 @@ namespace AICompanion.Settings
                 && Mathf.Approximately(MoveEnd, other.MoveEnd)
                 && Mathf.Approximately(MoveRamp, other.MoveRamp)
                 && ThenIdle == other.ThenIdle
+                && string.Equals(After, other.After, StringComparison.OrdinalIgnoreCase)
+                && Mathf.Approximately(HoldSeconds, other.HoldSeconds)
                 && Mathf.Approximately(Weight, other.Weight);
         }
     }
@@ -200,6 +213,10 @@ namespace AICompanion.Settings
         public const float MaxMoveRamp = 5f;
         public const float DefaultVariationMinSeconds = 12f;
         public const float DefaultVariationMaxSeconds = 30f;
+
+        /// <summary>Seconds a pose after a reaction is held before she faces front again.</summary>
+        public const float DefaultHoldSeconds = 12f;
+        public const float MaxHoldSeconds = 120f;
 
         static readonly string[] VideoExtensions = { ".webm", ".mp4", ".mov", ".m4v" };
         static readonly string[] ImageExtensions = { ".png", ".jpg", ".jpeg" };
@@ -300,12 +317,36 @@ namespace AICompanion.Settings
                 spec.MoveEnd = entry.moveEnd > 0f && IsNumber(entry.moveEnd) ? Mathf.Min(entry.moveEnd, MaxMoveSeconds) : 0f;
                 spec.MoveRamp = entry.moveRamp > 0f && IsNumber(entry.moveRamp) ? Mathf.Min(entry.moveRamp, MaxMoveRamp) : DefaultMoveRamp;
                 spec.ThenIdle = string.Equals(Clean(entry.after), "idle", StringComparison.OrdinalIgnoreCase);
+                // On a reaction, "after" names the pose that follows it. "idle" is the default anyway.
+                if (spec.Role == VideoClipRole.Reaction && !spec.ThenIdle)
+                    spec.After = Clean(entry.after);
+                spec.HoldSeconds = entry.hold > 0f && IsNumber(entry.hold) ? Mathf.Min(entry.hold, MaxHoldSeconds) : DefaultHoldSeconds;
                 spec.Weight = entry.weight > 0f && IsNumber(entry.weight) ? entry.weight : 1f;
                 Add(set, spec);
             }
 
             PromoteIdle(set);
+            CheckPoses(set);
             return set;
+        }
+
+        /// <summary>A reaction whose "after" names no usable looping reaction falls back to the default idle, with a warning.</summary>
+        static void CheckPoses(VideoAvatarClipSet set)
+        {
+            for (var i = 0; i < set.Clips.Count; i++)
+            {
+                var spec = set.Clips[i];
+                if (spec.Role != VideoClipRole.Reaction || string.IsNullOrEmpty(spec.After))
+                    continue;
+
+                var pose = set.FindReaction(spec.After);
+                if (pose < 0 || pose == i || !set.Clips[pose].Loop)
+                {
+                    set.Warnings.Add("Clip \"" + spec.Name + "\" is followed by \"" + spec.After
+                        + "\", which is not a looping reaction clip in the folder. She returns to the default idle instead.");
+                    spec.After = string.Empty;
+                }
+            }
         }
 
         /// <summary>
