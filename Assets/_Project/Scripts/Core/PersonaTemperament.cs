@@ -22,7 +22,10 @@ namespace AICompanion.Core
         public const float MinScale = 0.25f;
         public const float MaxScale = 3f;
 
-        /// <summary>Seconds a baseline or bias floor takes to pull a weaker mood about two thirds of the way up.</summary>
+        /// <summary>
+        /// Seconds a floor takes to pull a weaker mood about two thirds of the way up. Moods start
+        /// on their floors and never fade below them, so this only matters for an older mood file.
+        /// </summary>
         public const float RestPullSeconds = 600f;
 
         readonly float[] _gain = Ones();

@@ -179,6 +179,8 @@ namespace AICompanion.Settings
                 return;
             _state.Temperament = temperament;
             LogTemperament(_personaId);
+            _dirty = true;
+            Publish();
         }
 
         /// <summary>The temperament name for the readout, such as "Tsundere".</summary>

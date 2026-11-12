@@ -112,7 +112,7 @@ A temperament adds no new moods. It changes four things, all in `PersonaTemperam
 - **Baseline**: a mood she settles back to, held at 0.35. That is enough to show.
 - **Rest bias**: a low floor under one mood (at most 0.25, below showing), so that mood shows sooner.
 
-Floors pull a weaker mood up slowly, taking about 10 minutes to cover two thirds of the way. Hysteresis, the Intimate gate, the mood file and the phase 2 looks are unchanged.
+A mood starts on its floor as soon as the temperament is set (load, switch, or picker), never fades below it, and is back on it after the app was closed. A Cheerful persona therefore rests on happy straight away. Hysteresis, the Intimate gate, the mood file and the phase 2 looks are unchanged.
 
 | Preset | What it does |
 | --- | --- |
@@ -183,7 +183,7 @@ annoyed 0.52, sad 0.18, happy 0.05
 
 ## Windows checklist (phase 3)
 
-1. Turn on the mood readout. With Leia (`friend`), the log shows `Mood temperament: friend = cheerful`, and the readout shows `(Cheerful)`. After a few minutes of quiet she rests on happy (smile).
+1. Turn on the mood readout. With Leia (`friend`), the log shows `Mood temperament: friend = cheerful`, and the readout shows `(Cheerful)`. She rests on happy (smile) straight away, and again after a restart.
 2. Switch to Rowan. The log shows `Mood temperament: calm = calm`.
 3. Make a new persona. The readout shows `(Balanced)`. Under Settings → Persona, pick **Temperament: Tsundere**. The log shows `… = tsundere` at once. Teasing now makes her annoyed faster, and affection builds more slowly.
 4. Quit and start again: the persona still has Tsundere.

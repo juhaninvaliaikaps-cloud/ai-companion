@@ -89,7 +89,8 @@ namespace AICompanion.Tests.EditMode
             CompanionMoodTable.ApplyCue(tsundere, love);
             CompanionMoodTable.ApplyCue(balanced, love);
 
-            Assert.AreEqual(0.3f * 1.1f * 1.4f, tsundere.Strength(CompanionMood.Annoyed), 0.0001f);
+            // Tsundere starts on her annoyed bias (0.15); the push covers its share of the rest.
+            Assert.AreEqual(0.15f + 0.3f * 1.1f * 1.4f * 0.85f, tsundere.Strength(CompanionMood.Annoyed), 0.0001f);
             Assert.AreEqual(0.3f * 1.1f * 0.7f, tsundere.Strength(CompanionMood.Affectionate), 0.0001f);
             Assert.Greater(tsundere.Strength(CompanionMood.Annoyed), balanced.Strength(CompanionMood.Annoyed));
             Assert.Less(tsundere.Strength(CompanionMood.Affectionate), balanced.Strength(CompanionMood.Affectionate));
@@ -102,30 +103,33 @@ namespace AICompanion.Tests.EditMode
             var calm = new CompanionMoodState { Temperament = Preset(PersonaTemperaments.CalmId) };
             tsundere.Push(CompanionMood.Annoyed, 0.8f);
             calm.Push(CompanionMood.Annoyed, 0.8f);
+            var tsundereBefore = tsundere.Strength(CompanionMood.Annoyed);
+            var calmBefore = calm.Strength(CompanionMood.Annoyed);
 
             tsundere.Tick(900f, Day);
             calm.Tick(900f, Day);
 
-            Assert.AreEqual(0.8f * (float)Math.Pow(0.5, 1.0 / 1.3), tsundere.Strength(CompanionMood.Annoyed), 0.001f);
-            Assert.AreEqual(0.8f * (float)Math.Pow(0.5, 1.0 / 0.6), calm.Strength(CompanionMood.Annoyed), 0.001f);
+            Assert.AreEqual(tsundereBefore * (float)Math.Pow(0.5, 1.0 / 1.3), tsundere.Strength(CompanionMood.Annoyed), 0.001f);
+            Assert.AreEqual(calmBefore * (float)Math.Pow(0.5, 1.0 / 0.6), calm.Strength(CompanionMood.Annoyed), 0.001f);
         }
 
         [Test]
-        public void Baseline_HoldsHerMoodAtRest_AndHysteresisStillApplies()
+        public void Baseline_StartsAtOnce_HoldsAtRest_AndHysteresisStillApplies()
         {
+            // She starts on her baseline, without a long climb (Bugbot on #68).
             var cheerful = new CompanionMoodState { Temperament = Preset(PersonaTemperaments.CheerfulId) };
             Assert.AreEqual(CompanionMood.Happy, cheerful.Temperament.Baseline);
-            Assert.AreEqual(CompanionMood.Content, cheerful.Shown);
-
-            // She drifts up to the baseline and shows it.
-            cheerful.Tick(3600f, Day);
-            Assert.AreEqual(PersonaTemperament.BaselineStrength, cheerful.Strength(CompanionMood.Happy), 0.01f);
+            Assert.AreEqual(PersonaTemperament.BaselineStrength, cheerful.Strength(CompanionMood.Happy), 0.0001f);
             Assert.AreEqual(CompanionMood.Happy, cheerful.Shown);
 
-            // A strong happy moment fades back to the baseline, not below it.
+            // A strong happy moment fades back to the baseline, never below it.
             cheerful.Push(CompanionMood.Happy, 0.9f);
             cheerful.Tick(36000f, Day);
-            Assert.AreEqual(PersonaTemperament.BaselineStrength, cheerful.Strength(CompanionMood.Happy), 0.01f);
+            Assert.AreEqual(PersonaTemperament.BaselineStrength, cheerful.Strength(CompanionMood.Happy), 0.0001f);
+            for (var i = 0; i < 600; i++)
+                cheerful.Tick(1f, Day);
+            Assert.AreEqual(PersonaTemperament.BaselineStrength, cheerful.Strength(CompanionMood.Happy), 0.0001f);
+            Assert.AreEqual(CompanionMood.Happy, cheerful.Shown);
 
             // Another mood still needs the usual margin to replace the shown one.
             cheerful.Push(CompanionMood.Sad, 0.4f);
@@ -135,11 +139,43 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void SwitchingTemperament_LiftsToTheNewFloors_AtOnce()
+        {
+            var state = new CompanionMoodState();
+            Assert.AreEqual(CompanionMood.Content, state.Shown);
+            state.Temperament = Preset(PersonaTemperaments.CheerfulId);
+            Assert.AreEqual(CompanionMood.Happy, state.Shown);
+
+            // The default never lifts anything.
+            var plain = new CompanionMoodState { Temperament = PersonaTemperament.Default };
+            Assert.AreEqual("none", plain.DescribeTop3());
+        }
+
+        [Test]
+        public void ClosedTime_EndsOnTheFloors_SoTheBaselineSurvivesARestart()
+        {
+            var cheerful = Preset(PersonaTemperaments.CheerfulId);
+            var mood = new CompanionMoodState { Temperament = cheerful };
+            var saved = new DateTime(2026, 11, 12, 12, 0, 0, DateTimeKind.Utc);
+            var json = mood.ToJson(saved);
+
+            var back = CompanionMoodState.FromJson(json, saved.AddHours(3), cheerful);
+            Assert.AreEqual(PersonaTemperament.BaselineStrength, back.Strength(CompanionMood.Happy), 0.0001f);
+            Assert.AreEqual(CompanionMood.Happy, back.Shown);
+
+            // A file from before temperaments (or from another temperament) is lifted too.
+            var old = new CompanionMoodState().ToJson(saved);
+            Assert.AreEqual(CompanionMood.Happy, CompanionMoodState.FromJson(old, saved, cheerful).Shown);
+            Assert.AreEqual(CompanionMood.Content, CompanionMoodState.FromJson(old, saved).Shown);
+        }
+
+        [Test]
         public void RestBias_KeepsALowFloor_ThatDoesNotShowOnItsOwn()
         {
             var shy = new CompanionMoodState { Temperament = Preset(PersonaTemperaments.ShyId) };
+            Assert.AreEqual(0.15f, shy.Strength(CompanionMood.Flustered), 0.0001f);
             shy.Tick(36000f, Day);
-            Assert.AreEqual(0.15f, shy.Strength(CompanionMood.Flustered), 0.01f);
+            Assert.AreEqual(0.15f, shy.Strength(CompanionMood.Flustered), 0.0001f);
             Assert.AreEqual(CompanionMood.Content, shy.Shown);
 
             // From the floor, one push is enough to show.
@@ -258,6 +294,7 @@ namespace AICompanion.Tests.EditMode
                 // The mood file is unchanged; the temperament fades the time she was closed.
                 var mood = new CompanionMoodState { Temperament = lola };
                 mood.Push(CompanionMood.Sad, 0.8f);
+                var sad = mood.Strength(CompanionMood.Sad);
                 var saved = DateTime.UtcNow;
                 var path = CompanionMoodStore.FileFor(folder, "lola");
                 Assert.IsTrue(CompanionMoodStore.Save(path, mood, saved));
@@ -267,8 +304,8 @@ namespace AICompanion.Tests.EditMode
                 var plain = CompanionMoodStore.Load(path, later);
                 Assert.AreSame(lola, moody.Temperament);
                 Assert.AreSame(PersonaTemperament.Default, plain.Temperament);
-                Assert.AreEqual(0.8f * (float)Math.Pow(0.5, 1.0 / 1.4), moody.Strength(CompanionMood.Sad), 0.002f);
-                Assert.AreEqual(0.4f, plain.Strength(CompanionMood.Sad), 0.002f);
+                Assert.AreEqual(sad * (float)Math.Pow(0.5, 1.0 / 1.4), moody.Strength(CompanionMood.Sad), 0.002f);
+                Assert.AreEqual(sad * 0.5f, plain.Strength(CompanionMood.Sad), 0.002f);
 
                 // A missing mood file still gets the temperament.
                 Assert.AreSame(lola, CompanionMoodStore.Load(CompanionMoodStore.FileFor(folder, "nobody"), later, lola).Temperament);

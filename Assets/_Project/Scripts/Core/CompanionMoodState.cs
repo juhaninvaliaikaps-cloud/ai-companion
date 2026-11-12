@@ -88,12 +88,35 @@ namespace AICompanion.Core
         /// The persona's temperament (JUH-103 phase 3). It scales half-lives and keeps baseline
         /// and bias floors in <see cref="Tick"/>, and <see cref="CompanionMoodTable"/> scales
         /// pushes by it. The default is exactly the phase 1/2 behaviour. Not saved in the mood
-        /// file: it belongs to the persona.
+        /// file: it belongs to the persona. Setting it lifts every mood to its rest floor at
+        /// once, so a Cheerful persona starts on her baseline instead of climbing to it.
         /// </summary>
         public PersonaTemperament Temperament
         {
             get { return _temperament; }
-            set { _temperament = value ?? PersonaTemperament.Default; }
+            set
+            {
+                _temperament = value ?? PersonaTemperament.Default;
+                if (LiftToFloors())
+                    UpdateShown();
+            }
+        }
+
+        /// <summary>Raises every mood below its temperament floor to the floor. True when one moved.</summary>
+        bool LiftToFloors()
+        {
+            var lifted = false;
+            for (var i = 1; i < _strength.Length; i++)
+            {
+                var floor = _temperament.RestFloor((CompanionMood)i);
+                if (floor > _strength[i])
+                {
+                    _strength[i] = floor;
+                    lifted = true;
+                }
+            }
+
+            return lifted;
         }
 
         float HalfLife(int index)
@@ -162,12 +185,15 @@ namespace AICompanion.Core
                 // Below the night level Sleepy does not fade: the night pulls it up instead.
                 if (i == sleepy && night > _strength[i])
                     continue;
-                // Below a temperament floor (baseline or bias) a mood does not fade either.
-                if (_temperament.RestFloor((CompanionMood)i) > _strength[i])
+                // A mood fades down to its temperament floor (baseline or bias), never below it.
+                var floor = _temperament.RestFloor((CompanionMood)i);
+                if (floor > _strength[i])
                     continue;
                 var halfLife = HalfLife(i);
                 if (halfLife > 0f && _strength[i] > 0f)
                     _strength[i] *= Mathf.Pow(0.5f, seconds / halfLife);
+                if (_strength[i] < floor)
+                    _strength[i] = floor;
                 if (_strength[i] < 0.0001f)
                     _strength[i] = 0f;
             }
@@ -178,7 +204,7 @@ namespace AICompanion.Core
                 _strength[sleepy] += (night - _strength[sleepy]) * approach;
             }
 
-            // The temperament's baseline and bias pull a weaker mood back up slowly.
+            // A mood still below its floor (only from an older mood file) is pulled up.
             for (var i = 1; i < _strength.Length; i++)
             {
                 var floor = _temperament.RestFloor((CompanionMood)i);
@@ -211,6 +237,9 @@ namespace AICompanion.Core
                 if (_strength[i] < 0.0001f)
                     _strength[i] = 0f;
             }
+
+            // Time away is rest: every mood ends at least on its temperament floor.
+            LiftToFloors();
 
             return UpdateShown();
         }
@@ -405,6 +434,8 @@ namespace AICompanion.Core
                     state.ApplyClosedTime(closed);
             }
 
+            // Strengths from the file may sit below the persona's floors (an older file).
+            state.LiftToFloors();
             state.UpdateShown();
             return state;
         }
