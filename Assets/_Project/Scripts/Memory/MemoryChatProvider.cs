@@ -15,17 +15,26 @@ namespace AICompanion.Memory
     public sealed class MemoryChatProvider : IChatProvider
     {
         readonly IChatProvider _inner;
-        readonly MemoryStore _store;
-        readonly PersonalityStore _personality;
+        readonly Func<MemoryStore> _store;
+        readonly Func<PersonalityStore> _personality;
 
         public MemoryChatProvider(IChatProvider inner, MemoryStore store, PersonalityStore personality = null)
+            : this(inner, () => store, () => personality)
+        {
+        }
+
+        /// <summary>
+        /// Resolves the store on each request. The chat registry keeps one wrapper
+        /// for the whole session, so a wipe can swap the runtime store underneath it.
+        /// </summary>
+        public MemoryChatProvider(IChatProvider inner, Func<MemoryStore> store, Func<PersonalityStore> personality)
         {
             if (inner == null)
                 throw new ArgumentNullException(nameof(inner));
 
             _inner = inner;
-            _store = store;
-            _personality = personality;
+            _store = store ?? (() => null);
+            _personality = personality ?? (() => null);
         }
 
         public string ProviderId
@@ -63,12 +72,14 @@ namespace AICompanion.Memory
             if (request == null)
                 return null;
 
-            var memories = _store == null
+            var store = _store();
+            var personality = _personality();
+            var memories = store == null
                 ? null
-                : _store.SearchFor(LastUserMessage(request), MemoryStore.MaxSearchResults, IsLocal);
+                : store.SearchFor(LastUserMessage(request), MemoryStore.MaxSearchResults, IsLocal);
 
             var memoryBlock = MemoryPrompt.Build(memories);
-            var personaBlock = _personality == null ? string.Empty : MemoryPrompt.BuildPersona(_personality.Current);
+            var personaBlock = personality == null ? string.Empty : MemoryPrompt.BuildPersona(personality.Current);
             if (memoryBlock.Length == 0 && personaBlock.Length == 0)
                 return request;
 
@@ -119,13 +130,27 @@ namespace AICompanion.Memory
     /// <summary>Wraps each provider the factory registers, so callers never see it.</summary>
     public sealed class MemoryChatDecorator : IChatProviderDecorator
     {
-        readonly MemoryStore _store;
-        readonly PersonalityStore _personality;
+        readonly Func<MemoryStore> _store;
+        readonly Func<PersonalityStore> _personality;
 
         public MemoryChatDecorator(MemoryStore store, PersonalityStore personality = null)
+            : this(() => store, () => personality)
         {
-            _store = store;
-            _personality = personality;
+        }
+
+        MemoryChatDecorator(Func<MemoryStore> store, Func<PersonalityStore> personality)
+        {
+            _store = store ?? (() => null);
+            _personality = personality ?? (() => null);
+        }
+
+        /// <summary>
+        /// Wrapper that reads <see cref="MemoryRuntime.Store"/> on every request.
+        /// Chat keeps the wrapped provider, so this is what sees a wipe.
+        /// </summary>
+        public static MemoryChatDecorator FollowRuntime()
+        {
+            return new MemoryChatDecorator(() => MemoryRuntime.Store, () => null);
         }
 
         public IChatProvider Wrap(IChatProvider provider)
@@ -144,6 +169,7 @@ namespace AICompanion.Memory
     public static class MemoryRuntime
     {
         static readonly object Gate = new object();
+        static readonly MemoryChatDecorator LiveDecorator = MemoryChatDecorator.FollowRuntime();
         static MemoryStore _store;
         static PersonalityStore _personality;
         static MemoryChatDecorator _decorator;
@@ -177,6 +203,17 @@ namespace AICompanion.Memory
 
         static string _personaId = string.Empty;
 
+        /// <summary>Drops the in-memory stores so the next use reads the folder again.</summary>
+        public static void Discard()
+        {
+            lock (Gate)
+            {
+                _store = null;
+                _personality = null;
+                _decorator = null;
+            }
+        }
+
         /// <summary>
         /// Switches which persona's memory is used. Called whenever settings are applied, so
         /// facts told to Lola stay with Lola. The previous store is already saved on every
@@ -193,7 +230,7 @@ namespace AICompanion.Memory
                 _personaId = id;
                 _store = MemoryStore.CreateDefault(id);
                 _personality = PersonalityStore.CreateDefault();
-                _decorator = new MemoryChatDecorator(_store);
+                _decorator = LiveDecorator;
             }
         }
 
@@ -213,7 +250,9 @@ namespace AICompanion.Memory
                 // The persona wording in the prompt belongs to the setup wizard
                 // (SettingsApplicator.ApplyPersona). Only the remembered facts are
                 // appended here, so the two do not restate the same lines.
-                _decorator = new MemoryChatDecorator(_store);
+                // The decorator reads Store on each request, so a wipe is visible
+                // without rebuilding the chat registry.
+                _decorator = LiveDecorator;
             }
         }
     }

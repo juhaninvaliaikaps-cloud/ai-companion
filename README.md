@@ -108,7 +108,7 @@ The Player Settings file was first written for a Unity 6.3 editor. Unity 6000.6.
 
 ## Secrets
 
-API keys stay out of the repository and out of `Assets/`, so Unity cannot import them into a build. The xAI key is an environment variable or a per-user file under `%APPDATA%/ProjectLeia`. The steps are in [docs/CHAT_PROVIDERS.md](docs/CHAT_PROVIDERS.md). Do not commit a key, a `.ulf`, or a filled `secrets.json`.
+API keys stay out of the repository and out of `Assets/`, so Unity cannot import them into a build. The xAI key is an environment variable or a per-user file under `%APPDATA%/ProjectLeia`. The steps are in [docs/CHAT_PROVIDERS.md](docs/CHAT_PROVIDERS.md). Memories, chat history, saved personas, and settings in that folder are encrypted at rest. See [docs/LOCAL_STORAGE.md](docs/LOCAL_STORAGE.md). Do not commit a key, a `.ulf`, or a filled `secrets.json`.
 
 ## Repository layout
 

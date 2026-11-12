@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Text;
 using AICompanion.AI;
 using AICompanion.Avatar;
 using AICompanion.Core;
@@ -70,6 +69,8 @@ namespace AICompanion.Settings
         bool _building;
         bool _rebuild;
         bool _confirmClear;
+        bool _confirmWipe;
+        string _exportFolder = string.Empty;
         bool _probeBusy;
         bool _setupGate;
         bool _wizardClaimed;
@@ -90,6 +91,15 @@ namespace AICompanion.Settings
                 return;
 
             _started = true;
+            try
+            {
+                LocalDataActions.MigratePlaintext(Folder());
+            }
+            catch (Exception)
+            {
+                Debug.LogWarning("Local data migration did not finish.");
+            }
+
             var path = SettingsLocations.SettingsFile(Folder());
             var exists = !string.IsNullOrEmpty(path) && File.Exists(path);
             _settings = CompanionSettingsStore.Load(path, exists ? SettingsLegacyPrefs.None : ReadLegacy());
@@ -178,7 +188,12 @@ namespace AICompanion.Settings
 
             if (Input.GetKeyDown(KeyCode.Escape))
             {
-                if (_confirmClear)
+                if (_confirmWipe)
+                {
+                    _confirmWipe = false;
+                    _rebuild = true;
+                }
+                else if (_confirmClear)
                 {
                     _confirmClear = false;
                     _rebuild = true;
@@ -269,6 +284,7 @@ namespace AICompanion.Settings
         {
             _open = false;
             _confirmClear = false;
+            _confirmWipe = false;
             _probeSerial++;
             _probeBusy = false;
             _screenPreviewBig = false;
@@ -439,9 +455,18 @@ namespace AICompanion.Settings
             if (chat == null)
                 return;
 
+            var read = ProtectedLocalFile.Read(path);
+            if (read.Status == LocalReadStatus.Missing)
+                return;
+            if (read.Status != LocalReadStatus.Ready)
+            {
+                SetStatus("Saved chat history could not be read.");
+                return;
+            }
+
             try
             {
-                chat.LoadTranscript(File.ReadAllText(path));
+                chat.LoadTranscript(read.Text);
             }
             catch (Exception)
             {
@@ -464,10 +489,12 @@ namespace AICompanion.Settings
 
             try
             {
-                var directory = Path.GetDirectoryName(path);
-                if (!string.IsNullOrEmpty(directory))
-                    Directory.CreateDirectory(directory);
-                File.WriteAllText(path, chat.ExportTranscript(), new UTF8Encoding(false));
+                if (!ProtectedLocalFile.Write(path, chat.ExportTranscript()))
+                {
+                    SetStatus("Could not save chat history.");
+                    return;
+                }
+
                 _historyRevision = chat.TranscriptRevision;
             }
             catch (Exception)
@@ -565,6 +592,7 @@ namespace AICompanion.Settings
                 {
                     _tab = (Tab)index;
                     _confirmClear = false;
+                    _confirmWipe = false;
                     _rebuild = true;
                 });
                 var rect = tab.GetComponent<RectTransform>();
@@ -912,6 +940,18 @@ namespace AICompanion.Settings
 
         void BuildPrivacy()
         {
+            if (_confirmWipe)
+            {
+                Note("Wipe all local data on this PC? This deletes memories, chat history, saved personas, settings, screen-look choices, portraits in the ProjectLeia folder, and the saved API key. Built-in personas stay. This cannot be undone.");
+                AddButton("Confirm wipe", ConfirmWipe);
+                AddButton("Cancel", () =>
+                {
+                    _confirmWipe = false;
+                    _rebuild = true;
+                });
+                return;
+            }
+
             if (_confirmClear)
             {
                 Note("Clear saved chat history on this PC? The API key and settings stay.");
@@ -936,6 +976,18 @@ namespace AICompanion.Settings
             AddButton("Clear chat history", () =>
             {
                 _confirmClear = true;
+                _confirmWipe = false;
+                _rebuild = true;
+            });
+            Note("Export writes a decrypted copy, including chat, memories, and the API key if one is saved. Keep that folder private.");
+            AddField("Export folder", _exportFolder, false, value => _exportFolder = value ?? string.Empty);
+            AddButton("Choose export folder", ChooseExportFolder);
+            AddButton("Export decrypted folder", () => ExportLocal(false));
+            AddButton("Export decrypted zip", () => ExportLocal(true));
+            AddButton("Wipe all local data", () =>
+            {
+                _confirmWipe = true;
+                _confirmClear = false;
                 _rebuild = true;
             });
             AddButton("Run setup again", () =>

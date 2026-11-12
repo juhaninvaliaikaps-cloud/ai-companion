@@ -23,7 +23,7 @@ The key is never stored in the repository. Resolution order:
 2. `%APPDATA%/ProjectLeia/secrets.json` (on Windows, `C:\Users\<you>\AppData\Roaming\ProjectLeia\secrets.json`).
 3. `Application.persistentDataPath/ProjectLeia/secrets.json`, if the file above is missing.
 
-On Windows the file is encrypted with DPAPI for the current user (`CryptProtectData`). On a machine where DPAPI is not available, including the Linux editor, the same file is plain JSON with `"protected": false`. A key saved with DPAPI on Windows does not decrypt on Linux. An environment variable wins over either file.
+On Windows the file is encrypted with DPAPI for the current user (`CryptProtectData`). On a machine where DPAPI is not available, including the Linux editor, the same file is plain JSON with `"protected": false`. A Windows player does not write that plaintext file if protection fails. A key saved with DPAPI on Windows does not decrypt on Linux. An environment variable wins over either file. Other private files in the same folder use a separate AES key; see [LOCAL_STORAGE.md](LOCAL_STORAGE.md).
 
 The value is not written to the Console, to exception text, or to the chat reply.
 

@@ -1,5 +1,5 @@
 using System;
-using System.IO;
+using AICompanion.Core;
 using UnityEngine;
 
 namespace AICompanion.Memory
@@ -23,17 +23,25 @@ namespace AICompanion.Memory
 
         public static PersonalityStore Load(string path)
         {
-            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            var read = ProtectedLocalFile.Read(path);
+            if (read.Status != LocalReadStatus.Ready || string.IsNullOrWhiteSpace(read.Text))
                 return new PersonalityStore(path, new PersonalityState());
 
             try
             {
-                var json = File.ReadAllText(path);
-                var state = JsonUtility.FromJson<PersonalityState>(json);
+                var state = JsonUtility.FromJson<PersonalityState>(read.Text);
+                if (state == null)
+                {
+                    ProtectedLocalFile.Quarantine(path);
+                    Debug.LogWarning("Personality file could not be read, using defaults: invalid");
+                    return new PersonalityStore(path, new PersonalityState());
+                }
+
                 return new PersonalityStore(path, state);
             }
             catch (Exception e)
             {
+                ProtectedLocalFile.Quarantine(path);
                 Debug.LogWarning("Personality file could not be read, using defaults: " + e.GetType().Name);
                 return new PersonalityStore(path, new PersonalityState());
             }
@@ -67,11 +75,8 @@ namespace AICompanion.Memory
 
             try
             {
-                var folder = Path.GetDirectoryName(_path);
-                if (!string.IsNullOrEmpty(folder))
-                    Directory.CreateDirectory(folder);
-
-                File.WriteAllText(_path, JsonUtility.ToJson(Current, true));
+                if (!ProtectedLocalFile.Write(_path, JsonUtility.ToJson(Current, true)))
+                    Debug.LogWarning("Personality could not be saved: write");
             }
             catch (Exception e)
             {

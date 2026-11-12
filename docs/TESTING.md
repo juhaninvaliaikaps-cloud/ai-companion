@@ -25,7 +25,7 @@ To try all modes in CI anyway, run the workflow manually:
 
 ## Running tests locally
 
-Window capture is covered in [SCREEN_LOOK.md](SCREEN_LOOK.md). EditMode tests do not grab a window. Before a batch test or a player build, copy `Assets/_Project/Settings/AvatarSelection.asset` and its `.meta` aside and copy them back afterward so a local avatar path is not rewritten.
+Window capture is covered in [SCREEN_LOOK.md](SCREEN_LOOK.md). Encrypted local files are covered by `LocalStorageTests` and the Windows checklist in [LOCAL_STORAGE.md](LOCAL_STORAGE.md). EditMode tests do not grab a window. Before a batch test or a player build, copy `Assets/_Project/Settings/AvatarSelection.asset` and its `.meta` aside and copy them back afterward so a local avatar path is not rewritten.
 
 EditMode:
 
