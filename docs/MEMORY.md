@@ -11,7 +11,7 @@ Both live in the same per-user folder as the settings and the API key.
 | `memory.json` | `%APPDATA%\ProjectLeia\memory.json` | `{ version, entries[] }` |
 | `personality.json` | `%APPDATA%\ProjectLeia\personality.json` | `{ version, personaName, mood, warmth, updatedUtc }` |
 
-`MemoryPaths` resolves the folder: `%APPDATA%\ProjectLeia`, falling back to `Application.persistentDataPath` when the profile folder is unavailable. A missing, unreadable, or corrupt file behaves like an empty store; a failed write logs a warning instead of breaking chat.
+`MemoryPaths` resolves the folder: `%APPDATA%\ProjectLeia`, falling back to `Application.persistentDataPath` when the profile folder is unavailable. On disk the bytes are AES-GCM, not the JSON below. A missing, unreadable, or corrupt file behaves like an empty store; a failed write logs a warning instead of breaking chat. The JSON in this document is what you see after export. See [LOCAL_STORAGE.md](LOCAL_STORAGE.md).
 
 ## Entries
 
@@ -101,5 +101,5 @@ personality.SetPersona("Leia", 0.7f);
 - Keyword search plus core facts, not embeddings. Paraphrases still miss: "java" does not find "coffee", though a core fact such as the user's name is always present.
 - Capture runs after each reply and costs one extra small request. Short messages (fewer than three words) are skipped. There is no per-session summary yet; only facts are extracted, and a later ticket can add summaries through `AddSummary` with the private flag.
 - The extraction prompt sees the exchange only. If the model returns prose instead of a JSON array, that exchange contributes nothing.
-- The files are plain JSON. Encryption is Phase 3 (`JUH-33`).
+- The files are encrypted at rest (AES-256-GCM, key in `install-key.leia`). See [LOCAL_STORAGE.md](LOCAL_STORAGE.md).
 - A very large `memory.json` is read whole on start; pruning is not implemented.

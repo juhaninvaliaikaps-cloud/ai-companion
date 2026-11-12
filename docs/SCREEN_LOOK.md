@@ -69,7 +69,7 @@ The captured frame is the selected display, with every window on it. Private mod
 
 With **Fast screen replies** on, the vision model that already read the picture writes the short remark, and the larger chat model is not reloaded. That is the difference between roughly 15 seconds and 40-90 seconds on the RTX 2070. The trade-off is voice quality: it is a 3B model writing one sentence, not Rocinante.
 
-The observation is remembered for the session either way: the last three observations are kept **in RAM only** and added to later prompts as untrusted context, so the main model can refer to what she saw. Nothing is written to disk, chat history, or long-term memory, and the buffer is cleared when the screen feature is turned off or the app exits. This is not the same as the old "remember observations" flag, which stays false.
+The observation is remembered for the session either way: the last three observations are kept **in RAM only** and added to later prompts as untrusted context, so the main model can refer to what she saw. Nothing is written to disk, chat history, or long-term memory, and the buffer is cleared when the screen feature is turned off or the app exits. The on/off switches and consent flags live in `settings.json`, which is encrypted with the rest of that file ([LOCAL_STORAGE.md](LOCAL_STORAGE.md)). This is not the same as the old "remember observations" flag, which stays false.
 
 For an automatic look with fast replies on, one extra one-word YES/NO call decides whether the observation is worth speaking. NO produces no chat line and no speech.
 ## Automatic looks, with a pause

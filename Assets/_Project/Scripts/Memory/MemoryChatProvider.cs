@@ -177,6 +177,17 @@ namespace AICompanion.Memory
 
         static string _personaId = string.Empty;
 
+        /// <summary>Drops the in-memory stores so the next use reads the folder again.</summary>
+        public static void Discard()
+        {
+            lock (Gate)
+            {
+                _store = null;
+                _personality = null;
+                _decorator = null;
+            }
+        }
+
         /// <summary>
         /// Switches which persona's memory is used. Called whenever settings are applied, so
         /// facts told to Lola stay with Lola. The previous store is already saved on every
