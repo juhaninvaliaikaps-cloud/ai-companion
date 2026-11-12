@@ -110,6 +110,23 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Enrich_ReadsTheStoreAgainOnTheNextRequest()
+        {
+            var first = MemoryStore.Load(Path.Combine(_dir, "first.json"));
+            first.AddFact("Has a dog named Pixel", privateMode: false);
+            var second = MemoryStore.Load(Path.Combine(_dir, "second.json"));
+            var current = first;
+            var provider = new MemoryChatProvider(new FakeProvider(ChatDefaults.GrokId), () => current, () => null);
+
+            var remembered = provider.Enrich(Request("what is my dog called?", "base"));
+            StringAssert.Contains("Has a dog named Pixel", remembered.SystemPrompt);
+
+            current = second;
+            var wiped = provider.Enrich(Request("what is my dog called?", "base"));
+            Assert.AreEqual("base", wiped.SystemPrompt);
+        }
+
+        [Test]
         public void Decorator_WrapsEveryProviderItIsGiven()
         {
             var decorator = new MemoryChatDecorator(_store);
