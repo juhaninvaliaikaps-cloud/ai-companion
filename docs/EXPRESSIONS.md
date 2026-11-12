@@ -45,7 +45,7 @@ The default map in `PortraitMap.CreateDefaults()` includes the drawn portrait se
 | `seductive` | open + blink + talk | shy |
 | `kiss` | open + blink + talk | happy |
 
-Synonyms choose the same portraits: `afraid`/`fear` -> `scared`, `annoyed` -> `tsundere`, `teasing` -> `smug`, `focused` -> `determined`, `tired` -> `sleepy`, `love` -> `kiss`, `flirty` -> `seductive`, `overwhelmed` -> `flustered_heavy`. A strong `sad` (intensity 0.7 or more) uses `crying`; a strong `surprised` uses `shocked`. Unknown words still fall back to neutral. `pouty` keeps its older drawing.
+Synonyms choose the same portraits: `afraid`/`fear` -> `scared`, `annoyed` -> `tsundere`, `teasing` -> `smug`, `focused` -> `determined`, `tired` -> `sleepy`, `love` -> `kiss`, `flirty` -> `seductive`, `overwhelmed` -> `flustered_heavy`. A strong `sad` (intensity 0.9 or more) uses `crying`; a strong `surprised` uses `shocked`. Unknown words still fall back to neutral. `pouty` keeps its older drawing.
 
 The prompt lists these names and the synonym rules in `EmotionNames.CatalogLine`, so the model can choose them. The 3D face uses the existing presets in the last column; the drawn portrait and the face may differ in how expressive they are.
 ## Names

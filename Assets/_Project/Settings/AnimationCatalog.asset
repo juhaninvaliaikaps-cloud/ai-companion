@@ -346,7 +346,7 @@ MonoBehaviour:
     emotion: 2
     intensity: 0.9
     portrait: crying
-    gesture: crying
+    gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
@@ -359,7 +359,7 @@ MonoBehaviour:
     emotion: 1
     intensity: 0.7
     portrait: teary_happy
-    gesture: teary_happy
+    gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
@@ -372,7 +372,7 @@ MonoBehaviour:
     emotion: 3
     intensity: 0.9
     portrait: shocked
-    gesture: shocked
+    gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
@@ -385,7 +385,7 @@ MonoBehaviour:
     emotion: 4
     intensity: 0.5
     portrait: confused
-    gesture: confused
+    gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
@@ -398,7 +398,7 @@ MonoBehaviour:
     emotion: 0
     intensity: 0.3
     portrait: bored
-    gesture: bored
+    gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
@@ -411,7 +411,7 @@ MonoBehaviour:
     emotion: 8
     intensity: 0.7
     portrait: scared
-    gesture: scared
+    gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
@@ -424,7 +424,7 @@ MonoBehaviour:
     emotion: 6
     intensity: 0.6
     portrait: tsundere
-    gesture: tsundere
+    gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
@@ -437,7 +437,7 @@ MonoBehaviour:
     emotion: 0
     intensity: 0.6
     portrait: determined
-    gesture: determined
+    gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
@@ -450,7 +450,7 @@ MonoBehaviour:
     emotion: 2
     intensity: 0.6
     portrait: angry
-    gesture: angry
+    gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
@@ -463,7 +463,7 @@ MonoBehaviour:
     emotion: 1
     intensity: 0.6
     portrait: smug
-    gesture: smug
+    gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
@@ -476,7 +476,7 @@ MonoBehaviour:
     emotion: 1
     intensity: 0.65
     portrait: smug_wink
-    gesture: smug_wink
+    gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
@@ -489,7 +489,7 @@ MonoBehaviour:
     emotion: 7
     intensity: 0.85
     portrait: flustered_heavy
-    gesture: flustered_heavy
+    gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
@@ -502,7 +502,7 @@ MonoBehaviour:
     emotion: 6
     intensity: 0.7
     portrait: seductive
-    gesture: seductive
+    gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
@@ -515,7 +515,7 @@ MonoBehaviour:
     emotion: 1
     intensity: 0.8
     portrait: kiss
-    gesture: kiss
+    gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2

@@ -254,6 +254,7 @@ namespace AICompanion.Tests.EditMode
 
             var crying = AnimationCueParser.Parse("<animation emotion=\"crying\" gesture=\"crying\" />").Cue;
             var cryDecision = model.Decide(crying);
+            Assert.AreEqual(DirectorAction.Emotion, cryDecision.Action, "gesture=crying must be an emotion look, not a body gesture.");
             Assert.AreEqual("crying", cryDecision.Portrait);
         }
 

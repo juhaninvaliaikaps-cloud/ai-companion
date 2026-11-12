@@ -181,11 +181,11 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(catalog.TryGetById("crying", out AnimationEntry crying));
             Assert.AreEqual("crying", crying.portrait);
             Assert.AreEqual(Emotion.Sad, crying.emotion);
-            Assert.IsTrue(catalog.TryGetByGesture("crying", out AnimationEntry cryingGesture));
-            Assert.AreEqual("crying", cryingGesture.portrait);
-            Assert.IsTrue(catalog.TryGetByGesture("smug_wink", out AnimationEntry wink));
+            Assert.IsTrue(catalog.TryGetById("crying", out AnimationEntry cryingById));
+            Assert.AreEqual("crying", cryingById.portrait);
+            Assert.IsTrue(catalog.TryGetById("smug_wink", out AnimationEntry wink));
             Assert.AreEqual("smug_wink", wink.portrait);
-            Assert.IsTrue(catalog.TryGetByGesture("kiss", out AnimationEntry kiss));
+            Assert.IsTrue(catalog.TryGetById("kiss", out AnimationEntry kiss));
             Assert.AreEqual("kiss", kiss.portrait);
             Assert.IsTrue(catalog.TryGetById("embarrassed_worried", out AnimationEntry mixed));
             Assert.AreEqual(Emotion.Concerned, mixed.emotion);

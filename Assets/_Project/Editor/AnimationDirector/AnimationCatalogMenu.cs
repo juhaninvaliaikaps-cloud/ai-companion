@@ -101,20 +101,20 @@ namespace AICompanion.Editor.AnimationDirector
                 PortraitEntry("sleepy", "use when she is tired or ready for bed", Emotion.Neutral, 0.3f, "Idle", "Idle", 2f, "sleepy", "late", "tired"),
                 // Newer drawn expressions. Each row's gesture is its own id, so gesture="crying"
                 // resolves the same portrait that emotion="crying" does.
-                GesturePortraitEntry("crying", "use for strong sadness, stronger than the sad face", Emotion.Sad, 0.9f, "crying", "tears", "sad"),
-                GesturePortraitEntry("teary_happy", "use for happy with tears in her eyes", Emotion.Happy, 0.7f, "teary_happy", "tears", "moved"),
-                GesturePortraitEntry("shocked", "use for strong surprise or shock", Emotion.Surprised, 0.9f, "shocked", "shock", "stunned"),
-                GesturePortraitEntry("confused", "use when she does not understand something", Emotion.Thinking, 0.5f, "confused", "puzzled", "huh"),
-                GesturePortraitEntry("bored", "use when she is bored or unimpressed", Emotion.Neutral, 0.3f, "bored", "bored", "meh"),
-                GesturePortraitEntry("scared", "use when she is afraid or startled", Emotion.Concerned, 0.7f, "scared", "fear", "afraid"),
-                GesturePortraitEntry("tsundere", "use for a proud, denying, tsundere reaction", Emotion.Shy, 0.6f, "tsundere", "denial", "hmph"),
-                GesturePortraitEntry("determined", "use when she is focused and determined", Emotion.Neutral, 0.6f, "determined", "focused", "serious"),
-                GesturePortraitEntry("angry", "use for real anger, sharper than a playful pout", Emotion.Sad, 0.6f, "angry", "anger", "mad"),
-                GesturePortraitEntry("smug", "use for a smug, knowing smile", Emotion.Happy, 0.6f, "smug", "smug", "knowing"),
-                GesturePortraitEntry("smug_wink", "use for a smug wink", Emotion.Happy, 0.65f, "smug_wink", "wink", "smug"),
-                GesturePortraitEntry("flustered_heavy", "use for a heavy flush when she is overwhelmed", Emotion.Flustered, 0.85f, "flustered_heavy", "overwhelmed", "blush"),
-                GesturePortraitEntry("seductive", "use for a flirty, seductive look", Emotion.Shy, 0.7f, "seductive", "flirty", "alluring"),
-                GesturePortraitEntry("kiss", "use for a kiss or an affectionate kiss sound", Emotion.Happy, 0.8f, "kiss", "kiss", "love"),
+                FacePortraitEntry("crying", "use for strong sadness, stronger than the sad face", Emotion.Sad, 0.9f, "crying", "tears", "sad"),
+                FacePortraitEntry("teary_happy", "use for happy with tears in her eyes", Emotion.Happy, 0.7f, "teary_happy", "tears", "moved"),
+                FacePortraitEntry("shocked", "use for strong surprise or shock", Emotion.Surprised, 0.9f, "shocked", "shock", "stunned"),
+                FacePortraitEntry("confused", "use when she does not understand something", Emotion.Thinking, 0.5f, "confused", "puzzled", "huh"),
+                FacePortraitEntry("bored", "use when she is bored or unimpressed", Emotion.Neutral, 0.3f, "bored", "bored", "meh"),
+                FacePortraitEntry("scared", "use when she is afraid or startled", Emotion.Concerned, 0.7f, "scared", "fear", "afraid"),
+                FacePortraitEntry("tsundere", "use for a proud, denying, tsundere reaction", Emotion.Shy, 0.6f, "tsundere", "denial", "hmph"),
+                FacePortraitEntry("determined", "use when she is focused and determined", Emotion.Neutral, 0.6f, "determined", "focused", "serious"),
+                FacePortraitEntry("angry", "use for real anger, sharper than a playful pout", Emotion.Sad, 0.6f, "angry", "anger", "mad"),
+                FacePortraitEntry("smug", "use for a smug, knowing smile", Emotion.Happy, 0.6f, "smug", "smug", "knowing"),
+                FacePortraitEntry("smug_wink", "use for a smug wink", Emotion.Happy, 0.65f, "smug_wink", "wink", "smug"),
+                FacePortraitEntry("flustered_heavy", "use for a heavy flush when she is overwhelmed", Emotion.Flustered, 0.85f, "flustered_heavy", "overwhelmed", "blush"),
+                FacePortraitEntry("seductive", "use for a flirty, seductive look", Emotion.Shy, 0.7f, "seductive", "flirty", "alluring"),
+                FacePortraitEntry("kiss", "use for a kiss or an affectionate kiss sound", Emotion.Happy, 0.8f, "kiss", "kiss", "love"),
                 // Laughing is a portrait. The 3D face uses happy. There is no body clip, so the smile stays face-only.
                 PortraitFace("laughing", "laughing, open smile on the portrait while the body stays still", Emotion.Happy, 0.9f, "laughing", "amused", "laugh"),
             };
@@ -166,8 +166,11 @@ namespace AICompanion.Editor.AnimationDirector
             return entry;
         }
 
-        /// <summary>A portrait row that also answers to its own id as a gesture.</summary>
-        private static AnimationEntry GesturePortraitEntry(
+        /// <summary>
+        /// A drawn expression row. The gesture field stays empty on purpose: the row resolves by
+        /// its id, so gesture="crying" is an emotion look and not a body gesture with a cooldown.
+        /// </summary>
+        private static AnimationEntry FacePortraitEntry(
             string id,
             string description,
             Emotion emotion,
@@ -175,9 +178,7 @@ namespace AICompanion.Editor.AnimationDirector
             string portrait,
             params string[] tags)
         {
-            AnimationEntry entry = PortraitEntry(id, description, emotion, intensity, "Idle", "Idle", 2f, portrait, tags);
-            entry.gesture = id;
-            return entry;
+            return PortraitEntry(id, description, emotion, intensity, "Idle", "Idle", 2f, portrait, tags);
         }
 
         private static AnimationEntry PriorityRow(AnimationEntry entry, int priority)        {
