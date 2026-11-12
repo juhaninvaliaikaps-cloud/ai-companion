@@ -21,7 +21,6 @@ namespace AICompanion.Settings
         // A rewind is waited for only this long. A leftover picture is kept off the screen
         // by the freshness test in any case, so a slow rewind must not delay a walk.
         const float SeekTimeoutSeconds = 0.2f;
-        const float StaleSeekSeconds = 1f;
         const float FreshTimeoutSeconds = 1.5f;
         const float ResyncCooldownSeconds = 0.5f;
 
@@ -260,12 +259,6 @@ namespace AICompanion.Settings
 
             if (Seeking)
                 _seekingFor += deltaSeconds;
-            // A seek whose completion never arrives must not stop the measuring for good.
-            if (Seeking && _begun && _seekingFor > StaleSeekSeconds)
-            {
-                _colorSeeking = false;
-                _maskSeeking = false;
-            }
             if (!_begun || _ended)
                 return VideoClipEvent.None;
 
@@ -362,9 +355,12 @@ namespace AICompanion.Settings
 
             var maskFrame = _mask.frame;
             _sync.Sample(frame, maskFrame, count, settled, out offset);
-            _resyncIn -= deltaSeconds;
+            // Nothing acts on an unsettled frame, and the cooldown waits too: a slow seek is
+            // never followed by a second one on top of it. A seek that never completes shows
+            // in the log as frames that keep being skipped.
             if (!settled)
                 return;
+            _resyncIn -= deltaSeconds;
 
             // One frame off: nudge the mask's speed until the numbers match again.
             offset = VideoMaskSync.SignedOffset(frame, maskFrame, count);
