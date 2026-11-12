@@ -236,6 +236,10 @@ namespace AICompanion.Overlay
             _gaitSpeed = 0f;
             _gaitLeadSeconds = 0f;
             _gaitGlideSeconds = 0f;
+            // A stop that was under way belongs to the gait (the 2D walk-stop). Without the
+            // gait a stop is immediate, so finish it now instead of sliding on at full speed.
+            if (State == PresenceState.Walking && _stopPhase != PresenceStopPhase.None)
+                StopWalking();
         }
 
         static bool IsUsable(float value)

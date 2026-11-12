@@ -114,6 +114,39 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void ClearingTheGaitDuringAStop_FinishesTheStop_InsteadOfSlidingOn()
+        {
+            // 2D to 3D in the middle of the walk-stop (Bugbot on PR #56).
+            var model = Model();
+            model.PlaceAt(2000, model.GroundY);
+            model.SetGait(200f, 3.8f, 0f);
+            model.RequestWalk(-1f, 30f);
+            Run(model, 1f);
+            model.RequestStop();
+            Assert.AreEqual(PresenceStopPhase.Lead, model.StopPhase);
+
+            model.ClearGait();
+            Assert.AreEqual(PresenceState.Idle, model.State);
+            Assert.AreEqual(PresenceStopPhase.None, model.StopPhase);
+            var x = model.X;
+            Run(model, 1f);
+            Assert.AreEqual(x, model.X, 0.001f);
+        }
+
+        [Test]
+        public void ClearingTheGaitWhileWalking_KeepsTheWalk()
+        {
+            var model = Model();
+            model.PlaceAt(2000, model.GroundY);
+            model.SetGait(200f, 3.8f, 0f);
+            model.RequestWalk(-1f, 30f);
+            Run(model, 0.5f);
+
+            model.ClearGait();
+            Assert.AreEqual(PresenceState.Walking, model.State);
+        }
+
+        [Test]
         public void WithoutAGait_AStopIsImmediate_AsBefore()
         {
             var model = Model();

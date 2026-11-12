@@ -1450,20 +1450,47 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void Request_ThatWaitsTooLong_IsDropped()
+        public void Request_AWalkFromTheSameReply_DoesNotUseUpTheWait()
         {
+            // The AI walk lasts 12 s plus the walk-stop: longer than the 5 s wait.
             var set = VideoAvatarManifest.Resolve(PoseManifest, PackedFolder());
             var director = new VideoAvatarDirector(set, 1);
 
             director.SetMovement(true, false, false, false);
             director.Request("pout", true);
-            director.Tick(VideoAvatarDirector.PendingSeconds + 0.1f);
-            Assert.AreEqual(-1, director.PendingReaction);
+            for (var i = 0; i < 15; i++)
+                director.Tick(1f);
+            Assert.AreEqual(set.FindReaction("pout"), director.PendingReaction);
 
             director.SetMovement(false, false, false, false);
             director.Tick(0.1f);
-            Assert.AreEqual(-1, director.Queued);
-            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual(set.FindReaction("pout"), director.Queued);
+        }
+
+        [Test]
+        public void Request_ThatWaitsTooLong_IsDropped()
+        {
+            var set = ReactionSet();
+
+            // Behind a variation: 5 s.
+            var variation = new VideoAvatarDirector(set, 1);
+            variation.Tick(1.5f);
+            variation.OnBoundary(true);
+            Assert.AreEqual(VideoAvatarAct.Variation, variation.Act);
+            variation.Request("happy", true);
+            variation.Tick(VideoAvatarDirector.PendingSeconds + 0.1f);
+            Assert.AreEqual(-1, variation.PendingReaction);
+            variation.OnEnded();
+            variation.Tick(0.1f);
+            Assert.AreNotEqual(set.FindReaction("happy"), variation.Queued);
+
+            // Behind a very long walk: at most 30 s.
+            var walking = new VideoAvatarDirector(set, 1);
+            walking.SetMovement(true, false, false, false);
+            walking.Request("happy", true);
+            for (var i = 0; i < 31; i++)
+                walking.Tick(1f);
+            Assert.AreEqual(-1, walking.PendingReaction);
         }
 
         [Test]

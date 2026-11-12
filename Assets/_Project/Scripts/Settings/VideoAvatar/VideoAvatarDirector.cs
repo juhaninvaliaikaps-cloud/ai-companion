@@ -68,6 +68,13 @@ namespace AICompanion.Settings
 
         /// <summary>Seconds a reaction asked for while she is busy waits for the default idle before it is dropped.</summary>
         public const float PendingSeconds = 5f;
+
+        /// <summary>
+        /// While she walks or stops, the wait is paused, so a reply that both walks and reacts
+        /// plays its reaction after the walk. This caps that, counted from the request.
+        /// </summary>
+        public const float MaxPendingSeconds = 30f;
+        float _pendingAge;
         int _lastVariation = -1;
         bool _stopPending;
         bool _facingRight;
@@ -146,6 +153,7 @@ namespace AICompanion.Settings
             _pendingClip = clip;
             _pendingExplicit = explicitRequest;
             _pendingLeft = PendingSeconds;
+            _pendingAge = 0f;
             return AvatarReactionResult.Waiting;
         }
 
@@ -165,6 +173,7 @@ namespace AICompanion.Settings
             _pendingClip = -1;
             _pendingExplicit = false;
             _pendingLeft = 0f;
+            _pendingAge = 0f;
         }
 
         /// <summary>A waiting reaction starts once she is back on the default idle, or is dropped when it waited too long.</summary>
@@ -173,8 +182,13 @@ namespace AICompanion.Settings
             if (_pendingClip < 0)
                 return;
             if (deltaSeconds > 0f)
-                _pendingLeft -= deltaSeconds;
-            if (_pendingLeft <= 0f || !Usable(_pendingClip))
+            {
+                _pendingAge += deltaSeconds;
+                // Walking and the walk-stop do not use up the wait: she is on her way back to the idle.
+                if (Act != VideoAvatarAct.Walk && Act != VideoAvatarAct.WalkStop)
+                    _pendingLeft -= deltaSeconds;
+            }
+            if (_pendingLeft <= 0f || _pendingAge > MaxPendingSeconds || !Usable(_pendingClip))
             {
                 ClearPending();
                 return;
@@ -421,6 +435,7 @@ namespace AICompanion.Settings
                 _pendingClip = _queued;
                 _pendingExplicit = _queuedExplicit;
                 _pendingLeft = PendingSeconds;
+                _pendingAge = 0f;
             }
 
             Act = act;
