@@ -1607,11 +1607,11 @@ namespace AICompanion.Tests.EditMode
 
             fresh.PlayClipSounds = true;
             fresh.ClipSoundVolume = 0.35f;
-            var loaded = CompanionSettings.Parse(CompanionSettings.Write(fresh), default(SettingsLegacyPrefs));
+            var loaded = CompanionSettingsJson.Parse(CompanionSettingsJson.Write(fresh), SettingsLegacyPrefs.None);
             Assert.IsTrue(loaded.PlayClipSounds);
             Assert.AreEqual(0.35f, loaded.ClipSoundVolume, 0.001f);
 
-            var broken = CompanionSettings.Parse("{ \"clipSoundVolume\": 7 }", default(SettingsLegacyPrefs));
+            var broken = CompanionSettingsJson.Parse("{ \"version\": 1, \"clipSoundVolume\": 7 }", SettingsLegacyPrefs.None);
             Assert.AreEqual(1f, broken.ClipSoundVolume, 0.0001f);
             Assert.IsFalse(broken.PlayClipSounds);
         }
