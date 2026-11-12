@@ -13,27 +13,19 @@ namespace AICompanion.Core
 
         public const string CatalogLine =
             "Choose the emotion that matches this reply. Do not default to happy or embarrassed. " +
-            "happy: good news, a joke, or a warm greeting. A high intensity laughs with an open mouth; a lower intensity is a gentle smile. " +
-            "sad: sympathy, disappointment, or bad news. " +
-            "surprised: something unexpected, a sudden reveal, or shock. " +
-            "thinking: working something out, unsure, or pausing to consider. " +
-            "embarrassed: a compliment or being caught out. Strong blush. " +
-            "shy: quiet and looking away, with a small smile. Light blush. " +
-            "flustered: lost for words or overwhelmed. Strong blush and an open mouth. " +
-            "concerned: worried about the user or about what they said. Inner brows, and no blush. worried means concerned. " +
-            "pouty or angry: playful annoyance. Use emotion sad, or gesture pouty. " +
-            "excited: delighted and energetic. Use emotion happy, or gesture excited. " +
-            "teasing: a smug knowing smile. Use gesture teasing. " +
-            "loving: warm and affectionate. Use gesture loving. " +
-            "sleepy: tired. Use gesture sleepy. " +
-            "laughing: an open laugh. Use gesture laughing. The face is the happy smile. " +
-            "Also available, and the 2D portrait has drawn frames for each: crying (strong sadness), teary_happy, " +
-            "shocked (strong surprise), confused, bored, scared, tsundere, determined, angry, smug, smug_wink, sleepy, " +
-            "embarrassed_worried, flustered_heavy, seductive, kiss. " +
-            "Synonyms: afraid or fear means scared; annoyed means tsundere; teasing means smug; focused means determined; " +
-            "tired means sleepy; love means kiss; flirty means seductive; overwhelmed means flustered_heavy. " +
-            "Use sad at high intensity for crying, and surprised at high intensity for shocked. " +
-            "neutral: calm, or when no feeling fits.";
+            "Base emotions: happy (good news, a joke, a warm greeting; high intensity laughs, low intensity is a gentle smile); " +
+            "sad (sympathy, disappointment, bad news); surprised (something unexpected); thinking (working something out); " +
+            "embarrassed (a compliment or being caught out, strong blush); shy (quiet, looking away, light blush); " +
+            "flustered (lost for words, strong blush, open mouth); concerned (worried about the user, no blush; worried means concerned); " +
+            "neutral (calm, or no feeling fits). " +
+            "Drawn portrait expressions you can also use: crying (strong sadness; use this instead of sad at 0.9 or more), " +
+            "teary_happy, shocked (strong surprise; use this instead of surprised at 0.9 or more), confused, bored, scared, " +
+            "tsundere, determined, angry (sharper than pouty), smug (knowing smile; teasing means smug), smug_wink, " +
+            "sleepy (tired means sleepy), embarrassed_worried, flustered_heavy (overwhelmed means flustered_heavy), " +
+            "seductive (flirty means seductive), kiss (love means kiss), and loving (warm affection, not a kiss). " +
+            "Other synonyms: afraid or fear means scared; annoyed means tsundere; focused means determined. " +
+            "pouty stays a playful pout and is not the same as angry. " +
+            "These names are emotion values, so write them as emotion=\"crying\" and not as a gesture.";
 
         public static bool TryParse(string value, out Emotion emotion)
         {
@@ -138,10 +130,14 @@ namespace AICompanion.Core
             switch (token)
             {
                 case "sad":
-                    return intensity >= 0.7f ? "crying" : string.Empty;
+                    return intensity >= 0.9f ? "crying" : string.Empty;
                 case "surprised":
                 case "surprise":
-                    return intensity >= 0.7f ? "shocked" : string.Empty;
+                    return intensity >= 0.9f ? "shocked" : string.Empty;
+                case "shock":
+                    return "shocked";
+                case "confusion":
+                    return "confused";
                 case "pout":
                 case "pouty":
                     return "pouty";

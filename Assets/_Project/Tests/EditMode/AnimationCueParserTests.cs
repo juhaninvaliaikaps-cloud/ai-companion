@@ -89,6 +89,10 @@ namespace AICompanion.Tests.EditMode
 
             var strongSad = AnimationCueParser.Parse("Oh.\n<animation emotion=\"sad\" intensity=\"0.9\" />");
             Assert.AreEqual("crying", EmotionNames.PortraitAlias(strongSad.Cue.EmotionField, strongSad.Cue.Intensity));
+            var officialSad = AnimationCueParser.Parse("Oh.\n<animation emotion=\"sad\" intensity=\"0.7\" />");
+            Assert.AreEqual(string.Empty, EmotionNames.PortraitAlias(officialSad.Cue.EmotionField, officialSad.Cue.Intensity), "The ordinary sad sample must not become crying.");
+            StringAssert.Contains("emotion=\"sad\" intensity=\"0.55\"", AnimationCueParser.Instruction);
+            StringAssert.Contains("emotion=\"crying\"", AnimationCueParser.Instruction);
             var weakSad = AnimationCueParser.Parse("Oh.\n<animation emotion=\"sad\" intensity=\"0.3\" />");
             Assert.AreEqual(string.Empty, EmotionNames.PortraitAlias(weakSad.Cue.EmotionField, weakSad.Cue.Intensity));
 
@@ -110,6 +114,9 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("seductive", Dict(AnimationCueParser.Parse("Hmm.\n<animation emotion=\"flirty\" />"), Emotion.Shy));
             Assert.AreEqual("flustered_heavy", Dict(AnimationCueParser.Parse("I...\n<animation emotion=\"overwhelmed\" />"), Emotion.Flustered));
             Assert.AreEqual("smug_wink", Dict(AnimationCueParser.Parse("Hehe.\n<animation emotion=\"smug_wink\" />"), Emotion.Happy));
+
+            Assert.AreEqual("shocked", EmotionNames.PortraitAlias("shock"));
+            Assert.AreEqual("confused", EmotionNames.PortraitAlias("confusion"));
 
             var unknown = AnimationCueParser.Parse("Hmm.\n<animation emotion=\"furious\" />");
             Assert.AreEqual(CueParseStatus.Invalid, unknown.Status);

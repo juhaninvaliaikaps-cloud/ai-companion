@@ -110,7 +110,8 @@ namespace AICompanion.Settings
 
         public static PortraitMap CreateDefaults()
         {
-            var map = new PortraitMap();            map.Set("neutral", PortraitFrames.NeutralSet());
+            var map = new PortraitMap();
+            map.Set("neutral", PortraitFrames.NeutralSet());
             map.Set("happy", PortraitFrames.SmileSet());
             map.Set("smile", PortraitFrames.SmileSet());
             map.Set("laughing", PortraitFrameSet.Animated(

@@ -136,10 +136,10 @@ namespace AICompanion.Tests.EditMode
         {
             AnimationClipCatalog catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>(CatalogPath);
             Assert.IsNotNull(catalog, "Missing catalog asset at " + CatalogPath);
-            Assert.AreEqual(26, catalog.Entries.Count);
+            Assert.AreEqual(40, catalog.Entries.Count);
 
             Assert.IsTrue(catalog.Validate(out List<string> problems), string.Join("\n", problems));
-            Assert.AreEqual(26, catalog.BuildPromptList().Split('\n').Length);
+            Assert.AreEqual(40, catalog.BuildPromptList().Split('\n').Length);
 
             Assert.IsTrue(catalog.TryGetById("laughing", out AnimationEntry laughing));
             Assert.AreEqual("laughing", laughing.portrait);
@@ -174,6 +174,21 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("shy", shy.portrait);
             Assert.IsTrue(catalog.TryGetById("flustered", out AnimationEntry flustered));
             Assert.AreEqual("flustered", flustered.portrait);
+
+            Assert.IsTrue(catalog.TryGetById("pouty", out AnimationEntry poutyRow));
+            Assert.AreEqual("pouty", poutyRow.portrait, "The pouty row must keep the pouty still, not the angry one.");
+
+            Assert.IsTrue(catalog.TryGetById("crying", out AnimationEntry crying));
+            Assert.AreEqual("crying", crying.portrait);
+            Assert.AreEqual(Emotion.Sad, crying.emotion);
+            Assert.IsTrue(catalog.TryGetByGesture("crying", out AnimationEntry cryingGesture));
+            Assert.AreEqual("crying", cryingGesture.portrait);
+            Assert.IsTrue(catalog.TryGetByGesture("smug_wink", out AnimationEntry wink));
+            Assert.AreEqual("smug_wink", wink.portrait);
+            Assert.IsTrue(catalog.TryGetByGesture("kiss", out AnimationEntry kiss));
+            Assert.AreEqual("kiss", kiss.portrait);
+            Assert.IsTrue(catalog.TryGetById("embarrassed_worried", out AnimationEntry mixed));
+            Assert.AreEqual(Emotion.Concerned, mixed.emotion);
         }
 
         private AnimationClipCatalog NewCatalog(params AnimationEntry[] entries)

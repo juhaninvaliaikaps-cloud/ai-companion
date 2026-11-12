@@ -241,6 +241,23 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void ShippedCatalog_PoutyGestureUsesThePoutyPortrait()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>("Assets/_Project/Settings/AnimationCatalog.asset");
+            Assert.IsNotNull(catalog);
+            var model = new AnimationDirectorModel(catalog);
+
+            var pouty = AnimationCueParser.Parse("<animation emotion=\"sad\" intensity=\"0.45\" gesture=\"pouty\" />").Cue;
+            var poutDecision = model.Decide(pouty);
+            Assert.AreEqual(Emotion.Sad, poutDecision.Emotion);
+            Assert.AreEqual("pouty", poutDecision.Portrait);
+
+            var crying = AnimationCueParser.Parse("<animation emotion=\"crying\" gesture=\"crying\" />").Cue;
+            var cryDecision = model.Decide(crying);
+            Assert.AreEqual("crying", cryDecision.Portrait);
+        }
+
+        [Test]
         public void ShippedCatalog_SuffixAsksForTheCueTag()
         {
             var catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>("Assets/_Project/Settings/AnimationCatalog.asset");
