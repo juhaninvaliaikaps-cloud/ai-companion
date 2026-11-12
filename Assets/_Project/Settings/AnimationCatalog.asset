@@ -520,6 +520,71 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
     durationSeconds: 2
     priority: 0
+  - id: finger_suck
+    description: use for a teasing moment with a finger at her lips
+    tags:
+    - tease
+    - lips
+    emotion: 7
+    intensity: 0.75
+    portrait: finger_suck
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: finger_suck_deep
+    description: use when the finger stays at her lips a little longer
+    tags:
+    - tease
+    - close
+    emotion: 7
+    intensity: 0.8
+    portrait: finger_suck_deep
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: finger_suck_hold
+    description: use when she holds the finger-at-lips pose
+    tags:
+    - hold
+    - lips
+    emotion: 7
+    intensity: 0.8
+    portrait: finger_suck_hold
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: finger_pull
+    description: use when she draws her finger away with a smile
+    tags:
+    - smile
+    - away
+    emotion: 6
+    intensity: 0.7
+    portrait: finger_pull
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: finger_pull_start
+    description: use when she brings a finger toward her lips
+    tags:
+    - tease
+    - start
+    emotion: 6
+    intensity: 0.6
+    portrait: finger_pull_start
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
   - id: laughing
     description: laughing, open smile on the portrait while the body stays still
     tags:

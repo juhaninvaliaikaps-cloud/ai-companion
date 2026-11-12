@@ -115,6 +115,11 @@ namespace AICompanion.Editor.AnimationDirector
                 FacePortraitEntry("flustered_heavy", "use for a heavy flush when she is overwhelmed", Emotion.Flustered, 0.85f, "flustered_heavy", "overwhelmed", "blush"),
                 FacePortraitEntry("seductive", "use for a flirty, seductive look", Emotion.Shy, 0.7f, "seductive", "flirty", "alluring"),
                 FacePortraitEntry("kiss", "use for a kiss or an affectionate kiss sound", Emotion.Happy, 0.8f, "kiss", "kiss", "love"),
+                FacePortraitEntry("finger_suck", "use for a teasing moment with a finger at her lips", Emotion.Flustered, 0.75f, "finger_suck", "tease", "lips"),
+                FacePortraitEntry("finger_suck_deep", "use when the finger stays at her lips a little longer", Emotion.Flustered, 0.8f, "finger_suck_deep", "tease", "close"),
+                FacePortraitEntry("finger_suck_hold", "use when she holds the finger-at-lips pose", Emotion.Flustered, 0.8f, "finger_suck_hold", "hold", "lips"),
+                FacePortraitEntry("finger_pull", "use when she draws her finger away with a smile", Emotion.Shy, 0.7f, "finger_pull", "smile", "away"),
+                FacePortraitEntry("finger_pull_start", "use when she brings a finger toward her lips", Emotion.Shy, 0.6f, "finger_pull_start", "tease", "start"),
                 // Laughing is a portrait. The 3D face uses happy. There is no body clip, so the smile stays face-only.
                 PortraitFace("laughing", "laughing, open smile on the portrait while the body stays still", Emotion.Happy, 0.9f, "laughing", "amused", "laugh"),
             };

@@ -136,10 +136,10 @@ namespace AICompanion.Tests.EditMode
         {
             AnimationClipCatalog catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>(CatalogPath);
             Assert.IsNotNull(catalog, "Missing catalog asset at " + CatalogPath);
-            Assert.AreEqual(40, catalog.Entries.Count);
+            Assert.AreEqual(45, catalog.Entries.Count);
 
             Assert.IsTrue(catalog.Validate(out List<string> problems), string.Join("\n", problems));
-            Assert.AreEqual(40, catalog.BuildPromptList().Split('\n').Length);
+            Assert.AreEqual(45, catalog.BuildPromptList().Split('\n').Length);
 
             Assert.IsTrue(catalog.TryGetById("laughing", out AnimationEntry laughing));
             Assert.AreEqual("laughing", laughing.portrait);
@@ -189,6 +189,15 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("kiss", kiss.portrait);
             Assert.IsTrue(catalog.TryGetById("embarrassed_worried", out AnimationEntry mixed));
             Assert.AreEqual(Emotion.Concerned, mixed.emotion);
+
+            Assert.IsTrue(catalog.TryGetById("finger_suck", out AnimationEntry fingerSuck));
+            Assert.AreEqual("finger_suck", fingerSuck.portrait);
+            Assert.AreEqual(Emotion.Flustered, fingerSuck.emotion);
+            Assert.IsTrue(catalog.TryGetById("finger_suck_hold", out AnimationEntry fingerHold));
+            Assert.AreEqual("finger_suck_hold", fingerHold.portrait);
+            Assert.IsTrue(catalog.TryGetById("finger_pull_start", out AnimationEntry fingerPull));
+            Assert.AreEqual("finger_pull_start", fingerPull.portrait);
+            Assert.AreEqual(Emotion.Shy, fingerPull.emotion);
         }
 
         private AnimationClipCatalog NewCatalog(params AnimationEntry[] entries)

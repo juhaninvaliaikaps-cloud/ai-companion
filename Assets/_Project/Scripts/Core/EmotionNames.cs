@@ -25,7 +25,9 @@ namespace AICompanion.Core
             "seductive (flirty means seductive), kiss (love means kiss), and loving (warm affection, not a kiss). " +
             "Other synonyms: afraid or fear means scared; annoyed means tsundere; focused means determined. " +
             "pouty stays a playful pout and is not the same as angry. " +
-            "These names are emotion values, so write them as emotion=\"crying\" and not as a gesture.";
+            "These names are emotion values, so write them as emotion=\"crying\" and not as a gesture. " +
+            "Suggestive drawn expressions, for a teasing or intimate moment: finger_suck, finger_suck_deep and " +
+            "finger_suck_hold (a finger at her lips), finger_pull and finger_pull_start (drawing it away with a smile).";
 
         public static bool TryParse(string value, out Emotion emotion)
         {
@@ -103,10 +105,17 @@ namespace AICompanion.Core
                     return true;
                 case "flustered_heavy":
                 case "overwhelmed":
+                case "finger_suck":
+                case "finger_suck_deep":
+                case "finger_suck_hold":
                     emotion = Emotion.Flustered;
                     return true;
                 case "annoyed":
                     emotion = Emotion.Sad;
+                    return true;
+                case "finger_pull":
+                case "finger_pull_start":
+                    emotion = Emotion.Shy;
                     return true;
                 default:
                     return Enum.TryParse(value.Trim(), true, out emotion);
@@ -175,6 +184,11 @@ namespace AICompanion.Core
                 case "seductive":
                 case "kiss":
                 case "smug_wink":
+                case "finger_suck":
+                case "finger_suck_deep":
+                case "finger_suck_hold":
+                case "finger_pull":
+                case "finger_pull_start":
                     return token;
                 case "excited":
                 case "loving":

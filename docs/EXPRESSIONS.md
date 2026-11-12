@@ -44,6 +44,13 @@ The default map in `PortraitMap.CreateDefaults()` includes the drawn portrait se
 | `flustered_heavy` | open + blink + talk | flustered |
 | `seductive` | open + blink + talk | shy |
 | `kiss` | open + blink + talk | happy |
+| `finger_suck` | open + blink + talk | flustered |
+| `finger_suck_deep` | open + blink + talk | flustered |
+| `finger_suck_hold` | still (first frame of the hold sequence) | flustered |
+| `finger_pull` | still | shy |
+| `finger_pull_start` | still | shy |
+
+The `finger_*` set is suggestive rather than explicit. `finger_suck_hold_00`..`07` is a drawn sequence; the portrait panel shows a single frame, so only `_00` is registered.
 
 Synonyms choose the same portraits: `afraid`/`fear` -> `scared`, `annoyed` -> `tsundere`, `teasing` -> `smug`, `focused` -> `determined`, `tired` -> `sleepy`, `love` -> `kiss`, `flirty` -> `seductive`, `overwhelmed` -> `flustered_heavy`. A strong `sad` (intensity 0.9 or more) uses `crying`; a strong `surprised` uses `shocked`. Unknown words still fall back to neutral. `pouty` keeps its older drawing.
 

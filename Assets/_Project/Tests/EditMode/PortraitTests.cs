@@ -56,6 +56,11 @@ namespace AICompanion.Tests.EditMode
             AssertAnimated(map, "flustered_heavy", "flustered_heavy", "flustered_heavy_blink_half", "flustered_heavy_blink_closed", "flustered_heavy_talk");
             AssertAnimated(map, "seductive", "seductive", "seductive_blink_half", "seductive_blink_closed", "seductive_talk");
             AssertAnimated(map, "kiss", "kiss", "kiss_blink_half", "kiss_blink_closed", "kiss_talk");
+            AssertAnimated(map, "finger_suck", "finger_suck", "finger_suck_blink_half", "finger_suck_blink_closed", "finger_suck_talk");
+            AssertAnimated(map, "finger_suck_deep", "finger_suck_deep", "finger_suck_deep_blink_half", "finger_suck_deep_blink_closed", "finger_suck_deep_talk");
+            AssertStill(map, "finger_suck_hold", "finger_suck_hold_00");
+            AssertStill(map, "finger_pull", "finger_pull_02_smile");
+            AssertStill(map, "finger_pull_start", "finger_pull_01");
 
             var wink = map.Resolve("smug_wink");
             Assert.AreEqual("smug_wink", wink.Open);

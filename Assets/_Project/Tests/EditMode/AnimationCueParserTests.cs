@@ -118,6 +118,15 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("shocked", EmotionNames.PortraitAlias("shock"));
             Assert.AreEqual("confused", EmotionNames.PortraitAlias("confusion"));
 
+            var finger = AnimationCueParser.Parse("Mm.\n<animation emotion=\"finger_suck\" intensity=\"0.7\" />");
+            Assert.AreEqual(CueParseStatus.Parsed, finger.Status);
+            Assert.AreEqual(Emotion.Flustered, finger.Cue.Emotion);
+            Assert.AreEqual("finger_suck", EmotionNames.PortraitAlias(finger.Cue.EmotionField, finger.Cue.Intensity));
+            var pull = AnimationCueParser.Parse("Oh.\n<animation emotion=\"finger_pull\" intensity=\"0.6\" />");
+            Assert.AreEqual(Emotion.Shy, pull.Cue.Emotion);
+            Assert.AreEqual("finger_pull", EmotionNames.PortraitAlias(pull.Cue.EmotionField, pull.Cue.Intensity));
+            Assert.AreEqual("finger_suck_hold", EmotionNames.PortraitAlias("finger_suck_hold"));
+
             var unknown = AnimationCueParser.Parse("Hmm.\n<animation emotion=\"furious\" />");
             Assert.AreEqual(CueParseStatus.Invalid, unknown.Status);
             Assert.AreEqual(string.Empty, EmotionNames.PortraitAlias(unknown.Cue.EmotionField));
