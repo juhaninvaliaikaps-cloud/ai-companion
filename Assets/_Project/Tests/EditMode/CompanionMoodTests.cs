@@ -347,6 +347,9 @@ namespace AICompanion.Tests.EditMode
         [TestCase("<animation emotion=\"crying\" intensity=\"0.6\" />", CompanionMood.Sad)]
         [TestCase("<animation emotion=\"scared\" intensity=\"0.6\" />", CompanionMood.Anxious)]
         [TestCase("<animation emotion=\"sleepy\" intensity=\"0.6\" />", CompanionMood.Sleepy)]
+        [TestCase("<animation emotion=\"distressed\" intensity=\"0.7\" gesture=\"teary_happy\">", CompanionMood.Anxious)]
+        [TestCase("<animation emotion=\"upset\" intensity=\"0.6\" />", CompanionMood.Sad)]
+        [TestCase("<animation emotion=\"teary_happy\" intensity=\"0.6\" />", CompanionMood.Happy)]
         public void HerCue_MapsToTheMoodInTheTable(string tag, CompanionMood expected)
         {
             var mood = new CompanionMoodState();
@@ -366,7 +369,7 @@ namespace AICompanion.Tests.EditMode
             foreach (var word in new[] { "pout", "pouty", "angry", "annoyed", "tsundere", "grumpy", "smug", "loving", "kiss",
                 "affectionate", "love", "laughing", "excited", "playful", "smug_wink", "crying", "hurt", "scared", "shocked",
                 "worried", "nervous", "afraid", "fear", "shock", "worry", "embarrassed_worried", "sleepy", "tired", "bored",
-                "seductive", "flirty" })
+                "seductive", "flirty", "distressed", "anxious", "upset", "teary_happy" })
             {
                 var cue = new AnimationCue(Emotion.Neutral, 0.5f, string.Empty, 0f, word);
                 Assert.Greater(CompanionMoodTable.ForCue(cue).Length, 0, word);

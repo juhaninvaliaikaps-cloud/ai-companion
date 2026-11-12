@@ -33,6 +33,7 @@ namespace AICompanion.Core
             "scared", "shocked", "worried", "nervous", "afraid", "fear", "shock", "worry", "embarrassed_worried",
             "sleepy", "tired", "bored",
             "seductive", "flirty",
+            "distressed", "anxious", "upset", "teary_happy",
         };
 
         static readonly CompanionMoodPush[][] CueWordPushes =
@@ -68,6 +69,10 @@ namespace AICompanion.Core
             new[] { new CompanionMoodPush(CompanionMood.Sleepy, 0.15f) },        // bored
             new[] { new CompanionMoodPush(CompanionMood.Intimate, 0.3f), new CompanionMoodPush(CompanionMood.Affectionate, 0.1f) }, // seductive
             new[] { new CompanionMoodPush(CompanionMood.Intimate, 0.3f), new CompanionMoodPush(CompanionMood.Affectionate, 0.1f) }, // flirty
+            new[] { new CompanionMoodPush(CompanionMood.Anxious, 0.3f), new CompanionMoodPush(CompanionMood.Sad, 0.15f) },       // distressed
+            new[] { new CompanionMoodPush(CompanionMood.Anxious, 0.3f) },        // anxious
+            new[] { new CompanionMoodPush(CompanionMood.Sad, 0.25f), new CompanionMoodPush(CompanionMood.Anxious, 0.1f) },       // upset
+            new[] { new CompanionMoodPush(CompanionMood.Happy, 0.25f), new CompanionMoodPush(CompanionMood.Affectionate, 0.1f) }, // teary_happy
         };
 
         // ---- her own cue: the emotion, when the word is not in the list above ------------
