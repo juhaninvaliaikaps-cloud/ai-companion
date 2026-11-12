@@ -89,8 +89,8 @@ namespace AICompanion.Tests.EditMode
             CompanionMoodTable.ApplyCue(tsundere, love);
             CompanionMoodTable.ApplyCue(balanced, love);
 
-            // Tsundere starts on her annoyed bias (0.15); the push covers its share of the rest.
-            Assert.AreEqual(0.15f + 0.3f * 1.1f * 1.4f * 0.85f, tsundere.Strength(CompanionMood.Annoyed), 0.0001f);
+            // Tsundere starts on her annoyed bias (0.1); the push covers its share of the rest.
+            Assert.AreEqual(0.1f + 0.3f * 1.1f * 1.4f * 0.9f, tsundere.Strength(CompanionMood.Annoyed), 0.0001f);
             Assert.AreEqual(0.3f * 1.1f * 0.7f, tsundere.Strength(CompanionMood.Affectionate), 0.0001f);
             Assert.Greater(tsundere.Strength(CompanionMood.Annoyed), balanced.Strength(CompanionMood.Annoyed));
             Assert.Less(tsundere.Strength(CompanionMood.Affectionate), balanced.Strength(CompanionMood.Affectionate));
@@ -173,14 +173,42 @@ namespace AICompanion.Tests.EditMode
         public void RestBias_KeepsALowFloor_ThatDoesNotShowOnItsOwn()
         {
             var shy = new CompanionMoodState { Temperament = Preset(PersonaTemperaments.ShyId) };
-            Assert.AreEqual(0.15f, shy.Strength(CompanionMood.Flustered), 0.0001f);
+            Assert.AreEqual(0.1f, shy.Strength(CompanionMood.Flustered), 0.0001f);
             shy.Tick(36000f, Day);
-            Assert.AreEqual(0.15f, shy.Strength(CompanionMood.Flustered), 0.0001f);
+            Assert.AreEqual(0.1f, shy.Strength(CompanionMood.Flustered), 0.0001f);
             Assert.AreEqual(CompanionMood.Content, shy.Shown);
 
             // From the floor, one push is enough to show.
             CompanionMoodTable.ApplyCue(shy, Cue("<animation emotion=\"embarrassed\" intensity=\"0.3\" />"));
             Assert.AreEqual(CompanionMood.Flustered, shy.Shown);
+        }
+
+        [Test]
+        public void RestBias_IsBelowLeaving_SoEveryBiasedMoodCanStopShowing()
+        {
+            // Bugbot on #68: a bias equal to LeaveStrength kept the mood showing forever.
+            Assert.Less(PersonaTemperament.MaxRestBias, CompanionMoodTuning.LeaveStrength);
+            foreach (var id in PersonaTemperaments.Ids)
+            {
+                var temperament = Preset(id);
+                if (temperament.RestBias == CompanionMood.Content)
+                    continue;
+                Assert.Less(temperament.RestBiasStrength, CompanionMoodTuning.LeaveStrength, id);
+
+                var state = new CompanionMoodState { Temperament = temperament };
+                state.Push(temperament.RestBias, 0.8f);
+                Assert.AreEqual(temperament.RestBias, state.Shown, id);
+                state.Tick(36000f, Day);
+                Assert.AreEqual(CompanionMood.Content, state.Shown, id);
+                Assert.AreEqual(temperament.RestBiasStrength, state.Strength(temperament.RestBias), 0.0001f, id);
+
+                // A restart does not bring it back either.
+                var back = CompanionMoodState.FromJson(state.ToJson(DateTime.UtcNow), DateTime.UtcNow.AddHours(1), temperament);
+                Assert.AreEqual(CompanionMood.Content, back.Shown, id);
+            }
+
+            var custom = new PersonaTemperament("test-bias", "Test").WithRestBias(CompanionMood.Sad, 0.9f);
+            Assert.AreEqual(PersonaTemperament.MaxRestBias, custom.RestBiasStrength, 0.0001f);
         }
 
         [Test]
@@ -250,6 +278,7 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(string.Empty, PersonaJson.Parse("{\"id\":\"a\",\"temperament\":\"default\"}").Temperament);
             Assert.AreEqual(string.Empty, PersonaJson.Parse("{\"id\":\"a\"}").Temperament);
             Assert.AreEqual(PersonaTemperaments.MoodyId, PersonaJson.Parse("{\"id\":\"a\",\"temperament\":\"Moody\"}").Temperament);
+            Assert.IsTrue(persona.Normalize());
             Assert.AreEqual(PersonaTemperaments.TsundereId, persona.Copy().Temperament);
         }
 

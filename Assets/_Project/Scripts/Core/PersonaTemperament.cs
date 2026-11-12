@@ -7,7 +7,7 @@ namespace AICompanion.Core
     /// temperament only scales how fast each mood builds and fades, and where she settles:
     /// <list type="bullet">
     /// <item><see cref="Baseline"/>: a mood she settles back to, held at <see cref="BaselineStrength"/> (enough to show).</item>
-    /// <item><see cref="RestBias"/>: a mood kept at a low floor (below showing), so it shows sooner.</item>
+    /// <item><see cref="RestBias"/>: a mood kept at a low floor (below showing, and below leaving), so it shows sooner.</item>
     /// <item><see cref="Gain"/>: multiplies every push into a mood.</item>
     /// <item><see cref="HalfLifeScale"/>: multiplies a mood's half-life (above 1 fades slower).</item>
     /// </list>
@@ -18,7 +18,11 @@ namespace AICompanion.Core
     public sealed class PersonaTemperament
     {
         public const float BaselineStrength = 0.35f;
-        public const float MaxRestBias = 0.25f;
+        /// <summary>
+        /// A rest bias stays below <see cref="CompanionMoodTuning.LeaveStrength"/>, so a biased
+        /// mood that is showing can still fade out and let her return to Content.
+        /// </summary>
+        public const float MaxRestBias = CompanionMoodTuning.LeaveStrength - 0.03f;
         public const float MinScale = 0.25f;
         public const float MaxScale = 3f;
 
@@ -200,21 +204,21 @@ namespace AICompanion.Core
 
                 // Flustered and anxious come easily and linger a little.
                 new PersonaTemperament(ShyId, "Shy")
-                    .WithRestBias(CompanionMood.Flustered, 0.15f)
+                    .WithRestBias(CompanionMood.Flustered, 0.1f)
                     .WithGain(CompanionMood.Flustered, 1.4f).WithGain(CompanionMood.Anxious, 1.2f)
                     .WithGain(CompanionMood.Affectionate, 0.9f).WithGain(CompanionMood.Annoyed, 0.8f)
                     .WithHalfLife(CompanionMood.Flustered, 1.5f),
 
                 // Annoyed builds fast and lingers; affection builds slowly and fades fast.
                 new PersonaTemperament(TsundereId, "Tsundere")
-                    .WithRestBias(CompanionMood.Annoyed, 0.15f)
+                    .WithRestBias(CompanionMood.Annoyed, 0.1f)
                     .WithGain(CompanionMood.Annoyed, 1.4f).WithGain(CompanionMood.Affectionate, 0.7f)
                     .WithGain(CompanionMood.Flustered, 1.2f)
                     .WithHalfLife(CompanionMood.Annoyed, 1.3f).WithHalfLife(CompanionMood.Affectionate, 0.7f),
 
                 // Low moods come easily and stay; happiness is shorter.
                 new PersonaTemperament(MoodyId, "Moody")
-                    .WithRestBias(CompanionMood.Sad, 0.15f)
+                    .WithRestBias(CompanionMood.Sad, 0.1f)
                     .WithGain(CompanionMood.Sad, 1.3f).WithGain(CompanionMood.Annoyed, 1.2f)
                     .WithGain(CompanionMood.Anxious, 1.2f).WithGain(CompanionMood.Happy, 0.8f)
                     .WithHalfLife(CompanionMood.Sad, 1.4f).WithHalfLife(CompanionMood.Annoyed, 1.2f)

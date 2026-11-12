@@ -110,7 +110,7 @@ A temperament adds no new moods. It changes four things, all in `PersonaTemperam
 - **Gain**: multiplies every push into a mood (in `CompanionMoodTable`).
 - **Half-life**: multiplies how long a mood takes to halve (in `CompanionMoodState.Tick` and when the app was closed).
 - **Baseline**: a mood she settles back to, held at 0.35. That is enough to show.
-- **Rest bias**: a low floor under one mood (at most 0.25, below showing), so that mood shows sooner.
+- **Rest bias**: a low floor under one mood, so that mood shows sooner. It is at most 0.12: below showing (0.3) and below leaving (0.15), so a biased mood can still stop showing.
 
 A mood starts on its floor as soon as the temperament is set (load, switch, or picker), never fades below it, and is back on it after the app was closed. A Cheerful persona therefore rests on happy straight away. Hysteresis, the Intimate gate, the mood file and the phase 2 looks are unchanged.
 
@@ -119,9 +119,9 @@ A mood starts on its floor as soon as the temperament is set (load, switch, or p
 | Balanced (default) | Exactly phase 1/2. |
 | Calm | Annoyed and anxious build ×0.7, flustered ×0.8. Annoyed and anxious fade ×0.6 the time, sad ×0.8. |
 | Cheerful | Baseline happy. Happy builds ×1.3 and lasts ×1.5. Affectionate builds ×1.1. Sad and annoyed build ×0.8 and fade ×0.7 the time. |
-| Shy | Flustered bias 0.15. Flustered builds ×1.4 and lasts ×1.5. Anxious builds ×1.2. Affectionate builds ×0.9, annoyed ×0.8. |
-| Tsundere | Annoyed bias 0.15. Annoyed builds ×1.4 and lasts ×1.3. Affectionate builds ×0.7 and fades ×0.7 the time. Flustered builds ×1.2. |
-| Moody | Sad bias 0.15. Sad builds ×1.3 and lasts ×1.4. Annoyed builds ×1.2 and lasts ×1.2. Anxious builds ×1.2. Happy builds ×0.8 and fades ×0.7 the time. |
+| Shy | Flustered bias 0.1. Flustered builds ×1.4 and lasts ×1.5. Anxious builds ×1.2. Affectionate builds ×0.9, annoyed ×0.8. |
+| Tsundere | Annoyed bias 0.1. Annoyed builds ×1.4 and lasts ×1.3. Affectionate builds ×0.7 and fades ×0.7 the time. Flustered builds ×1.2. |
+| Moody | Sad bias 0.1. Sad builds ×1.3 and lasts ×1.4. Annoyed builds ×1.2 and lasts ×1.2. Anxious builds ×1.2. Happy builds ×0.8 and fades ×0.7 the time. |
 
 **Intimate** is never a baseline or a bias. A temperament's Intimate gain is used only while `IntimateExpressions.Active`. No preset touches Intimate.
 
