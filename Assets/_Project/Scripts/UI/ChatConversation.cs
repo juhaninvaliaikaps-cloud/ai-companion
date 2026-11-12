@@ -28,6 +28,11 @@ namespace AICompanion.UI
         public string Text { get; private set; }
         public bool Streaming { get; private set; }
 
+        /// <summary>
+        /// Screen observations stay in the session transcript and are left out of the history file.
+        /// </summary>
+        public bool KeepInHistory { get; internal set; } = true;
+
         internal void Append(string piece)
         {
             if (!string.IsNullOrEmpty(piece))
@@ -79,15 +84,36 @@ namespace AICompanion.UI
 
         public bool TryBeginSend(string userText, string systemPrompt, float temperature, int maxTokens, out ChatRequest request)
         {
+            return TryBeginSend(userText, systemPrompt, temperature, maxTokens, out request, null);
+        }
+
+        public bool TryBeginSend(string userText, string systemPrompt, float temperature, int maxTokens, out ChatRequest request, ChatTurnOptions options)
+        {
             request = null;
             var text = (userText ?? string.Empty).Trim();
             if (IsBusy || text.Length == 0)
                 return false;
 
             Generation++;
-            _lines.Add(new ChatLine(ChatLineKind.User, text, false));
-            request = BuildRequest(systemPrompt, temperature, maxTokens);
-            _lines.Add(new ChatLine(ChatLineKind.Assistant, string.Empty, true));
+            var user = new ChatLine(ChatLineKind.User, text, false);
+            _lines.Add(user);
+            request = options != null && options.SingleTurn
+                ? BuildSingle(systemPrompt, temperature, maxTokens, text)
+                : BuildRequest(systemPrompt, temperature, maxTokens);
+            if (options != null)
+            {
+                request.Image = options.Image;
+                request.BlockCloud = options.BlockCloud;
+            }
+
+            var assistant = new ChatLine(ChatLineKind.Assistant, string.Empty, true);
+            _lines.Add(assistant);
+            if (options != null && options.Ephemeral)
+            {
+                user.KeepInHistory = false;
+                assistant.KeepInHistory = false;
+            }
+
             IsBusy = true;
             Touch();
             return true;
@@ -146,7 +172,7 @@ namespace AICompanion.UI
                 }
                 else
                 {
-                    SealAssistant(result.Text);
+                    SealAssistant(ScreenLookCue.Strip(result.Text));
                 }
 
                 return;
@@ -164,6 +190,15 @@ namespace AICompanion.UI
                 AddSystem(note);
         }
 
+        /// <summary>A reply that was not triggered by a visible user turn, used by automatic looks.</summary>
+        public void AddAssistant(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+
+            _lines.Add(new ChatLine(ChatLineKind.Assistant, text.Trim(), false));
+            Touch();
+        }
         public void AddSystem(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
@@ -195,6 +230,18 @@ namespace AICompanion.UI
                 Temperature = temperature,
                 MaxTokens = maxTokens,
                 Messages = messages
+            };
+            return request;
+        }
+
+        ChatRequest BuildSingle(string systemPrompt, float temperature, int maxTokens, string userText)
+        {
+            var request = new ChatRequest
+            {
+                SystemPrompt = string.IsNullOrWhiteSpace(systemPrompt) ? ChatDefaults.SystemPrompt : systemPrompt.Trim(),
+                Temperature = temperature,
+                MaxTokens = maxTokens,
+                Messages = new List<ChatMessage> { new ChatMessage(ChatRole.User, userText ?? string.Empty) }
             };
             return request;
         }
@@ -336,11 +383,17 @@ namespace AICompanion.UI
 
         public Task<ChatResult> Run(IChatProvider provider, string userText, string systemPrompt, float temperature, int maxTokens, CancellationToken token)
         {
-            if (!_conversation.TryBeginSend(userText, systemPrompt, temperature, maxTokens, out var request))
+            return Run(provider, userText, systemPrompt, temperature, maxTokens, token, null);
+        }
+
+        public Task<ChatResult> Run(IChatProvider provider, string userText, string systemPrompt, float temperature, int maxTokens, CancellationToken token, ChatTurnOptions options)
+        {
+            if (!_conversation.TryBeginSend(userText, systemPrompt, temperature, maxTokens, out var request, options))
                 return Task.FromResult(ChatResult.Fail(ChatErrorKind.Malformed, "Type a message first."));
 
             if (token.IsCancellationRequested)
             {
+                WipeImage(request);
                 var cancelled = ChatResult.Fail(ChatErrorKind.Cancelled, ChatErrors.Cancelled);
                 _conversation.Complete(cancelled);
                 return Task.FromResult(cancelled);
@@ -348,6 +401,7 @@ namespace AICompanion.UI
 
             if (provider == null)
             {
+                WipeImage(request);
                 var missing = ChatResult.Fail(ChatErrorKind.Unreachable, ChatErrors.Unreachable("the chat provider"));
                 _conversation.Complete(missing);
                 return Task.FromResult(missing);
@@ -479,6 +533,14 @@ namespace AICompanion.UI
             catch (Exception)
             {
             }
+        }
+
+        static void WipeImage(ChatRequest request)
+        {
+            if (request == null || request.Image == null)
+                return;
+            request.Image.Wipe();
+            request.Image = null;
         }
 
         static ChatResult Read(Task<ChatResult> pending)

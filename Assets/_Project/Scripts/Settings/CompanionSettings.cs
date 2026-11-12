@@ -72,6 +72,41 @@ namespace AICompanion.Settings
         public bool Paused;
         public bool ChatHistory;
         public bool PrivateMode;
+
+        /// <summary>Manual window capture. Off until the user turns it on.</summary>
+        public bool ScreenLookEnabled;
+
+        /// <summary>
+        /// Explicit opt-in before a selected-window image is sent to the cloud vision provider.
+        /// </summary>
+        public bool ScreenCloudConsent;
+
+        /// <summary>
+        /// Ollama tag for the vision model. Empty until the user sets one.
+        /// The text chat model is a different field and is not assumed to read images.
+        /// </summary>
+        public string LocalVisionModel = string.Empty;
+
+        /// <summary>True captures a whole display instead of the selected window.</summary>
+        public bool ScreenCaptureWholeMonitor;
+
+        /// <summary>
+        /// Separate consent for whole-display capture. Window capture never widens into this.
+        /// </summary>
+        public bool ScreenWholeMonitorConsent;
+
+        /// <summary>Chosen display device name, for example \\.\DISPLAY1. Empty uses the primary display.</summary>
+        public string ScreenMonitorDevice = string.Empty;
+
+        /// <summary>Lets her request a look during chat after she has consent. Off by default.</summary>
+        public bool ScreenAutoLook;
+
+        /// <summary>Temporary hold on automatic looks. The permission above stays granted.</summary>
+        public bool ScreenAutoLookPaused;
+
+        /// <summary>Let the vision model write the screen remark instead of reloading the chat model.</summary>
+        public bool ScreenFastReply;
+
         public string CompanionName = string.Empty;
         public string Relationship = RelationshipStyles.Friend;
 
@@ -99,6 +134,8 @@ namespace AICompanion.Settings
             Model = CleanToken(Model, ChatDefaults.Model, MaxModelLength);
             BaseUrl = CleanUrl(BaseUrl, ChatDefaults.BaseUrl);
             LocalModel = CleanToken(LocalModel, ChatDefaults.LocalModel, MaxModelLength);
+            LocalVisionModel = CleanToken(LocalVisionModel, string.Empty, MaxModelLength);
+            ScreenMonitorDevice = CleanToken(ScreenMonitorDevice, string.Empty, 64);
             LocalBaseUrl = CleanUrl(LocalBaseUrl, ChatDefaults.LocalBaseUrl);
             if (float.IsNaN(TimeoutSeconds) || float.IsInfinity(TimeoutSeconds) || TimeoutSeconds < 1f || TimeoutSeconds > 300f)
                 TimeoutSeconds = ChatDefaults.TimeoutSeconds;
@@ -435,6 +472,24 @@ namespace AICompanion.Settings
                 settings.ChatHistory = flag;
             if (TryBool(json, "privateMode", out flag))
                 settings.PrivateMode = flag;
+            if (TryBool(json, "screenLookEnabled", out flag))
+                settings.ScreenLookEnabled = flag;
+            if (TryBool(json, "screenCloudConsent", out flag))
+                settings.ScreenCloudConsent = flag;
+            if (TryString(json, "localVisionModel", out text))
+                settings.LocalVisionModel = text;
+            if (TryBool(json, "screenWholeMonitorConsent", out flag))
+                settings.ScreenWholeMonitorConsent = flag;
+            if (TryBool(json, "screenCaptureWholeMonitor", out flag))
+                settings.ScreenCaptureWholeMonitor = flag;
+            if (TryString(json, "screenMonitorDevice", out text))
+                settings.ScreenMonitorDevice = text;
+            if (TryBool(json, "screenAutoLook", out flag))
+                settings.ScreenAutoLook = flag;
+            if (TryBool(json, "screenAutoLookPaused", out flag))
+                settings.ScreenAutoLookPaused = flag;
+            if (TryBool(json, "screenFastReply", out flag))
+                settings.ScreenFastReply = flag;
             if (TryString(json, "companionName", out text))
                 settings.CompanionName = text;
             if (TryString(json, "relationship", out text))
@@ -490,6 +545,15 @@ namespace AICompanion.Settings
             Bool(sb, "paused", source.Paused);
             Bool(sb, "chatHistory", source.ChatHistory);
             Bool(sb, "privateMode", source.PrivateMode);
+            Bool(sb, "screenLookEnabled", source.ScreenLookEnabled);
+            Bool(sb, "screenCloudConsent", source.ScreenCloudConsent);
+            String(sb, "localVisionModel", source.LocalVisionModel);
+            Bool(sb, "screenWholeMonitorConsent", source.ScreenWholeMonitorConsent);
+            Bool(sb, "screenCaptureWholeMonitor", source.ScreenCaptureWholeMonitor);
+            String(sb, "screenMonitorDevice", source.ScreenMonitorDevice);
+            Bool(sb, "screenAutoLook", source.ScreenAutoLook);
+            Bool(sb, "screenAutoLookPaused", source.ScreenAutoLookPaused);
+            Bool(sb, "screenFastReply", source.ScreenFastReply);
             String(sb, "companionName", source.CompanionName);
             String(sb, "relationship", source.Relationship);
             String(sb, "personaId", source.PersonaId);

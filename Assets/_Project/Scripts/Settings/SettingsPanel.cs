@@ -36,10 +36,11 @@ namespace AICompanion.Settings
             Controls = 3,
             Overlay = 4,
             Privacy = 5,
-            Persona = 6
+            Persona = 6,
+            Screen = 7
         }
 
-        static readonly string[] TabLabels = { "AI", "Avatar", "Voice", "Controls", "Overlay", "Privacy", "Persona" };
+        static readonly string[] TabLabels = { "AI", "Avatar", "Voice", "Controls", "Overlay", "Privacy", "Persona", "Screen" };
 
         readonly List<InputField> _fields = new List<InputField>();
         readonly List<Image> _tabImages = new List<Image>();
@@ -192,6 +193,7 @@ namespace AICompanion.Settings
             SyncFocus(AnyFieldFocused());
             TrackLive();
             TrackHistory();
+            TrackScreen();
             Place();
         }
 
@@ -266,6 +268,8 @@ namespace AICompanion.Settings
             _confirmClear = false;
             _probeSerial++;
             _probeBusy = false;
+            _screenPreviewBig = false;
+            DestroyExactPreview();
             if (_keyInput != null)
                 _keyInput.text = string.Empty;
             BlurFields();
@@ -616,6 +620,9 @@ namespace AICompanion.Settings
 
             _building = true;
             _fieldGeneration++;
+            // The exact-frame overlay belongs to the Screen tab only; a rebuild on any tab
+            // clears it, and BuildScreen adds it back when it is still open.
+            DestroyExactPreview();
             for (var i = _body.childCount - 1; i >= 0; i--)
                 Destroy(_body.GetChild(i).gameObject);
             _fields.Clear();
@@ -640,6 +647,9 @@ namespace AICompanion.Settings
                     break;
                 case Tab.Persona:
                     BuildPersona();
+                    break;
+                case Tab.Screen:
+                    BuildScreen();
                     break;
                 default:
                     BuildAi();
@@ -1234,10 +1244,11 @@ namespace AICompanion.Settings
             Place(label.rectTransform, height);
         }
 
-        void AddButton(string label, Action action)
+        GameObject AddButton(string label, Action action)
         {
             var button = CreateButton(_body, label, action);
             Place(button.GetComponent<RectTransform>(), 26f);
+            return button;
         }
 
         InputField AddField(string placeholder, string value, bool password, Action<string> onEnd)
@@ -1401,6 +1412,8 @@ namespace AICompanion.Settings
                 var host = hosts[i].gameObject;
                 if (host.GetComponent<SettingsPanel>() == null)
                     host.AddComponent<SettingsPanel>();
+                if (host.GetComponent<ScreenLookController>() == null)
+                    host.AddComponent<ScreenLookController>();
                 if (host.GetComponent<SetupWizard>() == null)
                     host.AddComponent<SetupWizard>();
             }

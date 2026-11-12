@@ -30,6 +30,14 @@ namespace AICompanion.Voice
             return !privateMode;
         }
 
+        /// <summary>
+        /// Screen images are a cloud vision call. Private mode keeps them on the machine.
+        /// </summary>
+        public static bool AllowsCloudVision(bool privateMode)
+        {
+            return !privateMode;
+        }
+
         public static string ChatProviderId(bool privateMode, string selected)
         {
             if (!AllowsCloudChat(privateMode))
