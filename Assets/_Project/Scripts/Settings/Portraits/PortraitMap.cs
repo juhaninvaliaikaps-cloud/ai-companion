@@ -101,6 +101,13 @@ namespace AICompanion.Settings
             _transitions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
 
+        /// <summary>A stem whose blink and talk frames use the same stem with suffixes.</summary>
+        static PortraitFrameSet Animated(string stem)
+        {
+            return PortraitFrameSet.Animated(
+                stem, stem + "_blink_half", stem + "_blink_closed", stem + "_talk");
+        }
+
         public static PortraitMap CreateDefaults()
         {
             var map = new PortraitMap();
@@ -120,11 +127,11 @@ namespace AICompanion.Settings
                 PortraitStems.Thinking, PortraitStems.ThinkingBlinkHalf, PortraitStems.ThinkingBlinkClosed, PortraitStems.ThinkingTalk));
             var pouty = PortraitFrameSet.Animated(
                 PortraitStems.Pouty, PortraitStems.PoutyBlinkHalf, PortraitStems.PoutyBlinkClosed, PortraitStems.PoutyTalk);
-            map.Set("angry", pouty);
             map.Set("pouty", pouty);
-            map.Set("sleepy", PortraitFrameSet.Single(PortraitStems.Sleepy));
-            map.Set("tired", PortraitFrameSet.Single(PortraitStems.Sleepy));
-            map.Set("teasing", PortraitFrameSet.Single(PortraitStems.SmugWink));
+            map.Set("angry", Animated(PortraitStems.Angry));
+            map.Set("sleepy", Animated(PortraitStems.SleepyAnimated));
+            map.Set("tired", Animated(PortraitStems.SleepyAnimated));
+            map.Set("teasing", Animated(PortraitStems.Smug));
             map.Set("excited", PortraitFrameSet.Animated(
                 PortraitStems.Excited, PortraitStems.ExcitedBlinkHalf, PortraitStems.ExcitedBlinkClosed, PortraitStems.ExcitedTalk));
             map.Set("loving", PortraitFrameSet.Single(PortraitStems.WinkSmile));
@@ -136,7 +143,24 @@ namespace AICompanion.Settings
                 PortraitStems.Shy, PortraitStems.ShyBlinkHalf, PortraitStems.ShyBlinkClosed, PortraitStems.ShyTalk));
             map.Set("flustered", PortraitFrameSet.Animated(
                 PortraitStems.Flustered, PortraitStems.FlusteredBlinkHalf, PortraitStems.FlusteredBlinkClosed, PortraitStems.FlusteredTalk));
-            map.Set("embarrassed_worried", PortraitFrameSet.Single(PortraitStems.EmbarrassedWorried));
+            map.Set("embarrassed_worried", Animated(PortraitStems.EmbarrassedWorriedAnimated));
+
+            map.Set("crying", Animated(PortraitStems.Crying));
+            map.Set("teary_happy", Animated(PortraitStems.TearyHappy));
+            map.Set("shocked", Animated(PortraitStems.Shocked));
+            map.Set("confused", Animated(PortraitStems.Confused));
+            map.Set("bored", Animated(PortraitStems.Bored));
+            map.Set("scared", Animated(PortraitStems.Scared));
+            map.Set("tsundere", Animated(PortraitStems.Tsundere));
+            map.Set("determined", Animated(PortraitStems.Determined));
+            map.Set("smug", Animated(PortraitStems.Smug));
+            map.Set("flustered_heavy", Animated(PortraitStems.FlusteredHeavy));
+            map.Set("seductive", Animated(PortraitStems.Seductive));
+            map.Set("kiss", Animated(PortraitStems.Kiss));
+
+            // A wink has no blink frames: only the open still and its talk frame.
+            map.Set("smug_wink", new PortraitFrameSet(
+                PortraitStems.SmugWinkAnimated, null, null, PortraitStems.SmugWinkAnimated + "_talk", null));
             map.SetTransition("neutral", "happy", PortraitStems.Smile);
             return map;
         }
