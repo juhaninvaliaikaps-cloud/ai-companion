@@ -215,6 +215,53 @@ namespace AICompanion.Memory
             return entry;
         }
 
+        /// <summary>JUH-117: the sheet hash her world was seeded from, or empty.</summary>
+        public string SeededFromHash
+        {
+            get { return _file.seededFromHash ?? string.Empty; }
+        }
+
+        /// <summary>
+        /// JUH-117: stores an entry that carries world fields (origin, horizon, thread...).
+        /// The id and the creation time are filled in. Text that already exists returns the
+        /// existing row. Does not save; call <see cref="Save"/> after a batch.
+        /// </summary>
+        public MemoryEntry AddEntry(MemoryEntry entry)
+        {
+            if (entry == null || string.IsNullOrWhiteSpace(entry.text))
+                return null;
+
+            entry.text = entry.text.Trim();
+            var existing = FindDuplicate(entry.text);
+            if (existing != null)
+                return existing;
+
+            if (string.IsNullOrWhiteSpace(entry.id))
+                entry.id = Guid.NewGuid().ToString("N");
+            if (string.IsNullOrWhiteSpace(entry.createdAtUtc))
+                entry.createdAtUtc = DateTime.UtcNow.ToString("o");
+            entry.origin = entry.origin ?? string.Empty;
+            entry.happenedAtUtc = entry.happenedAtUtc ?? string.Empty;
+            entry.goodOutcome = entry.goodOutcome ?? string.Empty;
+            entry.badOutcome = entry.badOutcome ?? string.Empty;
+            _file.entries.Add(entry);
+            return entry;
+        }
+
+        /// <summary>JUH-117: removes every matching entry. Does not save.</summary>
+        public int RemoveWhere(Predicate<MemoryEntry> match)
+        {
+            if (match == null)
+                return 0;
+            return _file.entries.RemoveAll(entry => entry != null && match(entry));
+        }
+
+        /// <summary>JUH-117: records which sheet the seeded entries came from. Does not save.</summary>
+        public void SetSeededFromHash(string hash)
+        {
+            _file.seededFromHash = hash ?? string.Empty;
+        }
+
         MemoryEntry FindDuplicate(string text)
         {
             for (var i = 0; i < _file.entries.Count; i++)
