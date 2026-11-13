@@ -115,7 +115,8 @@ namespace AICompanion.Core
             if (string.IsNullOrWhiteSpace(prompt))
                 return new TemperamentKeywordResult(scores, string.Empty, 0f);
 
-            var text = Regex.Replace(prompt.ToLowerInvariant(), "\\s+", " ").Trim();
+            var text = Regex.Replace(prompt.ToLowerInvariant(), "\\r\\n?", "\n");
+            text = Regex.Replace(text, "[ \\t]+", " ").Trim();
             var bestId = string.Empty;
             var best = 0f;
             for (var p = 0; p < Presets.Length; p++)
@@ -157,7 +158,20 @@ namespace AICompanion.Core
 
         static string Before(string text, int index)
         {
-            var start = Math.Max(0, index - 80);
+            var start = 0;
+            for (var i = index - 1; i >= 0; i--)
+            {
+                var c = text[i];
+                if (c == '.' || c == '!' || c == '?' || c == ';' || c == ','
+                    || c == '\n' || c == '\r')
+                {
+                    start = i + 1;
+                    break;
+                }
+            }
+
+            if (index - start > 80)
+                start = index - 80;
             return text.Substring(start, index - start);
         }
 

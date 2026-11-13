@@ -30,6 +30,13 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void NegationStopsAtCommasAndSentenceEnds()
+        {
+            Assert.AreEqual(PersonaTemperaments.ShyId, TemperamentKeywordScorer.Score("She isn't loud, she's shy.").BestId);
+            Assert.AreEqual(PersonaTemperaments.CalmId, TemperamentKeywordScorer.Score("Don't worry. Calm and gentle.").BestId);
+        }
+
+        [Test]
         public void Intensity_ChangesTheScore()
         {
             var strong = TemperamentKeywordScorer.Score("She is very shy.");
