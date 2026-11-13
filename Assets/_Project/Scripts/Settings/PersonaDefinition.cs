@@ -39,6 +39,12 @@ namespace AICompanion.Settings
         /// </summary>
         public string Temperament = string.Empty;
 
+        /// <summary>
+        /// "auto" (the character sheet decides, JUH-118), "manual" (the preset above), or blank for
+        /// files from before this key: see <see cref="AICompanion.Core.TemperamentModes.IsManual"/>.
+        /// </summary>
+        public string TemperamentMode = string.Empty;
+
         public static PersonaDefinition CreateStarter(string id)
         {
             return new PersonaDefinition
@@ -67,7 +73,8 @@ namespace AICompanion.Settings
                 Model = Model,
                 AvatarSource = AvatarSource,
                 PortraitFolder = PortraitFolder,
-                Temperament = Temperament
+                Temperament = Temperament,
+                TemperamentMode = TemperamentMode
             };
         }
 
@@ -89,6 +96,7 @@ namespace AICompanion.Settings
             AvatarSource = PersonaAvatars.TryNormalize(AvatarSource, out avatar) ? avatar : string.Empty;
             PortraitFolder = CleanPath(PortraitFolder);
             Temperament = AICompanion.Core.PersonaTemperaments.Normalize(Temperament);
+            TemperamentMode = AICompanion.Core.TemperamentModes.Normalize(TemperamentMode);
             return Id.Length > 0;
         }
 
@@ -308,6 +316,8 @@ namespace AICompanion.Settings
                 persona.PortraitFolder = text;
             if (TryString(json, "temperament", out text))
                 persona.Temperament = text;
+            if (TryString(json, "temperamentMode", out text))
+                persona.TemperamentMode = text;
 
             if (!persona.Normalize())
                 return null;
@@ -333,6 +343,7 @@ namespace AICompanion.Settings
             String(sb, "avatarSource", source.AvatarSource);
             String(sb, "portraitFolder", source.PortraitFolder);
             String(sb, "temperament", source.Temperament);
+            String(sb, "temperamentMode", source.TemperamentMode);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;

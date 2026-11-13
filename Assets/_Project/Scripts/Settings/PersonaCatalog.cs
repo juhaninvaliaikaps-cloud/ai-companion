@@ -468,10 +468,27 @@ namespace AICompanion.Settings
         /// </summary>
         public static AICompanion.Core.PersonaTemperament TemperamentFor(PersonaCatalog catalog, string personaId)
         {
-            if (catalog == null || string.IsNullOrWhiteSpace(personaId))
-                return AICompanion.Core.PersonaTemperament.Default;
-            var persona = catalog.Find(personaId);
-            return AICompanion.Core.PersonaTemperaments.Get(persona == null ? null : persona.Temperament);
+            return TemperamentChoiceFor(catalog, personaId, null).Temperament;
+        }
+
+        /// <summary>
+        /// The temperament with the character sheet (JUH-118): a manual pick wins, a built-in
+        /// keeps its hand-picked preset, and otherwise the sheet's reading decides. Without a
+        /// sheet an automatic persona is balanced until the reading is back.
+        /// </summary>
+        public static TemperamentChoice TemperamentChoiceFor(PersonaCatalog catalog, string personaId, CharacterSheet sheet)
+        {
+            var entry = catalog == null || string.IsNullOrWhiteSpace(personaId) ? null : catalog.FindEntry(personaId);
+            if (entry == null || entry.Persona == null)
+            {
+                return new TemperamentChoice
+                {
+                    Temperament = AICompanion.Core.PersonaTemperament.Default,
+                    Line = "Temperament: " + AICompanion.Core.PersonaTemperament.Default.Name,
+                };
+            }
+
+            return PisaraReading.Choose(entry.Persona.TemperamentMode, entry.Persona.Temperament, entry.BuiltIn, sheet);
         }
 
         public static string SystemPrompt(CompanionSettings settings, PersonaCatalog catalog)
