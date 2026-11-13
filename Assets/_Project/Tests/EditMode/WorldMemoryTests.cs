@@ -179,6 +179,25 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Seed_NeedsAPromptHash_SoAResolvedThreadNeverComesBack()
+        {
+            var store = MemoryStore.Load(_path);
+            var unhashed = Sheet();
+            unhashed.promptHash = string.Empty;
+            Assert.IsFalse(WorldMemory.NeedsSeeding(store, unhashed));
+            Assert.AreEqual(0, WorldMemory.Seed(store, unhashed, Met, false));
+            Assert.AreEqual(0, store.Count);
+
+            // With a hash: seeded once, a thread resolves, and seeding again does not undo it.
+            var sheet = Sheet();
+            WorldMemory.Seed(store, sheet, Met, false);
+            var away = WorldMemory.ResolveThread(store, 1e6, 0.1, Met, true);
+            Assert.IsTrue(away.Happened);
+            Assert.AreEqual(0, WorldMemory.Seed(MemoryStore.Load(_path), Sheet(), Met, false));
+            Assert.IsNull(Find(MemoryStore.Load(_path), "Portfolio review on Friday."));
+        }
+
+        [Test]
         public void Seed_IgnoresNulls_AndFirstSceneOpensMidScene()
         {
             Assert.AreEqual(0, WorldMemory.Seed(null, Sheet(), Met, false));

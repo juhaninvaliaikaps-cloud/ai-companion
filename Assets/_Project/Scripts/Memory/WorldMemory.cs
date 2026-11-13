@@ -51,12 +51,16 @@ namespace AICompanion.Memory
 
         // ---- seeding ---------------------------------------------------------------------------
 
-        /// <summary>True when this sheet's world is not in the store yet.</summary>
+        /// <summary>
+        /// True when this sheet's world is not in the store yet. A sheet without a prompt hash
+        /// is never seeded: without the hash there is no way to tell it was seeded already, and
+        /// seeding it again on every start would bring resolved threads back.
+        /// </summary>
         public static bool NeedsSeeding(MemoryStore store, CharacterSheet sheet)
         {
-            if (store == null || sheet == null)
+            if (store == null || sheet == null || string.IsNullOrEmpty(sheet.promptHash))
                 return false;
-            return string.IsNullOrEmpty(sheet.promptHash) || store.SeededFromHash != sheet.promptHash;
+            return store.SeededFromHash != sheet.promptHash;
         }
 
         /// <summary>

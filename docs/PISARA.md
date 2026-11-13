@@ -150,6 +150,7 @@ The exact numbers come with the next PR and its tests.
 - `world.lastWeek` becomes short-term seeded memories, dated `daysAgo` before the meeting.
 - `world.openThreads` become thread entries.
 - It runs once per sheet. When the persona prompt changes, the old seeded entries are replaced; lived and away memories are kept.
+- The sheet must carry its `promptHash` (set it before calling). A sheet without one is never seeded, so a resolved thread cannot come back on the next start.
 - Every entry carries the private flag passed in, so the existing rule holds: a private memory never goes into a cloud prompt.
 - "Forget everything" also forgets her world. It is not seeded again until the persona prompt changes.
 
