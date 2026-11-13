@@ -71,13 +71,27 @@ namespace AICompanion.NewUI
         /// <summary>The snap spot within <paramref name="radius"/> of a box centre, or 0. Spot 5 only when allowed.</summary>
         public static int Nearest(Vector2 center, HerBody body, Vector2 box, float gap, float radius, bool underAllowed)
         {
+            return Nearest(center, body, box, gap, radius, underAllowed, new Rect(0f, 0f, 0f, 0f), 0f);
+        }
+
+        /// <summary>
+        /// The same, measured to each spot as it is shown: clamped into <paramref name="visible"/>
+        /// (the box can only be where it can be drawn). Spot 5 lies below the window until the box
+        /// is there (the room under her is made only then), so without this it could never be reached.
+        /// An empty <paramref name="visible"/> measures to the spots themselves.
+        /// </summary>
+        public static int Nearest(Vector2 center, HerBody body, Vector2 box, float gap, float radius, bool underAllowed, Rect visible, float margin)
+        {
             var best = Free;
             var bestDistance = radius;
             for (var spot = LeftOfHead; spot <= Last; spot++)
             {
                 if (spot == Under && !underAllowed)
                     continue;
-                var distance = (Spot(spot, body, box, gap) - center).magnitude;
+                var at = Spot(spot, body, box, gap);
+                if (visible.width > 0f && visible.height > 0f)
+                    at = ChatBoxPlacement.Clamp(at, box, visible, margin);
+                var distance = (at - center).magnitude;
                 if (distance <= bestDistance)
                 {
                     bestDistance = distance;

@@ -388,6 +388,20 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Spot5_CanBeReachedWhileSheStandsOnTheWindowBottom()
+        {
+            // No room under her yet: her feet are at the window bottom, so spot 5 lies below the
+            // window. The box can only be dragged down to the bottom edge, where the marker is shown.
+            var body = new HerBody { Head = new Vector2(600f, 520f), FeetY = 0f };
+            var visible = new Rect(0f, 0f, 1400f, 800f);
+            var shown = ChatBoxPlacement.Clamp(ChatSnapSpots.Spot(ChatSnapSpots.Under, body, Box, Gap), Box, visible, 8f);
+            var dropped = shown + new Vector2(30f, 5f);
+            Assert.AreEqual(ChatSnapSpots.Under, ChatSnapSpots.Nearest(dropped, body, Box, Gap, 90f, true, visible, 8f), "dropped on the shown marker: snaps under her");
+            Assert.AreEqual(ChatSnapSpots.Free, ChatSnapSpots.Nearest(dropped, body, Box, Gap, 90f, true), "measured to the unclamped spot it was out of reach");
+            Assert.AreNotEqual(ChatSnapSpots.Under, ChatSnapSpots.Nearest(dropped, body, Box, Gap, 90f, false, visible, 8f), "3D: never spot 5");
+        }
+
+        [Test]
         public void BottomRoom_FitsTheBoxAndItsGaps()
         {
             Assert.AreEqual(304, ChatSnapSpots.BottomRoomFor(280f, 12f));

@@ -319,7 +319,7 @@ namespace AICompanion.NewUI
             var snap = settings != null ? settings.ChatBoxSnap : ChatSnapSpots.Default;
             if (_dragging)
             {
-                var near = ChatSnapSpots.Nearest(_boxCenter, body, _boxSize, gap, _theme.ChatSnapRadius * scale, under);
+                var near = ChatSnapSpots.Nearest(_boxCenter, body, _boxSize, gap, _theme.ChatSnapRadius * scale, under, _visibleArea, _boxMargin);
                 if (!LeftHeld())
                 {
                     _dragging = false;
