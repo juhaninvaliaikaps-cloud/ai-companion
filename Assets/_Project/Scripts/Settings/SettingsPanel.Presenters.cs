@@ -127,6 +127,18 @@ namespace AICompanion.Settings
             ConfirmClear();
         }
 
+        /// <summary>"Start over with this persona" for the new settings view (after its own confirm step).</summary>
+        public void StartOverConfirmed()
+        {
+            ConfirmStartOver();
+        }
+
+        /// <summary>The active persona's name for the Start over button and its question.</summary>
+        public string StartOverName
+        {
+            get { return _settings != null ? _settings.CompanionName : string.Empty; }
+        }
+
         /// <summary>Wipe all local data for the new settings view (after its own confirm step).</summary>
         public void WipeAllConfirmed()
         {

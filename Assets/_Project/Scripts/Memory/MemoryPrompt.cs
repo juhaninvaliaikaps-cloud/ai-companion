@@ -30,6 +30,32 @@ namespace AICompanion.Memory
             return builder.Length <= Header.Length ? string.Empty : builder.ToString();
         }
 
+        /// <summary>
+        /// JUH-117: as <see cref="Build(IReadOnlyList{MemoryEntry})"/>, with "(2 days ago)" in
+        /// front of entries that say when they happened, so she can place them in time.
+        /// </summary>
+        public static string Build(IReadOnlyList<MemoryEntry> entries, System.DateTime nowUtc)
+        {
+            if (entries == null || entries.Count == 0)
+                return string.Empty;
+
+            var builder = new StringBuilder(Header);
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry == null || string.IsNullOrWhiteSpace(entry.text))
+                    continue;
+
+                builder.Append("\n- ");
+                var when = WorldMemory.When(entry, nowUtc);
+                if (when.Length > 0)
+                    builder.Append('(').Append(when).Append(") ");
+                builder.Append(entry.text.Trim());
+            }
+
+            return builder.Length <= Header.Length ? string.Empty : builder.ToString();
+        }
+
         public static string BuildPersona(PersonalityState state)
         {
             if (state == null || string.IsNullOrWhiteSpace(state.personaName))

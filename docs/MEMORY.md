@@ -32,6 +32,8 @@ Both live in the same per-user folder as the settings and the API key.
 
 `kind` is `0` for a fact and `1` for a conversation summary. `isPrivate` records that the entry was created while private mode was on.
 
+Entries can also carry her world (JUH-117): `origin`, `horizon`, `happenedAtUtc`, `recalls`, `isThread`, `goodOutcome` and `badOutcome`. They default to an ordinary lived, long-term memory, so older files load unchanged. See [PISARA.md](PISARA.md#memory-and-her-world).
+
 ## Retrieval
 
 `MemoryStore.Search(query, max, includePrivate)` is keyword search: the query is lowercased, split on non-alphanumeric characters, words shorter than three characters and a small stop-word list are dropped, and every remaining token that appears in an entry scores a point. A summary scores two, because it carries more context. Ties keep the newest entry. At most eight entries come back by default.

@@ -239,24 +239,76 @@ After each finished reply, once per reply (use `CueSerial`, as the mood does):
 
 While the chat is in use, add time with `FamiliarityAfter`. Add `RelationshipPrompt.Line` after the mood line, and `LandingEvents.Instruction` to the cue instruction.
 
-## Memory and her world (planned)
+## Memory and her world
 
-`MemoryEntry` gets new optional fields with defaults, so existing files keep loading:
+**Built** in `WorldMemory` (`Assets/_Project/Scripts/Memory/WorldMemory.cs`), with EditMode tests. Not called from the app yet; JUH-118 wires it.
 
-- `origin`: empty for lived memories, `seeded` for her life before the user, `away` for things that happened while the user was gone.
-- `horizon`: long or short. Short entries fade after about two weeks unless they are promoted.
-- `happenedAtUtc`: when it happened in her world.
+`MemoryEntry` has new optional fields. They default to "an ordinary lived, long-term memory", so existing memory files load unchanged:
 
-How the sheet becomes memory:
+| Field | Meaning |
+| --- | --- |
+| `origin` | `""` lived with the user, `seeded` her life before the user, `away` something that happened while the user was gone |
+| `horizon` | `0` long-term, `1` short-term |
+| `happenedAtUtc` | When it happened in her world |
+| `recalls` | How often a short-term memory went into a prompt |
+| `isThread`, `goodOutcome`, `badOutcome` | Something she is in the middle of, and how it could turn out |
 
-- `world.backstory` becomes long, seeded entries.
-- `world.lastWeek` becomes short, seeded entries dated `daysAgo` before the first meeting.
-- `world.openThreads` are kept with a status (open, went well, went badly).
-- `world.rightNow` opens the first scene.
+`memory.json` also gets `seededFromHash`: the prompt hash of the sheet her world came from.
 
-When the user returns after a long gap, one open thread is resolved with its good or bad outcome, stored as an `away` memory, and its mood nudge goes to the mood state. At session end the model writes one to three memories of the session; promotion and fading are plain C#.
+### Seeding
 
-The user can view and forget seeded memories like any other.
+`WorldMemory.Seed(store, sheet, metAtUtc, privateMode)`:
+
+- `world.backstory` becomes long-term seeded facts.
+- `world.lastWeek` becomes short-term seeded memories, dated `daysAgo` before the meeting.
+- `world.openThreads` become thread entries.
+- It runs once per sheet. When the persona prompt changes, the old seeded entries are replaced; lived and away memories are kept.
+- The sheet must carry its `promptHash` (set it before calling). A sheet without one is never seeded, so a resolved thread cannot come back on the next start.
+- Every entry carries the private flag passed in, so the existing rule holds: a private memory never goes into a cloud prompt.
+- "Delete all memories" forgets everything, and also which sheet her world came from. On the next start her world is seeded fresh from the cached sheet: her backstory comes back, with her open threads reset. She keeps her own life and starts over with the user.
+
+`WorldMemory.FirstScene(sheet)` gives the line that opens the very first conversation mid-scene, from `world.rightNow`.
+
+### Short-term memories
+
+- `WorldMemory.AddShortTerm(store, text, nowUtc, privateMode)` stores a session memory (the one to three lines the model writes at session end).
+- `WorldMemory.MarkRecalled(store, entries)`: call it with the entries that went into a prompt. A short-term memory that came up twice becomes long-term.
+- `WorldMemory.Fade(store, nowUtc)`: forgets short-term memories 14 days after they were stored. Core facts and threads are never forgotten this way. Call it once per start.
+
+### While the user is away
+
+`WorldMemory.ResolveThread(store, awaySeconds, roll, nowUtc, includePrivate)`:
+
+- Needs at least 4 hours away and an open thread.
+- `roll` is a random number from 0 to 1. Below 0.6 the thread goes well. A thread with only one written outcome takes that one.
+- The thread is replaced by a short-term `away` memory, such as "Portfolio review on Friday. It went well."
+- It returns a prompt line, so she can bring it up herself, and mood nudges (Happy when it went well; Sad and a little Anxious when it did not). Send those through the mood state with `CompanionMoodTable.Scaled`.
+- With `includePrivate` false, private threads are left alone.
+
+This needs no model call: the outcomes were written with the sheet. The model only phrases it in her next reply.
+
+### Prompt
+
+`MemoryPrompt.Build(entries, nowUtc)` puts "(3 days ago)" in front of memories that say when they happened.
+
+### Wiring (JUH-118 sections 2 and 3)
+
+1. After the reading: `if (WorldMemory.NeedsSeeding(store, sheet)) WorldMemory.Seed(...)`. Pass the persona's private flag.
+2. On the first message of a new persona, add `WorldMemory.FirstScene(sheet)` to the prompt.
+3. On start: `WorldMemory.Fade`, then `WorldMemory.ResolveThread` with the time since the last session. Add its `PromptLine` to the next prompt once, and push its moods.
+4. Where memories go into the prompt: use `MemoryPrompt.Build(entries, nowUtc)` and call `WorldMemory.MarkRecalled`.
+5. At session end: ask the model for one to three memories and store each with `AddShortTerm`.
+
+## Start over with a persona
+
+Settings → Privacy → Memories → **Start over with [name]**, with a confirm step. For the active persona only, it clears:
+
+- its chat history (the saved file and the chat window);
+- everything she remembers (`MemoryStore.DeleteAll`), which also clears `seededFromHash`, so her own life is seeded fresh from the cached character sheet;
+- her mood, back to how the temperament starts (`CompanionMoodState.StartOver`): a Cheerful persona starts on her happy baseline again;
+- everything else that implements `ICompanionStartOver`. The relationship keeper (JUH-119) implements it and resets to `RelationshipMath.Start(sheet.relationship)`.
+
+It keeps the persona, its description, the character sheet, the temperament pick, the settings, and every other persona. The log says `Start over: <persona>, <n> memories forgotten, chat history cleared.`
 
 ## Guards
 

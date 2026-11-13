@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using AICompanion.Core;
 using AICompanion.Memory;
+using AICompanion.Settings.Presenters;
 using AICompanion.UI;
 using UnityEngine;
 
@@ -25,6 +26,50 @@ namespace AICompanion.Settings
         void ExportLocal(bool zip)
         {
             SetStatus(Presenters.LocalDataPresenter.Export(Folder(), _exportFolder, zip, LocalDataPortal.ExportFolder, LocalDataPortal.ExportZip));
+        }
+
+        /// <summary>
+        /// "Start over with this persona" (JUH-117): clears the active persona's chat history,
+        /// everything she remembers (her own life is seeded again from her character sheet),
+        /// her mood, and anything else that implements <see cref="ICompanionStartOver"/> (the
+        /// relationship). Her persona, its description and other personas are not touched.
+        /// </summary>
+        void ConfirmStartOver()
+        {
+            var name = StartOverName;
+            var persona = _settings != null ? _settings.PersonaId ?? string.Empty : string.Empty;
+            ConfirmClear();
+
+            var forgotten = 0;
+            try
+            {
+                forgotten = MemoryRuntime.Store.DeleteAll();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Start over: memories could not be cleared (" + e.GetType().Name + ")");
+            }
+
+            var parts = GetComponents<MonoBehaviour>();
+            for (var i = 0; i < parts.Length; i++)
+            {
+                var part = parts[i] as ICompanionStartOver;
+                if (part == null)
+                    continue;
+                try
+                {
+                    part.StartOver();
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning("Start over: " + parts[i].GetType().Name + " failed (" + e.GetType().Name + ")");
+                }
+            }
+
+            Debug.Log("Start over: " + (persona.Length == 0 ? "(default)" : CompanionMoodStore.PersonaFileId(persona))
+                + ", " + forgotten + " memories forgotten, chat history cleared.");
+            SetStatus(StartOverText.Status(name));
+            _rebuild = true;
         }
 
         void ConfirmWipe()
