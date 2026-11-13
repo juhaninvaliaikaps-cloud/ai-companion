@@ -35,7 +35,8 @@ namespace AICompanion.Core
                 || IsMemoryName(rel)
                 || IsHistoryName(rel)
                 || IsMoodName(rel)
-                || IsRelationshipName(rel);
+                || IsRelationshipName(rel)
+                || IsSheetName(rel);
         }
 
         public static bool IsSecretFile(string relativePath)
@@ -89,6 +90,15 @@ namespace AICompanion.Core
             if (name == "relationship.json")
                 return true;
             return name.StartsWith("relationship-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
+        }
+
+        /// <summary>Her character sheet per persona (JUH-117): sheet.json and sheet-&lt;persona&gt;.json.</summary>
+        public static bool IsSheetName(string fileName)
+        {
+            var name = Normalize(fileName);
+            if (name == "sheet.json")
+                return true;
+            return name.StartsWith("sheet-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
         }
 
         public static bool IsHistoryName(string fileName)
