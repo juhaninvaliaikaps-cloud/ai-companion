@@ -216,7 +216,8 @@ namespace AICompanion.NewUI
                 + "|" + s.AvatarSource + "|" + s.AvatarMode + "|" + s.PersonaId + "|" + s.PrivateMode + "|" + s.ProviderId + "|" + IntimateExpressions.Active
                 + "|" + s.PrivateEndpointType + "|" + s.PrivateBaseUrl + "|" + s.PrivateModel
                 + "|" + _settings.PrivateApiKeySaved + "|" + _settings.PrivateEndpointTestRunning
-                + "|" + (look != null ? look.Revision : 0) + "|" + _settings.ConnectionTestRunning + "|" + s.ShowMoodDebug + "|" + s.VoiceNarration;
+                + "|" + (look != null ? look.Revision : 0) + "|" + _settings.ConnectionTestRunning + "|" + s.ShowMoodDebug + "|" + s.VoiceNarration
+                + "|" + _settings.PisaraRevision;
         }
 
         // ---- Chrome ------------------------------------------------------------------------
@@ -841,6 +842,23 @@ namespace AICompanion.NewUI
             Choice("Leave avatar unchanged", string.IsNullOrEmpty(persona.AvatarSource), () => Save(id, p => p.AvatarSource = string.Empty));
             Field("Portrait folder", persona.PortraitFolder, false, v => Save(id, p => p.PortraitFolder = v));
             Note("A missing portrait folder uses the standard portraits folder.");
+
+            // JUH-118: what the model read from her description, then the temperament picker.
+            Section("Temperament");
+            var view = _settings.PisaraView();
+            Note("How quickly her moods build and fade. Auto reads it from her description; a pick overrides it.");
+            Note(view.TemperamentLine);
+            Note(view.RelationshipLine);
+            Note(view.Status);
+            Button(view.Reading ? "Re-read (reading...)" : "Re-read", () => { _settings.RereadPersona(); _rebuild = true; });
+            Choice("Auto", !view.Manual, () => { _settings.SetPersonaTemperamentAuto(id); _rebuild = true; });
+            for (var i = 0; i < PersonaTemperaments.Ids.Length; i++)
+            {
+                var preset = PersonaTemperaments.Get(PersonaTemperaments.Ids[i]);
+                var stored = PersonaTemperaments.Normalize(preset.Id);
+                Choice(preset.Name, view.Manual && Same(persona.Temperament, stored), () => { _settings.SetPersonaTemperament(id, stored); _rebuild = true; });
+            }
+
             if (current.UserFile)
                 Button(current.BuiltIn ? "Delete saved copy" : "Delete persona", () => { _settings.DeletePersona(); _rebuild = true; }, true);
         }
