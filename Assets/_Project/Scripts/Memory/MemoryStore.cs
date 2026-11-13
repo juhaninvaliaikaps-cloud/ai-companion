@@ -292,11 +292,18 @@ namespace AICompanion.Memory
             return false;
         }
 
+        /// <summary>
+        /// Forgets everything. JUH-117: it also forgets which character sheet her world came
+        /// from, so her world (backstory, last week, open threads) is seeded fresh from the
+        /// sheet on the next start. She keeps her own life and starts over with the user.
+        /// </summary>
         public int DeleteAll()
         {
             var removed = _file.entries.Count;
+            var seeded = !string.IsNullOrEmpty(_file.seededFromHash);
             _file.entries.Clear();
-            if (removed > 0)
+            _file.seededFromHash = string.Empty;
+            if (removed > 0 || seeded)
                 Save();
             return removed;
         }

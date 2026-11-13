@@ -198,6 +198,28 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void DeleteAll_ForgetsTheUser_AndHerWorldIsSeededFreshFromTheSheet()
+        {
+            var store = MemoryStore.Load(_path);
+            var sheet = Sheet();
+            WorldMemory.Seed(store, sheet, Met, false);
+            store.AddFact("The user's name is Jussi", false, true);
+            WorldMemory.ResolveThread(store, 1e6, 0.1, Met, true);
+
+            Assert.Greater(store.DeleteAll(), 0);
+            Assert.AreEqual(0, store.Count);
+            Assert.AreEqual(string.Empty, store.SeededFromHash);
+            Assert.AreEqual(string.Empty, MemoryStore.Load(_path).SeededFromHash, "saved");
+
+            // The next start seeds her world again, threads open again, and nothing about the user.
+            var reloaded = MemoryStore.Load(_path);
+            Assert.IsTrue(WorldMemory.NeedsSeeding(reloaded, sheet));
+            Assert.AreEqual(6, WorldMemory.Seed(reloaded, sheet, Met.AddDays(3), false));
+            Assert.IsTrue(Find(reloaded, "Portfolio review on Friday.").isThread);
+            Assert.IsNull(Find(reloaded, "The user's name is Jussi"));
+        }
+
+        [Test]
         public void Seed_IgnoresNulls_AndFirstSceneOpensMidScene()
         {
             Assert.AreEqual(0, WorldMemory.Seed(null, Sheet(), Met, false));

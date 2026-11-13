@@ -152,7 +152,7 @@ The exact numbers come with the next PR and its tests.
 - It runs once per sheet. When the persona prompt changes, the old seeded entries are replaced; lived and away memories are kept.
 - The sheet must carry its `promptHash` (set it before calling). A sheet without one is never seeded, so a resolved thread cannot come back on the next start.
 - Every entry carries the private flag passed in, so the existing rule holds: a private memory never goes into a cloud prompt.
-- "Forget everything" also forgets her world. It is not seeded again until the persona prompt changes.
+- "Delete all memories" forgets everything, and also which sheet her world came from. On the next start her world is seeded fresh from the cached sheet: her backstory comes back, with her open threads reset. She keeps her own life and starts over with the user.
 
 `WorldMemory.FirstScene(sheet)` gives the line that opens the very first conversation mid-scene, from `world.rightNow`.
 
