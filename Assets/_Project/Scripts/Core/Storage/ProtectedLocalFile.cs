@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -59,22 +60,45 @@ namespace AICompanion.Core
 
         public static LocalRead Read(string path)
         {
-            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            if (SingleInstanceGuard.IsExiting)
+                return LocalRead.Missing;
+            return Read(path, true);
+        }
+
+        static LocalRead Read(string path, bool allowRestore)
+        {
+            if (string.IsNullOrEmpty(path))
+                return LocalRead.Missing;
+            if (!File.Exists(path) && (!allowRestore || !RestoreAnyHeld(path) || !File.Exists(path)))
                 return LocalRead.Missing;
 
             try
             {
-                RestoreHeld(path);
-                if (!File.Exists(path))
-                    return LocalRead.Missing;
-
                 var bytes = File.ReadAllBytes(path);
                 if (LocalAesGcm.IsMagic(bytes))
-                    return ReadEnvelope(path, bytes);
+                {
+                    var key = InstallKeyFile.ForPath(path);
+                    if (key == null)
+                    {
+                        Warn("Local file was not decrypted because the install key is unavailable: " + SafeName(path));
+                        return LocalRead.Unreadable;
+                    }
+
+                    var read = ReadEnvelope(path, bytes, key);
+                    if (read.Status != LocalReadStatus.Unreadable)
+                        return read;
+                    if (allowRestore && RestoreAnyHeld(path))
+                        return Read(path, false);
+                    Quarantine(path);
+                    Warn("Unreadable local file was kept aside: " + SafeName(path));
+                    return LocalRead.Unreadable;
+                }
 
                 string text;
                 if (!TryDecode(bytes, out text))
                 {
+                    if (allowRestore && RestoreAnyHeld(path))
+                        return Read(path, false);
                     Quarantine(path);
                     Warn("Unreadable local file was kept aside: " + SafeName(path));
                     return LocalRead.Unreadable;
@@ -93,6 +117,8 @@ namespace AICompanion.Core
 
         public static bool Write(string path, string text)
         {
+            if (SingleInstanceGuard.IsExiting)
+                return false;
             if (string.IsNullOrEmpty(path))
                 return false;
             if (string.Equals(Path.GetFileName(path), InstallKeyFile.FileName, StringComparison.OrdinalIgnoreCase))
@@ -320,30 +346,15 @@ namespace AICompanion.Core
             DeleteQuiet(held);
         }
 
-        static LocalRead ReadEnvelope(string path, byte[] bytes)
+        static LocalRead ReadEnvelope(string path, byte[] bytes, byte[] key)
         {
-            var key = InstallKeyFile.ForPath(path);
-            if (key == null)
-            {
-                Warn("Local file was not decrypted because the install key is unavailable: " + SafeName(path));
-                return LocalRead.Unreadable;
-            }
-
             var plain = Open(key, AssociatedData(path), bytes);
             if (plain == null)
-            {
-                Quarantine(path);
-                Warn("Unreadable local file was kept aside: " + SafeName(path));
                 return LocalRead.Unreadable;
-            }
 
             string text;
             if (!TryDecode(plain, out text))
-            {
-                Quarantine(path);
-                Warn("Unreadable local file was kept aside: " + SafeName(path));
                 return LocalRead.Unreadable;
-            }
 
             return LocalRead.Ready(text);
         }
@@ -359,30 +370,60 @@ namespace AICompanion.Core
             return CommitIfVerified(path, plain, envelope, blob => Open(key, AssociatedData(path), blob));
         }
 
-        static void RestoreHeld(string path)
+        /// <summary>
+        /// Restores the newest backup for this file. New per-process .held.&lt;pid&gt; files
+        /// win over the old unsuffixed .held. Only the backup that was copied is removed.
+        /// </summary>
+        static bool RestoreAnyHeld(string path)
         {
-            var held = HeldPath(path, ProcessId);
-            if (!File.Exists(held))
-                return;
+            var candidates = new List<string>();
+            var directory = Path.GetDirectoryName(path);
+            var name = Path.GetFileName(path);
+            if (!string.IsNullOrEmpty(directory) && Directory.Exists(directory))
+            {
+                try
+                {
+                    candidates.AddRange(Directory.GetFiles(directory, name + ".held.*", SearchOption.TopDirectoryOnly));
+                }
+                catch (Exception)
+                {
+                }
+            }
 
-            if (!KeepDestination(path) && File.Exists(held))
-                File.Copy(held, path, true);
-            DeleteQuiet(held);
-        }
+            var legacy = path + ".held";
+            if (File.Exists(legacy))
+                candidates.Add(legacy);
 
-        static bool KeepDestination(string path)
-        {
-            if (!File.Exists(path))
+            if (candidates.Count == 0)
                 return false;
 
-            var bytes = File.ReadAllBytes(path);
-            if (!LocalAesGcm.IsMagic(bytes))
-                return true;
+            candidates.Sort((left, right) => HeldStamp(right).CompareTo(HeldStamp(left)));
+            for (var i = 0; i < candidates.Count; i++)
+            {
+                try
+                {
+                    File.Copy(candidates[i], path, true);
+                    DeleteQuiet(candidates[i]);
+                    return true;
+                }
+                catch (Exception)
+                {
+                }
+            }
 
-            var key = InstallKeyFile.ForPath(path);
-            if (key == null)
-                return true;
-            return Open(key, AssociatedData(path), bytes) != null;
+            return false;
+        }
+
+        static DateTime HeldStamp(string path)
+        {
+            try
+            {
+                return File.GetLastWriteTimeUtc(path);
+            }
+            catch (Exception)
+            {
+                return DateTime.MinValue;
+            }
         }
 
         static byte[] Open(byte[] key, byte[] aad, byte[] envelope)

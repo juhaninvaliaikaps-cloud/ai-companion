@@ -16,6 +16,9 @@ namespace AICompanion.Core
 
         static Mutex _mutex;
 
+        /// <summary>True in a second process while it waits to exit. All save I/O is skipped.</summary>
+        public static bool IsExiting { get; private set; }
+
         public static bool IsEditor
         {
             get { return Application.isEditor; }
@@ -37,13 +40,17 @@ namespace AICompanion.Core
         public static bool TryAcquire()
         {
             if (IsEditor || AllowsMultiple(Environment.GetCommandLineArgs()))
+            {
+                IsExiting = false;
                 return true;
+            }
 
             try
             {
                 var mutex = new Mutex(true, MutexName, out var createdNew);
                 if (!createdNew)
                 {
+                    IsExiting = true;
                     mutex.Dispose();
                     return false;
                 }
@@ -56,6 +63,12 @@ namespace AICompanion.Core
                 Debug.LogWarning("Single instance guard failed: " + e.GetType().Name + ": " + e.Message);
                 return true;
             }
+        }
+
+        /// <summary>Test hook for the exit path; production sets this through TryAcquire.</summary>
+        internal static void SetExitingForTests(bool exiting)
+        {
+            IsExiting = exiting;
         }
 
         public static void Release()

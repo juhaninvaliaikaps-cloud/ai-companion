@@ -16,6 +16,8 @@ namespace AICompanion.Tests.EditMode
         [TearDown]
         public void TearDown()
         {
+            InstallKeyFile.KeyForPath = null;
+            SingleInstanceGuard.SetExitingForTests(false);
             for (var i = 0; i < _cleanup.Count; i++)
             {
                 try
@@ -29,6 +31,112 @@ namespace AICompanion.Tests.EditMode
             }
 
             _cleanup.Clear();
+        }
+
+        [Test]
+        public void DifferentPidHeld_IsRestoredWhenDestinationIsMissing()
+        {
+            var key = new byte[32];
+            InstallKeyFile.KeyForPath = _ => key;
+            SingleInstanceGuard.SetExitingForTests(false);
+            var path = Path.Combine(NewFolder(), "memory.json");
+            var held = ProtectedLocalFile.HeldPath(path, 424242);
+            File.WriteAllBytes(held, Envelope(path, key, "BACKUP"));
+
+            var read = ProtectedLocalFile.Read(path);
+
+            Assert.AreEqual(LocalReadStatus.Ready, read.Status);
+            Assert.AreEqual("BACKUP", read.Text);
+            Assert.IsFalse(File.Exists(held));
+        }
+
+        [Test]
+        public void LegacyUnsuffixedHeld_IsRestoredWhenDestinationIsMissing()
+        {
+            var key = new byte[32];
+            InstallKeyFile.KeyForPath = _ => key;
+            SingleInstanceGuard.SetExitingForTests(false);
+            var path = Path.Combine(NewFolder(), "memory.json");
+            var held = path + ".held";
+            File.WriteAllBytes(held, Envelope(path, key, "LEGACY"));
+
+            var read = ProtectedLocalFile.Read(path);
+
+            Assert.AreEqual(LocalReadStatus.Ready, read.Status);
+            Assert.AreEqual("LEGACY", read.Text);
+            Assert.IsFalse(File.Exists(held));
+        }
+
+        [Test]
+        public void UnreadableDestination_IsReplacedFromHeld()
+        {
+            var key = new byte[32];
+            InstallKeyFile.KeyForPath = _ => key;
+            SingleInstanceGuard.SetExitingForTests(false);
+            var path = Path.Combine(NewFolder(), "memory.json");
+            File.WriteAllBytes(path, new byte[] { 0xFF, 0xFE });
+            var held = ProtectedLocalFile.HeldPath(path, 424243);
+            File.WriteAllBytes(held, Envelope(path, key, "RECOVERED"));
+
+            var read = ProtectedLocalFile.Read(path);
+
+            Assert.AreEqual(LocalReadStatus.Ready, read.Status);
+            Assert.AreEqual("RECOVERED", read.Text);
+            Assert.IsFalse(File.Exists(held));
+        }
+
+        [Test]
+        public void NewWrite_DoesNotDeleteAnotherProcessesHeldFile()
+        {
+            var key = new byte[32];
+            InstallKeyFile.KeyForPath = _ => key;
+            SingleInstanceGuard.SetExitingForTests(false);
+            var path = Path.Combine(NewFolder(), "memory.json");
+            File.WriteAllText(path, "ORIGINAL");
+            var other = ProtectedLocalFile.HeldPath(path, 424244);
+            File.WriteAllText(other, "OTHER");
+
+            Assert.IsTrue(ProtectedLocalFile.Write(path, "NEW"));
+            Assert.IsTrue(File.Exists(other), "another process's held file must not be deleted by a new write");
+        }
+
+        [Test]
+        public void ExitingInstance_DoesNotReadOrWriteSaves()
+        {
+            var path = Path.Combine(NewFolder(), "settings.json");
+            File.WriteAllText(path, "SENTINEL");
+            SingleInstanceGuard.SetExitingForTests(true);
+            try
+            {
+                Assert.AreEqual(LocalReadStatus.Missing, ProtectedLocalFile.Read(path).Status);
+                Assert.IsFalse(ProtectedLocalFile.Write(path, "NEW"));
+                Assert.AreEqual("SENTINEL", File.ReadAllText(path));
+            }
+            finally
+            {
+                SingleInstanceGuard.SetExitingForTests(false);
+            }
+        }
+
+        [Test]
+        public void ExitingInstance_DoesNotMigratePlaintext()
+        {
+            var root = Path.Combine(NewFolder(), "ProjectLeia");
+            Directory.CreateDirectory(root);
+            var plain = Path.Combine(root, "memory.json");
+            File.WriteAllText(plain, "PLAINTEXT");
+            SingleInstanceGuard.SetExitingForTests(true);
+            try
+            {
+                var result = LocalDataActions.MigratePlaintext(root);
+                Assert.IsTrue(result.Ok);
+                Assert.AreEqual(0, result.Files);
+                Assert.AreEqual("PLAINTEXT", File.ReadAllText(plain));
+            }
+            finally
+            {
+                SingleInstanceGuard.SetExitingForTests(false);
+            }
         }
 
         [Test]
@@ -140,6 +248,11 @@ namespace AICompanion.Tests.EditMode
 
             Assert.AreEqual(LocalCommitOutcome.VerifyMismatch, outcome);
             Assert.AreEqual("ORIGINAL", File.ReadAllText(path));
+        }
+
+        static byte[] Envelope(string path, byte[] key, string text)
+        {
+            return LocalAesGcm.Seal(key, null, ProtectedLocalFile.AssociatedData(path), Encoding.UTF8.GetBytes(text));
         }
 
         string NewFolder()
