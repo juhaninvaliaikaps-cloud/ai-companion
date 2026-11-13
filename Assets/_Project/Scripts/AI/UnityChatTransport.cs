@@ -51,6 +51,7 @@ namespace AICompanion.AI
                 www.downloadHandler = handler;
                 var timeout = request.TimeoutSeconds <= 0f ? ChatDefaults.TimeoutSeconds : request.TimeoutSeconds;
                 www.timeout = Mathf.CeilToInt(timeout);
+                www.redirectLimit = request.FollowRedirects ? 32 : 0;
                 if (request.Headers != null)
                 {
                     for (var i = 0; i < request.Headers.Count; i++)
@@ -81,6 +82,12 @@ namespace AICompanion.AI
                 if (IsTimeout(error))
                 {
                     completion.TrySetResult(ChatHttpResult.Timeout());
+                    yield break;
+                }
+
+                if (code >= 300 && code < 400)
+                {
+                    completion.TrySetResult(ChatHttpResult.Http(code, handler.ErrorText));
                     yield break;
                 }
 

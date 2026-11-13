@@ -49,9 +49,17 @@ namespace AICompanion.AI
             ChatSettings settings,
             IApiKeySource keys,
             IChatTransport transport,
-            IChatProviderDecorator decorator)
+            IChatProviderDecorator decorator,
+            IApiKeySource privateKeys = null)
         {
             var registry = new ChatProviderRegistry();
+            Func<string> privateKey = () =>
+            {
+                string key;
+                if (privateKeys != null && privateKeys.TryGet(out key) && !string.IsNullOrWhiteSpace(key))
+                    return key;
+                return PrivateApiKeyStore.TryLoad(out key) ? key : null;
+            };
             registry.Register(Wrap(decorator, new OpenAiCompatibleChatProvider(new OpenAiProviderConfig
             {
                 ProviderId = ChatDefaults.GrokId,
@@ -77,6 +85,22 @@ namespace AICompanion.AI
                 Model = () => Value(settings != null ? settings.localModel : null, ChatDefaults.LocalModel),
                 TimeoutSeconds = () => settings != null ? settings.timeoutSeconds : ChatDefaults.TimeoutSeconds,
                 ApiKey = () => null,
+                Transport = transport
+            })));
+            registry.Register(Wrap(decorator, new OpenAiCompatibleChatProvider(new OpenAiProviderConfig
+            {
+                ProviderId = ChatDefaults.CustomId,
+                DisplayName = "Custom server",
+                RequiresKey = false,
+                BaseUrl = () => settings == null ? string.Empty : (settings.privateBaseUrl ?? string.Empty).Trim(),
+                Model = () => settings == null ? string.Empty : (settings.privateModel ?? string.Empty).Trim(),
+                TimeoutSeconds = () => settings != null ? settings.timeoutSeconds : ChatDefaults.TimeoutSeconds,
+                ApiKey = privateKey,
+                Secret = privateKey,
+                BeforeRequest = () => PrivateEndpointNotice.LogPlainHttpOnce(settings == null ? null : settings.privateBaseUrl),
+                ConfigurationError = () => settings == null
+                    ? PrivateEndpointRules.MissingAddress
+                    : PrivateEndpointRules.ValidateForChat(settings.privateBaseUrl, settings.privateModel),
                 Transport = transport
             })));
             return registry;

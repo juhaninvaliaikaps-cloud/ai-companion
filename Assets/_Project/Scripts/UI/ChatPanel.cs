@@ -5,6 +5,7 @@ using AICompanion.AI;
 using AICompanion.AnimationDirector;
 using AICompanion.Core;
 using AICompanion.Memory;
+using AICompanion.UI.Presenters;
 using Director = AICompanion.AnimationDirector.AnimationDirector;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -18,7 +19,7 @@ namespace AICompanion.UI
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(-200)]
-    public sealed class ChatPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IAvatarDoubleClick, ISpeechNotes, IChatSubmitter, IChatWindow
+    public sealed partial class ChatPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IAvatarDoubleClick, ISpeechNotes, IChatSubmitter, IChatWindow
     {
         const string OpenPref = "ai-companion.chat-open";
 
@@ -50,6 +51,7 @@ namespace AICompanion.UI
         string _badgeProvider = string.Empty;
         string _badgeGrok = string.Empty;
         string _badgeLocal = string.Empty;
+        string _badgePrivateModel = string.Empty;
         bool _badgePrivate;
         Text _micLabel;
         Image _micImage;
@@ -85,7 +87,7 @@ namespace AICompanion.UI
         bool _started;
         bool _alive = true;
 
-        public Rect InteractiveRect => _visible ? _guiRect : new Rect(0f, 0f, 0f, 0f);
+        public Rect InteractiveRect => _visible && !_legacyHidden ? _guiRect : new Rect(0f, 0f, 0f, 0f);
 
         public ChatSettings RuntimeChat
         {
@@ -217,17 +219,7 @@ namespace AICompanion.UI
 
             if (Input.GetKeyDown(KeyCode.Escape))
             {
-                var look = GetComponent<IScreenLook>();
-                if (look != null && look.IsBusy)
-                    look.Stop();
-                if (_conversation != null && _conversation.IsBusy)
-                    CancelReply();
-                else
-                {
-                    BindSpeech();
-                    if (_speech != null)
-                        _speech.Cancel();
-                }
+                Presenter.Escape();
 
                 if (_input != null && _input.isFocused)
                     _input.DeactivateInputField();
@@ -241,11 +233,11 @@ namespace AICompanion.UI
             var busy = _conversation != null && _conversation.IsBusy;
             var speaking = _speech != null && _speech.IsSpeaking;
             if (_actionLabel != null)
-                _actionLabel.text = busy || speaking ? "Stop" : "Send";
+                _actionLabel.text = ChatPresenter.ActionLabelFor(busy, speaking);
             if (_lookLabel != null)
             {
                 var look = GetComponent<IScreenLook>();
-                _lookLabel.text = look != null && look.IsBusy ? "Stop look" : "What do you see?";
+                _lookLabel.text = ChatPresenter.LookLabelFor(look != null && look.IsBusy);
                 if (_lookButton != null)
                 {
                     var interactable = look == null || look.LookButtonInteractable;
@@ -323,9 +315,9 @@ namespace AICompanion.UI
 
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
-            var providerId = settings != null ? settings.providerId : string.Empty;
-            if (privateMode)
-                providerId = ChatDefaults.LocalId;
+            var providerId = settings != null
+                ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
+                : (privateMode ? ChatDefaults.LocalId : string.Empty);
             var model = settings != null ? settings.model : string.Empty;
             if (privateMode || !OutboundAllowsVision(privateMode))
             {
@@ -393,7 +385,9 @@ namespace AICompanion.UI
 
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
-            var providerId = ChatDefaults.LocalId;
+            var providerId = settings != null
+                ? PrivateChatRouting.ObservationProviderId(privateMode, settings.privateEndpointType)
+                : ChatDefaults.LocalId;
             if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
             {
                 _conversation.AddSystem(ChatErrors.UnknownProvider(providerId));
@@ -451,7 +445,9 @@ namespace AICompanion.UI
 
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
-            var providerId = ChatDefaults.LocalId;
+            var providerId = settings != null
+                ? PrivateChatRouting.ObservationProviderId(privateMode, settings.privateEndpointType)
+                : ChatDefaults.LocalId;
             if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
                 return false;
 
@@ -466,11 +462,11 @@ namespace AICompanion.UI
                 Ephemeral = true,
                 BlockCloud = true
             };
-            RunAutoObservation(provider, text, prompt, privateMode, options, observation, _cancel.Token);
+            RunAutoObservation(provider, text, prompt, privateMode, providerId, options, observation, _cancel.Token);
             return true;
         }
 
-        async void RunAutoObservation(IChatProvider provider, string text, string prompt, bool privateMode, ChatTurnOptions options, string observation, CancellationToken token)
+        async void RunAutoObservation(IChatProvider provider, string text, string prompt, bool privateMode, string providerId, ChatTurnOptions options, string observation, CancellationToken token)
         {
             var result = await _exchange.Run(provider, text, prompt, settings.temperature, settings.maxTokens, token, options);
             if (!_alive || !result.Ok)
@@ -480,7 +476,7 @@ namespace AICompanion.UI
             if (ScreenLookCue.IsSilent(reply))
                 return;
 
-            BeginSpeech(privateMode, ChatDefaults.LocalId);
+            BeginSpeech(privateMode, providerId);
             _conversation.AddAssistant(reply);
             ScreenObservationMemory.Remember(observation);
             ApplyCue();
@@ -506,9 +502,9 @@ namespace AICompanion.UI
 
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
-            var providerId = settings != null ? settings.providerId : string.Empty;
-            if (privateMode)
-                providerId = ChatDefaults.LocalId;
+            var providerId = settings != null
+                ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
+                : (privateMode ? ChatDefaults.LocalId : string.Empty);
             if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
             {
                 var message = ChatErrors.UnknownProvider(providerId);
@@ -524,14 +520,8 @@ namespace AICompanion.UI
             BindSpeech();
             if (_speech != null)
             {
-                var local = privateMode || ActiveChatLabel.IsLocal(providerId);
                 _speech.Cancel();
-                _speech.BeginUtterance(new SpeechOrigin
-                {
-                    ChatProviderId = local ? ChatDefaults.LocalId : providerId,
-                    Model = local ? settings.localModel : settings.model,
-                    Private = privateMode
-                });
+                _speech.BeginUtterance(SpeechOriginFor(privateMode, providerId));
             }
 
             var suffix = string.Empty;
@@ -562,14 +552,35 @@ namespace AICompanion.UI
             if (_speech == null)
                 return;
 
-            var local = privateMode || ActiveChatLabel.IsLocal(providerId);
             _speech.Cancel();
-            _speech.BeginUtterance(new SpeechOrigin
+            _speech.BeginUtterance(SpeechOriginFor(privateMode, providerId));
+        }
+
+        /// <summary>
+        /// The voice follows the effective chat provider. A Custom server is still private,
+        /// so the origin names it but the voice route stays local.
+        /// </summary>
+        SpeechOrigin SpeechOriginFor(bool privateMode, string providerId)
+        {
+            if (privateMode && string.Equals(providerId, ChatDefaults.CustomId, StringComparison.OrdinalIgnoreCase))
+            {
+                return new SpeechOrigin
+                {
+                    ChatProviderId = ChatDefaults.CustomId,
+                    Model = settings != null ? settings.privateModel : string.Empty,
+                    Private = true
+                };
+            }
+
+            var local = privateMode || ActiveChatLabel.IsLocal(providerId);
+            return new SpeechOrigin
             {
                 ChatProviderId = local ? ChatDefaults.LocalId : providerId,
-                Model = local ? settings.localModel : settings.model,
+                Model = local
+                    ? (settings != null ? settings.localModel : string.Empty)
+                    : (settings != null ? settings.model : string.Empty),
                 Private = privateMode
-            });
+            };
         }
 
         string DirectorSuffix()
@@ -588,25 +599,12 @@ namespace AICompanion.UI
 
         void OnLookClick()
         {
-            var look = GetComponent<IScreenLook>();
-            if (look == null)
-            {
-                if (_conversation != null)
-                {
-                    _conversation.AddSystem(ScreenLookMissing);
-                    RefreshTranscript(true);
-                }
-
+            if (Presenter.Look() != ChatLookResult.Missing || _conversation == null)
                 return;
-            }
 
-            if (look.IsBusy)
-                look.Stop();
-            else
-                look.RequestLook();
+            _conversation.AddSystem(ChatPresenter.ScreenLookMissing);
+            RefreshTranscript(true);
         }
-
-        const string ScreenLookMissing = "Window capture is not available in this session.";
 
         async void Dispatch(IChatProvider provider, string text, string prompt, float temperature, int maxTokens, CancellationToken token, ChatTurnOptions options, bool remember)
         {
@@ -661,20 +659,12 @@ namespace AICompanion.UI
 
         void OnActionClick()
         {
-            if (_conversation != null && _conversation.IsBusy)
+            var result = Presenter.PrimaryAction(_input != null ? _input.text : string.Empty);
+            if (result == ChatActionResult.Sent && _input != null)
             {
-                CancelReply();
-                return;
+                _input.text = string.Empty;
+                _input.ActivateInputField();
             }
-
-            BindSpeech();
-            if (_speech != null && _speech.IsSpeaking)
-            {
-                _speech.Cancel();
-                return;
-            }
-
-            SubmitDraft(_input != null ? _input.text : string.Empty);
         }
 
         void SaveKey()
@@ -765,6 +755,12 @@ namespace AICompanion.UI
             // What the model really wrote, so a missing or broken cue shows in Player.log.
             Debug.Log(AnimationCueParser.DescribeTag(_exchange.LastCueTag, _exchange.LastCueStatus));
             Debug.Log(EmotionNames.FormatFieldLog(_exchange.LastCue.EmotionField));
+            // JUH-108: the new chat fires each cue at its own line and reports the mood there.
+            if (_replyCuesElsewhere)
+            {
+                _moodCueSerial = _exchange.CueSerial;
+                return;
+            }
             // JUH-103 phase 2: the director shades the cue by the mood she had before this
             // reply, so it plays first and the cue moves the mood after.
             var director = GetComponent<Director>();
@@ -799,16 +795,12 @@ namespace AICompanion.UI
         void BindSpeech()
         {
             if (_speech == null)
-                _speech = GetComponent<ISpeechOutput>();
+                _speech = _speechOverride ?? GetComponent<ISpeechOutput>();
         }
 
         void OnMuteClick()
         {
-            BindSpeech();
-            if (_speech == null)
-                return;
-
-            _speech.SetMuted(!_speech.IsMuted);
+            Presenter.ToggleMute();
             RefreshMuteLabel();
         }
 
@@ -819,25 +811,30 @@ namespace AICompanion.UI
 
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
-            var provider = settings.providerId ?? string.Empty;
-            var grok = settings.model ?? string.Empty;
-            var local = settings.localModel ?? string.Empty;
+            var provider = settings != null
+                ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
+                : string.Empty;
+            var grok = settings != null ? settings.model ?? string.Empty : string.Empty;
+            var local = settings != null ? settings.localModel ?? string.Empty : string.Empty;
+            var privateModel = settings != null ? settings.privateModel ?? string.Empty : string.Empty;
             if (_modelBadge.text.Length > 0
                 && privateMode == _badgePrivate
                 && string.Equals(provider, _badgeProvider, StringComparison.Ordinal)
                 && string.Equals(grok, _badgeGrok, StringComparison.Ordinal)
-                && string.Equals(local, _badgeLocal, StringComparison.Ordinal))
+                && string.Equals(local, _badgeLocal, StringComparison.Ordinal)
+                && string.Equals(privateModel, _badgePrivateModel, StringComparison.Ordinal))
                 return;
 
             _badgePrivate = privateMode;
             _badgeProvider = provider;
             _badgeGrok = grok;
             _badgeLocal = local;
+            _badgePrivateModel = privateModel;
             var localNow = privateMode || ActiveChatLabel.IsLocal(provider);
             _modelBadge.color = localNow
                 ? new Color(0.72f, 0.90f, 0.78f, 0.96f)
                 : new Color(0.98f, 0.86f, 0.62f, 0.96f);
-            _modelBadge.text = ActiveChatLabel.Format(provider, privateMode, grok, local);
+            _modelBadge.text = ActiveChatLabel.Format(provider, privateMode, grok, local, privateModel);
         }
 
         void RefreshMuteLabel()
@@ -846,7 +843,7 @@ namespace AICompanion.UI
                 return;
 
             BindSpeech();
-            _muteLabel.text = _speech != null && _speech.IsMuted ? "Muted" : "Mute";
+            _muteLabel.text = ChatPresenter.MuteLabelFor(_speech != null && _speech.IsMuted);
         }
 
         void RefreshMic()
@@ -858,7 +855,7 @@ namespace AICompanion.UI
                 SetVisible(true, false);
             _wasRecording = recording;
             if (_micLabel != null)
-                _micLabel.text = recording ? "Rec" : waiting ? "..." : "Mic";
+                _micLabel.text = ChatPresenter.MicLabelFor(recording, waiting);
             if (_micImage != null)
                 _micImage.color = recording
                     ? new Color(0.72f, 0.16f, 0.18f, 1f)

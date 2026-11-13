@@ -24,50 +24,7 @@ namespace AICompanion.Settings
 
         void ExportLocal(bool zip)
         {
-            var folder = Folder();
-            var dest = (_exportFolder ?? string.Empty).Trim();
-            if (string.IsNullOrEmpty(dest))
-            {
-                SetStatus("Choose a folder for the decrypted export.");
-                return;
-            }
-
-            try
-            {
-                LocalActionResult result;
-                string where;
-                if (LocalDataActions.DestinationInsideRoot(folder, dest))
-                {
-                    SetStatus("Export did not run. Choose a folder outside the ProjectLeia data folder.");
-                    return;
-                }
-
-                if (zip)
-                {
-                    where = dest.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
-                        ? dest
-                        : Path.Combine(dest, "ProjectLeia-export.zip");
-                    result = LocalDataPortal.ExportZip(folder, where);
-                }
-                else
-                {
-                    where = dest;
-                    result = LocalDataPortal.ExportFolder(folder, where);
-                }
-
-                if (result == null || !result.Ok)
-                {
-                    SetStatus("Export did not run. Choose a folder outside the ProjectLeia data folder.");
-                    return;
-                }
-
-                var skipped = result.Notes.Count > 0 ? " Some files were skipped." : string.Empty;
-                SetStatus("Exported " + result.Files.ToString() + " file(s)." + skipped);
-            }
-            catch (Exception)
-            {
-                SetStatus("Could not export local data.");
-            }
+            SetStatus(Presenters.LocalDataPresenter.Export(Folder(), _exportFolder, zip, LocalDataPortal.ExportFolder, LocalDataPortal.ExportZip));
         }
 
         void ConfirmWipe()
@@ -82,6 +39,9 @@ namespace AICompanion.Settings
 
             MemoryRuntime.Discard();
             _settings = CompanionSettings.CreateDefault();
+            // After a full wipe she starts again as on a new install: Happi.
+            _settings.PersonaId = PersonaDefaults.HappiId;
+            PersonaRuntime.ApplySelected(_settings, folder);
             var chat = GetComponent<ChatPanel>();
             if (chat != null)
                 chat.ClearTranscript();

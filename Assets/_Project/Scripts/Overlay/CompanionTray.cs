@@ -119,6 +119,18 @@ namespace AICompanion.Overlay
             PushVisibility();
         }
 
+        /// <summary>JUH-104 wheel: hides her the same way as the tray item, so the tray brings her back.</summary>
+        public void HideCompanion()
+        {
+            if (!_started)
+                StartCompanion();
+            if (!_menu.CompanionVisible)
+                return;
+
+            _menu.CompanionVisible = false;
+            PushVisibility();
+        }
+
         /// <summary>
         /// Saves the startup preference on the tray checkmark. The Windows player
         /// writes HKCU. The Editor keeps the checkmark so it stays in sync with

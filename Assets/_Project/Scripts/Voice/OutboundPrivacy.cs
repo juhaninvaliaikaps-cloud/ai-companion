@@ -5,7 +5,7 @@ using AICompanion.Core;
 namespace AICompanion.Voice
 {
     /// <summary>
-    /// Where a reply is allowed to go. Private mode is the local Ollama path only.
+    /// Where a reply is allowed to go. Private mode is a local or user-provided server, never a commercial cloud provider.
     /// Cloud TTS, the voice agent, and Uthana must check this before any request.
     /// The default is private mode off, which keeps today's public Grok path.
     /// While the intimate gate is open everything stays local too, even if the private flag
@@ -46,20 +46,9 @@ namespace AICompanion.Voice
             return !StaysLocal(privateMode);
         }
 
-        public static string ChatProviderId(bool privateMode, string selected)
+        public static string ChatProviderId(bool privateMode, string selected, string privateEndpointType = null)
         {
-            if (!AllowsCloudChat(privateMode))
-                return ChatDefaults.LocalId;
-
-            if (string.IsNullOrWhiteSpace(selected))
-                return ChatDefaults.GrokId;
-
-            var id = selected.Trim();
-            if (string.Equals(id, ChatDefaults.LocalId, StringComparison.OrdinalIgnoreCase))
-                return ChatDefaults.LocalId;
-            if (string.Equals(id, ChatDefaults.GrokId, StringComparison.OrdinalIgnoreCase))
-                return ChatDefaults.GrokId;
-            return ChatDefaults.GrokId;
+            return PrivateChatRouting.ProviderId(StaysLocal(privateMode), selected, privateEndpointType);
         }
     }
 }

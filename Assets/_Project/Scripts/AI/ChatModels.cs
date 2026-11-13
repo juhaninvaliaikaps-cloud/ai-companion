@@ -6,6 +6,7 @@ namespace AICompanion.AI
     {
         public const string GrokId = "grok";
         public const string LocalId = "local";
+        public const string CustomId = "custom";
 
         /// <summary>Checked against the xAI streaming docs on 2026-10-21.</summary>
         public const string Model = "grok-4.7";

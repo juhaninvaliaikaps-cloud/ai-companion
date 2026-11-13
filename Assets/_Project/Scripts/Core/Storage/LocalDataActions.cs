@@ -88,6 +88,11 @@ namespace AICompanion.Core
         public static LocalActionResult MigratePlaintext(string root)
         {
             var result = new LocalActionResult();
+            if (SingleInstanceGuard.IsExiting)
+            {
+                result.Ok = true;
+                return result;
+            }
             if (string.IsNullOrEmpty(root) || !Directory.Exists(root))
             {
                 result.Ok = true;
