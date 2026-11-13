@@ -204,6 +204,77 @@ namespace AICompanion.Settings
             SaveActive(id, change);
         }
 
+        /// <summary>What persona settings show about the reading (JUH-118).</summary>
+        public readonly struct PisaraPersonaView
+        {
+            public readonly string TemperamentLine;
+            public readonly string RelationshipLine;
+            public readonly string Status;
+            public readonly bool Manual;
+            public readonly bool Reading;
+
+            public PisaraPersonaView(string temperamentLine, string relationshipLine, string status, bool manual, bool reading)
+            {
+                TemperamentLine = temperamentLine ?? string.Empty;
+                RelationshipLine = relationshipLine ?? string.Empty;
+                Status = status ?? string.Empty;
+                Manual = manual;
+                Reading = reading;
+            }
+        }
+
+        /// <summary>The reading of the active persona, as lines for the Persona tab (old and new).</summary>
+        public PisaraPersonaView PisaraView()
+        {
+            var id = _settings != null ? _settings.PersonaId ?? string.Empty : string.Empty;
+            var keeper = GetComponent<PisaraReadingKeeper>();
+            var sheet = keeper != null ? keeper.SheetFor(id) : null;
+            var choice = PersonaRuntime.TemperamentChoiceFor(PersonaCatalog.LoadDefault(Folder()), id, sheet);
+            return new PisaraPersonaView(
+                choice.Line,
+                AICompanion.Core.PisaraReading.RelationshipLine(sheet),
+                keeper != null ? keeper.StatusLine : AICompanion.Core.PisaraReading.SourceLine(sheet),
+                !choice.Auto,
+                keeper != null && keeper.IsReading);
+        }
+
+        /// <summary>The "Re-read" button: asks the model again for the active persona's sheet.</summary>
+        public void RereadPersona()
+        {
+            var keeper = GetComponent<PisaraReadingKeeper>();
+            if (keeper == null)
+                return;
+            keeper.Reread();
+            SetStatus("Reading her description again. This can take a minute with a local model.");
+            _rebuild = true;
+        }
+
+        /// <summary>Persona temperament: let the reading decide.</summary>
+        public void SetPersonaTemperamentAuto(string id)
+        {
+            SaveActive(id, item => item.TemperamentMode = AICompanion.Core.TemperamentModes.Auto);
+        }
+
+        /// <summary>Persona temperament: a manual pick, which overrides the reading.</summary>
+        public void SetPersonaTemperament(string id, string preset)
+        {
+            SaveActive(id, item =>
+            {
+                item.Temperament = preset;
+                item.TemperamentMode = AICompanion.Core.TemperamentModes.Manual;
+            });
+        }
+
+        /// <summary>Goes up when a reading starts or comes back.</summary>
+        public int PisaraRevision
+        {
+            get
+            {
+                var keeper = GetComponent<PisaraReadingKeeper>();
+                return keeper != null ? keeper.Revision : 0;
+            }
+        }
+
         /// <summary>Same as "New persona".</summary>
         public void NewPersona()
         {

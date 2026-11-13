@@ -2,6 +2,8 @@
 
 A persona is the companion's name, personality, speaking style, voice, model, avatar, and portrait set. Pick one in **Settings → Persona**. The switch applies immediately. The app does not restart.
 
+When a persona is selected or its personality text changes, the app asks the model once for a character sheet (temperament, relationship, her world) and caches it encrypted next to her mood. Persona settings show what was read and have a **Re-read** button; a temperament picked by hand overrides the reading (`temperamentMode` in the persona file: `auto`, `manual`, or missing for older files). See [PISARA.md](PISARA.md).
+
 The emotion, gesture, and portrait cue instructions are added after the persona text on every reply. A persona that never mentions tags still gets them, so expressions, gestures, and portraits keep working.
 
 ## Where the files live

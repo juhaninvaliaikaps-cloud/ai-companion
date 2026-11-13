@@ -132,6 +132,8 @@ A mood starts on its floor as soon as the temperament is set (load, switch, or p
 **Intimate** is never a baseline or a bias. A temperament's Intimate gain is used only while `IntimateExpressions.Active`. No preset touches Intimate.
 
 **Where it is stored.** The persona file stores the preset id (`"temperament": "tsundere"`), never numbers. Custom persona files are encrypted as before.
+
+**Auto (JUH-118).** A user persona without a hand-picked preset takes its temperament from the character sheet the model reads from her description: one preset, or a blend of two (`Mood temperament: <persona> = blend`). A pick in persona settings overrides it, and built-in personas keep their preset. See [PISARA.md](PISARA.md).
 - The built-ins: Leia (`friend`) is Cheerful; Rowan (`calm`) and Avery (`coach`) are Calm.
 - The setup name, a custom persona and an unknown id get Balanced.
 - In Settings → Persona, the **Temperament** buttons pick a preset. Picking one for a built-in saves a copy, like any other edit.

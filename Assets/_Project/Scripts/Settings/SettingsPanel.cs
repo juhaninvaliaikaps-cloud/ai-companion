@@ -114,6 +114,16 @@ namespace AICompanion.Settings
             EnsureVideoAvatar();
             if (GetComponent<CompanionMoodKeeper>() == null)
                 gameObject.AddComponent<CompanionMoodKeeper>();
+            // JUH-118: the reading tool (-pisara-read) runs alone; otherwise the keeper reads the active persona.
+            if (PisaraReadingTool.Requested(Environment.GetCommandLineArgs()))
+            {
+                if (GetComponent<PisaraReadingTool>() == null)
+                    gameObject.AddComponent<PisaraReadingTool>();
+            }
+            else if (GetComponent<PisaraReadingKeeper>() == null)
+            {
+                gameObject.AddComponent<PisaraReadingKeeper>();
+            }
 
             _applying = true;
             try
@@ -216,6 +226,7 @@ namespace AICompanion.Settings
             TrackLive();
             TrackHistory();
             TrackScreen();
+            TrackPisara();
             Place();
         }
 
