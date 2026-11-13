@@ -12,6 +12,9 @@
         "AICompanion.Voice",
         "AICompanion.Settings",
         "AICompanion.ScreenLook",
+        "AICompanion.NewUI",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

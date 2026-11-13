@@ -705,6 +705,30 @@ namespace AICompanion.Settings
         /// while she walks, stops, or plays a reaction; it moves only with the size and
         /// position settings.
         /// </summary>
+        Rect _bodyRect;
+        AICompanion.Overlay.OverlayWindow _overlay;
+
+        /// <summary>
+        /// Where she is drawn: the whole window, or (new UI) the window without the room beside and
+        /// below her that the chat box uses. Same as the whole window while the new UI is off.
+        /// </summary>
+        Rect BodyArea()
+        {
+            if (_overlay == null)
+                _overlay = GetComponent<AICompanion.Overlay.OverlayWindow>();
+            return _overlay != null ? _overlay.BodyRect : new Rect(0f, 0f, Screen.width, Screen.height);
+        }
+
+        /// <summary>
+        /// JUH-104: the default idle's rectangle in window pixels from the bottom-left (her feet are
+        /// near its bottom). False unless a clip is playing. Used to place the new chat box beside her.
+        /// </summary>
+        public bool TryGetBodyRect(out Rect body)
+        {
+            body = _bodyRect;
+            return _portraitHeadKnown && _state == VideoAvatarState.Playing && _bodyRect.height > 0f;
+        }
+
         public bool TryGetPortraitHead(out Vector2 head)
         {
             head = _portraitHead;
@@ -723,8 +747,8 @@ namespace AICompanion.Settings
             {
                 var idleSpec = _set.Clips[_set.Idle];
                 idleRect = VideoAvatarLayout.ComputeAligned(
-                    Screen.width,
-                    Screen.height,
+                    BodyArea().width,
+                    BodyArea().height,
                     _referenceWidth,
                     _referenceHeight,
                     _referenceWidth,
@@ -736,9 +760,11 @@ namespace AICompanion.Settings
                     idleSpec.OffsetX,
                     idleSpec.OffsetY,
                     false);
+                idleRect.position += BodyArea().position;
             }
 
             _portraitHeadKnown = idleRect.height > 0f;
+            _bodyRect = idleRect;
             if (_portraitHeadKnown)
                 _portraitHead = PortraitAnchor.VideoHead(idleRect, Screen.height, _set.HeadX, _set.HeadY);
 
@@ -747,9 +773,10 @@ namespace AICompanion.Settings
                 return;
 
             var spec = _players[_shown].Spec;
+            var body = BodyArea();
             var rect = VideoAvatarLayout.ComputeAligned(
-                Screen.width,
-                Screen.height,
+                body.width,
+                body.height,
                 _referenceWidth,
                 _referenceHeight,
                 VideoAvatarLayout.DisplayWidth(texture.width, spec.Mask),
@@ -761,6 +788,7 @@ namespace AICompanion.Settings
                 spec.OffsetX,
                 spec.OffsetY,
                 _shownMirrored);
+            rect.position += body.position;
             if (rect == _placed)
                 return;
 
@@ -794,8 +822,8 @@ namespace AICompanion.Settings
 
             var walkSpec = _set.Clips[_set.Walk];
             var height = VideoAvatarLayout.DisplayedHeight(
-                Screen.width,
-                Screen.height,
+                BodyArea().width,
+                BodyArea().height,
                 _referenceWidth,
                 _referenceHeight,
                 settings.VideoAvatarSize,

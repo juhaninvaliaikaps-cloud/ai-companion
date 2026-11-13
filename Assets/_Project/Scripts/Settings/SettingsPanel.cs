@@ -108,6 +108,8 @@ namespace AICompanion.Settings
             if (!exists && tray != null)
                 _settings.StartWithWindows = tray.Menu.StartWithWindows;
 
+            // A new install starts as Happi; existing settings keep their persona.
+            _settings.PersonaId = PersonaDefaults.ForLaunch(exists, _settings.PersonaId);
             PersonaRuntime.ApplySelected(_settings, Folder());
             EnsureVideoAvatar();
             if (GetComponent<CompanionMoodKeeper>() == null)
@@ -265,6 +267,9 @@ namespace AICompanion.Settings
         public void Open()
         {
             if (WizardIsOpen())
+                return;
+            // JUH-104: with the new UI on, the new settings view opens instead.
+            if (OpenOverride != null && OpenOverride())
                 return;
 
             if (!_started)
@@ -916,13 +921,7 @@ namespace AICompanion.Settings
             Note("Applies immediately. The Editor Game view does not grow. The Windows player resizes the transparent window.");
             AddButton("Click-through: " + ClickThroughLabel(_settings.ClickThrough), () =>
             {
-                var mode = OverlayClickThroughPolicy.Parse(_settings.ClickThrough);
-                var next = mode == OverlayClickThrough.Silhouette
-                    ? OverlayClickThrough.PanelsOnly
-                    : mode == OverlayClickThrough.PanelsOnly
-                        ? OverlayClickThrough.Capture
-                        : OverlayClickThrough.Silhouette;
-                _settings.ClickThrough = OverlayClickThroughPolicy.Name(next);
+                _settings.ClickThrough = Presenters.SettingsPresenter.NextClickThrough(_settings.ClickThrough);
                 ApplyLive();
                 _rebuild = true;
             });
@@ -943,6 +942,10 @@ namespace AICompanion.Settings
             Note("Pause matches the tray checkmark. Speech, push-to-talk, and animation cues stay off while it is on.");
             AddToggle("Show mood readout (debug)", _settings.ShowMoodDebug, value => _settings.ShowMoodDebug = value);
             Note("Her current mood and the three strongest moods, top left. Mood changes are also in Player.log.");
+            AddToggle("Show debug info", _settings.ShowDebugInfo, value => _settings.ShowDebugInfo = value);
+            Note("Debug text top-left: topmost, frame rate, emotion, key hints, rotate, size and zoom. Off by default. The hotkeys work either way.");
+            AddToggle("New UI (preview)", _settings.NewUiPreview, value => _settings.NewUiPreview = value);
+            Note("The new Happi look: right-click her for the radial wheel, the new chat and the new settings. Off by default. Launching with -newui turns it on for that launch only.");
         }
 
         void BuildPrivacy()
@@ -1178,30 +1181,12 @@ namespace AICompanion.Settings
 
         static string ClickThroughLabel(string value)
         {
-            var mode = OverlayClickThroughPolicy.Parse(value);
-            switch (mode)
-            {
-                case OverlayClickThrough.PanelsOnly:
-                    return "panels only";
-                case OverlayClickThrough.Capture:
-                    return "capture the window";
-                default:
-                    return "silhouette";
-            }
+            return Presenters.SettingsPresenter.ClickThroughLabel(value);
         }
 
         static string ClickThroughHelp(string value)
         {
-            var mode = OverlayClickThroughPolicy.Parse(value);
-            switch (mode)
-            {
-                case OverlayClickThrough.PanelsOnly:
-                    return "Only panels catch clicks. The avatar clicks through. Applies immediately.";
-                case OverlayClickThrough.Capture:
-                    return "The whole window catches clicks. Applies immediately. Transparency stays.";
-                default:
-                    return "Empty space clicks through. The avatar and panels stay clickable. This is the default.";
-            }
+            return Presenters.SettingsPresenter.ClickThroughHelp(value);
         }
 
         void SetStatus(string message)

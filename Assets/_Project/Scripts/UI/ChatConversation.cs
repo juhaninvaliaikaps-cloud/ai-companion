@@ -374,6 +374,9 @@ namespace AICompanion.UI
 
         public Action<string> SpokenDelta;
 
+        /// <summary>JUH-108: every raw piece from the provider, cue tags included, before filtering. The new chat uses it to place cues on their own line.</summary>
+        public Action<string> RawDelta;
+
         /// <summary>The cue parsed from the last successful reply.</summary>
         public AnimationCue LastCue { get; private set; }
 
@@ -443,6 +446,7 @@ namespace AICompanion.UI
                 {
                     if (!string.IsNullOrEmpty(piece))
                         _sawPiece = true;
+                    Raw(piece);
 
                     var shown = _filter.Push(piece);
                     if (shown.Length == 0)
@@ -514,7 +518,10 @@ namespace AICompanion.UI
             if (_filter != null)
             {
                 if (result.Ok && !_sawPiece && !string.IsNullOrEmpty(result.Text))
+                {
+                    Raw(result.Text);
                     _filter.Push(result.Text);
+                }
 
                 var tail = _filter.Flush();
                 if (tail.Length > 0)
@@ -558,6 +565,20 @@ namespace AICompanion.UI
                     continue;
                 request.Messages[i] = new ChatMessage(ChatRole.User, message.Content + "\n\n" + reminder.Trim());
                 return;
+            }
+        }
+
+        void Raw(string piece)
+        {
+            if (RawDelta == null || string.IsNullOrEmpty(piece))
+                return;
+
+            try
+            {
+                RawDelta(piece);
+            }
+            catch (Exception)
+            {
             }
         }
 

@@ -5,6 +5,7 @@ using AICompanion.AI;
 using AICompanion.AnimationDirector;
 using AICompanion.Core;
 using AICompanion.Memory;
+using AICompanion.UI.Presenters;
 using Director = AICompanion.AnimationDirector.AnimationDirector;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -18,7 +19,7 @@ namespace AICompanion.UI
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(-200)]
-    public sealed class ChatPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IAvatarDoubleClick, ISpeechNotes, IChatSubmitter, IChatWindow
+    public sealed partial class ChatPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IAvatarDoubleClick, ISpeechNotes, IChatSubmitter, IChatWindow
     {
         const string OpenPref = "ai-companion.chat-open";
 
@@ -86,7 +87,7 @@ namespace AICompanion.UI
         bool _started;
         bool _alive = true;
 
-        public Rect InteractiveRect => _visible ? _guiRect : new Rect(0f, 0f, 0f, 0f);
+        public Rect InteractiveRect => _visible && !_legacyHidden ? _guiRect : new Rect(0f, 0f, 0f, 0f);
 
         public ChatSettings RuntimeChat
         {
@@ -218,17 +219,7 @@ namespace AICompanion.UI
 
             if (Input.GetKeyDown(KeyCode.Escape))
             {
-                var look = GetComponent<IScreenLook>();
-                if (look != null && look.IsBusy)
-                    look.Stop();
-                if (_conversation != null && _conversation.IsBusy)
-                    CancelReply();
-                else
-                {
-                    BindSpeech();
-                    if (_speech != null)
-                        _speech.Cancel();
-                }
+                Presenter.Escape();
 
                 if (_input != null && _input.isFocused)
                     _input.DeactivateInputField();
@@ -242,11 +233,11 @@ namespace AICompanion.UI
             var busy = _conversation != null && _conversation.IsBusy;
             var speaking = _speech != null && _speech.IsSpeaking;
             if (_actionLabel != null)
-                _actionLabel.text = busy || speaking ? "Stop" : "Send";
+                _actionLabel.text = ChatPresenter.ActionLabelFor(busy, speaking);
             if (_lookLabel != null)
             {
                 var look = GetComponent<IScreenLook>();
-                _lookLabel.text = look != null && look.IsBusy ? "Stop look" : "What do you see?";
+                _lookLabel.text = ChatPresenter.LookLabelFor(look != null && look.IsBusy);
                 if (_lookButton != null)
                 {
                     var interactable = look == null || look.LookButtonInteractable;
@@ -608,25 +599,12 @@ namespace AICompanion.UI
 
         void OnLookClick()
         {
-            var look = GetComponent<IScreenLook>();
-            if (look == null)
-            {
-                if (_conversation != null)
-                {
-                    _conversation.AddSystem(ScreenLookMissing);
-                    RefreshTranscript(true);
-                }
-
+            if (Presenter.Look() != ChatLookResult.Missing || _conversation == null)
                 return;
-            }
 
-            if (look.IsBusy)
-                look.Stop();
-            else
-                look.RequestLook();
+            _conversation.AddSystem(ChatPresenter.ScreenLookMissing);
+            RefreshTranscript(true);
         }
-
-        const string ScreenLookMissing = "Window capture is not available in this session.";
 
         async void Dispatch(IChatProvider provider, string text, string prompt, float temperature, int maxTokens, CancellationToken token, ChatTurnOptions options, bool remember)
         {
@@ -681,20 +659,12 @@ namespace AICompanion.UI
 
         void OnActionClick()
         {
-            if (_conversation != null && _conversation.IsBusy)
+            var result = Presenter.PrimaryAction(_input != null ? _input.text : string.Empty);
+            if (result == ChatActionResult.Sent && _input != null)
             {
-                CancelReply();
-                return;
+                _input.text = string.Empty;
+                _input.ActivateInputField();
             }
-
-            BindSpeech();
-            if (_speech != null && _speech.IsSpeaking)
-            {
-                _speech.Cancel();
-                return;
-            }
-
-            SubmitDraft(_input != null ? _input.text : string.Empty);
         }
 
         void SaveKey()
@@ -785,6 +755,12 @@ namespace AICompanion.UI
             // What the model really wrote, so a missing or broken cue shows in Player.log.
             Debug.Log(AnimationCueParser.DescribeTag(_exchange.LastCueTag, _exchange.LastCueStatus));
             Debug.Log(EmotionNames.FormatFieldLog(_exchange.LastCue.EmotionField));
+            // JUH-108: the new chat fires each cue at its own line and reports the mood there.
+            if (_replyCuesElsewhere)
+            {
+                _moodCueSerial = _exchange.CueSerial;
+                return;
+            }
             // JUH-103 phase 2: the director shades the cue by the mood she had before this
             // reply, so it plays first and the cue moves the mood after.
             var director = GetComponent<Director>();
@@ -819,16 +795,12 @@ namespace AICompanion.UI
         void BindSpeech()
         {
             if (_speech == null)
-                _speech = GetComponent<ISpeechOutput>();
+                _speech = _speechOverride ?? GetComponent<ISpeechOutput>();
         }
 
         void OnMuteClick()
         {
-            BindSpeech();
-            if (_speech == null)
-                return;
-
-            _speech.SetMuted(!_speech.IsMuted);
+            Presenter.ToggleMute();
             RefreshMuteLabel();
         }
 
@@ -871,7 +843,7 @@ namespace AICompanion.UI
                 return;
 
             BindSpeech();
-            _muteLabel.text = _speech != null && _speech.IsMuted ? "Muted" : "Mute";
+            _muteLabel.text = ChatPresenter.MuteLabelFor(_speech != null && _speech.IsMuted);
         }
 
         void RefreshMic()
@@ -883,7 +855,7 @@ namespace AICompanion.UI
                 SetVisible(true, false);
             _wasRecording = recording;
             if (_micLabel != null)
-                _micLabel.text = recording ? "Rec" : waiting ? "..." : "Mic";
+                _micLabel.text = ChatPresenter.MicLabelFor(recording, waiting);
             if (_micImage != null)
                 _micImage.color = recording
                     ? new Color(0.72f, 0.16f, 0.18f, 1f)

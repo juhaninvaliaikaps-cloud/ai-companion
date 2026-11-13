@@ -91,6 +91,7 @@ namespace AICompanion.Settings
                     window.SetTopmost(settings.AlwaysOnTop);
                 window.SetClickThroughMode(OverlayClickThroughPolicy.Parse(settings.ClickThrough));
                 window.SetIdleFrameRate(settings.IdleFrameRate);
+                window.ShowDebugInfo = settings.ShowDebugInfo;
                 if (Mathf.Abs(window.WindowScale - settings.Scale) > 0.001f)
                     window.SetWindowScale(settings.Scale);
             }
@@ -121,6 +122,9 @@ namespace AICompanion.Settings
                 if (mount.LoadedPreference != desired)
                     mount.Select(desired);
             }
+
+            // JUH-104: the new UI follows its setting, or -newui for this launch.
+            NewUiSwitch.Set(NewUiSwitch.Resolve(settings.NewUiPreview, Environment.GetCommandLineArgs()));
         }
 
         static void ApplyChat(AICompanion.AI.ChatSettings chat, CompanionSettings settings, string provider)

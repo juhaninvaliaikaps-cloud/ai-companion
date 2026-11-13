@@ -91,14 +91,12 @@ namespace AICompanion.Settings
             AddButton("Test: walk right (mirrored)", () => VideoTest(avatar => avatar.TestWalk(1f)));
             AddButton("Test: stop", () => VideoTest(avatar => avatar.TestStop()));
             AddButton("Test: back to the front idle", () => VideoTest(avatar => avatar.TestFront()));
-            AddButton("Test: happy", () => VideoReaction("happy"));
-            AddButton("Test: concerned", () => VideoReaction("concerned"));
-            AddButton("Test: spin (turn360)", () => VideoReaction("turn360"));
-            AddButton("Test: embarrassed", () => VideoReaction("embarrassed"));
-            AddButton("Test: flustered", () => VideoReaction("flustered"));
-            AddButton("Test: pout", () => VideoReaction("pout"));
-            AddButton("Test: wink dance", () => VideoReaction("wink_dance"));
-            AddButton("Test: turn around (back)", () => VideoReaction("turn_around_back"));
+            var reactions = Presenters.VideoAvatarPresenter.TestReactions;
+            for (var i = 0; i < reactions.Count; i++)
+            {
+                var reaction = reactions[i].Value;
+                AddButton(reactions[i].Key, () => VideoReaction(reaction));
+            }
             var speedLabel = AddLabel(VideoSpeedText(_settings.VideoAvatarWalkSpeed));
             AddSlider(_settings.VideoAvatarWalkSpeed, 0f, 1f, false, value =>
             {
@@ -152,10 +150,9 @@ namespace AICompanion.Settings
             VideoTest(avatar =>
             {
                 var result = avatar.RequestReaction(name);
-                if (result == AICompanion.Core.AvatarReactionResult.Refused)
-                    SetStatus("No playable \"" + name + "\" clip in the video folder.");
-                else if (result == AICompanion.Core.AvatarReactionResult.Waiting)
-                    SetStatus("\"" + name + "\" plays when she is back on the front idle (within " + VideoAvatarDirector.PendingSeconds.ToString("0") + " s).");
+                var status = Presenters.VideoAvatarPresenter.ReactionStatus(result, name, VideoAvatarDirector.PendingSeconds);
+                if (status.Length > 0)
+                    SetStatus(status);
             });
         }
 
@@ -164,7 +161,7 @@ namespace AICompanion.Settings
             var player = GetComponent<VideoAvatar>();
             if (player == null || player.State != VideoAvatarState.Playing)
             {
-                SetStatus("The 2D avatar is not playing.");
+                SetStatus(Presenters.VideoAvatarPresenter.NotPlaying);
                 return;
             }
 

@@ -65,6 +65,18 @@ namespace AICompanion.Settings
         bool _paths;
         bool _placed;
         bool? _preferLeft;
+
+        /// <summary>JUH-104: the new chat box (window pixels from the top-left) the portrait keeps clear of. Empty while the new UI is off.</summary>
+        public static Rect NewUiAvoid;
+
+        /// <summary>JUH-104: true puts the portrait on her left (the chat box took her right side). Null keeps the automatic side.</summary>
+        public static bool? NewUiPreferLeft;
+
+        /// <summary>JUH-104: where the new UI wants the portrait (window pixels from the top-left, any size). Empty = automatic.</summary>
+        public static Rect NewUiTarget;
+
+        /// <summary>Where the portrait is drawn now (window pixels from the top-left); empty while it is hidden.</summary>
+        public static Rect ShownRect;
         string _heldExpression = string.Empty;
         float _quietFor;
         PortraitPreview _preview;
@@ -438,6 +450,7 @@ namespace AICompanion.Settings
             _shown = false;
             _placed = false;
             _guiRect = new Rect(0f, 0f, 0f, 0f);
+            ShownRect = new Rect(0f, 0f, 0f, 0f);
             if (_canvasObject != null && _canvasObject.activeSelf)
                 _canvasObject.SetActive(false);
         }
@@ -565,11 +578,19 @@ namespace AICompanion.Settings
         void Place(float delta)
         {
             var avoidChat = _chat != null ? _chat.InteractiveRect : new Rect(0f, 0f, 0f, 0f);
+            // JUH-104 new UI: avoid the new chat box, and keep to the side it asks for.
+            if (NewUiAvoid.width > 0f)
+                avoidChat = NewUiAvoid;
             var head = HeadPoint(delta);
-            var target = PortraitPlacement.Beside(head, Screen.width, Screen.height, avoidChat, PortraitPlacement.DebugLabel, _preferLeft);
+            var target = PortraitPlacement.Beside(head, Screen.width, Screen.height, avoidChat, PortraitPlacement.DebugLabel, NewUiPreferLeft ?? _preferLeft);
             if (target.width > 0f)
                 _preferLeft = target.x + target.width * 0.5f < head.x;
-            _guiRect = PortraitPlacement.Smooth(_guiRect, target, delta, _placed, PortraitPlacement.DeadZone);
+            // JUH-104: a place chosen in the new UI (dragged, or docked to the chat box) is used as is.
+            if (NewUiTarget.width > 0f)
+                _guiRect = NewUiTarget;
+            else
+                _guiRect = PortraitPlacement.Smooth(_guiRect, target, delta, _placed, PortraitPlacement.DeadZone);
+            ShownRect = _guiRect;
             _placed = true;
             if (_frame == null)
                 return;
@@ -586,7 +607,12 @@ namespace AICompanion.Settings
             }
 
             _frame.anchoredPosition = new Vector2(_guiRect.x - origin.x, -(_guiRect.y - origin.y));
-            _frame.sizeDelta = new Vector2(_guiRect.width, _guiRect.height);
+            // A size chosen in the new UI (docked to the chat box) scales the whole framed picture
+            // from its top-left corner; otherwise it is drawn at its normal size as on main.
+            var zoom = NewUiTarget.width > 0f && _guiRect.height > 0f ? _guiRect.height / PortraitPlacement.Height : 1f;
+            _frame.sizeDelta = new Vector2(_guiRect.width / zoom, _guiRect.height / zoom);
+            if (Mathf.Abs(_frame.localScale.x - zoom) > 0.0001f)
+                _frame.localScale = new Vector3(zoom, zoom, 1f);
             var camera = Camera.main;
             if (_canvas == null)
                 return;

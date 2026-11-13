@@ -59,7 +59,9 @@ namespace AICompanion.Core
             return name == InstallKeyFile.FileName
                 || name.IndexOf(".unreadable-", StringComparison.Ordinal) >= 0
                 || name.EndsWith(".writing", StringComparison.Ordinal)
-                || name.EndsWith(".held", StringComparison.Ordinal);
+                || name.EndsWith(".held", StringComparison.Ordinal)
+                || name.IndexOf(".writing.", StringComparison.Ordinal) >= 0
+                || name.IndexOf(".held.", StringComparison.Ordinal) >= 0;
         }
 
         public static bool IsMemoryName(string fileName)

@@ -1,6 +1,6 @@
 # Her mood (JUH-103)
 
-Leia has a lasting mood that changes slowly with the conversation. **Phase 1** keeps the mood: it fades, is saved per persona, and can be watched. **Phase 2** lets the mood colour what she shows (see "What she shows"), without overriding a reply's own cue. Persona temperaments are phase 3.
+Leia has a lasting mood that changes slowly with the conversation. **Phase 1** keeps the mood: it fades, is saved per persona, and can be watched. **Phase 2** lets the mood colour what she shows (see "What she shows"), without overriding a reply's own cue. **Phase 3** gives each persona a temperament that shapes how her moods build and fade (see "Temperaments").
 
 The approved design is the comment "Approved mood design (2026-11-12)" on JUH-103.
 
@@ -13,6 +13,8 @@ The approved design is the comment "Approved mood design (2026-11-12)" on JUH-10
 | The keeper in the app, the readout, the log lines, saving on quit | **Not run in a player** |
 | Phase 2: the look table, cue softening, the prompt line, the 2D idle clip, the Intimate gate | Automated EditMode tests (`CompanionMoodLookTests`) |
 | Phase 2: the rest face on the 3D avatar and portrait, the 2D idle clip on screen | **Not run in a player** |
+| Phase 3: presets, default = phase 1/2, gains, half-lives, floors, Intimate gate, persona file and switch | Automated EditMode tests (`PersonaTemperamentTests`) |
+| Phase 3: the picker in persona settings, the readout name, the log line | **Not run in a player** |
 
 ## Moods
 
@@ -107,6 +109,35 @@ Gestures, reactions and every other face are played as written.
 - `neutral cue`
 - `2D idle clip`
 
+## Temperaments (phase 3)
+
+A temperament adds no new moods. It changes four things, all in `PersonaTemperament` (`Assets/_Project/Scripts/Core/PersonaTemperament.cs`):
+
+- **Gain**: multiplies every push into a mood (in `CompanionMoodTable`).
+- **Half-life**: multiplies how long a mood takes to halve (in `CompanionMoodState.Tick` and when the app was closed).
+- **Baseline**: a mood she settles back to, held at 0.35. That is enough to show.
+- **Rest bias**: a low floor under one mood, so that mood shows sooner. It is at most 0.12: below showing (0.3) and below leaving (0.15), so a biased mood can still stop showing.
+
+A mood starts on its floor as soon as the temperament is set (load, switch, or picker), never fades below it, and is back on it after the app was closed. A Cheerful persona therefore rests on happy straight away. Hysteresis, the Intimate gate, the mood file and the phase 2 looks are unchanged.
+
+| Preset | What it does |
+| --- | --- |
+| Balanced (default) | Exactly phase 1/2. |
+| Calm | Annoyed and anxious build ×0.7, flustered ×0.8. Annoyed and anxious fade ×0.6 the time, sad ×0.8. |
+| Cheerful | Baseline happy. Happy builds ×1.3 and lasts ×1.5. Affectionate builds ×1.1. Sad and annoyed build ×0.8 and fade ×0.7 the time. |
+| Shy | Flustered bias 0.1. Flustered builds ×1.4 and lasts ×1.5. Anxious builds ×1.2. Affectionate builds ×0.9, annoyed ×0.8. |
+| Tsundere | Annoyed bias 0.1. Annoyed builds ×1.4 and lasts ×1.3. Affectionate builds ×0.7 and fades ×0.7 the time. Flustered builds ×1.2. |
+| Moody | Sad bias 0.1. Sad builds ×1.3 and lasts ×1.4. Annoyed builds ×1.2 and lasts ×1.2. Anxious builds ×1.2. Happy builds ×0.8 and fades ×0.7 the time. |
+
+**Intimate** is never a baseline or a bias. A temperament's Intimate gain is used only while `IntimateExpressions.Active`. No preset touches Intimate.
+
+**Where it is stored.** The persona file stores the preset id (`"temperament": "tsundere"`), never numbers. Custom persona files are encrypted as before.
+- The built-ins: Leia (`friend`) is Cheerful; Rowan (`calm`) and Avery (`coach`) are Calm.
+- The setup name, a custom persona and an unknown id get Balanced.
+- In Settings → Persona, the **Temperament** buttons pick a preset. Picking one for a built-in saves a copy, like any other edit.
+
+**Switching.** A persona switch loads that persona's mood and temperament. The keeper logs `Mood temperament: <persona> = <preset>` on load, on a switch, and when the picker changes it. The readout shows `Mood: <mood> (<Temperament>)`.
+
 ## Saved per persona
 
 `%APPDATA%\ProjectLeia\mood.json` for the default persona, `mood-<persona>.json` for the others (the same file-name rules as memory). Encrypted like memory (see [LOCAL_STORAGE.md](LOCAL_STORAGE.md)), and included in export and wipe.
@@ -155,3 +186,11 @@ annoyed 0.52, sad 0.18, happy 0.05
 4. In 2D video mode while Happy or Sad, some idle variations become the silent `happy` or `concerned` clip (log `… (2D idle clip)`). Clips with sound are never used for this.
 5. After 22:00 Sleepy rises. The portrait rests on `sleepy`.
 6. With Intimate expressions off, nothing ever logs `intimate`, and the prompt never names it.
+
+## Windows checklist (phase 3)
+
+1. Turn on the mood readout. With Leia (`friend`), the log shows `Mood temperament: friend = cheerful`, and the readout shows `(Cheerful)`. She rests on happy (smile) straight away, and again after a restart.
+2. Switch to Rowan. The log shows `Mood temperament: calm = calm`.
+3. Make a new persona. The readout shows `(Balanced)`. Under Settings → Persona, pick **Temperament: Tsundere**. The log shows `… = tsundere` at once. Teasing now makes her annoyed faster, and affection builds more slowly.
+4. Quit and start again: the persona still has Tsundere.
+5. With Intimate expressions off, `intimate` never appears in the readout or the log.

@@ -140,7 +140,7 @@ namespace AICompanion.Core
             var changed = false;
             var pushes = ForCue(cue);
             for (var i = 0; i < pushes.Length; i++)
-                changed |= state.Push(pushes[i].Mood, Amount(pushes[i].Gain, cue.Intensity));
+                changed |= state.Push(pushes[i].Mood, Scaled(state, pushes[i], cue.Intensity));
             return changed;
         }
 
@@ -150,8 +150,19 @@ namespace AICompanion.Core
             var changed = false;
             var pushes = ForUser(mood);
             for (var i = 0; i < pushes.Length; i++)
-                changed |= state.Push(pushes[i].Mood, Amount(pushes[i].Gain, mood.Intensity));
+                changed |= state.Push(pushes[i].Mood, Scaled(state, pushes[i], mood.Intensity));
             return changed;
+        }
+
+        /// <summary>
+        /// JUH-103 phase 3: the push scaled by the persona's temperament. The default gain is 1,
+        /// and Intimate is never scaled unless it is allowed.
+        /// </summary>
+        public static float Scaled(CompanionMoodState state, CompanionMoodPush push, float intensity)
+        {
+            var amount = Amount(push.Gain, intensity);
+            var temperament = state.Temperament;
+            return temperament == null ? amount : amount * temperament.Gain(push.Mood, state.IntimateAllowed);
         }
     }
 

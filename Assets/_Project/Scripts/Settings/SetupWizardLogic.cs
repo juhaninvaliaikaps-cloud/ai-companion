@@ -214,9 +214,11 @@ namespace AICompanion.Settings
                     settings.AvatarSource = AvatarSourceNames.Auto;
                     break;
                 case Personality:
+                    // Skip keeps the default companion, Happi. The setup name falls back to Leia
+                    // for whenever the user picks "Use setup name" later.
                     settings.CompanionName = CompanionPersona.DefaultName;
                     settings.Relationship = RelationshipStyles.Friend;
-                    settings.PersonaId = string.Empty;
+                    settings.PersonaId = PersonaDefaults.HappiId;
                     settings.PortraitFolder = string.Empty;
                     break;
             }
@@ -251,10 +253,19 @@ namespace AICompanion.Settings
             if (settings == null)
                 return;
 
+            settings.PortraitFolder = string.Empty;
+            if (PersonaDefaults.WizardKeepsHappi(name, relationship))
+            {
+                // "Happi" as a friend is the built-in Happi persona.
+                settings.Relationship = RelationshipStyles.Friend;
+                settings.PersonaId = PersonaDefaults.HappiId;
+                settings.Normalize();
+                return;
+            }
+
             settings.CompanionName = name ?? string.Empty;
             settings.Relationship = relationship;
             settings.PersonaId = string.Empty;
-            settings.PortraitFolder = string.Empty;
             settings.Normalize();
         }
 
@@ -308,7 +319,7 @@ namespace AICompanion.Settings
 
         public static string PersonalityNote()
         {
-            return "Her name and how she relates to you become the chat persona. Skip uses " + CompanionPersona.DefaultName + ", as a friend. Clearing the name keeps the original friend prompt.";
+            return "Happi is your companion by default. Keep the name Happi as a friend for her, or type another name or pick Girlfriend to make your own companion. Skip keeps Happi. Leia and the other personas are in Settings > Persona.";
         }
 
         public static string[] TourNotes()

@@ -156,6 +156,45 @@ namespace AICompanion.Settings
         /// <summary>Shows her current mood and the three strongest moods in a corner (JUH-103 debug). Off by default.</summary>
         public bool ShowMoodDebug;
 
+        /// <summary>JUH-104: the new Happi UI (radial wheel, new chat and settings). Off by default; -newui turns it on for one launch.</summary>
+        public bool NewUiPreview;
+
+        /// <summary>JUH-108: speak narration lines too in the new chat. Off by default, so narration is shown but not voiced.</summary>
+        public bool VoiceNarration;
+
+        /// <summary>JUH-104: where the new chat box sits, as its centre in 0..1 of the overlay window. -1 = default (bottom centre).</summary>
+        public float ChatBoxX = -1f;
+        public float ChatBoxY = -1f;
+
+        /// <summary>
+        /// JUH-104: the chat box place around her. -1 = default (spot 5 under her with the 2D avatar, else spot 4),
+        /// 0 = where the user dropped it (ChatBoxOffsetX/Y), 1..5 = a snap spot. Supersedes
+        /// ChatBoxX/ChatBoxY (window fractions), which are still read and written but no longer used.
+        /// </summary>
+        public int ChatBoxSnap = -1;
+
+        /// <summary>Free placement: the box centre relative to her head, in pixels at 100% scaling.</summary>
+        public float ChatBoxOffsetX;
+        public float ChatBoxOffsetY;
+
+        /// <summary>
+        /// JUH-104: where the 2D expression portrait sits with the new UI. 0 = automatic beside her
+        /// head (as on main), 1 = docked on the chat box left side, 2 = docked on its right side,
+        /// 3 = where the user dropped it (PortraitOffsetX/Y from her head, pixels at 100%).
+        /// </summary>
+        public int PortraitDock;
+        public float PortraitOffsetX;
+        public float PortraitOffsetY;
+
+        /// <summary>Shows the old debug text (topmost, fps, emotion, rotate/size/zoom) top-left. Off by default; the mood readout has its own switch.</summary>
+        public bool ShowDebugInfo;
+
+        /// <summary>JUH-108: the words she is saying light up in the new chat. On by default.</summary>
+        public bool SpokenGlow = true;
+
+        /// <summary>Strength of the spoken-text glow, 0 (subtle) to 1 (strong).</summary>
+        public float SpokenGlowIntensity = 0.6f;
+
         public static CompanionSettings CreateDefault()
         {
             return new CompanionSettings();
@@ -222,6 +261,34 @@ namespace AICompanion.Settings
                 VideoAvatarWalkSpeed = 0f;
             VideoAvatarWalkSpeed = Math.Min(VideoAvatarWalkSpeed, VideoAvatarManifest.MaxWalkSpeed);
             ClipSoundVolume = VideoClipSound.ClampVolume(ClipSoundVolume);
+            ChatBoxX = CleanFraction(ChatBoxX);
+            ChatBoxY = CleanFraction(ChatBoxY);
+            if (ChatBoxSnap < -1 || ChatBoxSnap > 5)
+                ChatBoxSnap = -1;
+            ChatBoxOffsetX = CleanOffset(ChatBoxOffsetX);
+            ChatBoxOffsetY = CleanOffset(ChatBoxOffsetY);
+            if (PortraitDock < 0 || PortraitDock > 3)
+                PortraitDock = 0;
+            PortraitOffsetX = CleanOffset(PortraitOffsetX);
+            PortraitOffsetY = CleanOffset(PortraitOffsetY);
+            if (float.IsNaN(SpokenGlowIntensity) || float.IsInfinity(SpokenGlowIntensity))
+                SpokenGlowIntensity = 0.6f;
+            SpokenGlowIntensity = Math.Max(0f, Math.Min(1f, SpokenGlowIntensity));
+        }
+
+        static float CleanOffset(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+                return 0f;
+            return Math.Max(-4000f, Math.Min(4000f, value));
+        }
+
+        /// <summary>A 0..1 position, or -1 for "not set".</summary>
+        static float CleanFraction(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value) || value < 0f)
+                return -1f;
+            return value > 1f ? 1f : value;
         }
 
         static string CleanToken(string value, string fallback, int max)
@@ -576,6 +643,32 @@ namespace AICompanion.Settings
                 settings.IntimateExpressions = flag;
             if (TryBool(json, "showMoodDebug", out flag))
                 settings.ShowMoodDebug = flag;
+            if (TryBool(json, "newUiPreview", out flag))
+                settings.NewUiPreview = flag;
+            if (TryBool(json, "voiceNarration", out flag))
+                settings.VoiceNarration = flag;
+            if (TryNumber(json, "chatBoxX", out number))
+                settings.ChatBoxX = (float)number;
+            if (TryNumber(json, "chatBoxY", out number))
+                settings.ChatBoxY = (float)number;
+            if (TryBool(json, "showDebugInfo", out flag))
+                settings.ShowDebugInfo = flag;
+            if (TryBool(json, "spokenGlow", out flag))
+                settings.SpokenGlow = flag;
+            if (TryNumber(json, "spokenGlowIntensity", out number))
+                settings.SpokenGlowIntensity = (float)number;
+            if (TryNumber(json, "chatBoxSnap", out number))
+                settings.ChatBoxSnap = (int)Math.Round(number);
+            if (TryNumber(json, "chatBoxOffsetX", out number))
+                settings.ChatBoxOffsetX = (float)number;
+            if (TryNumber(json, "chatBoxOffsetY", out number))
+                settings.ChatBoxOffsetY = (float)number;
+            if (TryNumber(json, "portraitDock", out number))
+                settings.PortraitDock = (int)Math.Round(number);
+            if (TryNumber(json, "portraitOffsetX", out number))
+                settings.PortraitOffsetX = (float)number;
+            if (TryNumber(json, "portraitOffsetY", out number))
+                settings.PortraitOffsetY = (float)number;
             settings.Normalize();
             return settings;
         }
@@ -648,6 +741,19 @@ namespace AICompanion.Settings
             Number(sb, "clipSoundVolume", source.ClipSoundVolume, false);
             Bool(sb, "intimateExpressions", source.IntimateExpressions);
             Bool(sb, "showMoodDebug", source.ShowMoodDebug);
+            Bool(sb, "newUiPreview", source.NewUiPreview);
+            Bool(sb, "voiceNarration", source.VoiceNarration);
+            Number(sb, "chatBoxX", source.ChatBoxX, false);
+            Number(sb, "chatBoxY", source.ChatBoxY, false);
+            Bool(sb, "showDebugInfo", source.ShowDebugInfo);
+            Bool(sb, "spokenGlow", source.SpokenGlow);
+            Number(sb, "spokenGlowIntensity", source.SpokenGlowIntensity, false);
+            Number(sb, "chatBoxSnap", source.ChatBoxSnap, true);
+            Number(sb, "chatBoxOffsetX", source.ChatBoxOffsetX, false);
+            Number(sb, "chatBoxOffsetY", source.ChatBoxOffsetY, false);
+            Number(sb, "portraitDock", source.PortraitDock, true);
+            Number(sb, "portraitOffsetX", source.PortraitOffsetX, false);
+            Number(sb, "portraitOffsetY", source.PortraitOffsetY, false);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;
