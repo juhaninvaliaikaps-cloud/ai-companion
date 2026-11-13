@@ -244,21 +244,6 @@ namespace AICompanion.Settings
         /// </summary>
         public System.Func<bool> OpenOverride;
 
-        /// <summary>Opens this classic panel even while the new settings view is on ("Classic settings").</summary>
-        public void OpenClassic()
-        {
-            var redirect = OpenOverride;
-            OpenOverride = null;
-            try
-            {
-                Open();
-            }
-            finally
-            {
-                OpenOverride = redirect;
-            }
-        }
-
         public ScreenLookController ScreenController => GetComponent<ScreenLookController>();
 
         /// <summary>"Run setup again" for the new settings view.</summary>

@@ -85,6 +85,14 @@ namespace AICompanion.AI
             return sb.ToString();
         }
 
+        /// <summary>Redacts a known secret the server may have echoed in its error body.</summary>
+        public static string ScrubSecret(string text, string secret)
+        {
+            if (string.IsNullOrEmpty(text) || string.IsNullOrWhiteSpace(secret) || secret.Length < 4)
+                return text;
+            return text.Replace(secret, "[redacted]");
+        }
+
         public static string ReadProviderMessage(string body, int maxChars)
         {
             var scrubbed = Collapse(Scrub(body));
@@ -104,42 +112,55 @@ namespace AICompanion.AI
             return message;
         }
 
-        public static ChatResult FromTransport(string displayName, ChatHttpResult http, string text, bool done, bool malformed, string model = null)
+        public static ChatResult FromTransport(string displayName, ChatHttpResult http, string text, bool done, bool malformed, string model = null, string secret = null)
         {
-            if (http.Cancelled)
-                return ChatResult.Fail(ChatErrorKind.Cancelled, Cancelled);
-            if (http.TimedOut)
-                return ChatResult.Fail(ChatErrorKind.Timeout, TimedOut(displayName));
-            if (http.NetworkFailed || http.StatusCode == 0)
-                return NetworkResult(displayName, http.TransportDetail);
+            ChatResult Fail(ChatErrorKind kind, string userMessage, string logMessage = null)
+            {
+                return ChatResult.Fail(
+                    kind,
+                    ScrubSecret(userMessage, secret),
+                    logMessage == null ? null : ScrubSecret(logMessage, secret));
+            }
 
-            var providerMessage = ReadProviderMessage(http.Body, LogBodyLimit);
-            var raw = Collapse(Scrub(http.Body));
-            var log = HttpLog(displayName, http.StatusCode, providerMessage);
+            if (http.Cancelled)
+                return Fail(ChatErrorKind.Cancelled, Cancelled);
+            if (http.TimedOut)
+                return Fail(ChatErrorKind.Timeout, TimedOut(displayName));
+            if (http.NetworkFailed || http.StatusCode == 0)
+                return NetworkResult(displayName, http.TransportDetail, secret);
+
+            var providerMessage = ScrubSecret(ReadProviderMessage(http.Body, LogBodyLimit), secret);
+            var raw = ScrubSecret(Collapse(Scrub(http.Body)), secret);
+            var log = ScrubSecret(HttpLog(displayName, http.StatusCode, providerMessage), secret);
             if (http.StatusCode == 401 || (http.StatusCode == 400 && LooksLikeInvalidKey(providerMessage, raw)))
-                return ChatResult.Fail(ChatErrorKind.InvalidApiKey, InvalidApiKey, log);
+                return Fail(ChatErrorKind.InvalidApiKey, InvalidApiKey, log);
             if (http.StatusCode == 403 || LooksLikeBilling(providerMessage, raw))
-                return ChatResult.Fail(ChatErrorKind.Malformed, BillingHint, log);
+                return Fail(ChatErrorKind.Malformed, BillingHint, log);
             if (http.StatusCode == 404 || LooksLikeMissingModel(providerMessage, raw))
-                return ChatResult.Fail(ChatErrorKind.Malformed, ModelUnavailable(model), log);
+                return Fail(ChatErrorKind.Malformed, ModelUnavailable(model), log);
+            if (http.StatusCode >= 300 && http.StatusCode < 400)
+                return Fail(ChatErrorKind.Malformed, "The custom server tried to redirect; Private mode doesn't follow redirects.", log);
             if (http.StatusCode == 429)
-                return ChatResult.Fail(ChatErrorKind.RateLimited, RateLimited, log);
+                return Fail(ChatErrorKind.RateLimited, RateLimited, log);
             if (http.StatusCode >= 500)
-                return ChatResult.Fail(ChatErrorKind.Unreachable, Unreachable(displayName), log);
+                return Fail(ChatErrorKind.Unreachable, Unreachable(displayName), log);
             if (http.StatusCode >= 400)
-                return ChatResult.Fail(ChatErrorKind.Malformed, HttpScreen(displayName, http.StatusCode, providerMessage), log);
+                return Fail(ChatErrorKind.Malformed, HttpScreen(displayName, http.StatusCode, providerMessage), log);
             if (malformed && string.IsNullOrEmpty(text) && !done)
-                return ChatResult.Fail(ChatErrorKind.Malformed, Unreadable(displayName));
+                return Fail(ChatErrorKind.Malformed, Unreadable(displayName));
             return ChatResult.Success(text);
         }
 
-        static ChatResult NetworkResult(string displayName, string transportDetail)
+        static ChatResult NetworkResult(string displayName, string transportDetail, string secret)
         {
             var screen = Unreachable(displayName);
-            var detail = ReadProviderMessage(transportDetail, LogBodyLimit);
+            var detail = ScrubSecret(ReadProviderMessage(transportDetail, LogBodyLimit), secret);
             if (detail.Length == 0)
-                return ChatResult.Fail(ChatErrorKind.Unreachable, screen);
-            return ChatResult.Fail(ChatErrorKind.Unreachable, screen, "Chat error: " + screen + ": " + detail);
+                return ChatResult.Fail(ChatErrorKind.Unreachable, ScrubSecret(screen, secret));
+            return ChatResult.Fail(
+                ChatErrorKind.Unreachable,
+                ScrubSecret(screen, secret),
+                ScrubSecret("Chat error: " + screen + ": " + detail, secret));
         }
 
         static string HttpLog(string displayName, int status, string providerMessage)

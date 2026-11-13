@@ -271,6 +271,8 @@ namespace AICompanion.Settings
             // JUH-104: with the new UI on, the new settings view opens instead.
             if (OpenOverride != null && OpenOverride())
                 return;
+            if (NewUiSwitch.Active)
+                return;
 
             if (!_started)
                 StartCompanion();
@@ -704,46 +706,62 @@ namespace AICompanion.Settings
 
         void BuildAi()
         {
-            Note("Text changes apply when you leave the field. The API key is stored in the secret store, never in settings.json.");
+            Note("Text changes apply when you leave the field. Secrets live in the secret store, never in settings.json.");
             AddLabel("Active now: " + ActiveModelText());
+            var privateMode = _settings.PrivateMode;
             var grok = _settings.ProviderId == ChatDefaults.GrokId;
-            var localActive = !VoiceRoute.UsesCloudTts(_settings.PrivateMode, _settings.ProviderId);
-            AddButton(ProviderButton("Grok", grok, localActive), () =>
+            var custom = privateMode && PrivateEndpointTypes.IsCustom(_settings.PrivateEndpointType);
+
+            if (!privateMode)
             {
-                _settings.ProviderId = ChatDefaults.GrokId;
-                ApplyLive();
-                _rebuild = true;
-            });
-            AddButton(ProviderButton("Local Ollama", !grok, !localActive), () =>
+                var localActive = !VoiceRoute.UsesCloudTts(privateMode, _settings.ProviderId);
+                AddButton(ProviderButton("Grok", grok, localActive), () =>
+                {
+                    _settings.ProviderId = ChatDefaults.GrokId;
+                    ApplyLive();
+                    _rebuild = true;
+                });
+                AddButton(ProviderButton("Local Ollama", !grok, !localActive), () =>
+                {
+                    _settings.ProviderId = ChatDefaults.LocalId;
+                    ApplyLive();
+                    _rebuild = true;
+                });
+                AddField("Grok model", _settings.Model, false, value =>
+                {
+                    _settings.Model = value;
+                    ApplyLive();
+                });
+                AddField("Base URL", _settings.BaseUrl, false, value =>
+                {
+                    _settings.BaseUrl = value;
+                });
+                Note("OpenAI-compatible endpoint for the cloud provider. Default is xAI; use DeepSeek, OpenRouter, Groq or another compatible API.");
+            }
+            else
             {
-                _settings.ProviderId = ChatDefaults.LocalId;
-                ApplyLive();
-                _rebuild = true;
-            });
-            if (_settings.PrivateMode)
-                Note("Private mode is on. Chat and voice stay on the local model. The choice above is remembered for when private mode is off.");
-            AddField("Grok model", _settings.Model, false, value =>
+                Note("Private mode is on. Chat and voice use the private endpoint below. Grok settings are kept for when Private mode is off.");
+            }
+
+            if (!custom)
             {
-                _settings.Model = value;
-                ApplyLive();
-            });
-            AddField("Base URL", _settings.BaseUrl, false, value =>
-            {
-                _settings.BaseUrl = value;
-            });
-            Note("OpenAI-compatible endpoint for the cloud provider. Default is xAI; use DeepSeek, OpenRouter, Groq or another compatible API.");
-            AddField("Local model", _settings.LocalModel, false, value =>
-            {
-                _settings.LocalModel = value;
-                ApplyLive();
-            });
-            AddField("Local address", _settings.LocalBaseUrl, false, value =>
-            {
-                _settings.LocalBaseUrl = value;
-                ApplyLive();
-                _rebuild = true;
-            });
-            Note("Default local address is Ollama at http://127.0.0.1:11434/v1.");
+                AddField("Local model", _settings.LocalModel, false, value =>
+                {
+                    _settings.LocalModel = value;
+                    ApplyLive();
+                });
+                AddField("Local address", _settings.LocalBaseUrl, false, value =>
+                {
+                    _settings.LocalBaseUrl = value;
+                    ApplyLive();
+                    _rebuild = true;
+                });
+                Note("Default local address is Ollama at http://127.0.0.1:11434/v1. Nothing leaves this PC.");
+            }
+
+            if (privateMode)
+                BuildPrivateEndpoint();
+
             AddField("Timeout seconds", _settings.TimeoutSeconds.ToString("0.###"), false, value =>
             {
                 float parsed;
@@ -752,18 +770,35 @@ namespace AICompanion.Settings
                 ApplyLive();
                 _rebuild = true;
             });
-            Note(ApiKeyMask.Label(FileHasKey()) + ".");
-            _keyInput = AddField("Paste a new API key", string.Empty, true, _ => { });
-            AddButton("Save key", SaveKey);
-            AddButton("Remove saved key", RemoveKey);
-            if (EnvOverrides())
-                Note("XAI_API_KEY is set and overrides the saved key. Restart the app without that variable to use the saved key.");
-            AddButton(_probeBusy ? "Testing..." : "Test connection", () =>
+            Note("How long one reply may take before the request is cancelled.");
+
+            if (!privateMode)
             {
-                if (!_probeBusy)
-                    TestConnection();
-            });
-            Note("Test connection does not write the key or the Authorization header to the log.");
+                if (grok)
+                {
+                    Note(ApiKeyMask.Label(FileHasKey()) + ".");
+                    _keyInput = AddField("Paste a new Grok API key", string.Empty, true, _ => { });
+                    AddButton("Save key", SaveKey);
+                    AddButton("Remove saved key", RemoveKey);
+                    if (EnvOverrides())
+                        Note("XAI_API_KEY is set and overrides the saved key. Restart the app without that variable to use the saved key.");
+                    AddButton(_probeBusy ? "Testing..." : "Test Grok connection", () =>
+                    {
+                        if (!_probeBusy)
+                            TestConnection();
+                    });
+                    Note("Test connection does not write the key or the Authorization header to the log.");
+                }
+                else
+                {
+                    AddButton(_probeBusy ? "Testing..." : "Test local connection", () =>
+                    {
+                        if (!_probeBusy)
+                            TestConnection();
+                    });
+                    Note("Test connection calls the local /models endpoint. No key is sent.");
+                }
+            }
         }
 
         void BuildAvatar()
@@ -941,8 +976,6 @@ namespace AICompanion.Settings
             Note("Her current mood and the three strongest moods, top left. Mood changes are also in Player.log.");
             AddToggle("Show debug info", _settings.ShowDebugInfo, value => _settings.ShowDebugInfo = value);
             Note("Debug text top-left: topmost, frame rate, emotion, key hints, rotate, size and zoom. Off by default. The hotkeys work either way.");
-            AddToggle("New UI (preview)", _settings.NewUiPreview, value => _settings.NewUiPreview = value);
-            Note("The new Happi look: right-click her for the radial wheel, the new chat and the new settings. Off by default. Launching with -newui turns it on for that launch only.");
         }
 
         void BuildPrivacy()
@@ -1102,6 +1135,12 @@ namespace AICompanion.Settings
 
         void TestConnection()
         {
+            if (_settings.PrivateMode && PrivateEndpointTypes.IsCustom(_settings.PrivateEndpointType))
+            {
+                SetStatus("Use Test connection under Private endpoint to test the custom server.");
+                return;
+            }
+
             _probeSerial++;
             _probeBusy = true;
             SetStatus("Testing connection...");

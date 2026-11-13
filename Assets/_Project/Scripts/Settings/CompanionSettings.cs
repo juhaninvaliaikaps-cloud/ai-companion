@@ -74,6 +74,11 @@ namespace AICompanion.Settings
         public bool ChatHistory;
         public bool PrivateMode;
 
+        /// <summary>Local Ollama or a user-provided OpenAI-compatible server while Private mode is on.</summary>
+        public string PrivateEndpointType = PrivateEndpointTypes.Local;
+        public string PrivateBaseUrl = string.Empty;
+        public string PrivateModel = string.Empty;
+
         /// <summary>Manual window capture. Off until the user turns it on.</summary>
         public bool ScreenLookEnabled;
 
@@ -207,6 +212,9 @@ namespace AICompanion.Settings
             LocalVisionModel = CleanToken(LocalVisionModel, string.Empty, MaxModelLength);
             ScreenMonitorDevice = CleanToken(ScreenMonitorDevice, string.Empty, 64);
             LocalBaseUrl = CleanUrl(LocalBaseUrl, ChatDefaults.LocalBaseUrl);
+            PrivateEndpointType = PrivateEndpointTypes.Normalize(PrivateEndpointType);
+            PrivateBaseUrl = CleanUrl(PrivateBaseUrl, string.Empty);
+            PrivateModel = CleanToken(PrivateModel, string.Empty, MaxModelLength);
             if (float.IsNaN(TimeoutSeconds) || float.IsInfinity(TimeoutSeconds) || TimeoutSeconds < 1f || TimeoutSeconds > 300f)
                 TimeoutSeconds = ChatDefaults.TimeoutSeconds;
             AvatarSource = AvatarSourceNames.Normalize(AvatarSource);
@@ -521,6 +529,12 @@ namespace AICompanion.Settings
                 settings.LocalModel = text;
             if (TryString(json, "localBaseUrl", out text))
                 settings.LocalBaseUrl = text;
+            if (TryString(json, "privateEndpointType", out text))
+                settings.PrivateEndpointType = text;
+            if (TryString(json, "privateBaseUrl", out text))
+                settings.PrivateBaseUrl = text;
+            if (TryString(json, "privateModel", out text))
+                settings.PrivateModel = text;
             double number;
             if (TryNumber(json, "timeoutSeconds", out number))
                 settings.TimeoutSeconds = (float)number;
@@ -671,6 +685,9 @@ namespace AICompanion.Settings
             String(sb, "baseUrl", source.BaseUrl);
             String(sb, "localModel", source.LocalModel);
             String(sb, "localBaseUrl", source.LocalBaseUrl);
+            String(sb, "privateEndpointType", source.PrivateEndpointType);
+            String(sb, "privateBaseUrl", source.PrivateBaseUrl);
+            String(sb, "privateModel", source.PrivateModel);
             Number(sb, "timeoutSeconds", source.TimeoutSeconds, false);
             String(sb, "avatarSource", source.AvatarSource);
             Bool(sb, "cursorLookAt", source.CursorLookAt);

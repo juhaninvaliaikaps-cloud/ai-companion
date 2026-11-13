@@ -12,8 +12,14 @@ namespace AICompanion.AI
             return string.Equals(Normalize(effectiveProviderId), ChatDefaults.LocalId, StringComparison.OrdinalIgnoreCase);
         }
 
-        public static string Format(string effectiveProviderId, bool privateMode, string grokModel, string localModel)
+        public static string Format(string effectiveProviderId, bool privateMode, string grokModel, string localModel, string privateModel = null)
         {
+            if (string.Equals(Normalize(effectiveProviderId), ChatDefaults.CustomId, StringComparison.OrdinalIgnoreCase))
+            {
+                var custom = Display(privateModel, "custom model");
+                return privateMode ? "Custom · " + custom + " · private" : "Custom · " + custom;
+            }
+
             if (privateMode || IsLocal(effectiveProviderId))
             {
                 var name = Display(localModel, ChatDefaults.LocalModel);

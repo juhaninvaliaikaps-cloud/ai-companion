@@ -39,7 +39,8 @@ namespace AICompanion.Core
 
         public static bool IsSecretFile(string relativePath)
         {
-            return Normalize(relativePath) == "secrets.json";
+            var rel = Normalize(relativePath);
+            return rel == "secrets.json" || rel == "private-api-key.json";
         }
 
         public static bool IsRawCopy(string relativePath)

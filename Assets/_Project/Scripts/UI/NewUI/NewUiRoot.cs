@@ -6,9 +6,8 @@ using UnityEngine;
 namespace AICompanion.NewUI
 {
     /// <summary>
-    /// Turns the new Happi views on and off with <see cref="NewUiSwitch"/> (the "New UI
-    /// (preview)" setting or <c>-newui</c>). Installed on the app host like the settings panel.
-    /// While the switch is off it does nothing else, so the app behaves as on main.
+    /// Installs the Happi views on the app host. The new UI is the app's UI; the switch is kept
+    /// for compatibility with old settings and tests, but it always resolves on at startup.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class NewUiRoot : MonoBehaviour

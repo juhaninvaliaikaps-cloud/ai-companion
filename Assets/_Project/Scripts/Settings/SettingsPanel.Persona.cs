@@ -99,8 +99,8 @@ namespace AICompanion.Settings
 
         string ActiveModelText()
         {
-            var effective = OutboundPrivacy.ChatProviderId(_settings.PrivateMode, _settings.ProviderId);
-            return ActiveChatLabel.Format(effective, _settings.PrivateMode, _settings.Model, _settings.LocalModel);
+            var effective = OutboundPrivacy.ChatProviderId(_settings.PrivateMode, _settings.ProviderId, _settings.PrivateEndpointType);
+            return ActiveChatLabel.Format(effective, _settings.PrivateMode, _settings.Model, _settings.LocalModel, _settings.PrivateModel);
         }
 
         static string ProviderButton(string name, bool remembered, bool overridden)

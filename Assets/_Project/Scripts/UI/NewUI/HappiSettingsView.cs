@@ -16,12 +16,11 @@ using UnityEngine.UI;
 namespace AICompanion.NewUI
 {
     /// <summary>
-    /// JUH-104 PR E: the new settings view in the Happi theme. Every item of
+    /// JUH-104 PR E: the app's settings view in the Happi theme. Every item of
     /// docs/ui-overhaul/INVENTORY.md section 4 is here, on the same tabs as the old panel plus a
-    /// "Happi" tab for the new UI's own options. Every change goes through the PR B presenters
+    /// "Happi" tab for the app's own options. Every change goes through the PR B presenters
     /// and the old panel as host, so settings are applied and saved exactly as before.
-    /// "Classic settings" opens the old panel at any time. 18+ items appear under the same
-    /// conditions as today. Exists only while the new UI is on.
+    /// 18+ items appear under the same conditions as today.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class HappiSettingsView : MonoBehaviour, IOverlayKeepAwake
@@ -51,7 +50,6 @@ namespace AICompanion.NewUI
         TextMeshProUGUI _title;
         TextMeshProUGUI _status;
         HappiButton _close;
-        HappiButton _classic;
         readonly List<HappiButton> _tabs = new List<HappiButton>();
         ScrollRect _scroll;
         RectTransform _viewport;
@@ -216,6 +214,8 @@ namespace AICompanion.NewUI
             var look = _settings.ScreenController;
             return s.AlwaysOnTop + "|" + Mathf.RoundToInt(s.Scale * 100f) + "|" + s.Muted + "|" + s.Paused + "|" + s.HideTaskbarButton + "|" + s.StartWithWindows
                 + "|" + s.AvatarSource + "|" + s.AvatarMode + "|" + s.PersonaId + "|" + s.PrivateMode + "|" + s.ProviderId + "|" + IntimateExpressions.Active
+                + "|" + s.PrivateEndpointType + "|" + s.PrivateBaseUrl + "|" + s.PrivateModel
+                + "|" + _settings.PrivateApiKeySaved + "|" + _settings.PrivateEndpointTestRunning
                 + "|" + (look != null ? look.Revision : 0) + "|" + _settings.ConnectionTestRunning + "|" + s.ShowMoodDebug + "|" + s.VoiceNarration;
         }
 
@@ -232,7 +232,6 @@ namespace AICompanion.NewUI
             _title = HappiUiKit.Text(_panel, "Title", "Happi · Settings", _theme.FontTitle, _theme.Text, TextAlignmentOptions.MidlineLeft, true);
             _title.textWrappingMode = TextWrappingModes.NoWrap;
             _close = HappiUiKit.Button(_panel, "Close", "×", _theme.FontBody, Close);
-            _classic = HappiUiKit.Button(_panel, "Classic", "Classic settings", _theme.FontSmall, () => { Close(); _settings.OpenClassic(); });
             for (var i = 0; i < TabLabels.Length; i++)
             {
                 var index = i;
@@ -287,11 +286,8 @@ namespace AICompanion.NewUI
             var inner = width - 2f * pad;
             _title.fontSize = _theme.FontTitle * s;
             HappiUiKit.Place(_close.Rect, width - pad - row, pad, row, row);
-            var classicW = 118f * s;
-            HappiUiKit.Place(_classic.Rect, width - pad - row - gap - classicW, pad, classicW, row);
-            _classic.Label.fontSize = _theme.FontSmall * s;
             _close.Label.fontSize = _theme.FontBody * s;
-            HappiUiKit.Place(_title.rectTransform, pad, pad, inner - classicW - row - 2f * gap, row);
+            HappiUiKit.Place(_title.rectTransform, pad, pad, inner - row - gap, row);
             var y = pad + row + gap;
             const int columns = 3;
             var tabW = (inner - gap * (columns - 1)) / columns;
@@ -353,7 +349,7 @@ namespace AICompanion.NewUI
             }
             catch (Exception ex)
             {
-                Note("This tab could not be drawn (" + ex.GetType().Name + "). Use Classic settings.");
+                Note("This tab could not be drawn (" + ex.GetType().Name + "). Try another tab.");
                 Debug.LogWarning("New UI: settings tab " + _tab + " failed: " + ex.Message);
             }
 
@@ -374,11 +370,7 @@ namespace AICompanion.NewUI
 
         void BuildHappi()
         {
-            Section("Happi (new UI)");
-            Toggle("New UI (preview)", S.NewUiPreview, v => Change(s => s.NewUiPreview = v));
-            Note(NewUiSwitch.ArgumentPresent(Environment.GetCommandLineArgs())
-                ? "This launch has -newui, so the new UI stays on until you restart without it."
-                : "Off returns to the classic look right away. Your settings stay.");
+            Section("Happi");
             Toggle("Voice narration", S.VoiceNarration, v => Change(s => s.VoiceNarration = v));
             Note("Off: lines between *asterisks* are shown in the chat but not spoken. Only her own words use the voice.");
             var chat = GetComponent<HappiChatView>();
@@ -442,20 +434,108 @@ namespace AICompanion.NewUI
 
         void BuildAi()
         {
-            Note("Text changes apply when you leave the field. The API key is stored in the secret store, never in settings.json.");
+            Note("Text changes apply when you leave the field. Secrets live in the secret store, never settings.json.");
             Label("Active now: " + P.ActiveModelText);
-            var grok = S.ProviderId == ChatDefaults.GrokId;
-            var localActive = !VoiceRoute.UsesCloudTts(S.PrivateMode, S.ProviderId);
-            Choice(ProviderLabel("Grok", grok, localActive), grok, () => { P.SetProvider(ChatDefaults.GrokId); _rebuild = true; });
-            Choice(ProviderLabel("Local Ollama", !grok, !localActive), !grok, () => { P.SetProvider(ChatDefaults.LocalId); _rebuild = true; });
-            if (S.PrivateMode)
-                Note("Private mode is on. Chat and voice stay on the local model. The choice above is remembered for when private mode is off.");
-            Field("Grok model", S.Model, false, v => Change(s => s.Model = v));
-            Field("Base URL", S.BaseUrl, false, v => Change(s => s.BaseUrl = v));
-            Note("OpenAI-compatible endpoint for the cloud provider. Default is xAI; use DeepSeek, OpenRouter, Groq or another compatible API.");
-            Field("Local model", S.LocalModel, false, v => Change(s => s.LocalModel = v));
-            Field("Local address", S.LocalBaseUrl, false, v => Change(s => s.LocalBaseUrl = v));
-            Note("Default local address is Ollama at http://127.0.0.1:11434/v1.");
+
+            if (!S.PrivateMode)
+            {
+                Section("Chat provider");
+                var grok = S.ProviderId == ChatDefaults.GrokId;
+                Choice(ProviderLabel("Grok", grok, false), grok, () => { P.SetProvider(ChatDefaults.GrokId); _rebuild = true; });
+                Choice(ProviderLabel("Local Ollama", !grok, false), !grok, () => { P.SetProvider(ChatDefaults.LocalId); _rebuild = true; });
+                Note("Grok is the cloud provider. Local Ollama runs on this PC. Private mode on the Privacy tab replaces this choice with a private endpoint.");
+
+                if (grok)
+                {
+                    Section("Grok");
+                    Field("Grok model", S.Model, false, v => Change(s => s.Model = v));
+                    Field("Base URL", S.BaseUrl, false, v => Change(s => s.BaseUrl = v));
+                    Note("OpenAI-compatible endpoint for the cloud provider. Default is xAI; use DeepSeek, OpenRouter, Groq or another compatible API.");
+                    Section("Grok API key");
+                    Note(ApiKeyMask.Label(_settings.ApiKeySaved) + ". The key is stored in the secret store, never settings.json.");
+                    var key = Field("Paste a new Grok API key", string.Empty, true, null);
+                    Button("Save key", () => { _settings.SaveApiKey(key != null ? key.text : string.Empty); if (key != null) key.text = string.Empty; _rebuild = true; });
+                    Button("Remove saved key", () => { _settings.RemoveApiKey(); _rebuild = true; });
+                    if (_settings.ApiKeyFromEnvironment)
+                        Note("XAI_API_KEY is set and overrides the saved key. Restart the app without that variable to use the saved key.");
+                    Button(_settings.ConnectionTestRunning ? "Testing..." : "Test Grok connection", () => { _settings.TestConnectionNow(); _rebuild = true; });
+                    Note("Test connection does not write the key or the Authorization header to the log.");
+                }
+                else
+                {
+                    Section("Local Ollama");
+                    Field("Local model", S.LocalModel, false, v => Change(s => s.LocalModel = v));
+                    Field("Local address", S.LocalBaseUrl, false, v => Change(s => s.LocalBaseUrl = v));
+                    Note("Default local address is Ollama at http://127.0.0.1:11434/v1. Nothing leaves this PC.");
+                    Button(_settings.ConnectionTestRunning ? "Testing..." : "Test local connection", () => { _settings.TestConnectionNow(); _rebuild = true; });
+                    Note("Test connection calls the local /models endpoint. No key is sent.");
+                }
+            }
+            else
+            {
+                Section("Private endpoint");
+                Note("Private mode is on. Chat and voice stay on this PC or on your own server. The normal Grok/Local choice is remembered for when Private mode is off.");
+                var custom = PrivateEndpointTypes.IsCustom(S.PrivateEndpointType);
+                Choice("Local Ollama", !custom, () =>
+                {
+                    Change(s => s.PrivateEndpointType = PrivateEndpointTypes.Local);
+                    _rebuild = true;
+                });
+                Choice("Custom server", custom, () =>
+                {
+                    Change(s => s.PrivateEndpointType = PrivateEndpointTypes.Custom);
+                    _rebuild = true;
+                });
+
+                if (!custom)
+                {
+                    Section("Local Ollama");
+                    Field("Local model", S.LocalModel, false, v => Change(s => s.LocalModel = v));
+                    Field("Local address", S.LocalBaseUrl, false, v => Change(s => s.LocalBaseUrl = v));
+                    Note("Default local address is Ollama at http://127.0.0.1:11434/v1. Nothing leaves this PC.");
+                    Button(_settings.ConnectionTestRunning ? "Testing..." : "Test local connection", () => { _settings.TestConnectionNow(); _rebuild = true; });
+                    Note("Test connection calls the local /models endpoint. No key is sent.");
+                }
+                else
+                {
+                    Section("Custom server");
+                    Field("Custom base URL", S.PrivateBaseUrl, false, v => Change(s => s.PrivateBaseUrl = v));
+                    Note("The OpenAI-compatible base URL, for example https://gpu.example.com/v1. vLLM and Ollama both work.");
+                    Field("Custom model", S.PrivateModel, false, v => Change(s => s.PrivateModel = v));
+                    if (string.IsNullOrWhiteSpace(S.PrivateBaseUrl))
+                        Note("Enter your server's base URL above.");
+                    else
+                    {
+                        var warning = PrivateEndpointRules.HttpWarning(S.PrivateBaseUrl);
+                        if (!string.IsNullOrEmpty(warning))
+                            Note(warning);
+                        var addressError = PrivateEndpointRules.ValidateAddress(S.PrivateBaseUrl);
+                        if (!string.IsNullOrEmpty(addressError))
+                            Note(addressError);
+                    }
+                    if (string.IsNullOrWhiteSpace(S.PrivateModel))
+                        Note("Enter the model name your server expects.");
+
+                    Section("Custom server API key (optional)");
+                    Note(_settings.PrivateApiKeySaved
+                        ? "A private API key is saved in the encrypted local store."
+                        : "No private API key is saved. Most self-hosted servers do not need one.");
+                    var privateKey = Field("Paste a private API key", string.Empty, true, null);
+                    Button("Save private key", () =>
+                    {
+                        _settings.SavePrivateEndpointKey(privateKey != null ? privateKey.text : string.Empty);
+                        if (privateKey != null)
+                            privateKey.text = string.Empty;
+                        _rebuild = true;
+                    });
+                    Button("Remove private key", () => { _settings.RemovePrivateEndpointKey(); _rebuild = true; });
+                    Button(_settings.PrivateEndpointTestRunning ? "Testing..." : "Test custom connection", () => { _settings.TestPrivateEndpointConnection(); _rebuild = true; });
+                    Note("Test connection calls /models. The key stays in the request header and is never written to the log.");
+                    Note("A self-hosted proxy that forwards to a commercial cloud API is not Private mode.");
+                }
+            }
+
+            Section("Generation");
             Field("Timeout seconds", S.TimeoutSeconds.ToString("0.###", CultureInfo.InvariantCulture), false, v =>
             {
                 float parsed;
@@ -464,15 +544,7 @@ namespace AICompanion.NewUI
                 else
                     _rebuild = true;
             });
-            Section("API key");
-            Note(ApiKeyMask.Label(_settings.ApiKeySaved) + ".");
-            var key = Field("Paste a new API key", string.Empty, true, null);
-            Button("Save key", () => { _settings.SaveApiKey(key != null ? key.text : string.Empty); if (key != null) key.text = string.Empty; _rebuild = true; });
-            Button("Remove saved key", () => { _settings.RemoveApiKey(); _rebuild = true; });
-            if (_settings.ApiKeyFromEnvironment)
-                Note("XAI_API_KEY is set and overrides the saved key. Restart the app without that variable to use the saved key.");
-            Button(_settings.ConnectionTestRunning ? "Testing..." : "Test connection", () => { _settings.TestConnectionNow(); _rebuild = true; });
-            Note("Test connection does not write the key or the Authorization header to the log.");
+            Note("How long one reply may take before the request is cancelled.");
         }
 
         static string ProviderLabel(string name, bool remembered, bool overridden)
@@ -639,7 +711,6 @@ namespace AICompanion.NewUI
             Note("Her current mood and the three strongest moods, top left. Mood changes are also in Player.log.");
             Toggle("Show debug info", S.ShowDebugInfo, v => Change(s => s.ShowDebugInfo = v));
             Note("Debug text top-left: topmost, frame rate, emotion, key hints, rotate, size and zoom. Off by default. The hotkeys work either way.");
-            Toggle("New UI (preview)", S.NewUiPreview, v => Change(s => s.NewUiPreview = v));
         }
 
         void BuildPrivacy()
@@ -664,7 +735,7 @@ namespace AICompanion.NewUI
             Toggle("Save chat history", S.ChatHistory, v => { _settings.SetChatHistory(v); _rebuild = true; });
             Note("Off keeps the transcript for this session only. On writes it under ProjectLeia, outside the repo.");
             Toggle("Private mode", S.PrivateMode, v => Change(s => s.PrivateMode = v));
-            Note("Private mode sends chat only to the local Ollama model. Cloud TTS, the voice agent, and Uthana do not receive that content. The default is off.");
+            Note("Private mode sends chat only to the local Ollama model or your own custom server. Cloud TTS, the voice agent, and Uthana do not receive that content. The default is off.");
             Button("Clear chat history", () => { _confirm.Request(PrivacyConfirmKind.ClearHistory); _rebuild = true; });
             Section("Export");
             Note("Export writes a decrypted copy, including chat, memories, and the API key if one is saved. Keep that folder private.");
