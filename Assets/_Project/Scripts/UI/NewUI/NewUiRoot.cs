@@ -52,10 +52,19 @@ namespace AICompanion.NewUI
             if (view == null)
                 view = gameObject.AddComponent<HappiChatView>();
             view.Attach(chat, settings);
+
+            var wheel = GetComponent<Wheel.HappiWheelHost>();
+            if (wheel == null)
+                wheel = gameObject.AddComponent<Wheel.HappiWheelHost>();
+            wheel.Attach(chat, settings);
         }
 
         void TurnOff()
         {
+            var wheel = GetComponent<Wheel.HappiWheelHost>();
+            if (wheel != null)
+                wheel.Detach();
+
             var view = GetComponent<HappiChatView>();
             if (view != null)
                 view.Detach();
