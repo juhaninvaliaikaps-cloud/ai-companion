@@ -94,6 +94,13 @@ namespace AICompanion.Overlay
         bool _companionVisible = true;
 
         public bool IsTopmost => _topmost;
+
+        /// <summary>
+        /// The debug text top-left (topmost, fps, emotion, key hints, rotate/size/zoom). Off by
+        /// default since JUH-104; Settings > Overlay > "Show debug info" turns it on. While it is
+        /// off its area clicks through like any empty pixel. Hotkeys work either way.
+        /// </summary>
+        public bool ShowDebugInfo { get; set; }
         public bool IsClickThrough => _clickThrough;
         public float WindowScale => _windowScale;
         public int IdleFrameRate => idleFrameRate;
@@ -139,7 +146,7 @@ namespace AICompanion.Overlay
 
             EnsureChrome();
             bool inside = TryReadPointer(out var unityScreen, out var screenCursor);
-            bool overPanel = inside && OverlayPointerMath.IsInsideTopLeftRect(PanelRect, unityScreen, Screen.height);
+            bool overPanel = ShowDebugInfo && inside && OverlayPointerMath.IsInsideTopLeftRect(PanelRect, unityScreen, Screen.height);
             bool overDebug = inside && IsOverDebugPanel(unityScreen);
             bool eventUi = inside && IsOverUi(unityScreen);
             bool overOtherUi = overDebug || eventUi;
@@ -277,7 +284,7 @@ namespace AICompanion.Overlay
 
         void OnGUI()
         {
-            if (!_started)
+            if (!_started || !ShowDebugInfo)
                 return;
 
             RefreshEmotionLabel();

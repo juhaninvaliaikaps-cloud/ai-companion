@@ -157,6 +157,19 @@ namespace AICompanion.Settings
         /// <summary>JUH-108: speak narration lines too in the new chat. Off by default, so narration is shown but not voiced.</summary>
         public bool VoiceNarration;
 
+        /// <summary>JUH-104: where the new chat box sits, as its centre in 0..1 of the overlay window. -1 = default (bottom centre).</summary>
+        public float ChatBoxX = -1f;
+        public float ChatBoxY = -1f;
+
+        /// <summary>Shows the old debug text (topmost, fps, emotion, rotate/size/zoom) top-left. Off by default; the mood readout has its own switch.</summary>
+        public bool ShowDebugInfo;
+
+        /// <summary>JUH-108: the words she is saying light up in the new chat. On by default.</summary>
+        public bool SpokenGlow = true;
+
+        /// <summary>Strength of the spoken-text glow, 0 (subtle) to 1 (strong).</summary>
+        public float SpokenGlowIntensity = 0.6f;
+
         public static CompanionSettings CreateDefault()
         {
             return new CompanionSettings();
@@ -220,6 +233,19 @@ namespace AICompanion.Settings
                 VideoAvatarWalkSpeed = 0f;
             VideoAvatarWalkSpeed = Math.Min(VideoAvatarWalkSpeed, VideoAvatarManifest.MaxWalkSpeed);
             ClipSoundVolume = VideoClipSound.ClampVolume(ClipSoundVolume);
+            ChatBoxX = CleanFraction(ChatBoxX);
+            ChatBoxY = CleanFraction(ChatBoxY);
+            if (float.IsNaN(SpokenGlowIntensity) || float.IsInfinity(SpokenGlowIntensity))
+                SpokenGlowIntensity = 0.6f;
+            SpokenGlowIntensity = Math.Max(0f, Math.Min(1f, SpokenGlowIntensity));
+        }
+
+        /// <summary>A 0..1 position, or -1 for "not set".</summary>
+        static float CleanFraction(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value) || value < 0f)
+                return -1f;
+            return value > 1f ? 1f : value;
         }
 
         static string CleanToken(string value, string fallback, int max)
@@ -572,6 +598,16 @@ namespace AICompanion.Settings
                 settings.NewUiPreview = flag;
             if (TryBool(json, "voiceNarration", out flag))
                 settings.VoiceNarration = flag;
+            if (TryNumber(json, "chatBoxX", out number))
+                settings.ChatBoxX = (float)number;
+            if (TryNumber(json, "chatBoxY", out number))
+                settings.ChatBoxY = (float)number;
+            if (TryBool(json, "showDebugInfo", out flag))
+                settings.ShowDebugInfo = flag;
+            if (TryBool(json, "spokenGlow", out flag))
+                settings.SpokenGlow = flag;
+            if (TryNumber(json, "spokenGlowIntensity", out number))
+                settings.SpokenGlowIntensity = (float)number;
             settings.Normalize();
             return settings;
         }
@@ -643,6 +679,11 @@ namespace AICompanion.Settings
             Bool(sb, "showMoodDebug", source.ShowMoodDebug);
             Bool(sb, "newUiPreview", source.NewUiPreview);
             Bool(sb, "voiceNarration", source.VoiceNarration);
+            Number(sb, "chatBoxX", source.ChatBoxX, false);
+            Number(sb, "chatBoxY", source.ChatBoxY, false);
+            Bool(sb, "showDebugInfo", source.ShowDebugInfo);
+            Bool(sb, "spokenGlow", source.SpokenGlow);
+            Number(sb, "spokenGlowIntensity", source.SpokenGlowIntensity, false);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;

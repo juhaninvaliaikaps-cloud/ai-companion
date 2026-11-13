@@ -394,6 +394,32 @@ namespace AICompanion.NewUI
                 Note("Step: Next, a click on the dialogue or Space shows one line at a time. Auto plays the whole reply.");
             }
 
+            Toggle("Spoken text glow", S.SpokenGlow, v =>
+            {
+                _settings.SaveLayoutSetting(s => s.SpokenGlow = v);
+                _rebuild = true;
+            });
+            Note("The words light up warmly as she says them, then fade back. Narration glows only when Voice narration is on.");
+            if (S.SpokenGlow)
+                Slider(v => "Glow intensity: " + (v < 0.34f ? "subtle" : v < 0.67f ? "medium" : "strong"), S.SpokenGlowIntensity, 0f, 1f, false,
+                    v => _settings.SaveLayoutSetting(s => s.SpokenGlowIntensity = v));
+
+            Section("Chat box");
+            Note("Drag the chat box by its top bar to move it. It stays inside the window and on the screen.");
+            Button("Reset chat position", () =>
+            {
+                var chat = GetComponent<HappiChatView>();
+                if (chat != null)
+                    chat.ResetPosition();
+                else
+                    _settings.SaveLayoutSetting(s =>
+                    {
+                        s.ChatBoxX = -1f;
+                        s.ChatBoxY = -1f;
+                    });
+                _settings.SetStatusMessage("The chat box is back at the bottom.");
+            });
+
             Section("Right-click wheel");
             Note("Right-click her for the wheel: Talk, Watch my screen, Mood, Persona, Do something, Leave me alone, Memories, Settings. Shift+right-click still rotates her.");
         }
@@ -595,6 +621,8 @@ namespace AICompanion.NewUI
             Note("Pause matches the tray checkmark. Speech, push-to-talk, and animation cues stay off while it is on.");
             Toggle("Show mood readout (debug)", S.ShowMoodDebug, v => Change(s => s.ShowMoodDebug = v));
             Note("Her current mood and the three strongest moods, top left. Mood changes are also in Player.log.");
+            Toggle("Show debug info", S.ShowDebugInfo, v => Change(s => s.ShowDebugInfo = v));
+            Note("Debug text top-left: topmost, frame rate, emotion, key hints, rotate, size and zoom. Off by default. The hotkeys work either way.");
             Toggle("New UI (preview)", S.NewUiPreview, v => Change(s => s.NewUiPreview = v));
         }
 

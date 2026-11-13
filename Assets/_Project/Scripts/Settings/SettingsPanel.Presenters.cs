@@ -216,6 +216,19 @@ namespace AICompanion.Settings
             DeleteActivePersona();
         }
 
+        /// <summary>
+        /// Saves a look-only setting (chat box position, spoken-text glow) without re-applying
+        /// everything: a full apply rebuilds the voice provider, which must not happen on every drag.
+        /// </summary>
+        public void SaveLayoutSetting(System.Action<CompanionSettings> change)
+        {
+            if (change == null || _settings == null)
+                return;
+            change(_settings);
+            _settings.Normalize();
+            SaveSettings();
+        }
+
         /// <summary>Same as "Reset rotation" on the Avatar tab.</summary>
         public void ResetAvatarRotation()
         {

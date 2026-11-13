@@ -13,7 +13,7 @@ namespace AICompanion.Voice
     /// message cancel through <see cref="ISpeechOutput.Cancel"/>.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed partial class VoiceSpeaker : MonoBehaviour, ICompanionStartup, ISpeechOutput, ISpeechSuppression, ISpeechPlaybackHold
+    public sealed partial class VoiceSpeaker : MonoBehaviour, ICompanionStartup, ISpeechOutput, ISpeechSuppression, ISpeechPlaybackHold, ISpeechProgress
     {
         public const string MutePref = "ai-companion.tts-muted";
 
@@ -423,7 +423,7 @@ namespace AICompanion.Voice
                     return;
                 }
 
-                PlayDecoded(result);
+                PlayDecoded(result, request != null ? request.Text : string.Empty);
             }
             catch (Exception ex)
             {
@@ -435,7 +435,7 @@ namespace AICompanion.Voice
             }
         }
 
-        void PlayDecoded(TtsResult result)
+        void PlayDecoded(TtsResult result, string text)
         {
             var rate = TtsRequestJson.NormalizeSampleRate(voiceSettings != null ? voiceSettings.sampleRate : 24000);
             if (!SpeechAudio.TryDecode(result.Audio, result.ContentType, rate, true, out var samples, out var channels, out var decodedRate, out var reason)
@@ -456,7 +456,8 @@ namespace AICompanion.Voice
                 Channels = channels,
                 Rate = decodedRate,
                 ContentType = result.ContentType,
-                ByteCount = result.ByteCount
+                ByteCount = result.ByteCount,
+                Text = text
             });
         }
 
@@ -473,7 +474,7 @@ namespace AICompanion.Voice
 
                 var frames = decoded.Samples.Length / decoded.Channels;
                 Debug.Log("Voice: playing clip " + frames.ToString() + " frames " + decoded.Rate.ToString() + " Hz " + decoded.Channels.ToString() + " ch");
-                EnqueueAudio(clip);
+                EnqueueAudio(clip, decoded.Text);
             }
         }
 
@@ -573,9 +574,10 @@ namespace AICompanion.Voice
             };
         }
 
-        void EnqueueAudio(AudioClip clip)
+        void EnqueueAudio(AudioClip clip, string text)
         {
             _clips.Enqueue(clip);
+            _clipTexts.Enqueue(text ?? string.Empty);
             _playback.EnqueueClip();
             if (_playback.Playing || _held)
                 return;
@@ -605,6 +607,8 @@ namespace AICompanion.Voice
 
             DestroyClip(_current);
             _current = _clips.Dequeue();
+            _currentText = _clipTexts.Count > 0 ? _clipTexts.Dequeue() : string.Empty;
+            _clipSerial++;
             _source.clip = _current;
             _source.volume = Mathf.Clamp01(voiceSettings != null ? voiceSettings.volume : 1f);
             _source.Play();
@@ -634,6 +638,8 @@ namespace AICompanion.Voice
 
             while (_clips.Count > 0)
                 DestroyClip(_clips.Dequeue());
+            _clipTexts.Clear();
+            _currentText = string.Empty;
             DestroyClip(_current);
             _current = null;
         }
@@ -703,6 +709,7 @@ namespace AICompanion.Voice
             public int Rate;
             public string ContentType;
             public int ByteCount;
+            public string Text;
         }
 
         static void DestroyClip(AudioClip clip)

@@ -235,3 +235,48 @@ again" (and first launch) open the existing wizard, which works with the new UI 
 **E7. Wheel acts on release.** Slices act when the mouse button is released over the same
 slice it was pressed on. Acting on press let the release land on the panel a slice had just
 opened (it selected a settings tab by accident in testing).
+
+## Follow-up after the user's test (2026-11-13)
+
+**F1. Debug text hidden in both UIs.** The top-left text (topmost, fps, emotion, key hints,
+rotate/size/zoom) is drawn only with the new setting **Show debug info** (Overlay tab in both
+settings views, key `showDebugInfo`, default off). While hidden its area clicks through like any
+empty pixel. The hotkeys are unchanged. The **mood readout** stays on its own existing switch and
+moves to the top-left corner when the debug text is hidden (below it when shown).
+
+**F2. Movable chat box, saved as a fraction of the window.** The box centre is stored as 0..1 of
+the overlay window (`chatBoxX`, `chatBoxY`, default -1 = bottom centre), so it survives window
+resizes. It is always clamped to the part of the window that lies on its monitor's work area. The
+overlay's own work-area lookup (`SPI_GETWORKAREA`) only knows the primary monitor, so the chat
+box asks Windows for the monitor under the window (`MonitorFromPoint` + `GetMonitorInfo`): it
+works on both monitors, and a spot saved on another monitor or screen size snaps back on screen.
+
+**F3. Dragging.** Only the header bar starts a drag; the header buttons sit on top of it and still
+click. The drag follows the global cursor and button state (like the wheel), so a fast drag that
+leaves the box keeps going, and nothing else receives the press: no message is sent, no line is
+advanced, the overlay's click-through elsewhere is unchanged. The position is saved on release
+with a save-only path (`SettingsPanel.SaveLayoutSetting`), because a full apply rebuilds the voice
+provider (Kokoro would reload its model).
+
+**F4. Spoken-text glow timing: clip duration, not engine timestamps.** In this app none of the
+voices return word or phoneme timestamps: the xAI TTS request returns audio only, and the Piper and
+Kokoro processes return WAV audio. So the sweep uses each clip's real playback position
+(`ISpeechProgress` on `VoiceSpeaker`: the sentence a clip says, its length, and how far it has
+played). Within a clip the time is spread over that sentence's words by letter count, with short
+pauses after commas (2 letters' worth) and sentence ends (4). A line said in several clips continues
+clip by clip. Before the first clip plays, a fixed pace of 0.07 s per letter is used.
+
+**F5. Glow rendering.** The current line's characters get their TMP vertex colours blended toward a
+warm light (`#FFE3A8`, `HappiTheme.SpokenGlowColor`) while the word is said, then fade back over
+0.3 s. TMP's material glow is not used because it would light every character in the box. No
+per-letter objects, no particles, no per-frame allocations (arrays are made once per line).
+Settings > Happi: **Spoken text glow** (on by default) and an intensity slider (subtle → strong),
+both saved without a full apply. Colours, fade time, pauses and pace are in `HappiTheme`.
+
+**F6. When the glow stops.** Narration glows only when Voice narration is on (only voiced lines
+glow). Skip, Show all, Stop and a new line re-render the text, so it is back to normal at once.
+When speech stops (pause, mute, end of line) the words already lit fade out over 0.3 s.
+
+**F7. Daytime checks without input.** The overnight checks drove the mouse; with the user at the
+PC the follow-up did not move the mouse or capture the screen. Dragging is covered by
+`ChatBoxPlacementTests` and is on the manual checklist.

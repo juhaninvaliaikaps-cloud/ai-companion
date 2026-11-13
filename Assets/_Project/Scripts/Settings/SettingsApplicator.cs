@@ -91,6 +91,7 @@ namespace AICompanion.Settings
                     window.SetTopmost(settings.AlwaysOnTop);
                 window.SetClickThroughMode(OverlayClickThroughPolicy.Parse(settings.ClickThrough));
                 window.SetIdleFrameRate(settings.IdleFrameRate);
+                window.ShowDebugInfo = settings.ShowDebugInfo;
                 if (Mathf.Abs(window.WindowScale - settings.Scale) > 0.001f)
                     window.SetWindowScale(settings.Scale);
             }

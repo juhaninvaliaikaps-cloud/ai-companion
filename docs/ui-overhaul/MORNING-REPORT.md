@@ -4,6 +4,12 @@ Good morning. Everything below was built and checked alone overnight; nothing wa
 no Linear issue was moved. The new UI is **off by default**. Turn it on with Settings → Overlay →
 **New UI (preview)**, or launch with `-newui`.
 
+**Follow-up after your test (2026-11-13, on #73):** the new chat box can be dragged by its top bar
+(position saved, kept on screen on either monitor, "Reset chat position" in Settings → Happi); the
+old top-left debug text is gone from both UIs unless Settings → Overlay → "Show debug info" is on
+(the mood readout keeps its own switch); spoken lines light up word by word ("Spoken text glow",
+on by default, with an intensity slider). Decisions F1–F7, checklist items 6.1-1/2 and 6.2-12…14.
+
 ## 1. Pull requests (stacked, all against `main`, merge in this order)
 
 | # | PR | Branch | CI | Notes |
@@ -85,8 +91,8 @@ All with reasons in [`DECISIONS.md`](DECISIONS.md). Short list:
 
 - PR A's CI EditMode job: runner OOM at start-up (see table). Not a code failure.
 - The wheel is placed above her head but clamped inside the overlay window. With her head near the
-  top of the window it overlaps her head and the debug HUD (top-left) can cover the Settings slice.
-- The chat box covers her legs while open (visual-novel layout). F10, ×, the tray and double-click work as before.
+  top of the window it overlaps her head (and, with "Show debug info" on, the debug text can cover the Settings slice).
+- The chat box opens over her legs (visual-novel layout); since the follow-up you can drag it elsewhere. F10, ×, the tray and double-click work as before.
 - The header name showed "Frie" on this PC; that looks like the stored companion or persona name,
   not a cut (no ellipsis), but check it.
 - TMP logs once: "The character used for Ellipsis is not available in font asset … Switching Text
@@ -102,8 +108,8 @@ IDs refer to [`INVENTORY.md`](INVENTORY.md). Build the combined branch first (se
 
 ### 6.1 Old UI (New UI off: start **without** `-newui`, setting off)
 
-1. [ ] P-01/P-02: window transparent, HUD top-left, empty areas click through to the desktop.
-2. [ ] K-10: right-click on her toggles rotate mode (HUD "Rotate: on"); R resets (K-11); Esc leaves.
+1. [ ] P-01: window transparent, empty areas click through to the desktop. P-02: **no debug text top-left** by default; Settings → Overlay → "Show debug info" (S-OV-10) shows it again, off hides it. P-09: with "Show mood readout" on, only the mood readout shows, in the top-left corner.
+2. [ ] K-10: right-click on her toggles rotate mode (drag to rotate; "Rotate: on" shows only with debug info on); R resets (K-11); Esc leaves.
 3. [ ] K-01 F6 mute, K-02 F7 avatar, K-03 F8 topmost, K-04 F9 expression, K-05 F10 chat, K-06 F12 settings.
 4. [ ] K-16/K-17 scroll zoom and Ctrl+scroll size over her; K-18 drag moves the window; K-19 double-click opens chat.
 5. [ ] C-02…C-08: Mute/Muted, Send/Stop, What do you see?, Mic hold, Enter sends, API key Save: labels and behaviour as before.
@@ -139,7 +145,10 @@ IDs refer to [`INVENTORY.md`](INVENTORY.md). Build the combined branch first (se
 8. [ ] S-AV-17: "Intimate expressions (18+)" listed as before; intimate content still only with Private mode + adult folder (G-01…G-04).
 9. [ ] G-06: with Play clip sounds on, clip sounds never play over her voice, also while a line is prefetched.
 10. [ ] DPI: at 150% and 200% Windows scaling, text in the box, wheel and settings stays readable and fits.
-11. [ ] K-01…K-09, K-13, K-16…K-20: hotkeys unchanged with the new UI on.
+11. [ ] K-01…K-09, K-13, K-16…K-20: hotkeys unchanged with the new UI on (and with the debug text hidden).
+12. [ ] N-06 movable chat box: drag it by the top bar (name / badge area) to another spot; the buttons in that bar still click; releasing does not send a message or advance a line; it cannot leave the window or the screen; restart → it comes back where you left it; move the companion to the other monitor → the box stays visible; Settings → Happi → "Reset chat position" puts it back at the bottom.
+13. [ ] N-07 spoken-text glow: while she speaks a line, its words light up warmly one by one and fade back about 0.3 s later; narration does not glow unless Voice narration is on; Skip / Show all / Stop / Esc return the text to normal at once; Settings → Happi → "Spoken text glow" off stops it; the intensity slider goes from subtle to strong.
+14. [ ] P-02 / S-OV-10 in the new settings: Overlay → "Show debug info" toggles the debug text.
 
 ## 7. PowerShell 5.1 commands
 

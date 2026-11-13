@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using AICompanion.Core;
 using AICompanion.NewUI.VisualNovel;
+using AICompanion.Overlay;
 using AICompanion.Settings;
 using AICompanion.UI;
 using AICompanion.UI.Presenters;
@@ -83,7 +84,30 @@ namespace AICompanion.NewUI
         bool _keySaved;
         float _keyCheckAt = -1f;
 
+        // Movable box (JUH-104 follow-up).
+        HappiDragHandle _dragHandle;
+        bool _dragPending;
+        bool _dragging;
+        Vector2 _dragOffset;
+        Vector2 _boxSize;
+        Vector2 _boxCenter;
+        float _boxMargin = 8f;
+        Rect _visibleArea;
+        float _visibleCheckAt = -1f;
+        OverlayWindow _window;
+
+        // Spoken-text glow (JUH-108 follow-up).
+        readonly SpokenGlowTracker _glow = new SpokenGlowTracker();
+        ISpeechProgress _progress;
+        int _glowLine = -1;
+        int _glowSerial = -1;
+        int _glowLineStart;
+        bool _glowDirty;
+
         public VnPlayer Player => _player;
+
+        /// <summary>The chat box centre in Unity screen pixels.</summary>
+        public Vector2 BoxCenter => _boxCenter;
 
         public bool KeepFrameRateActive
         {
@@ -111,6 +135,12 @@ namespace AICompanion.NewUI
             _player.Mode = PlayerPrefs.GetInt(ModePref, 0) == 1 ? VnMode.Step : VnMode.Auto;
             _sink = new VnSpeechSink(_player, _voice, RealVoice, () => _chat != null ? _chat.LastAssistantText : string.Empty);
 
+            _window = GetComponent<OverlayWindow>();
+            _progress = GetComponent<AICompanion.Voice.VoiceSpeaker>();
+            _glow.FadeSeconds = _theme.SpokenGlowFadeSeconds;
+            _glow.CommaPause = _theme.SpokenGlowCommaPause;
+            _glow.SentencePause = _theme.SpokenGlowSentencePause;
+            _glow.SecondsPerLetter = _theme.SpokenGlowSecondsPerLetter;
             BuildUi();
             _chat.UseSpeechOverride(_sink, true);
             _chat.SetRawReplyObserver(_sink.OnRawPiece);
@@ -197,6 +227,7 @@ namespace AICompanion.NewUI
 
             HappiUiKit.FollowCamera(_canvas, PlaneDistance);
             Layout();
+            PlaceBox(settings);
             if (!_wasVisible)
             {
                 _wasVisible = true;
@@ -206,6 +237,7 @@ namespace AICompanion.NewUI
             HandleKeys();
             RefreshControls();
             RefreshDialogue();
+            ApplyGlow(settings);
             if (_historyOpen)
                 RefreshHistory();
             SyncFocus();
@@ -225,6 +257,200 @@ namespace AICompanion.NewUI
             }
         }
 
+        // ---- Moving the box ---------------------------------------------------------------
+
+        /// <summary>
+        /// Drag by the header bar: the box follows the cursor while the left button is held (read
+        /// globally, so a fast drag that leaves the box keeps working), clamped to the part of
+        /// the window that is on its monitor. The position is saved when the button is released.
+        /// Without a drag, the saved (or default) position is clamped the same way, so a spot
+        /// saved on another monitor or screen size snaps back on screen.
+        /// </summary>
+        void PlaceBox(CompanionSettings settings)
+        {
+            if (_boxSize.x <= 0f)
+                return;
+            if (Time.unscaledTime >= _visibleCheckAt || _visibleArea.width <= 0f)
+            {
+                _visibleCheckAt = Time.unscaledTime + _theme.MonitorCheckSeconds;
+                _visibleArea = VisibleArea();
+            }
+
+            var pointer = Pointer();
+            if (_dragPending)
+            {
+                _dragPending = false;
+                _dragging = true;
+                _dragOffset = _boxCenter - pointer;
+            }
+
+            if (_dragging)
+            {
+                if (!LeftHeld())
+                {
+                    _dragging = false;
+                    var saved = ChatBoxPlacement.ToSaved(_boxCenter, new Vector2(Screen.width, Screen.height));
+                    if (_settings != null)
+                        _settings.SaveLayoutSetting(s =>
+                        {
+                            s.ChatBoxX = saved.x;
+                            s.ChatBoxY = saved.y;
+                        });
+                }
+                else
+                {
+                    _boxCenter = ChatBoxPlacement.Clamp(pointer + _dragOffset, _boxSize, _visibleArea, _boxMargin);
+                }
+            }
+            else
+            {
+                var x = settings != null ? settings.ChatBoxX : -1f;
+                var y = settings != null ? settings.ChatBoxY : -1f;
+                _boxCenter = ChatBoxPlacement.Resolve(x, y, new Vector2(Screen.width, Screen.height), _boxSize, _visibleArea, _boxMargin);
+            }
+
+            if ((_box.anchoredPosition - _boxCenter).sqrMagnitude > 0.01f)
+                _box.anchoredPosition = _boxCenter;
+        }
+
+        Rect VisibleArea()
+        {
+            var screen = new Vector2(Screen.width, Screen.height);
+            var full = new Rect(0f, 0f, screen.x, screen.y);
+            var chrome = _window != null ? _window.Chrome : null;
+            int left;
+            int top;
+            int right;
+            int bottom;
+            if (chrome == null || !chrome.IsSupported || !chrome.TryGetWindowRect(out left, out top, out right, out bottom))
+                return full;
+            RectInt work;
+            if (!MonitorWorkArea.TryGet((left + right) / 2, (top + bottom) / 2, out work))
+                return full;
+            return ChatBoxPlacement.VisibleArea(screen, new RectInt(left, top, right - left, bottom - top), work);
+        }
+
+        Vector2 Pointer()
+        {
+            var cursor = GetComponent<IScreenCursor>();
+            float x;
+            float y;
+            if (cursor != null && cursor.TryGetUnityScreenCursor(out x, out y))
+                return new Vector2(x, y);
+            var mouse = Input.mousePosition;
+            return new Vector2(mouse.x, mouse.y);
+        }
+
+        bool LeftHeld()
+        {
+            var chrome = _window != null ? _window.Chrome : null;
+            if (chrome != null && chrome.IsSupported)
+                return chrome.IsLeftButtonHeld();
+            return Input.GetMouseButton(0);
+        }
+
+        /// <summary>Settings > Happi > "Reset chat position": back to bottom centre.</summary>
+        public void ResetPosition()
+        {
+            _dragging = false;
+            _dragPending = false;
+            if (_settings != null)
+                _settings.SaveLayoutSetting(s =>
+                {
+                    s.ChatBoxX = -1f;
+                    s.ChatBoxY = -1f;
+                });
+        }
+
+        // ---- Spoken-text glow ----------------------------------------------------------
+
+        /// <summary>
+        /// Lights up the words of the current spoken line as she says them (JUH-108). Only the
+        /// current line's characters are touched, by writing TMP vertex colours; nothing is
+        /// allocated per frame. Narration glows only with Voice narration on (it is voiced then).
+        /// Skip, Show all, Stop and a new line change the text, which resets the colours.
+        /// </summary>
+        void ApplyGlow(CompanionSettings settings)
+        {
+            var current = _player.Current;
+            var on = settings != null && settings.SpokenGlow && current >= 0 && current < _player.Segments.Count
+                && !_player.Finished && _player.IsVoiced(current) && current == _shownCurrent;
+            if (!on)
+            {
+                ClearGlow();
+                return;
+            }
+
+            if (current != _glowLine || _sink.ReplySerial != _glowSerial)
+            {
+                ClearGlow();
+                _glowLine = current;
+                _glowSerial = _sink.ReplySerial;
+                _glow.BeginLine(_player.Segments[current].Text);
+            }
+
+            var now = Time.unscaledTime;
+            var speaking = _player.CurrentVoicing && _voice.IsSpeaking;
+            var clipSerial = 0;
+            string clipText = null;
+            var time = 0f;
+            var length = 0f;
+            var hasClip = _progress != null && _progress.TryGetSpokenClip(out clipSerial, out clipText, out time, out length);
+            _glow.Update(now, speaking, hasClip, clipSerial, clipText, time, length);
+            if (!_glowDirty && !_glow.AnyGlowing(now))
+                return;
+            PaintGlow(now, SpokenGlowTracker.Strength(settings.SpokenGlowIntensity, _theme.SpokenGlowMinStrength));
+        }
+
+        void PaintGlow(float now, float strength)
+        {
+            var info = _dialogue.textInfo;
+            if (info == null || info.characterInfo == null)
+                return;
+            Color32 glow = _theme.SpokenGlowColor;
+            var any = false;
+            var count = _glow.WordCount;
+            for (var w = 0; w < count; w++)
+            {
+                var g = _glow.Glow(w, now) * strength;
+                if (g > 0f)
+                    any = true;
+                var end = _glowLineStart + _glow.WordEnd(w);
+                for (var c = _glowLineStart + _glow.WordStart(w); c < end && c < info.characterCount; c++)
+                {
+                    var character = info.characterInfo[c];
+                    if (!character.isVisible)
+                        continue;
+                    var colors = info.meshInfo[character.materialReferenceIndex].colors32;
+                    var v = character.vertexIndex;
+                    if (colors == null || v < 0 || v + 3 >= colors.Length)
+                        continue;
+                    var color = g > 0f ? Color32.Lerp(character.color, glow, g) : character.color;
+                    colors[v] = color;
+                    colors[v + 1] = color;
+                    colors[v + 2] = color;
+                    colors[v + 3] = color;
+                }
+            }
+
+            _dialogue.UpdateVertexData(TMP_VertexDataUpdateFlags.Colors32);
+            _glowDirty = any;
+        }
+
+        /// <summary>Back to normal text at once (Skip, Show all, Stop, pause, a new line, or the setting off).</summary>
+        void ClearGlow()
+        {
+            if (_glowLine < 0 && !_glowDirty)
+                return;
+            _glowLine = -1;
+            _glow.Clear();
+            if (_glowDirty)
+            {
+                _glowDirty = false;
+                _dialogue.ForceMeshUpdate();
+            }
+        }
+
         // ---- Build -----------------------------------------------------------------------
 
         void BuildUi()
@@ -235,6 +461,15 @@ namespace AICompanion.NewUI
             var outline = boxImage.gameObject.AddComponent<Outline>();
             outline.effectColor = HappiTheme.WithAlpha(_theme.Border, 0.9f);
             outline.effectDistance = new Vector2(1f, -1f);
+
+            // Header bar: drag the box by it. Built first so the header buttons stay on top of it.
+            var handle = HappiUiKit.Rect(_box, "DragHandle");
+            var handleImage = handle.gameObject.AddComponent<Image>();
+            handleImage.color = new Color(0f, 0f, 0f, 0f);
+            handleImage.raycastTarget = true;
+            _dragHandle = handle.gameObject.AddComponent<HappiDragHandle>();
+            _dragHandle.Rect = handle;
+            _dragHandle.Pressed = () => _dragPending = true;
 
             _name = HappiUiKit.Text(_box, "Name", "Leia", _theme.FontTitle, _theme.Text, TextAlignmentOptions.MidlineLeft, true);
             _name.textWrappingMode = TextWrappingModes.NoWrap;
@@ -348,11 +583,13 @@ namespace AICompanion.NewUI
                 height += row + gap;
             height = Mathf.Min(height, Screen.height - 2f * margin);
 
-            _box.anchorMin = new Vector2(0.5f, 0f);
-            _box.anchorMax = new Vector2(0.5f, 0f);
-            _box.pivot = new Vector2(0.5f, 0f);
-            _box.anchoredPosition = new Vector2(0f, margin);
+            _box.anchorMin = Vector2.zero;
+            _box.anchorMax = Vector2.zero;
+            _box.pivot = new Vector2(0.5f, 0.5f);
             _box.sizeDelta = new Vector2(width, height);
+            _boxSize = new Vector2(width, height);
+            _boxMargin = margin;
+            _visibleCheckAt = -1f;
 
             SetFonts(s);
 
@@ -373,6 +610,7 @@ namespace AICompanion.NewUI
             right -= historyW + gap;
             var nameW = Mathf.Max(40f, right - pad);
             HappiUiKit.Place(_name.rectTransform, pad, y, nameW, row);
+            HappiUiKit.Place(_dragHandle.Rect, 0f, 0f, width, pad + row + gap * 0.5f);
             _badge.gameObject.SetActive(false);
             y += row + gap;
 
@@ -548,7 +786,10 @@ namespace AICompanion.NewUI
 
             string text;
             if (_player.Segments.Count > 0)
+            {
                 text = VnRender.Dialogue(_player.Segments, _player.Revealed, _player.Finished ? -1 : _player.Current, _theme);
+                _glowLineStart = VnRender.LineStart(_player.Segments, _player.Current);
+            }
             else if (_sink.Streaming)
                 text = "<i>…</i>";
             else if (!string.IsNullOrEmpty(lastAssistant))

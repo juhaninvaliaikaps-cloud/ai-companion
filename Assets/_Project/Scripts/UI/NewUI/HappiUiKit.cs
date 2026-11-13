@@ -108,6 +108,21 @@ namespace AICompanion.NewUI
         }
     }
 
+    /// <summary>A bar the user can press to start dragging something (the chat box header).</summary>
+    public sealed class HappiDragHandle : MonoBehaviour, IPointerDownHandler
+    {
+        public RectTransform Rect;
+        public Action Pressed;
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            if (eventData != null && eventData.button != PointerEventData.InputButton.Left)
+                return;
+            if (Pressed != null)
+                Pressed();
+        }
+    }
+
     /// <summary>Dark text while the pointer is over a hovered (pale sky blue) control, light otherwise.</summary>
     public sealed class HappiHoverText : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
