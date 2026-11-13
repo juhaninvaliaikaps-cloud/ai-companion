@@ -27,9 +27,9 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(SetupWizardGate.ShouldPresent(true, true, true));
             Assert.IsTrue(SetupWizardGate.ShouldPresent(true, false, true));
             Assert.IsTrue(SetupWizardGate.ShouldPresent(false, true, true));
-            Assert.IsTrue(SetupWizardGate.ShouldPresentOnLaunch(true, true, new[] { "BackseatCatgirl.exe", "--Setup" }));
+            Assert.IsTrue(SetupWizardGate.ShouldPresentOnLaunch(true, true, new[] { "Happi.exe", "--Setup" }));
             Assert.IsTrue(SetupWizardGate.CommandRequestsWizard(new[] { "--setup" }));
-            Assert.IsFalse(SetupWizardGate.CommandRequestsWizard(new[] { "BackseatCatgirl.exe", "--setup-now", "-batchmode" }));
+            Assert.IsFalse(SetupWizardGate.CommandRequestsWizard(new[] { "Happi.exe", "--setup-now", "-batchmode" }));
             Assert.IsFalse(SetupWizardGate.CommandRequestsWizard(null));
             Assert.IsFalse(SetupWizardGate.CommandRequestsWizard(new string[0]));
             Assert.AreEqual("--setup", SetupWizardGate.ForceArgument);
@@ -284,8 +284,8 @@ namespace AICompanion.Tests.EditMode
         [Test]
         public void WelcomeAndTour_UseTheProductNameAndTheControlsList()
         {
-            Assert.AreEqual("Backseat Catgirl", AppName.Display);
-            StringAssert.StartsWith("Backseat Catgirl", SetupWizardCopy.WelcomeLead());
+            Assert.AreEqual("Happi", AppName.Display);
+            StringAssert.StartsWith("Happi", SetupWizardCopy.WelcomeLead());
             StringAssert.Contains("no main menu", SetupWizardCopy.WelcomeLead());
             StringAssert.Contains("xAI", SetupWizardCopy.WelcomeCloud());
             StringAssert.Contains("Grok", SetupWizardCopy.WelcomeCloud());
@@ -298,7 +298,8 @@ namespace AICompanion.Tests.EditMode
 
             var notes = SetupWizardCopy.TourNotes();
             Assert.IsTrue(Contains(notes, "tray"));
-            Assert.IsTrue(Contains(notes, "Backseat Catgirl"));
+            Assert.IsTrue(Contains(notes, "Happi"));
+            Assert.IsFalse(Contains(notes, "Catgirl"));
             Assert.IsTrue(Contains(notes, "Drag"));
             Assert.IsTrue(Contains(notes, "rotate"));
             var hotkeys = SetupWizardFlow.TourHotkeys("F11");

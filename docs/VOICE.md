@@ -88,7 +88,7 @@ Implement `ITtsProvider.Synthesize` and construct it from `VoiceSpeaker` instead
 
 ## Try it in the Windows build
 
-1. Build and run `Builds/Windows/BackseatCatgirl.exe`.
+1. Build and run `Builds/Windows/Happi.exe`.
 2. If the key is not already saved, open the panel, enter it in the password row, and press **Save**.
 3. Send a short sentence. Hear `eve`, and watch `Talk on` only while the audio plays. The Game view stays live if a reply cannot be played; a **Note** explains it.
 4. **Mute** or **F6** silences the current reply and is still muted after you restart the build. **Esc**, **Stop**, and a new message cut off speech.
@@ -163,7 +163,7 @@ A missing model, no microphone, or a microphone the OS refused becomes a **Note*
 
 ### Try it in the Windows build
 
-1. Download the model in the Editor first, so `StreamingAssets/Whisper/ggml-base.bin` is present, then rebuild and run `Builds/Windows/BackseatCatgirl.exe`. The Whisper plugins, including `ggml-vulkan.dll`, are copied into `BackseatCatgirl_Data/Plugins/x86_64`. The model is copied from StreamingAssets.
+1. Download the model in the Editor first, so `StreamingAssets/Whisper/ggml-base.bin` is present, then rebuild and run `Builds/Windows/Happi.exe`. The Whisper plugins, including `ggml-vulkan.dll`, are copied into `Happi_Data/Plugins/x86_64`. The model is copied from StreamingAssets.
 2. If Windows asks, allow the microphone for the build.
 3. Click the window. Hold **V** or **Mic**, speak a short sentence, and release. The **You** line appears, and any current TTS stops when the hold starts.
 4. A missing model or a blocked microphone shows a **Note**. No audio file is written next to the exe. The player log's `STT:` lines stay free of the transcript.

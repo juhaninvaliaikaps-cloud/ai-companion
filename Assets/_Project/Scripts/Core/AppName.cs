@@ -6,8 +6,20 @@ namespace AICompanion.Core
     /// </summary>
     public static class AppName
     {
-        public const string Display = "Backseat Catgirl";
-        public const string PreviousDisplay = "AI Companion";
+        public const string Display = "Happi";
+
+        /// <summary>The Windows player file name, without ".exe".</summary>
+        public const string ExeName = "Happi";
+
+        /// <summary>The name before <see cref="Display"/>. Its data and registry entries are carried over.</summary>
+        public const string PreviousDisplay = "Backseat Catgirl";
+
+        /// <summary>The first name, before <see cref="PreviousDisplay"/>.</summary>
+        public const string OldestDisplay = "AI Companion";
+
+        /// <summary>Every earlier product name, newest first.</summary>
+        public static readonly string[] PreviousDisplays = { PreviousDisplay, OldestDisplay };
+
         public const string Company = "AI Companion";
     }
 }

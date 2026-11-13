@@ -21,6 +21,8 @@ namespace AICompanion.Overlay
     /// </summary>
     public static class PrefsRenamePlan
     {
+        // A registry value name, never shown. It is kept from the first rename so a hive that
+        // already has it is recognised as migrated.
         public const string Marker = "backseat-catgirl.prefs-migrated";
         public const int MarkerValue = 1;
 
@@ -37,6 +39,42 @@ namespace AICompanion.Overlay
         public static string SubKey(bool editor, string company, string product)
         {
             return editor ? EditorSubKey(company, product) : PlayerSubKey(company, product);
+        }
+
+        /// <summary>The hives of every earlier product name, newest first.</summary>
+        public static string[] PreviousSubKeys(bool editor, string company, string[] previousProducts, string currentProduct)
+        {
+            var keys = new List<string>();
+            if (previousProducts == null)
+                return keys.ToArray();
+            for (var i = 0; i < previousProducts.Length; i++)
+            {
+                var product = previousProducts[i];
+                if (string.IsNullOrEmpty(product) || product == currentProduct)
+                    continue;
+                var key = SubKey(editor, company, product);
+                if (!keys.Contains(key))
+                    keys.Add(key);
+            }
+
+            return keys.ToArray();
+        }
+
+        /// <summary>
+        /// The first earlier hive, newest first, that has anything to copy. -1 when none has.
+        /// The newest hive already holds what the rename before it carried over.
+        /// </summary>
+        public static int PickSource(PrefRegistryValue[][] previousHives)
+        {
+            if (previousHives == null)
+                return -1;
+            for (var i = 0; i < previousHives.Length; i++)
+            {
+                if (ValuesToCopy(previousHives[i], false).Length > 0)
+                    return i;
+            }
+
+            return -1;
         }
 
         public static PrefRegistryValue[] ValuesToCopy(PrefRegistryValue[] source, bool destinationHasMarker)
@@ -72,7 +110,7 @@ namespace AICompanion.Overlay
 #if UNITY_EDITOR
             editor = true;
 #endif
-            var from = PrefsRenamePlan.SubKey(editor, AppName.Company, AppName.PreviousDisplay);
+            var from = PrefsRenamePlan.PreviousSubKeys(editor, AppName.Company, AppName.PreviousDisplays, AppName.Display);
             var to = PrefsRenamePlan.SubKey(editor, AppName.Company, AppName.Display);
             WindowsPrefsHive.CopyIfNeeded(from, to);
 #endif
@@ -95,9 +133,13 @@ namespace AICompanion.Overlay
 
         static readonly IntPtr HkeyCurrentUser = new IntPtr(unchecked((int)0x80000001));
 
-        public static void CopyIfNeeded(string fromSubKey, string toSubKey)
+        /// <summary>
+        /// Copies the newest earlier hive that has values into <paramref name="toSubKey"/>, once.
+        /// The earlier hives are left as they are.
+        /// </summary>
+        public static void CopyIfNeeded(string[] fromSubKeys, string toSubKey)
         {
-            if (string.IsNullOrEmpty(fromSubKey) || string.IsNullOrEmpty(toSubKey) || fromSubKey == toSubKey)
+            if (fromSubKeys == null || fromSubKeys.Length == 0 || string.IsNullOrEmpty(toSubKey))
                 return;
 
             try
@@ -105,9 +147,18 @@ namespace AICompanion.Overlay
                 if (HasMarker(toSubKey))
                     return;
 
-                var copy = PrefsRenamePlan.ValuesToCopy(ReadValues(fromSubKey), false);
-                if (!WriteValues(toSubKey, copy))
-                    return;
+                var hives = new PrefRegistryValue[fromSubKeys.Length][];
+                for (var i = 0; i < fromSubKeys.Length; i++)
+                    hives[i] = fromSubKeys[i] == toSubKey ? new PrefRegistryValue[0] : ReadValues(fromSubKeys[i]);
+                var source = PrefsRenamePlan.PickSource(hives);
+                if (source >= 0)
+                {
+                    var copy = PrefsRenamePlan.ValuesToCopy(hives[source], false);
+                    if (!WriteValues(toSubKey, copy))
+                        return;
+                    Debug.Log("Rename: carried " + copy.Length + " PlayerPrefs values from " + fromSubKeys[source] + " to " + toSubKey + ".");
+                }
+
                 WriteMarker(toSubKey);
             }
             catch (Exception)

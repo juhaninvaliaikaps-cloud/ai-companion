@@ -343,13 +343,13 @@ $x.SelectNodes("//test-case[@result='Failed']") | Select-Object fullname
 # 3. Windows player.
 $p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
     "-batchmode", "-quit", "-projectPath", "`"$test`"",
-    "-buildWindows64Player", "`"$test\Builds\Windows\BackseatCatgirl.exe`"",
+    "-buildWindows64Player", "`"$test\Builds\Windows\Happi.exe`"",
     "-logFile", "`"$env:TEMP\leia-build.log`"")
 "Unity exit code: $($p.ExitCode)"
-Test-Path "$test\Builds\Windows\BackseatCatgirl.exe"
+Test-Path "$test\Builds\Windows\Happi.exe"
 
 # 4. Run it.
-& "$test\Builds\Windows\BackseatCatgirl.exe"
+& "$test\Builds\Windows\Happi.exe"
 ```
 
 Notes:
