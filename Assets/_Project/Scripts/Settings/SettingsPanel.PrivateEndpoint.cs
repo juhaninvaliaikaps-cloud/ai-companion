@@ -72,9 +72,18 @@ namespace AICompanion.Settings
             Note("A self-hosted proxy that forwards to a commercial cloud API is not Private mode.");
         }
 
+        public bool PrivateApiKeySaved => HasPrivateKey();
+
+        public bool PrivateEndpointTestRunning => _privateProbeBusy;
+
         void SavePrivateKey()
         {
-            var text = _privateKeyInput != null ? _privateKeyInput.text : string.Empty;
+            SavePrivateEndpointKey(_privateKeyInput != null ? _privateKeyInput.text : string.Empty);
+        }
+
+        public void SavePrivateEndpointKey(string key)
+        {
+            var text = key ?? string.Empty;
             if (string.IsNullOrWhiteSpace(text))
             {
                 SetStatus("Paste a private API key before saving.");
@@ -92,6 +101,11 @@ namespace AICompanion.Settings
             }
 
             _rebuild = true;
+        }
+
+        public void RemovePrivateEndpointKey()
+        {
+            RemovePrivateKey();
         }
 
         void RemovePrivateKey()
@@ -122,6 +136,11 @@ namespace AICompanion.Settings
         {
             string key;
             return PrivateApiKeyStore.TryLoad(out key) && !string.IsNullOrWhiteSpace(key);
+        }
+
+        public void TestPrivateEndpointConnection()
+        {
+            TestPrivateConnection();
         }
 
         void TestPrivateConnection()

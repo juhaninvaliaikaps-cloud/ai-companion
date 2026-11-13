@@ -254,6 +254,26 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void PrivateEndpointSettings_ApplyAndSaveThroughPresenter()
+        {
+            var host = new FakeSettingsHost();
+            var p = new SettingsPresenter(host);
+            p.SetPrivateMode(true);
+            p.Change(s =>
+            {
+                s.PrivateEndpointType = PrivateEndpointTypes.Custom;
+                s.PrivateBaseUrl = "https://gpu.example.com/v1";
+                s.PrivateModel = "qwen2.5";
+            });
+
+            Assert.AreEqual(PrivateEndpointTypes.Custom, host.Settings.PrivateEndpointType);
+            Assert.AreEqual("https://gpu.example.com/v1", host.Settings.PrivateBaseUrl);
+            Assert.AreEqual("qwen2.5", host.Settings.PrivateModel);
+            Assert.GreaterOrEqual(host.Applies, 2);
+            Assert.GreaterOrEqual(host.Refreshes, 2);
+        }
+
+        [Test]
         public void ToggleLabel_MatchesTheOldButtons()
         {
             Assert.AreEqual("Pause: on", SettingsPresenter.ToggleLabel("Pause", true));

@@ -449,13 +449,65 @@ namespace AICompanion.NewUI
             Choice(ProviderLabel("Grok", grok, localActive), grok, () => { P.SetProvider(ChatDefaults.GrokId); _rebuild = true; });
             Choice(ProviderLabel("Local Ollama", !grok, !localActive), !grok, () => { P.SetProvider(ChatDefaults.LocalId); _rebuild = true; });
             if (S.PrivateMode)
-                Note("Private mode is on. Chat and voice stay on the local model. The choice above is remembered for when private mode is off.");
+                Note("Private mode is on. Chat and voice stay on the local model or your own server. The choice above is remembered for when private mode is off.");
             Field("Grok model", S.Model, false, v => Change(s => s.Model = v));
             Field("Base URL", S.BaseUrl, false, v => Change(s => s.BaseUrl = v));
             Note("OpenAI-compatible endpoint for the cloud provider. Default is xAI; use DeepSeek, OpenRouter, Groq or another compatible API.");
             Field("Local model", S.LocalModel, false, v => Change(s => s.LocalModel = v));
             Field("Local address", S.LocalBaseUrl, false, v => Change(s => s.LocalBaseUrl = v));
             Note("Default local address is Ollama at http://127.0.0.1:11434/v1.");
+
+            Section("Private endpoint");
+            if (S.PrivateMode)
+            {
+                var custom = PrivateEndpointTypes.IsCustom(S.PrivateEndpointType);
+                Choice("Local Ollama", !custom, () =>
+                {
+                    Change(s => s.PrivateEndpointType = PrivateEndpointTypes.Local);
+                    _rebuild = true;
+                });
+                Choice("Custom server", custom, () =>
+                {
+                    Change(s => s.PrivateEndpointType = PrivateEndpointTypes.Custom);
+                    _rebuild = true;
+                });
+                if (custom)
+                {
+                    Field("Custom base URL", S.PrivateBaseUrl, false, v => Change(s => s.PrivateBaseUrl = v));
+                    Note("The OpenAI-compatible base URL, for example https://gpu.example.com/v1. vLLM and Ollama both work.");
+                    Field("Custom model", S.PrivateModel, false, v => Change(s => s.PrivateModel = v));
+                    var warning = PrivateEndpointRules.HttpWarning(S.PrivateBaseUrl);
+                    if (!string.IsNullOrEmpty(warning))
+                        Note(warning);
+                    var addressError = PrivateEndpointRules.ValidateAddress(S.PrivateBaseUrl);
+                    if (!string.IsNullOrEmpty(addressError) && !string.IsNullOrWhiteSpace(S.PrivateBaseUrl))
+                        Note(addressError);
+                    Note(_settings.PrivateApiKeySaved
+                        ? "A private API key is saved in the encrypted local store."
+                        : "No private API key is saved. Most self-hosted servers do not need one.");
+                    var privateKey = Field("Paste a private API key", string.Empty, true, null);
+                    Button("Save private key", () =>
+                    {
+                        _settings.SavePrivateEndpointKey(privateKey != null ? privateKey.text : string.Empty);
+                        if (privateKey != null)
+                            privateKey.text = string.Empty;
+                        _rebuild = true;
+                    });
+                    Button("Remove private key", () => { _settings.RemovePrivateEndpointKey(); _rebuild = true; });
+                    Button("Test connection", () => { _settings.TestPrivateEndpointConnection(); _rebuild = true; });
+                    Note("Test connection calls /models. The key stays in the request header and is never written to the log.");
+                    Note("A self-hosted proxy that forwards to a commercial cloud API is not Private mode.");
+                }
+                else
+                {
+                    Note("Uses the Local model and Local address above. Nothing leaves this PC.");
+                }
+            }
+            else
+            {
+                Note("Turn on Private mode on the Privacy tab to use a local or custom private endpoint.");
+            }
+
             Field("Timeout seconds", S.TimeoutSeconds.ToString("0.###", CultureInfo.InvariantCulture), false, v =>
             {
                 float parsed;
@@ -664,7 +716,7 @@ namespace AICompanion.NewUI
             Toggle("Save chat history", S.ChatHistory, v => { _settings.SetChatHistory(v); _rebuild = true; });
             Note("Off keeps the transcript for this session only. On writes it under ProjectLeia, outside the repo.");
             Toggle("Private mode", S.PrivateMode, v => Change(s => s.PrivateMode = v));
-            Note("Private mode sends chat only to the local Ollama model. Cloud TTS, the voice agent, and Uthana do not receive that content. The default is off.");
+            Note("Private mode sends chat only to the local Ollama model or your own custom server. Cloud TTS, the voice agent, and Uthana do not receive that content. The default is off.");
             Button("Clear chat history", () => { _confirm.Request(PrivacyConfirmKind.ClearHistory); _rebuild = true; });
             Section("Export");
             Note("Export writes a decrypted copy, including chat, memories, and the API key if one is saved. Keep that folder private.");
