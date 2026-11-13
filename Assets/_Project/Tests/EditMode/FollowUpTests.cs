@@ -402,6 +402,16 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void BottomRoom_IgnoresSmallChanges()
+        {
+            Assert.IsTrue(ChatSnapSpots.BottomRoomChanged(0, 264), "making room");
+            Assert.IsTrue(ChatSnapSpots.BottomRoomChanged(264, 0), "removing it");
+            Assert.IsFalse(ChatSnapSpots.BottomRoomChanged(264, 266), "rounding does not resize the window");
+            Assert.IsTrue(ChatSnapSpots.BottomRoomChanged(264, 300));
+            Assert.IsFalse(ChatSnapSpots.BottomRoomChanged(0, 0));
+        }
+
+        [Test]
         public void BottomRoom_FitsTheBoxAndItsGaps()
         {
             Assert.AreEqual(304, ChatSnapSpots.BottomRoomFor(280f, 12f));

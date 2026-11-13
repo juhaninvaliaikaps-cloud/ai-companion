@@ -181,6 +181,14 @@ namespace AICompanion.NewUI
             return Mathf.CeilToInt(boxWidth + gap * 2f);
         }
 
+        /// <summary>True when the room below her should change: on and off always, otherwise only by more than a few pixels.</summary>
+        public static bool BottomRoomChanged(int current, int wanted)
+        {
+            if ((current == 0) != (wanted == 0))
+                return true;
+            return Mathf.Abs(current - wanted) > 4;
+        }
+
         /// <summary>Room the window needs below her for the box under her (spot 5).</summary>
         public static int BottomRoomFor(float boxHeight, float gap)
         {

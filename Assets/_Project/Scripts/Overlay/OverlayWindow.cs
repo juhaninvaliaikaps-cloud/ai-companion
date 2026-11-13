@@ -138,13 +138,49 @@ namespace AICompanion.Overlay
                 pixels = 0;
             if (pixels == _bottomRoom)
                 return;
+            // Resize around where she stands now (she may have walked away from the last drop point),
+            // not where she was last dropped; the floor then lifts her onto the box or lets her down.
+            if (_started && !_dragging)
+                RememberAnchor();
             _bottomRoom = pixels;
+            _bottomRoomChangedAt = Time.unscaledTime;
             if (_started)
                 ApplySizedWindow(true);
         }
 
+        int _shownBottomRoom;
+        float _bottomRoomChangedAt;
+
+        /// <summary>
+        /// The bottom room that matches the frame Unity is drawing. Unity reports the new window
+        /// height a frame or two after a resize; laying her out with the new room in the old height
+        /// squashed her and the chat box, which changed the room again (a feedback loop: she kept
+        /// falling through the box). The new room is used once the window really has the new height
+        /// (or after half a second, in case Windows kept a different size).
+        /// </summary>
+        public int ShownBottomRoom
+        {
+            get
+            {
+                if (_shownBottomRoom != _bottomRoom
+                    && (Screen.height == _appliedHeight || Time.unscaledTime - _bottomRoomChangedAt > 0.5f))
+                    _shownBottomRoom = _bottomRoom;
+                return _shownBottomRoom;
+            }
+        }
+
+        /// <summary>Her own window height (pixels): the window size setting, without any room for the chat box.</summary>
+        public int BodyHeight => Mathf.Max(1, windowHeight);
+
         /// <summary>Her part of the window in Unity screen pixels (origin bottom-left): the window without the side and bottom room.</summary>
-        public Rect BodyRect => new Rect(_sideRoom, _bottomRoom, Mathf.Max(1, Screen.width - 2 * _sideRoom), Mathf.Max(1, Screen.height - _bottomRoom));
+        public Rect BodyRect
+        {
+            get
+            {
+                var below = ShownBottomRoom;
+                return new Rect(_sideRoom, below, Mathf.Max(1, Screen.width - 2 * _sideRoom), Mathf.Max(1, Screen.height - below));
+            }
+        }
 
         /// <summary>The debug text rectangle (moves with the side room so it stays on her part of the window).</summary>
         Rect HudRect => new Rect(PanelRect.x + _sideRoom, PanelRect.y, PanelRect.width, PanelRect.height);

@@ -103,6 +103,7 @@ namespace AICompanion.NewUI
         bool _portraitDragging;
         Vector2 _portraitDragOffset;
         int _placedSnap = ChatSnapSpots.Default;
+        float _roomBoxHeight;
 
         // Spoken-text glow (JUH-108 follow-up).
         readonly SpokenGlowTracker _glow = new SpokenGlowTracker();
@@ -515,11 +516,13 @@ namespace AICompanion.NewUI
             var gap = _theme.ChatSideGap * scale;
             var visible = _chat != null && _chat.ChatVisible;
             var side = classic || wizardOpen ? 0 : ChatSnapSpots.SideRoomFor(_theme.ChatBoxWidth * scale, gap);
-            var below = !classic && !wizardOpen && visible && _placedSnap == ChatSnapSpots.Under && _boxSize.y > 0f
-                ? ChatSnapSpots.BottomRoomFor(_boxSize.y, gap)
+            var below = !classic && !wizardOpen && visible && _placedSnap == ChatSnapSpots.Under && _roomBoxHeight > 0f
+                ? ChatSnapSpots.BottomRoomFor(_roomBoxHeight, gap)
                 : 0;
             _window.SetSideRoom(side);
-            _window.SetBottomRoom(below);
+            // Small changes (rounding, DPI) are ignored, so the window is not resized over and over.
+            if (ChatSnapSpots.BottomRoomChanged(_window.BottomRoom, below))
+                _window.SetBottomRoom(below);
         }
 
         Rect VisibleArea()
@@ -814,8 +817,11 @@ namespace AICompanion.NewUI
             }
 
             var keyRow = _historyOpen || !_keySaved;
+            // Her own height (the window without the room for the box): the box size must not depend
+            // on that room, or making room would resize the box and change the room again.
+            var bodyHeight = _window != null ? (float)_window.BodyHeight : Screen.height;
             // DPI scale, reduced only when the window is too low for the box.
-            var scale = Mathf.Min(_theme.UiScale(Screen.dpi), Mathf.Max(1f, Screen.height / 480f));
+            var scale = Mathf.Min(_theme.UiScale(Screen.dpi), Mathf.Max(1f, bodyHeight / 480f));
             if (Mathf.Approximately(_layoutWidth, Screen.width) && Mathf.Approximately(_layoutHeight, Screen.height)
                 && Mathf.Approximately(_layoutScale, scale) && _layoutHistory == _historyOpen && _layoutKeyRow == keyRow)
                 return;
@@ -836,13 +842,12 @@ namespace AICompanion.NewUI
             var width = Mathf.Max(220f, Mathf.Min(_theme.ChatBoxWidth * s, Screen.width - 2f * margin));
             var inner = width - 2f * pad;
             var minHeight = 196f * s;
-            // Sized from her part of the window, so the room below her does not grow the box.
-            var bodyHeight = _window != null ? _window.BodyRect.height : Screen.height;
-            var height = _historyOpen
-                ? Mathf.Max(minHeight, bodyHeight * 0.82f)
-                : Mathf.Clamp(bodyHeight * 0.40f, minHeight, 320f * s);
+            var collapsed = Mathf.Clamp(bodyHeight * 0.40f, minHeight, 320f * s);
+            var height = _historyOpen ? Mathf.Max(minHeight, bodyHeight * 0.82f) : collapsed;
             if (keyRow)
                 height += row + gap;
+            // The room under her (spot 5) follows the closed box: opening History does not lift her.
+            _roomBoxHeight = collapsed + (!_keySaved ? row + gap : 0f);
             height = Mathf.Min(height, Screen.height - 2f * margin);
 
             _box.anchorMin = Vector2.zero;
