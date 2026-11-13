@@ -246,6 +246,27 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(40f, back.ChatBoxOffsetY, 0.01f);
             s.ChatBoxSnap = 9;
             Assert.AreEqual(-1, CompanionSettingsJson.Parse(CompanionSettingsJson.Write(s), SettingsLegacyPrefs.None).ChatBoxSnap, "an unknown spot is the default");
+            s.ChatBoxSnap = 5;
+            Assert.AreEqual(5, CompanionSettingsJson.Parse(CompanionSettingsJson.Write(s), SettingsLegacyPrefs.None).ChatBoxSnap, "spot 5 (under her) is kept");
+        }
+
+        [Test]
+        public void PortraitPlacementKeys_HaveDefaultsAndRoundTrip()
+        {
+            var s = CompanionSettings.CreateDefault();
+            Assert.AreEqual(0, s.PortraitDock, "automatic by default");
+            s.PortraitDock = 2;
+            s.PortraitOffsetX = -150f;
+            s.PortraitOffsetY = 33.5f;
+            var back = CompanionSettingsJson.Parse(CompanionSettingsJson.Write(s), SettingsLegacyPrefs.None);
+            Assert.AreEqual(2, back.PortraitDock);
+            Assert.AreEqual(-150f, back.PortraitOffsetX, 0.01f);
+            Assert.AreEqual(33.5f, back.PortraitOffsetY, 0.01f);
+            s.PortraitDock = 7;
+            s.PortraitOffsetX = float.NaN;
+            back = CompanionSettingsJson.Parse(CompanionSettingsJson.Write(s), SettingsLegacyPrefs.None);
+            Assert.AreEqual(0, back.PortraitDock, "an unknown dock is automatic");
+            Assert.AreEqual(0f, back.PortraitOffsetX, 0.01f);
         }
     }
 
@@ -292,8 +313,8 @@ namespace AICompanion.Tests.EditMode
         public void Nearest_SnapsOnlyWhenClose()
         {
             var spot3 = ChatSnapSpots.Spot(ChatSnapSpots.LeftBeside, Body, Box, Gap);
-            Assert.AreEqual(3, ChatSnapSpots.Nearest(spot3 + new Vector2(30f, -20f), Body, Box, Gap, 90f));
-            Assert.AreEqual(0, ChatSnapSpots.Nearest(spot3 + new Vector2(200f, 300f), Body, Box, Gap, 90f), "far from every spot: free");
+            Assert.AreEqual(3, ChatSnapSpots.Nearest(spot3 + new Vector2(30f, -20f), Body, Box, Gap, 90f, false));
+            Assert.AreEqual(0, ChatSnapSpots.Nearest(spot3 + new Vector2(200f, 300f), Body, Box, Gap, 90f, false), "far from every spot: free");
         }
 
         [Test]
@@ -336,6 +357,91 @@ namespace AICompanion.Tests.EditMode
             var wide = new Rect(0f, 0f, 1400f, 720f);
             Assert.AreEqual(4, ChatSnapSpots.Fit(4, Body, Box, Gap, wide, 8f), "room on the right: keep 4");
             Assert.AreEqual(0, ChatSnapSpots.Fit(0, Body, Box, Gap, visible, 8f), "free placement is only clamped");
+        }
+
+        [Test]
+        public void Spot5_IsCentredUnderHerFeet()
+        {
+            var spot = ChatSnapSpots.Spot(ChatSnapSpots.Under, Body, Box, Gap);
+            Assert.AreEqual(600f, spot.x, 0.01f, "centred under her");
+            Assert.AreEqual(20f - Gap, spot.y + Box.y * 0.5f, 0.01f, "the box top is one gap below her feet");
+        }
+
+        [Test]
+        public void Spot5_IsTheDefaultOnlyWhereItIsPossible()
+        {
+            Assert.AreEqual(ChatSnapSpots.Under, ChatSnapSpots.Effective(ChatSnapSpots.Default, true), "2D video: under her");
+            Assert.AreEqual(ChatSnapSpots.RightBeside, ChatSnapSpots.Effective(ChatSnapSpots.Default, false), "3D: beside her on the right");
+            Assert.AreEqual(ChatSnapSpots.RightBeside, ChatSnapSpots.Effective(ChatSnapSpots.Under, false), "a saved spot 5 falls back in 3D");
+            Assert.AreEqual(ChatSnapSpots.Spot(5, Body, Box, Gap), ChatSnapSpots.Resolve(-1, Vector2.zero, 1f, Body, Box, Gap, true));
+            var visible = new Rect(0f, 0f, 760f, 900f);
+            Assert.AreEqual(5, ChatSnapSpots.Fit(5, Body, Box, Gap, visible, 8f, true), "spot 5 is never mirrored");
+            Assert.AreEqual(5, ChatSnapSpots.Mirror(5));
+        }
+
+        [Test]
+        public void Nearest_FindsSpot5OnlyWhenAllowed()
+        {
+            var under = ChatSnapSpots.Spot(ChatSnapSpots.Under, Body, Box, Gap) + new Vector2(20f, 10f);
+            Assert.AreEqual(5, ChatSnapSpots.Nearest(under, Body, Box, Gap, 90f, true));
+            Assert.AreNotEqual(5, ChatSnapSpots.Nearest(under, Body, Box, Gap, 90f, false));
+        }
+
+        [Test]
+        public void BottomRoom_FitsTheBoxAndItsGaps()
+        {
+            Assert.AreEqual(304, ChatSnapSpots.BottomRoomFor(280f, 12f));
+        }
+
+        [Test]
+        public void DockedPortrait_LinesUpWithTheBoxTopAndBottom()
+        {
+            // Box centre (500, 300) bottom-left based, 340 x 280, in a 1000 px tall window.
+            var center = new Vector2(500f, 300f);
+            var left = PortraitDocking.DockRect(center, Box, PortraitDocking.LeftOfBox, Gap, 1000f);
+            var right = PortraitDocking.DockRect(center, Box, PortraitDocking.RightOfBox, Gap, 1000f);
+            var boxTop = 1000f - (center.y + Box.y * 0.5f);
+            foreach (var rect in new[] { left, right })
+            {
+                Assert.AreEqual(boxTop, rect.yMin, 0.01f, "tops line up");
+                Assert.AreEqual(boxTop + Box.y, rect.yMax, 0.01f, "bottoms line up");
+                Assert.AreEqual(Box.y * PortraitDocking.Aspect, rect.width, 0.01f, "keeps the portrait's shape");
+            }
+
+            Assert.AreEqual(center.x - Box.x * 0.5f - Gap, left.xMax, 0.01f, "left of the box, one gap away");
+            Assert.AreEqual(center.x + Box.x * 0.5f + Gap, right.xMin, 0.01f, "right of the box, one gap away");
+        }
+
+        [Test]
+        public void DockedPortrait_FlipsSideWithoutRoom()
+        {
+            var left = new Rect(-40f, 100f, 249f, 280f);
+            var right = new Rect(682f, 100f, 249f, 280f);
+            Assert.AreEqual(PortraitDocking.RightOfBox, PortraitDocking.FitSide(PortraitDocking.LeftOfBox, left, right, 0f, 1200f));
+            Assert.AreEqual(PortraitDocking.RightOfBox, PortraitDocking.FitSide(PortraitDocking.RightOfBox, left, right, 0f, 1200f));
+            Assert.AreEqual(PortraitDocking.LeftOfBox, PortraitDocking.FitSide(PortraitDocking.LeftOfBox, new Rect(10f, 0f, 100f, 100f), right, 0f, 1200f));
+        }
+
+        [Test]
+        public void DraggedPortrait_DocksOnlyWhenClose()
+        {
+            var left = new Rect(100f, 100f, 249f, 280f);
+            var right = new Rect(800f, 100f, 249f, 280f);
+            var nearLeft = new Rect(left.center.x - 64f + 30f, left.center.y - 72f, 128f, 144f);
+            Assert.AreEqual(PortraitDocking.LeftOfBox, PortraitDocking.Nearest(nearLeft, left, right, 90f));
+            var nearRight = new Rect(right.center.x - 64f - 20f, right.center.y - 72f + 40f, 128f, 144f);
+            Assert.AreEqual(PortraitDocking.RightOfBox, PortraitDocking.Nearest(nearRight, left, right, 90f));
+            Assert.AreEqual(PortraitDocking.Auto, PortraitDocking.Nearest(new Rect(450f, 600f, 128f, 144f), left, right, 90f), "far from both: free");
+        }
+
+        [Test]
+        public void PortraitClamp_KeepsItOnScreen()
+        {
+            var area = new Rect(0f, 0f, 1000f, 800f);
+            var clamped = PortraitDocking.Clamp(new Rect(950f, -30f, 128f, 144f), area);
+            Assert.AreEqual(872f, clamped.x, 0.01f);
+            Assert.AreEqual(0f, clamped.y, 0.01f);
+            Assert.AreEqual(128f, clamped.width, 0.01f, "size kept");
         }
 
         [Test]

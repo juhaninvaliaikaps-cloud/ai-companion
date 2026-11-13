@@ -456,6 +456,12 @@ namespace AICompanion.NewUI
             focus.Field = field;
             focus.Ring = ring;
             focus.Color = theme.FocusRing;
+
+            // TMP_DefaultControls adds the input field before its text component exists, and TMP
+            // creates the blinking caret only in OnEnable when a text component is set. Without
+            // this the field never gets a caret at runtime. Re-enabling runs OnEnable again.
+            field.enabled = false;
+            field.enabled = true;
             return field;
         }
 

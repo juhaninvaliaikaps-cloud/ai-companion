@@ -293,6 +293,7 @@ Footer: Back, Skip, Next/Done, step label "Step n of 5 · Title" (`RefreshFooter
 | N-03 | Voice narration setting | C |
 | N-04 | Main radial wheel above her head (8 fixed slices) | D |
 | N-05 | Body-part wheel component + JUH-101 hit-zone hook | D |
-| N-06 | Movable chat box: drag by the header bar anywhere around her (window side room), snap spots 1–4 while dragging (spot 2 moves the portrait left), saved relative to her (`ChatBoxSnap`, `ChatBoxOffsetX/Y`), kept on screen on either monitor, Settings → Happi → "Reset chat position" | follow-up |
+| N-06 | Movable chat box: drag by the header bar anywhere around her (window side room), snap spots 1–5 while dragging (spot 2 moves the portrait left; spot 5 under her, she stands on the box, 2D only and the 2D default), saved relative to her (`ChatBoxSnap`, `ChatBoxOffsetX/Y`), kept on screen on either monitor, Settings → Happi → "Reset chat position" | follow-up |
 | N-07 | Spoken-text glow: words turn warm gold and grow as she says them; Settings → Happi → "Spoken text glow" (`SpokenGlow`, on) + intensity (`SpokenGlowIntensity`) | follow-up |
 | N-08 | Text fields: blinking cursor and a focus ring while typing | follow-up |
+| N-09 | Movable 2D portrait: drag it; dock left or right of the chat box (scaled so its top and bottom line up with the box) or leave it anywhere (saved relative to her head); `PortraitDock`, `PortraitOffsetX/Y`; Settings → Happi → "Reset portrait position" | follow-up |

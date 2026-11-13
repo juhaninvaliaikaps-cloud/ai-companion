@@ -173,6 +173,10 @@ namespace AICompanion.Overlay
             var side = _window.SideRoom;
             left += side;
             right -= side;
+            // With the chat box under her she stands on it: her part ends above it, and so does her floor.
+            var below = _window.BottomRoom;
+            bottom -= below;
+            areaBottom -= below;
 
             var frame = Advance(
                 Time.unscaledDeltaTime,

@@ -123,6 +123,29 @@ namespace AICompanion.Overlay
                 ApplySizedWindow(true);
         }
 
+        int _bottomRoom;
+
+        /// <summary>
+        /// JUH-104 new UI (2D video): room (pixels) below her for the chat box, so she stands on top
+        /// of it. Her part of the window is lifted by this much and her walking floor rises with it.
+        /// 0 (default, and always with the new UI off) is the window as on main.
+        /// </summary>
+        public int BottomRoom => _bottomRoom;
+
+        public void SetBottomRoom(int pixels)
+        {
+            if (pixels < 0)
+                pixels = 0;
+            if (pixels == _bottomRoom)
+                return;
+            _bottomRoom = pixels;
+            if (_started)
+                ApplySizedWindow(true);
+        }
+
+        /// <summary>Her part of the window in Unity screen pixels (origin bottom-left): the window without the side and bottom room.</summary>
+        public Rect BodyRect => new Rect(_sideRoom, _bottomRoom, Mathf.Max(1, Screen.width - 2 * _sideRoom), Mathf.Max(1, Screen.height - _bottomRoom));
+
         /// <summary>The debug text rectangle (moves with the side room so it stays on her part of the window).</summary>
         Rect HudRect => new Rect(PanelRect.x + _sideRoom, PanelRect.y, PanelRect.width, PanelRect.height);
         public bool IsClickThrough => _clickThrough;
@@ -560,11 +583,14 @@ namespace AICompanion.Overlay
                 workLeft,
                 workTop,
                 workRight,
-                workBottom,
+                workBottom - _bottomRoom,
                 width,
                 height,
                 out var x,
                 out var y);
+
+            // Room below her (new UI, 2D): the window grows down; her part keeps its size.
+            height += _bottomRoom;
 
             // Side room (new UI only): her part keeps its place; the window grows around it.
             if (_sideRoom > 0)
@@ -620,7 +646,7 @@ namespace AICompanion.Overlay
                 return;
 
             _anchorRight = right - _sideRoom;
-            _anchorBottom = bottom;
+            _anchorBottom = bottom - _bottomRoom;
             _hasAnchor = true;
         }
 

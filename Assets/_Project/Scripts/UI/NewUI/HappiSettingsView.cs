@@ -405,7 +405,7 @@ namespace AICompanion.NewUI
                     v => _settings.SaveLayoutSetting(s => s.SpokenGlowIntensity = v));
 
             Section("Chat box");
-            Note("Drag the chat box by its top bar to put it anywhere around her. While you drag, four spots appear: 1 left of her head, 2 right of her head (the portrait moves to her left), 3 beside her on the left, 4 beside her on the right. Let go near one to snap there. The box stays with her when she walks.");
+            Note("Drag the chat box by its top bar to put it anywhere around her. While you drag, spots appear: 1 left of her head, 2 right of her head (the portrait moves to her left), 3 beside her on the left, 4 beside her on the right, 5 under her, so she stands on it (2D video avatar only). Let go near one to snap there. The box stays with her when she walks. By default it sits under her (2D) or beside her on the right (3D).");
             Button("Reset chat position", () =>
             {
                 var chat = GetComponent<HappiChatView>();
@@ -420,7 +420,20 @@ namespace AICompanion.NewUI
                         s.ChatBoxX = -1f;
                         s.ChatBoxY = -1f;
                     });
-                _settings.SetStatusMessage("The chat box is back beside her on the right.");
+                _settings.SetStatusMessage("The chat box is back in its default place.");
+            });
+
+            Section("Portrait");
+            Note("Drag the 2D portrait to move it. Let go near the chat box's left or right side to dock it there: it is sized so its top and bottom line up with the box. Let go anywhere else and it stays there, following her.");
+            Button("Reset portrait position", () =>
+            {
+                _settings.SaveLayoutSetting(s =>
+                {
+                    s.PortraitDock = 0;
+                    s.PortraitOffsetX = 0f;
+                    s.PortraitOffsetY = 0f;
+                });
+                _settings.SetStatusMessage("The portrait is back beside her head.");
             });
 
             Section("Right-click wheel");

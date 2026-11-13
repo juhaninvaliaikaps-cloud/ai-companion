@@ -316,3 +316,39 @@ mirrored spot on her other side. Default: spot 4. Her head and feet come from th
 rectangle or the 3D humanoid bones. New keys: `chatBoxSnap`, `chatBoxOffsetX`, `chatBoxOffsetY`;
 `chatBoxX`/`chatBoxY` (window fractions, from the first follow-up) are still read and written but
 no longer used.
+
+## Third follow-up (2026-11-13): caret, chat box under her, movable portrait
+
+**F12. The caret really shows now.** F9 set the caret's colour, width and blink rate, but TMP
+creates the caret object only in `TMP_InputField.OnEnable`, and only when the field already has
+its text component. `TMP_DefaultControls.CreateInputField` adds the field before it assigns the
+text component, so the caret was never created. Every new-UI field is now switched off and on
+once after it is built, which creates the caret with the F9 settings. No TMP source changes.
+
+**F13. Spot 5: under her, she stands on the box; the default in 2D.** Spot 5 centres the box
+under her feet with one gap between her feet and the box top. To make room the window grows down
+by the box height plus two gaps (`OverlayWindow.BottomRoom`), and her part of the window
+(`OverlayWindow.BodyRect`) is lifted by the same amount: the 2D video is laid out in that part,
+and her walking floor (`DesktopPresence`) rises with it, so she walks along on top of the box.
+Her feet stay where they were, unless the box would then go below the taskbar: then she is
+lifted just enough. Standing on the taskbar (the usual case) she moves up by the box height and the
+box takes her old place. Spot 5 is offered only with the 2D video avatar playing: the 3D camera framing is
+fitted to the whole window and would stretch, so in 3D spot 5 is not shown while dragging and a
+saved spot 5 falls back to spot 4. The default (`chatBoxSnap` -1, also after "Reset chat
+position") is spot 5 in 2D and spot 4 in 3D. The bottom room is only there while the box is
+visible at spot 5, and it is 0 with the new UI off and while the classic settings or the setup
+wizard is open. The box height is computed from her part of the window, not the whole window, so
+the bottom room cannot make the box grow. Spot 5 is never mirrored; it is only clamped on screen.
+
+**F14. Movable 2D portrait, docked to the chat box.** The portrait can be dragged (an invisible
+handle on the chat canvas sits over it; the chat canvas sorts above the portrait's). While it is
+dragged it keeps its normal size, and two ghost spots show its docks: left and right of the chat
+box. Let go within about 90 px of one and it docks there: it is scaled (`localScale`, so the
+photo stays sharp in its frame and keeps its 128 × 144 shape) so its top and bottom are level
+with the box's top and bottom, one gap away from the box. It then moves and resizes with the box.
+If the chosen side has no room on screen, it docks on the other side. Let go anywhere else and it
+stays there at its normal size, saved as an offset from her head, so it follows her when she
+walks. New keys: `portraitDock` (0 automatic, the default and as before; 1 left of the box; 2
+right of the box; 3 free), `portraitOffsetX`, `portraitOffsetY`. Settings → Happi → "Reset
+portrait position" goes back to automatic. While the chat box is hidden, the portrait goes back to
+the automatic place beside her head (docking needs the box). With the new UI off nothing changes.

@@ -10,6 +10,11 @@ old top-left debug text is gone from both UIs unless Settings → Overlay → "S
 (the mood readout keeps its own switch); spoken lines light up word by word ("Spoken text glow",
 on by default, with an intensity slider). Decisions F1–F7, checklist items 6.1-1/2 and 6.2-12…14.
 
+**Third follow-up (2026-11-13, on #73):** the blinking cursor really shows now (F12); the chat
+box has a fifth spot under her, so she stands on it, and that is the default with the 2D avatar
+(F13); the 2D portrait can be dragged and docks left or right of the chat box at the box's height
+(F14). Checklist items 6.2-12, 15 and 16.
+
 ## 1. Pull requests (stacked, all against `main`, merge in this order)
 
 | # | PR | Branch | CI | Notes |
@@ -146,10 +151,11 @@ IDs refer to [`INVENTORY.md`](INVENTORY.md). Build the combined branch first (se
 9. [ ] G-06: with Play clip sounds on, clip sounds never play over her voice, also while a line is prefetched.
 10. [ ] DPI: at 150% and 200% Windows scaling, text in the box, wheel and settings stays readable and fits.
 11. [ ] K-01…K-09, K-13, K-16…K-20: hotkeys unchanged with the new UI on (and with the debug text hidden).
-12. [ ] N-06 movable chat box: drag it by the top bar (name / badge area) anywhere around her, also fully beside her; four numbered ghost spots appear while dragging; let go near 1 (left of her head), 2 (right of her head: the portrait moves to her left), 3 (left of her body, navel height) or 4 (right) and it snaps there; let go elsewhere and it stays there; the header buttons still click; releasing does not send a message or advance a line; empty space still clicks through; the box follows her when she walks; at a screen edge a spot without room flips to her other side; restart → same place; other monitor → still visible; Settings → Happi → "Reset chat position" puts it back at spot 4.
+12. [ ] N-06 movable chat box: drag it by the top bar (name / badge area) anywhere around her, also fully beside her; four numbered ghost spots appear while dragging; let go near 1 (left of her head), 2 (right of her head: the portrait moves to her left), 3 (left of her body, navel height) or 4 (right) and it snaps there; let go elsewhere and it stays there; the header buttons still click; releasing does not send a message or advance a line; empty space still clicks through; the box follows her when she walks; at a screen edge a spot without room flips to her other side; restart → same place; other monitor → still visible; Settings → Happi → "Reset chat position" puts it back at the default (spot 5 under her in 2D, spot 4 in 3D). Spot 5 (2D only): she stands on top of the box and walks along on it; the 3D avatar never offers spot 5.
 13. [ ] N-07 spoken-text glow: while she speaks a line, its words turn warm gold and grow slightly one by one, clearly visible, and fade back about 0.3 s later; narration does not glow unless Voice narration is on; Skip / Show all / Stop / Esc return the text to normal at once; Settings → Happi → "Spoken text glow" off stops it; the intensity slider goes from subtle to strong.
 14. [ ] P-02 / S-OV-10 in the new settings: Overlay → "Show debug info" toggles the debug text.
 15. [ ] N-08: click into the chat message field → a blinking text cursor and a light-blue ring show; same in the settings fields.
+16. [ ] N-09 movable portrait (2D): drag the portrait; two ghost spots show left and right of the chat box; let go near one → it docks there with its top and bottom level with the box's; move the box → the portrait follows; let go elsewhere → it stays there and follows her when she walks; restart → same place; hide the chat → the portrait goes back beside her head; Settings → Happi → "Reset portrait position" → automatic again.
 
 ## 7. PowerShell 5.1 commands
 

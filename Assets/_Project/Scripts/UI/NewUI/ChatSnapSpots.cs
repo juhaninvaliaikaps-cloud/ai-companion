@@ -25,9 +25,10 @@ namespace AICompanion.NewUI
     /// <summary>
     /// JUH-104: the chat box's snap spots around her, and free placement relative to her head.
     /// 1 = left of her head, 2 = right of her head (where the 2D portrait was; the portrait moves
-    /// to her left), 3 = beside her on the left at navel height, 4 = the same on her right. For 3
-    /// and 4 the box is centred on her navel, but its bottom never goes below her feet, so a tall
-    /// box sits with its bottom level with her feet. Pure maths; the view clamps the result on screen.
+    /// to her left), 3 = beside her on the left at navel height, 4 = the same on her right,
+    /// 5 = under her, so she stands on top of the box (2D video avatar only: the window grows
+    /// down by the box height and she is lifted onto it). For 3 and 4 the box is centred on her
+    /// navel, but its bottom never goes below her feet. Pure maths; the view clamps on screen.
     /// </summary>
     public static class ChatSnapSpots
     {
@@ -37,9 +38,16 @@ namespace AICompanion.NewUI
         public const int RightOfHead = 2;
         public const int LeftBeside = 3;
         public const int RightBeside = 4;
-        public const int DefaultSpot = RightBeside;
+        public const int Under = 5;
+        public const int Last = Under;
 
-        /// <summary>The box centre for snap spot 1..4 (unclamped).</summary>
+        /// <summary>The default spot: under her where that is possible (2D video), else beside her on the right.</summary>
+        public static int DefaultSpot(bool underAllowed)
+        {
+            return underAllowed ? Under : RightBeside;
+        }
+
+        /// <summary>The box centre for snap spot 1..5 (unclamped).</summary>
         public static Vector2 Spot(int spot, HerBody body, Vector2 box, float gap)
         {
             var headSide = body.HeadHalfWidth + gap + box.x * 0.5f;
@@ -53,18 +61,22 @@ namespace AICompanion.NewUI
                     return new Vector2(body.Head.x + headSide, body.Head.y);
                 case LeftBeside:
                     return new Vector2(body.Head.x - bodySide, besideY);
+                case Under:
+                    return new Vector2(body.Head.x, body.FeetY - gap - box.y * 0.5f);
                 default:
                     return new Vector2(body.Head.x + bodySide, besideY);
             }
         }
 
-        /// <summary>The snap spot (1..4) within <paramref name="radius"/> of a box centre, or 0.</summary>
-        public static int Nearest(Vector2 center, HerBody body, Vector2 box, float gap, float radius)
+        /// <summary>The snap spot within <paramref name="radius"/> of a box centre, or 0. Spot 5 only when allowed.</summary>
+        public static int Nearest(Vector2 center, HerBody body, Vector2 box, float gap, float radius, bool underAllowed)
         {
             var best = Free;
             var bestDistance = radius;
-            for (var spot = LeftOfHead; spot <= RightBeside; spot++)
+            for (var spot = LeftOfHead; spot <= Last; spot++)
             {
+                if (spot == Under && !underAllowed)
+                    continue;
                 var distance = (Spot(spot, body, box, gap) - center).magnitude;
                 if (distance <= bestDistance)
                 {
@@ -76,14 +88,25 @@ namespace AICompanion.NewUI
             return best;
         }
 
-        /// <summary>The box centre for a saved placement (snap spot, free offset from her head, or default).</summary>
-        public static Vector2 Resolve(int snap, Vector2 offset, float scale, HerBody body, Vector2 box, float gap)
+        /// <summary>The spot actually used for a saved value: the default resolved, spot 5 replaced where it is not possible.</summary>
+        public static int Effective(int snap, bool underAllowed)
         {
-            if (snap >= LeftOfHead && snap <= RightBeside)
-                return Spot(snap, body, box, gap);
             if (snap == Free)
+                return Free;
+            if (snap < LeftOfHead || snap > Last)
+                return DefaultSpot(underAllowed);
+            if (snap == Under && !underAllowed)
+                return RightBeside;
+            return snap;
+        }
+
+        /// <summary>The box centre for a saved placement (snap spot, free offset from her head, or default).</summary>
+        public static Vector2 Resolve(int snap, Vector2 offset, float scale, HerBody body, Vector2 box, float gap, bool underAllowed = false)
+        {
+            var spot = Effective(snap, underAllowed);
+            if (spot == Free)
                 return body.Head + offset * scale;
-            return Spot(DefaultSpot, body, box, gap);
+            return Spot(spot, body, box, gap);
         }
 
         /// <summary>The offset to save for a free placement (pixels at 100% scaling).</summary>
@@ -92,7 +115,7 @@ namespace AICompanion.NewUI
             return (center - body.Head) / Mathf.Max(0.01f, scale);
         }
 
-        /// <summary>The same spot on her other side (1 ↔ 2, 3 ↔ 4).</summary>
+        /// <summary>The same spot on her other side (1 ↔ 2, 3 ↔ 4); 5 and free have no mirror.</summary>
         public static int Mirror(int spot)
         {
             switch (spot)
@@ -111,15 +134,15 @@ namespace AICompanion.NewUI
         }
 
         /// <summary>
-        /// The spot to use on screen: the chosen one (default: 4), or its mirror image when the
-        /// chosen side has no room (she stands at a screen edge) and the other side does. Free
-        /// placement (0) is returned as is.
+        /// The spot to use on screen: the effective one, or its mirror image when its side has no
+        /// room (she stands at a screen edge) and the other side does. Free placement and spot 5
+        /// are returned as is.
         /// </summary>
-        public static int Fit(int snap, HerBody body, Vector2 box, float gap, Rect visible, float margin)
+        public static int Fit(int snap, HerBody body, Vector2 box, float gap, Rect visible, float margin, bool underAllowed = false)
         {
-            if (snap == Free)
-                return Free;
-            var spot = snap >= LeftOfHead && snap <= RightBeside ? snap : DefaultSpot;
+            var spot = Effective(snap, underAllowed);
+            if (spot == Free || spot == Under)
+                return spot;
             if (Fits(Spot(spot, body, box, gap), box, visible, margin))
                 return spot;
             var mirror = Mirror(spot);
@@ -142,6 +165,72 @@ namespace AICompanion.NewUI
         public static int SideRoomFor(float boxWidth, float gap)
         {
             return Mathf.CeilToInt(boxWidth + gap * 2f);
+        }
+
+        /// <summary>Room the window needs below her for the box under her (spot 5).</summary>
+        public static int BottomRoomFor(float boxHeight, float gap)
+        {
+            return Mathf.CeilToInt(boxHeight + gap * 2f);
+        }
+    }
+
+    /// <summary>
+    /// JUH-104: the 2D portrait docked to the chat box. It sits on the box's left or right side,
+    /// scaled so its top and bottom line up with the box's top and bottom (the portrait keeps its
+    /// shape). Rectangles are window pixels from the top-left, like the portrait panel uses.
+    /// </summary>
+    public static class PortraitDocking
+    {
+        public const int Auto = 0;
+        public const int LeftOfBox = 1;
+        public const int RightOfBox = 2;
+        public const int Free = 3;
+
+        /// <summary>The portrait's width / height (128 × 144 frame).</summary>
+        public const float Aspect = 128f / 144f;
+
+        /// <param name="boxCenter">Chat box centre, window pixels from the bottom-left.</param>
+        public static Rect DockRect(Vector2 boxCenter, Vector2 boxSize, int side, float gap, float screenHeight)
+        {
+            var height = boxSize.y;
+            var width = height * Aspect;
+            var top = screenHeight - (boxCenter.y + boxSize.y * 0.5f);
+            var x = side == LeftOfBox
+                ? boxCenter.x - boxSize.x * 0.5f - gap - width
+                : boxCenter.x + boxSize.x * 0.5f + gap;
+            return new Rect(x, top, width, height);
+        }
+
+        /// <summary>The docked side to use: the chosen one, or the other when the chosen side has no room on screen.</summary>
+        public static int FitSide(int side, Rect left, Rect right, float minX, float maxX)
+        {
+            var chosen = side == LeftOfBox ? left : right;
+            if (chosen.xMin >= minX - 0.5f && chosen.xMax <= maxX + 0.5f)
+                return side;
+            var other = side == LeftOfBox ? right : left;
+            if (other.xMin >= minX - 0.5f && other.xMax <= maxX + 0.5f)
+                return side == LeftOfBox ? RightOfBox : LeftOfBox;
+            return side;
+        }
+
+        /// <summary>The dock (1 left, 2 right) whose spot is within <paramref name="radius"/> of a dragged portrait's centre, or 0.</summary>
+        public static int Nearest(Rect dragged, Rect left, Rect right, float radius)
+        {
+            var toLeft = (dragged.center - left.center).magnitude;
+            var toRight = (dragged.center - right.center).magnitude;
+            if (toLeft <= radius && toLeft <= toRight)
+                return LeftOfBox;
+            if (toRight <= radius)
+                return RightOfBox;
+            return Auto;
+        }
+
+        /// <summary>Keeps a top-left rectangle inside an area (also top-left based).</summary>
+        public static Rect Clamp(Rect rect, Rect area)
+        {
+            var x = rect.width > area.width ? area.x : Mathf.Clamp(rect.x, area.xMin, area.xMax - rect.width);
+            var y = rect.height > area.height ? area.y : Mathf.Clamp(rect.y, area.yMin, area.yMax - rect.height);
+            return new Rect(x, y, rect.width, rect.height);
         }
     }
 }
