@@ -24,8 +24,16 @@ namespace AICompanion.Core
         /// </summary>
         public string Reaction { get; }
 
-        public AnimationCue(Emotion emotion, float intensity, string gesture, float direction = 0f, string emotionField = null, string reaction = null)
+        /// <summary>
+        /// How the user's last message landed with her (JUH-117), from the tag's
+        /// <c>landed="..."</c> attribute. Neutral when the tag did not say.
+        /// </summary>
+        public LandingEvent Landed { get; }
+
+        public AnimationCue(Emotion emotion, float intensity, string gesture, float direction = 0f, string emotionField = null, string reaction = null,
+            LandingEvent landed = LandingEvent.Neutral)
         {
+            Landed = landed;
             Emotion = emotion;
             Intensity = ClampIntensity(intensity);
             Gesture = gesture ?? string.Empty;
