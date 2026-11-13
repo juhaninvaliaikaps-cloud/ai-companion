@@ -25,6 +25,7 @@ namespace AICompanion.Settings
         float _tickIn;
         float _saveIn = SaveSeconds;
         string _readout = string.Empty;
+        RelationshipKeeper _relationship;
         GUIStyle _style;
         bool _lookLogged;
         CompanionMood _lookMood;
@@ -243,7 +244,10 @@ namespace AICompanion.Settings
 
         string Readout()
         {
-            return "Mood: " + CompanionMoodNames.Name(_state.Shown) + " (" + _state.Temperament.Name + ")\n" + _state.DescribeTop3();
+            if (_relationship == null)
+                _relationship = GetComponent<RelationshipKeeper>();
+            var mood = "Mood: " + CompanionMoodNames.Name(_state.Shown) + " (" + _state.Temperament.Name + ")\n" + _state.DescribeTop3();
+            return _relationship != null ? mood + "\n" + _relationship.Readout : mood;
         }
 
         CompanionSettings CurrentSettings()

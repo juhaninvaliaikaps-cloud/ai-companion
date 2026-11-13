@@ -114,6 +114,8 @@ namespace AICompanion.Settings
             EnsureVideoAvatar();
             if (GetComponent<CompanionMoodKeeper>() == null)
                 gameObject.AddComponent<CompanionMoodKeeper>();
+            if (GetComponent<RelationshipKeeper>() == null)
+                gameObject.AddComponent<RelationshipKeeper>();
 
             _applying = true;
             try
