@@ -27,14 +27,15 @@ One chat turn is a drop. It falls through leaves in a fixed order, and each leaf
 | Sheet format, parser, clamps, prompt hash | **Built** (this PR), EditMode tests | Claude |
 | Sheet store (encrypted, per persona, in wipe and export) | **Built** (this PR), EditMode tests | Claude |
 | Temperament blend from sheet weights (JUH-114 step 4) | **Built** (this PR), EditMode tests | Claude |
-| Reading prompt, first version | **Built** (this PR); not yet run against any model | Claude, tuned by Claude Code |
+| Reading prompt | **Built**, tuned against local 12B models (JUH-118 section 1) | Claude, tuned by Claude Code |
+| The reading call, cache, Re-read, persona settings display | **Built** (JUH-118 section 1), EditMode tests | Claude Code |
 | Relationship state, storage, readout | Planned, JUH-119 | DeepSeek |
 | Temperament keyword scorer (offline fallback) | Planned, JUH-119 | DeepSeek |
 | Relationship and landing math, the `landed` cue attribute, the relationship prompt line | **Built**, EditMode tests; not called from the app yet | Claude |
 | Memory tags, promotion and fading | Planned, PR after that | Claude |
-| The reading call, settings display, seeded memories, away line, wiring | Planned, JUH-118 | Claude Code |
+| Seeded memories, first scene, away line, landing wiring | Planned, JUH-118 sections 2 to 4 | Claude Code |
 
-Nothing in this PR changes how she behaves. The classes are not called from the app yet.
+The spec PR changed nothing in how she behaves. Since JUH-118 section 1 the sheet is read and its temperament is used (see "The reading as built"). The relationship, landing and world parts of the sheet are read, cached and shown, but nothing acts on them yet.
 
 ## The character sheet
 
@@ -91,6 +92,53 @@ Nothing in this PR changes how she behaves. The classes are not called from the 
 5. Never block the main thread. Until the reading is back, she runs on `Neutral`.
 
 A manual temperament pick in persona settings always wins over the sheet. Built-in personas keep their hand-picked temperament.
+
+## The reading as built (JUH-118 section 1)
+
+**Who does what.** `PisaraReader` (AI assembly, plain C#) builds the request, applies the privacy rule, waits with a timeout, parses and falls back. `PisaraReadingKeeper` (a component next to `CompanionMoodKeeper`) decides when to read and keeps the active persona's sheet. `PisaraReading` (Core, plain C#) holds the lines for settings and the log, and the rule for which temperament applies.
+
+**When a reading happens.** Only for a real persona (not the setup name), and only on an event:
+
+- the persona is selected, or its prompt changed (the personality or speaking style was edited), and there is no cached sheet for that prompt;
+- the cached sheet is a fallback (`keywords` or `default`): the model is tried once more per app run;
+- the user presses **Re-read** in persona settings.
+
+The prompt that is hashed and sent is the persona text the chat uses (personality plus speaking style, without the cue instructions). A new edit while a reading is running cancels it and starts again. Nothing runs per frame: the keeper compares two strings that are normally the same objects.
+
+**Which model.** The one this persona's chat would use, chosen by `PrivateChatRouting.ProviderId` with `IntimateExpressions.KeepsLocal(privateMode)`, exactly like a chat message. With Private mode on or the intimate gate open that is the local model or the user's own private server, and `PisaraReader.MayUse` refuses any other provider before anything is sent (test: `Private_NeverCallsACloudModel`). A persona whose provider is set to the local model is read by the local model. The request does not pass through the memory layer, so remembered facts about the user are not sent with it. `IntimateBoundaries` is appended to the system prompt.
+
+**Fallback.** No model, a refused provider, a timeout (180 s), an error, a reply without a usable object, or an empty object all give a neutral sheet (`source = default`). The keyword scorer (JUH-119) is not on main yet: `PisaraKeywords.Temperament` is the one place to plug it in, and then the fallback becomes `source = keywords`. The fallback is saved too, so the app does not ask again on every frame or every switch. A fallback never replaces a sheet the model already wrote for the same prompt (`PisaraReading.Keep`): a Re-read while the model is unreachable keeps the earlier reading and says so.
+
+**One correction in code.** Local models often give `close_friend` for a stepsister. When the label names a relative (`PisaraReading.IsKinLabel`: sister, stepbrother, mother-in-law, cousin and so on) the role is set to `family`, unless the model said `partner`.
+
+**One consistency rule in code.** The same models sometimes rate familiarity at 60 or more and still answer `sharedHistory: false`. When the role is not `stranger` and familiarity is 50 or more, `sharedHistory` is set to true (`PisaraReading.ApplySharedHistory`). It is never set for a stranger and never cleared.
+
+**Temperament: Auto or a pick.** The persona file has a new optional key `temperamentMode`: `auto`, `manual`, or missing. Missing means: a built-in persona keeps its hand-picked preset; a user persona that names a preset keeps it (it was picked by hand); a user persona without a preset is automatic. Picking a preset in settings writes `manual`; **Auto** writes `auto` and keeps the preset in the file. Until the reading is back an automatic persona is balanced. The setup name (no persona) stays balanced.
+
+**Persona settings** (old and new settings window) show, for the active persona:
+
+- `Temperament: Auto (Shy 60%, Cheerful 40%): <reason>`, or `Temperament: Tsundere (your pick)`, or `Temperament: Cheerful (built-in)`;
+- `Relationship: stepsister (family), affection 25, familiarity 70, shared past: <reason>`;
+- where the sheet came from (`Read by the model on <date>`, or that the model did not answer and why);
+- **Re-read**, **Auto** and the presets.
+
+**Log.** `Pisara reading: <persona> = <temperament>; <role>, affection N, familiarity N; world N facts, N week entries, N threads; source <model|keywords|default>`, with the reason in brackets when the model was not used. The log is plain text, so it never contains the backstory.
+
+**Tuning the reading prompt.** `CharacterSheetPrompt.System` was changed after reading real output from local 12B models (mistral-nemo 12b and a Rocinante 12B fine-tune):
+
+| Problem in the output | Change |
+| --- | --- |
+| 3 backstory facts, 2 week entries, 1 thread when asked for "10 to 20", "5 to 8", "2 or 3" | Exact counts ("exactly 12", "exactly 6", "exactly 2", "Count them") and an example with that many empty slots. The parser still accepts up to 20, 8 and 3. |
+| A stepsister read as `acquaintance` or `close_friend` | Each role is explained, "decide first whether they are related", plus the kinship correction in code. |
+| Several temperament words at 0.5 or more, which blends for no reason | Each word is explained; one word gets the high value, a second gets more than 0.3 only when the description clearly shows it. |
+| Affection and familiarity all over the place; a stranger starting at affection 20 | Anchor values for both scales; a stranger is between -10 and 10 unless the description says otherwise. |
+| A nervous, shy character rated 0.8 calm | "calm" is explained as steady and composed, "a nervous or timid character is not calm". |
+| A stepsister of six years with `sharedHistory: false` | The rule lists who shares a past (relatives, old friends, partners, people who live or work together), plus the consistency rule in code. |
+| "Right now" was a scene with the user | "By herself. The user is not in it." |
+| With a shared past, most of her week was about the user, with invented user details | At most 2 backstory facts and 2 week entries may involve the user; open threads are her own; "invent nothing about the user". |
+| Backstory only repeated the description | At most 5 facts repeat it; the rest are new small details. |
+
+**Developer tool.** `Happi.exe -allowmulti -pisara-read <folder>` reads every persona file (`*.json`, plain JSON as in `Assets/_Project/Resources/Personas`) in the folder with the **local** model, writes `<id>.sheet.json` and `<id>.reply.txt` next to it in plain text, logs the summary and quits. `-pisara-model <tag>` picks another local model; `-pisara-prompt <file>` tries another system prompt without a rebuild. It never calls a cloud model and never touches the user's own personas or sheets; the keeper does not run in this mode.
 
 ## Temperament from the sheet (JUH-114)
 

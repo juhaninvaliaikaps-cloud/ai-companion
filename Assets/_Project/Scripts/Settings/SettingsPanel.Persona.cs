@@ -80,14 +80,44 @@ namespace AICompanion.Settings
         /// </summary>
         void AddTemperamentPicker(string id, string current)
         {
-            Note("Temperament: how quickly her moods build and fade. Balanced is the default.");
+            // JUH-118: what the model read from her description, then the picker. A pick overrides the reading.
+            var view = PisaraView();
+            Note("Temperament: how quickly her moods build and fade. Auto reads it from her description; a pick below overrides it.");
+            Note(view.TemperamentLine);
+            Note(view.RelationshipLine);
+            Note(view.Status);
+            AddButton(view.Reading ? "Re-read (reading...)" : "Re-read", RereadPersona);
+            AddButton(view.Manual ? "Temperament: Auto" : "Temperament: Auto (selected)", () => SetPersonaTemperamentAuto(id));
             for (var i = 0; i < AICompanion.Core.PersonaTemperaments.Ids.Length; i++)
             {
                 var preset = AICompanion.Core.PersonaTemperaments.Get(AICompanion.Core.PersonaTemperaments.Ids[i]);
                 var stored = AICompanion.Core.PersonaTemperaments.Normalize(preset.Id);
-                AddButton(PersonaChoiceLabel("Temperament: " + preset.Name, current ?? string.Empty, stored),
-                    () => SaveActive(id, item => item.Temperament = stored));
+                var selected = view.Manual && string.Equals(current ?? string.Empty, stored, StringComparison.OrdinalIgnoreCase);
+                AddButton("Temperament: " + preset.Name + (selected ? " (selected)" : string.Empty),
+                    () => SetPersonaTemperament(id, stored));
             }
+        }
+
+        int _pisaraRevision = -1;
+
+        /// <summary>Rebuilds the open Persona tab when a reading starts or comes back.</summary>
+        void TrackPisara()
+        {
+            var keeper = GetComponent<PisaraReadingKeeper>();
+            var revision = keeper != null ? keeper.Revision : 0;
+            if (revision == _pisaraRevision)
+                return;
+            if (_pisaraRevision < 0)
+            {
+                _pisaraRevision = revision;
+                return;
+            }
+
+            // While a field has the keyboard the rebuild waits, so typing is not interrupted.
+            if (AnyFieldFocused())
+                return;
+            _pisaraRevision = revision;
+            _rebuild = true;
         }
 
         void ReloadMoodTemperament()

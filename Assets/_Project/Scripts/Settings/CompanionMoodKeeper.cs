@@ -208,7 +208,10 @@ namespace AICompanion.Settings
             if (settings == null || !string.Equals(settings.PersonaId ?? string.Empty, _personaId, StringComparison.Ordinal))
                 return;
             var temperament = ResolveTemperament(SettingsPanelFolder(), _personaId);
-            if (ReferenceEquals(temperament, _state.Temperament))
+            // A blend from the character sheet is a new object each time: compare what it is.
+            if (ReferenceEquals(temperament, _state.Temperament)
+                || (temperament.Id == PersonaTemperamentBlend.BlendId && _state.Temperament != null
+                    && _state.Temperament.Id == temperament.Id && _state.Temperament.Name == temperament.Name))
                 return;
             _state.Temperament = temperament;
             LogTemperament(_personaId);
@@ -222,11 +225,14 @@ namespace AICompanion.Settings
             get { return _state.Temperament.Name; }
         }
 
-        static PersonaTemperament ResolveTemperament(string folder, string persona)
+        PersonaTemperament ResolveTemperament(string folder, string persona)
         {
             if (string.IsNullOrEmpty(persona))
                 return PersonaTemperament.Default;
-            return PersonaRuntime.TemperamentFor(PersonaCatalog.LoadDefault(folder), persona);
+            // JUH-118: without a manual pick, the character sheet's reading decides.
+            var pisara = GetComponent<PisaraReadingKeeper>();
+            var sheet = pisara != null ? pisara.SheetFor(persona) : null;
+            return PersonaRuntime.TemperamentChoiceFor(PersonaCatalog.LoadDefault(folder), persona, sheet).Temperament;
         }
 
         void LogTemperament(string persona)
