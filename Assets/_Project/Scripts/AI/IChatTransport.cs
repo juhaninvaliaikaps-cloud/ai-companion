@@ -10,6 +10,8 @@ namespace AICompanion.AI
         public string Url;
         public string Body;
         public float TimeoutSeconds;
+        /// <summary>False for Private custom endpoints: redirects must never replay the body or key.</summary>
+        public bool FollowRedirects = true;
         public readonly List<KeyValuePair<string, string>> Headers = new List<KeyValuePair<string, string>>();
     }
 

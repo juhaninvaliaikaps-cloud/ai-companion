@@ -138,6 +138,8 @@ namespace AICompanion.AI
                 return Fail(ChatErrorKind.Malformed, BillingHint, log);
             if (http.StatusCode == 404 || LooksLikeMissingModel(providerMessage, raw))
                 return Fail(ChatErrorKind.Malformed, ModelUnavailable(model), log);
+            if (http.StatusCode >= 300 && http.StatusCode < 400)
+                return Fail(ChatErrorKind.Malformed, "The custom server tried to redirect; Private mode doesn't follow redirects.", log);
             if (http.StatusCode == 429)
                 return Fail(ChatErrorKind.RateLimited, RateLimited, log);
             if (http.StatusCode >= 500)

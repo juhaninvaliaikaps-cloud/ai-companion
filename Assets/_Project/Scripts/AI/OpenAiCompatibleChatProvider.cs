@@ -95,7 +95,8 @@ namespace AICompanion.AI
             {
                 Url = ChatEndpoints.CompletionsUrl(_config.BaseUrl != null ? _config.BaseUrl() : null),
                 Body = ChatCompletionJson.Build(model, request.Temperature, request.MaxTokens, request.SystemPrompt, request.Messages),
-                TimeoutSeconds = ReadTimeout()
+                TimeoutSeconds = ReadTimeout(),
+                FollowRedirects = !string.Equals(ProviderId, ChatDefaults.CustomId, StringComparison.OrdinalIgnoreCase)
             };
             http.Headers.Add(new KeyValuePair<string, string>("Content-Type", "application/json"));
             if (!string.IsNullOrWhiteSpace(key))

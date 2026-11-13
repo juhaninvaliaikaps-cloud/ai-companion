@@ -60,6 +60,38 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void CustomProvider_RefusesA3xxRedirect_WithoutReplayingToken()
+        {
+            const string key = "sk-redirect-secret";
+            var chat = ScriptableObject.CreateInstance<ChatSettings>();
+            try
+            {
+                chat.privateEndpointType = PrivateEndpointTypes.Custom;
+                chat.privateBaseUrl = "https://gpu.example.com/v1";
+                chat.privateModel = "demo-model";
+                var transport = new RecordingTransport
+                {
+                    Result = ChatHttpResult.Http(302, "redirect")
+                };
+                var registry = ChatProviderFactory.Create(chat, new FixedKey("cloud-key"), transport, null, new FixedKey(key));
+                Assert.IsTrue(registry.TryGet(ChatDefaults.CustomId, out var custom));
+
+                var result = custom.StreamChat(new ChatRequest(), null, CancellationToken.None).GetAwaiter().GetResult();
+
+                Assert.AreEqual(ChatErrorKind.Malformed, result.Error);
+                StringAssert.Contains("tried to redirect", result.UserMessage);
+                Assert.AreEqual(1, transport.Calls, "a redirect must not be followed or replayed");
+                Assert.IsFalse(transport.Last.FollowRedirects, "custom POSTs must disable Unity redirects");
+                Assert.AreEqual("https://gpu.example.com/v1/chat/completions", transport.Last.Url);
+                Assert.AreEqual("Bearer " + key, Header(transport.Last, "Authorization"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(chat);
+            }
+        }
+
+        [Test]
         public void ChatProviderId_CustomServerIsPrivateAndCloudIsNot()
         {
             Assert.AreEqual(ChatDefaults.CustomId, OutboundPrivacy.ChatProviderId(true, ChatDefaults.GrokId, PrivateEndpointTypes.Custom));
