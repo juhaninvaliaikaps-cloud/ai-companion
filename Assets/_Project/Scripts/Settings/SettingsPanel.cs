@@ -713,7 +713,7 @@ namespace AICompanion.Settings
             if (!privateMode)
             {
                 var localActive = !VoiceRoute.UsesCloudTts(privateMode, _settings.ProviderId);
-                AddButton(ProviderButton("Grok (cloud)", grok, localActive), () =>
+                AddButton(ProviderButton("Grok", grok, localActive), () =>
                 {
                     _settings.ProviderId = ChatDefaults.GrokId;
                     ApplyLive();
