@@ -39,6 +39,9 @@ namespace AICompanion.Settings
 
             MemoryRuntime.Discard();
             _settings = CompanionSettings.CreateDefault();
+            // After a full wipe she starts again as on a new install: Happi.
+            _settings.PersonaId = PersonaDefaults.HappiId;
+            PersonaRuntime.ApplySelected(_settings, folder);
             var chat = GetComponent<ChatPanel>();
             if (chat != null)
                 chat.ClearTranscript();

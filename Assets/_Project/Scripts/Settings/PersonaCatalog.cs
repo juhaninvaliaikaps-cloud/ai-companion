@@ -172,6 +172,8 @@ namespace AICompanion.Settings
 
         static int Rank(string id)
         {
+            if (string.Equals(id, PersonaDefaults.HappiId, StringComparison.OrdinalIgnoreCase))
+                return -1;
             if (string.Equals(id, "friend", StringComparison.OrdinalIgnoreCase))
                 return 0;
             if (string.Equals(id, "coach", StringComparison.OrdinalIgnoreCase))
