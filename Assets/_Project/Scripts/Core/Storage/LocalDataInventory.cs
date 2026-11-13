@@ -35,6 +35,7 @@ namespace AICompanion.Core
                 || IsMemoryName(rel)
                 || IsHistoryName(rel)
                 || IsMoodName(rel)
+                || IsRelationshipName(rel)
                 || IsSheetName(rel);
         }
 
@@ -80,6 +81,15 @@ namespace AICompanion.Core
             if (name == "mood.json")
                 return true;
             return name.StartsWith("mood-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
+        }
+
+        /// <summary>Her relationship per persona (JUH-119): relationship.json and relationship-&lt;persona&gt;.json.</summary>
+        public static bool IsRelationshipName(string fileName)
+        {
+            var name = Normalize(fileName);
+            if (name == "relationship.json")
+                return true;
+            return name.StartsWith("relationship-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
         }
 
         /// <summary>Her character sheet per persona (JUH-117): sheet.json and sheet-&lt;persona&gt;.json.</summary>

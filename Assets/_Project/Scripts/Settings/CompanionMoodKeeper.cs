@@ -25,6 +25,7 @@ namespace AICompanion.Settings
         float _tickIn;
         float _saveIn = SaveSeconds;
         string _readout = string.Empty;
+        RelationshipKeeper _relationship;
         GUIStyle _style;
         bool _lookLogged;
         CompanionMood _lookMood;
@@ -34,6 +35,29 @@ namespace AICompanion.Settings
         public CompanionMoodState State
         {
             get { return _state; }
+        }
+
+        public bool IsLoaded
+        {
+            get { return _loaded; }
+        }
+
+        /// <summary>
+        /// Drops the in-memory mood after a wipe. The next Update reloads the default from the
+        /// now-missing file, even when the persona id did not change.
+        /// </summary>
+        public void Forget()
+        {
+            _state = new CompanionMoodState();
+            _personaId = null;
+            _path = null;
+            _loaded = false;
+            _dirty = false;
+            _tickIn = 0f;
+            _saveIn = SaveSeconds;
+            _readout = string.Empty;
+            _lookLogged = false;
+            CompanionMoodNow.Reset();
         }
 
         void OnEnable()
@@ -263,7 +287,10 @@ namespace AICompanion.Settings
 
         string Readout()
         {
-            return "Mood: " + CompanionMoodNames.Name(_state.Shown) + " (" + _state.Temperament.Name + ")\n" + _state.DescribeTop3();
+            if (_relationship == null)
+                _relationship = GetComponent<RelationshipKeeper>();
+            var mood = "Mood: " + CompanionMoodNames.Name(_state.Shown) + " (" + _state.Temperament.Name + ")\n" + _state.DescribeTop3();
+            return _relationship != null ? mood + "\n" + _relationship.Readout : mood;
         }
 
         CompanionSettings CurrentSettings()

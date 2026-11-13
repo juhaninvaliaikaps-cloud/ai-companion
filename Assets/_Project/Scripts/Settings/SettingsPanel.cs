@@ -114,6 +114,9 @@ namespace AICompanion.Settings
             EnsureVideoAvatar();
             if (GetComponent<CompanionMoodKeeper>() == null)
                 gameObject.AddComponent<CompanionMoodKeeper>();
+            if (GetComponent<RelationshipKeeper>() == null)
+                gameObject.AddComponent<RelationshipKeeper>();
+
             // JUH-118: the reading tool (-pisara-read) runs alone; otherwise the keeper reads the active persona.
             if (PisaraReadingTool.Requested(Environment.GetCommandLineArgs()))
             {
