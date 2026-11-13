@@ -12,6 +12,7 @@ namespace AICompanion.Settings.Presenters
         WipeAll = 2,
         DeleteMemory = 3,
         DeleteAllMemories = 4,
+        StartOver = 5,
     }
 
     /// <summary>
@@ -21,6 +22,16 @@ namespace AICompanion.Settings.Presenters
     /// </summary>
     public sealed class PrivacyConfirm
     {
+        /// <summary>
+        /// The question for <see cref="PrivacyConfirmKind.StartOver"/>; <paramref name="name"/> is
+        /// the persona's name.
+        /// </summary>
+        public static string StartOverPrompt(string name)
+        {
+            return "Start over with " + StartOverText.Name(name) + "? This clears this persona's chat history, everything she remembers about you, "
+                + "her mood and your relationship. Her persona, her description and her own life stay. This cannot be undone.";
+        }
+
         public PrivacyConfirmKind Pending { get; private set; }
 
         /// <summary>The memory id for <see cref="PrivacyConfirmKind.DeleteMemory"/>.</summary>
@@ -71,9 +82,30 @@ namespace AICompanion.Settings.Presenters
                     return string.IsNullOrEmpty(memoryText) ? "Delete this memory?" : "Delete \"" + memoryText + "\"?";
                 case PrivacyConfirmKind.DeleteAllMemories:
                     return "Delete all " + memoryCount + " memories? This cannot be undone.";
+                case PrivacyConfirmKind.StartOver:
+                    return StartOverPrompt(memoryText);
                 default:
                     return string.Empty;
             }
+        }
+    }
+
+    /// <summary>"Start over with this persona" (JUH-117): what it clears and what it keeps.</summary>
+    public static class StartOverText
+    {
+        public static string Button(string name)
+        {
+            return "Start over with " + Name(name);
+        }
+
+        public static string Status(string name)
+        {
+            return "Started over with " + Name(name) + ". She keeps her own life; this conversation and what she knew about you are gone.";
+        }
+
+        internal static string Name(string name)
+        {
+            return string.IsNullOrWhiteSpace(name) ? "her" : name.Trim();
         }
     }
 

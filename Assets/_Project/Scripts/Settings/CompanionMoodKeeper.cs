@@ -11,7 +11,7 @@ namespace AICompanion.Settings
     /// <see cref="CompanionMoodNow"/>, which the face, portrait, 2D clips, director and prompt
     /// read, and logs the rest look when it changes. Added by <see cref="SettingsPanel"/>.
     /// </summary>
-    public sealed class CompanionMoodKeeper : MonoBehaviour
+    public sealed class CompanionMoodKeeper : MonoBehaviour, ICompanionStartOver
     {
         const float TickSeconds = 1f;
         const float SaveSeconds = 60f;
@@ -166,6 +166,20 @@ namespace AICompanion.Settings
             _dirty = false;
             Debug.Log("Mood: " + CompanionMoodNames.Name(_state.Shown) + " for persona "
                 + (persona.Length == 0 ? "(default)" : CompanionMoodStore.PersonaFileId(persona))
+                + " (" + _state.DescribeTop3() + ")");
+            Publish();
+        }
+
+        /// <summary>"Start over" (JUH-117): her mood back to how this persona starts, saved now.</summary>
+        public void StartOver()
+        {
+            if (!_loaded)
+                return;
+            _state.StartOver();
+            _dirty = true;
+            Save();
+            Debug.Log("Mood: start over for persona "
+                + (_personaId.Length == 0 ? "(default)" : CompanionMoodStore.PersonaFileId(_personaId))
                 + " (" + _state.DescribeTop3() + ")");
             Publish();
         }
