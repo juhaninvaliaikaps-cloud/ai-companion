@@ -96,3 +96,59 @@ folder actually has (`AvatarReactionCatalog.Names`), plus walk left/right, stop 
 **B9. Mood "why".** The JUH-103 mood state keeps strengths, not a history of causes, so the
 explanation is simple: a sentence per mood (late night for sleepy, etc.) plus the three
 strongest moods. The intimate mood is never named unless the 18+ gate is open.
+
+## PR C
+
+**C1. Visual-novel box at the bottom.** The overlay window is small (about 430×650 at 100%)
+and she stands in the middle, so the old side panel ends up about 100 px wide. The new chat
+is a dialogue box along the bottom of the window, the usual visual-novel layout. It covers
+her legs while open; F10, × and the tray close it as before. **History** expands the box to
+show the whole transcript. The API-key row is shown while no key is saved, and always in
+History, so C-08 stays reachable.
+
+**C2. ChatPanel stays the chat engine.** With the new UI on, ChatPanel still sends, routes
+(private mode, #63's custom endpoint once merged), captures memory and handles screen looks.
+The new view only draws and calls `ChatPresenter`. Hooks added to ChatPanel are a speech
+override (`UseSpeechOverride`), a raw-reply observer, and hiding its own canvas
+(`SetLegacyHidden`, which also zeroes its click-blocking rect). The open state
+(`ai-companion.chat-open`, F10, tray, double-click, push-to-talk) is shared.
+
+**C3. Speech still goes through the chat's privacy origin.** The visual-novel player never
+picks a voice route itself. ChatPanel calls `BeginUtterance(origin)` on the player's sink as
+before; the player then speaks each line with `VoiceSpeaker.BeginUtterance(origin)`, so
+`VoiceUtterance`/`VoiceRoute`/`IntimateExpressions.KeepsLocal` decide exactly as on main, and
+cloud TTS never gets private or intimate lines. With "Voice narration" off (default) narration
+lines are never sent to any TTS.
+
+**C4. Prefetch through a playback hold.** `VoiceSpeaker` gets `ISpeechPlaybackHold`: a held
+line is synthesized and queued but not played until Next. Cancel, mute, pause and any new
+utterance clear the hold, so nothing can stay stuck. Prefetch starts only while the voice is
+idle (the reader is on narration or waiting in Step mode). While a line is held,
+`IsSpeaking` stays true, so clip sounds stay silent (the "never over her TTS" rule holds).
+
+**C5. Cues per line.** Cue tags are read from the raw reply (`ChatExchange.RawDelta`) and
+attached to the line that follows them; a tag after some text starts a new line. Each line's
+cues go to the animation director and to her mood (`CompanionMoodInputs.ReportCue`) when the
+line starts. ChatPanel's end-of-reply cue is skipped while the new chat is on, so nothing
+fires twice. A reply with no tag returns her to neutral at the end, as on main. "Show all"
+jumps to the latest cue instead of replaying every one.
+
+**C6. Prompt line only with the new UI.** `VisualNovelPrompt` asks for `*narration*` and
+allows a cue tag before a later part. `DirectorPrompt` adds it only while the new UI is on;
+with it off the prompt is byte-for-byte as on main (tested).
+
+**C7. Parser tolerance.** A run of asterisks (`*` or `**`) toggles narration; a line break
+ends a line and also ends narration whose closing asterisk is missing; unmarked text is
+speech; a half-written tag is held back while streaming; at most 64 lines per reply (the rest
+join the last line, nothing is dropped).
+
+**C8. Replies that were silent on main stay silent.** Screen remarks added without speech
+(fast and automatic looks) are shown as lines but not voiced, as on main.
+
+**C9. Not tested end to end in the player.** Sending a message from the built player would
+write to the real chat history and memories on this PC, so the overnight check only opened
+the new chat with `-newui` (screenshot: renders, no exceptions). The playback logic is
+covered by EditMode tests; the morning checklist has the manual chat test.
+
+**C10. Mode remembered per PC.** Auto/Step is a UI preference in PlayerPrefs
+(`happi.vn-mode`, like the chat-open flag), not a settings-file key.
