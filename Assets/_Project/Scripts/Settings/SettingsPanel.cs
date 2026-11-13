@@ -108,6 +108,8 @@ namespace AICompanion.Settings
             if (!exists && tray != null)
                 _settings.StartWithWindows = tray.Menu.StartWithWindows;
 
+            // A new install starts as Happi; existing settings keep their persona.
+            _settings.PersonaId = PersonaDefaults.ForLaunch(exists, _settings.PersonaId);
             PersonaRuntime.ApplySelected(_settings, Folder());
             EnsureVideoAvatar();
             if (GetComponent<CompanionMoodKeeper>() == null)
