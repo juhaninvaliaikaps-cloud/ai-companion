@@ -34,10 +34,14 @@ namespace AICompanion.Overlay
             return Path.Combine(parent, product);
         }
 
-        /// <summary>The newest earlier folder that exists, or null.</summary>
-        public static string PickSource(string current, string[] previousProducts, Func<string, bool> directoryExists)
+        /// <summary>
+        /// The newest earlier folder that <paramref name="usable"/> accepts, or null. <see cref="Run"/>
+        /// passes a check for at least one file worth copying, so a Backseat Catgirl folder with
+        /// only its Player.log does not hide the older AI Companion folder.
+        /// </summary>
+        public static string PickSource(string current, string[] previousProducts, Func<string, bool> usable)
         {
-            if (previousProducts == null || directoryExists == null)
+            if (previousProducts == null || usable == null)
                 return null;
             var full = Normalize(current);
             for (var i = 0; i < previousProducts.Length; i++)
@@ -45,11 +49,46 @@ namespace AICompanion.Overlay
                 var candidate = Sibling(current, previousProducts[i]);
                 if (candidate == null || string.Equals(Normalize(candidate), full, StringComparison.OrdinalIgnoreCase))
                     continue;
-                if (directoryExists(candidate))
+                if (usable(candidate))
                     return candidate;
             }
 
             return null;
+        }
+
+        /// <summary>True when the folder exists and holds at least one file that would be copied.</summary>
+        public static bool HasFilesToCopy(string folder, Func<string, bool> directoryExists)
+        {
+            if (string.IsNullOrEmpty(folder) || directoryExists == null || !directoryExists(folder))
+                return false;
+            var root = Normalize(folder);
+            var pending = new Stack<string>();
+            pending.Push(root);
+            while (pending.Count > 0)
+            {
+                var current = pending.Pop();
+                try
+                {
+                    var files = Directory.GetFiles(current);
+                    for (var i = 0; i < files.Length; i++)
+                    {
+                        if (!ShouldSkip(Relative(root, files[i])))
+                            return true;
+                    }
+
+                    var folders = Directory.GetDirectories(current);
+                    for (var i = 0; i < folders.Length; i++)
+                    {
+                        if (!ShouldSkip(Relative(root, folders[i]) + "/x"))
+                            pending.Push(folders[i]);
+                    }
+                }
+                catch (Exception)
+                {
+                }
+            }
+
+            return false;
         }
 
         /// <summary>True for paths (relative to the folder) that stay behind.</summary>
@@ -111,7 +150,7 @@ namespace AICompanion.Overlay
                 return result;
 
             result.Ran = true;
-            result.Source = PickSource(current, previousProducts, directoryExists);
+            result.Source = PickSource(current, previousProducts, folder => HasFilesToCopy(folder, directoryExists));
             Directory.CreateDirectory(current);
             if (result.Source != null)
                 CopyMissing(result.Source, current, ref result);

@@ -144,6 +144,37 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("newest", File.ReadAllText(Path.Combine(happi, "ProjectLeia", "secrets.json")));
         }
 
+        [Test]
+        public void Run_SkipsAnEarlierFolderWithOnlyLogs_AndUsesTheOlderOne()
+        {
+            // Bugbot on #76: launching Backseat Catgirl leaves a folder with just its log and cache.
+            Write(Path.Combine(Folder("Backseat Catgirl"), "Player.log"), "log");
+            Write(Path.Combine(Folder("Backseat Catgirl"), "Unity", "cache.bin"), "cache");
+            Write(Path.Combine(Folder("AI Companion"), "ProjectLeia", "secrets.json"), "oldest");
+
+            Assert.IsFalse(SaveFolderRenamePlan.HasFilesToCopy(Folder("Backseat Catgirl"), Directory.Exists));
+            Assert.IsTrue(SaveFolderRenamePlan.HasFilesToCopy(Folder("AI Companion"), Directory.Exists));
+            Assert.IsFalse(SaveFolderRenamePlan.HasFilesToCopy(Folder("Missing"), Directory.Exists));
+
+            var happi = Folder("Happi");
+            var result = SaveFolderRenamePlan.Run(happi, AppName.PreviousDisplays, Directory.Exists);
+            Assert.AreEqual(Folder("AI Companion"), result.Source);
+            Assert.AreEqual(1, result.Copied);
+            Assert.AreEqual("oldest", File.ReadAllText(Path.Combine(happi, "ProjectLeia", "secrets.json")));
+        }
+
+        [Test]
+        public void Run_WithOnlyLogsAnywhere_CopiesNothing()
+        {
+            Write(Path.Combine(Folder("Backseat Catgirl"), "Player.log"), "log");
+            Write(Path.Combine(Folder("AI Companion"), "Player-prev.log"), "log");
+            var happi = Folder("Happi");
+            var result = SaveFolderRenamePlan.Run(happi, AppName.PreviousDisplays, Directory.Exists);
+            Assert.IsNull(result.Source);
+            Assert.AreEqual(0, result.Copied);
+            Assert.IsFalse(File.Exists(Path.Combine(happi, "Player.log")));
+        }
+
         [TestCase("Player.log", true)]
         [TestCase("player-prev.log", true)]
         [TestCase("renamed-from.txt", true)]

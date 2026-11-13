@@ -75,7 +75,7 @@ Unity derives two locations from the product name, and both are carried over on 
 | Save folder (`Application.persistentDataPath`) | `%USERPROFILE%\AppData\LocalLow\AI Companion\Backseat Catgirl` | `…\LocalLow\AI Companion\Happi` | `SaveFolderRename` copies files that are missing in the new folder. It never overwrites. It skips `Player.log`, `Player-prev.log` and Unity's `Unity`/`Crashes` folders. It writes `renamed-from.txt` when every copy worked, and retries on the next start otherwise. |
 | PlayerPrefs (window size and zoom, mute, pause, chat open, tray options) | `HKCU\Software\AI Companion\Backseat Catgirl` | `HKCU\Software\AI Companion\Happi` | `PrefsRename` copies the newest earlier hive that has values, byte for byte, once (marker value `backseat-catgirl.prefs-migrated`). |
 
-If no Backseat Catgirl folder or hive exists, the older **AI Companion** name is used instead. The "Start with Windows" Run value also moves to `Happi` and points at the running `Happi.exe`.
+If the Backseat Catgirl folder or hive has nothing to copy (for example a folder with only its old `Player.log`), the older **AI Companion** one is used instead. The "Start with Windows" Run value also moves to `Happi` and points at the running `Happi.exe`.
 
 The player log after the rename is `%USERPROFILE%\AppData\LocalLow\AI Companion\Happi\Player.log`. Older logs stay in the old folder.
 
