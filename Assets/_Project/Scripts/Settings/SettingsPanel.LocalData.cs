@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using AICompanion.Core;
 using AICompanion.Memory;
+using AICompanion.Settings.Presenters;
 using AICompanion.UI;
 using UnityEngine;
 
