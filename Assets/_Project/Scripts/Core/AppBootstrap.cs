@@ -10,8 +10,20 @@ namespace AICompanion.Core
     {
         private void Awake()
         {
+            if (!SingleInstanceGuard.TryAcquire())
+            {
+                Debug.Log("Backseat Catgirl is already running. This second instance will exit.");
+                Application.Quit();
+                return;
+            }
+
             Debug.Log(AppName.Display + " bootstrap ready.");
             StartCompanionHooks();
+        }
+
+        private void OnApplicationQuit()
+        {
+            SingleInstanceGuard.Release();
         }
 
         public void StartCompanionHooks()

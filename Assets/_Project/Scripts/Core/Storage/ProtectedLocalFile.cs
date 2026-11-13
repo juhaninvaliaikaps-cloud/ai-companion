@@ -34,6 +34,17 @@ namespace AICompanion.Core
         }
     }
 
+    internal enum LocalCommitOutcome
+    {
+        Verified = 0,
+        VerifyMismatch = 1,
+        WriteFailed = 2,
+        ReadBackFailed = 3,
+        BackupFailed = 4,
+        CommitFailed = 5,
+        InvalidInput = 6
+    }
+
     /// <summary>
     /// Reads and writes one private text file. Plaintext is migrated by writing an
     /// encrypted copy, checking that it decrypts to the same bytes, and only then
@@ -44,6 +55,7 @@ namespace AICompanion.Core
     {
         static readonly UTF8Encoding Utf8 = new UTF8Encoding(false, true);
         static readonly UTF8Encoding Utf8Lenient = new UTF8Encoding(false);
+        internal static readonly int ProcessId = System.Diagnostics.Process.GetCurrentProcess().Id;
 
         public static LocalRead Read(string path)
         {
@@ -74,7 +86,7 @@ namespace AICompanion.Core
             }
             catch (Exception e)
             {
-                Warn("Local file could not be read: " + SafeName(path) + " " + e.GetType().Name);
+                Warn("Local file could not be read: " + SafeName(path) + " " + e.GetType().Name + ": " + OneLine(e.Message));
                 return LocalRead.Unreadable;
             }
         }
@@ -101,10 +113,10 @@ namespace AICompanion.Core
 
                 var plain = Utf8Lenient.GetBytes(text ?? string.Empty);
                 var envelope = LocalAesGcm.Seal(key, null, AssociatedData(path), plain);
-                var wrote = CommitIfVerified(path, plain, envelope, blob => Open(key, AssociatedData(path), blob));
-                if (!wrote)
+                var outcome = CommitIfVerified(path, plain, envelope, blob => Open(key, AssociatedData(path), blob), ProcessId);
+                if (outcome == LocalCommitOutcome.VerifyMismatch)
                     Warn("Local file was not written because the encrypted copy did not verify: " + SafeName(path));
-                return wrote;
+                return outcome == LocalCommitOutcome.Verified;
             }
             catch (Exception e)
             {
@@ -172,54 +184,140 @@ namespace AICompanion.Core
         /// </summary>
         internal static bool CommitIfVerified(string destination, byte[] plaintext, byte[] envelope, Func<byte[], byte[]> open)
         {
-            if (string.IsNullOrEmpty(destination) || plaintext == null || envelope == null || open == null)
-                return false;
+            return CommitIfVerified(destination, plaintext, envelope, open, ProcessId) == LocalCommitOutcome.Verified;
+        }
 
-            var temp = destination + ".writing";
-            var held = destination + ".held";
+        internal static LocalCommitOutcome CommitIfVerified(string destination, byte[] plaintext, byte[] envelope, Func<byte[], byte[]> open, int processId)
+        {
+            if (string.IsNullOrEmpty(destination) || plaintext == null || envelope == null || open == null)
+                return LocalCommitOutcome.InvalidInput;
+
+            var temp = WritingPath(destination, processId);
+            var held = HeldPath(destination, processId);
+            DeleteQuiet(temp);
+            DeleteQuiet(held);
+
             try
             {
                 File.WriteAllBytes(temp, envelope);
+            }
+            catch (Exception e)
+            {
+                WarnStep("write .writing", destination, e);
+                DeleteOwnTemps(temp, held);
+                return LocalCommitOutcome.WriteFailed;
+            }
+
+            try
+            {
                 if (!SameBytes(open(File.ReadAllBytes(temp)), plaintext))
                 {
-                    DeleteQuiet(temp);
-                    return false;
+                    DeleteOwnTemps(temp, held);
+                    return LocalCommitOutcome.VerifyMismatch;
                 }
+            }
+            catch (Exception e)
+            {
+                WarnStep("read-back verify", destination, e);
+                DeleteOwnTemps(temp, held);
+                return LocalCommitOutcome.ReadBackFailed;
+            }
 
+            try
+            {
                 if (File.Exists(destination))
                     File.Copy(destination, held, true);
+            }
+            catch (Exception e)
+            {
+                WarnStep(".held backup", destination, e);
+                DeleteOwnTemps(temp, held);
+                return LocalCommitOutcome.BackupFailed;
+            }
 
+            try
+            {
                 File.Copy(temp, destination, true);
+            }
+            catch (Exception e)
+            {
+                WarnStep("commit", destination, e);
+                RestoreHeld(destination, held);
+                DeleteOwnTemps(temp, held);
+                return LocalCommitOutcome.CommitFailed;
+            }
+
+            try
+            {
                 if (!SameBytes(open(File.ReadAllBytes(destination)), plaintext))
                 {
-                    if (File.Exists(held))
-                        File.Copy(held, destination, true);
-                    else if (!File.Exists(held))
-                        DeleteQuiet(destination);
-                    DeleteQuiet(temp);
-                    DeleteQuiet(held);
-                    return false;
+                    RestoreOrRemoveHeld(destination, held);
+                    DeleteOwnTemps(temp, held);
+                    return LocalCommitOutcome.VerifyMismatch;
                 }
+            }
+            catch (Exception e)
+            {
+                WarnStep("read-back verify", destination, e);
+                RestoreOrRemoveHeld(destination, held);
+                DeleteOwnTemps(temp, held);
+                return LocalCommitOutcome.ReadBackFailed;
+            }
 
-                DeleteQuiet(temp);
-                DeleteQuiet(held);
-                return true;
+            DeleteOwnTemps(temp, held);
+            return LocalCommitOutcome.Verified;
+        }
+
+        internal static string WritingPath(string destination, int processId)
+        {
+            return destination + ".writing." + processId.ToString(CultureInfo.InvariantCulture);
+        }
+
+        internal static string HeldPath(string destination, int processId)
+        {
+            return destination + ".held." + processId.ToString(CultureInfo.InvariantCulture);
+        }
+
+        static void WarnStep(string step, string destination, Exception e)
+        {
+            Warn("Local file write failed at " + step + " for " + SafeName(destination) + ": " + e.GetType().Name + ": " + OneLine(e.Message));
+        }
+
+        static string OneLine(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return string.Empty;
+            var line = text.Replace('\r', ' ').Replace('\n', ' ').Trim();
+            return line.Length > 240 ? line.Substring(0, 240) : line;
+        }
+
+        static void RestoreHeld(string destination, string held)
+        {
+            try
+            {
+                if (File.Exists(held))
+                    File.Copy(held, destination, true);
             }
             catch (Exception)
             {
-                try
-                {
-                    if (File.Exists(held))
-                        File.Copy(held, destination, true);
-                }
-                catch (Exception)
-                {
-                }
-
-                DeleteQuiet(temp);
-                DeleteQuiet(held);
-                return false;
             }
+        }
+
+        static void RestoreOrRemoveHeld(string destination, string held)
+        {
+            if (File.Exists(held))
+            {
+                RestoreHeld(destination, held);
+                return;
+            }
+
+            DeleteQuiet(destination);
+        }
+
+        static void DeleteOwnTemps(string temp, string held)
+        {
+            DeleteQuiet(temp);
+            DeleteQuiet(held);
         }
 
         static LocalRead ReadEnvelope(string path, byte[] bytes)
@@ -263,7 +361,7 @@ namespace AICompanion.Core
 
         static void RestoreHeld(string path)
         {
-            var held = path + ".held";
+            var held = HeldPath(path, ProcessId);
             if (!File.Exists(held))
                 return;
 
