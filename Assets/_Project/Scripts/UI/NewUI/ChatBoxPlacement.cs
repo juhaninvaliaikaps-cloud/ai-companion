@@ -78,6 +78,27 @@ namespace AICompanion.NewUI
         }
     }
 
+    /// <summary>The part of the overlay window that is on screen (it can hang off an edge when it has side room).</summary>
+    public static class OverlayVisibleArea
+    {
+        public static Rect Get(AICompanion.Overlay.OverlayWindow window)
+        {
+            var screen = new Vector2(Screen.width, Screen.height);
+            var full = new Rect(0f, 0f, screen.x, screen.y);
+            var chrome = window != null ? window.Chrome : null;
+            int left;
+            int top;
+            int right;
+            int bottom;
+            if (chrome == null || !chrome.IsSupported || !chrome.TryGetWindowRect(out left, out top, out right, out bottom))
+                return full;
+            RectInt work;
+            if (!MonitorWorkArea.TryGet((left + right) / 2, (top + bottom) / 2, out work))
+                return full;
+            return ChatBoxPlacement.VisibleArea(screen, new RectInt(left, top, right - left, bottom - top), work);
+        }
+    }
+
     /// <summary>Work area of the monitor a desktop point is on (both monitors, not only the primary one).</summary>
     public static class MonitorWorkArea
     {

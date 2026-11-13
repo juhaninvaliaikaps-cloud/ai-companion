@@ -65,6 +65,12 @@ namespace AICompanion.Settings
         bool _paths;
         bool _placed;
         bool? _preferLeft;
+
+        /// <summary>JUH-104: the new chat box (window pixels from the top-left) the portrait keeps clear of. Empty while the new UI is off.</summary>
+        public static Rect NewUiAvoid;
+
+        /// <summary>JUH-104: true puts the portrait on her left (the chat box took her right side). Null keeps the automatic side.</summary>
+        public static bool? NewUiPreferLeft;
         string _heldExpression = string.Empty;
         float _quietFor;
         PortraitPreview _preview;
@@ -565,8 +571,11 @@ namespace AICompanion.Settings
         void Place(float delta)
         {
             var avoidChat = _chat != null ? _chat.InteractiveRect : new Rect(0f, 0f, 0f, 0f);
+            // JUH-104 new UI: avoid the new chat box, and keep to the side it asks for.
+            if (NewUiAvoid.width > 0f)
+                avoidChat = NewUiAvoid;
             var head = HeadPoint(delta);
-            var target = PortraitPlacement.Beside(head, Screen.width, Screen.height, avoidChat, PortraitPlacement.DebugLabel, _preferLeft);
+            var target = PortraitPlacement.Beside(head, Screen.width, Screen.height, avoidChat, PortraitPlacement.DebugLabel, NewUiPreferLeft ?? _preferLeft);
             if (target.width > 0f)
                 _preferLeft = target.x + target.width * 0.5f < head.x;
             _guiRect = PortraitPlacement.Smooth(_guiRect, target, delta, _placed, PortraitPlacement.DeadZone);

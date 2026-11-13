@@ -101,6 +101,30 @@ namespace AICompanion.Overlay
         /// off its area clicks through like any empty pixel. Hotkeys work either way.
         /// </summary>
         public bool ShowDebugInfo { get; set; }
+
+        int _sideRoom;
+
+        /// <summary>
+        /// JUH-104 new UI: transparent, click-through room (pixels) added on both sides of her so
+        /// the chat box can sit beside her. Her own placement, anchor and walking use the window
+        /// without this room, so she stays where she is. 0 (the default, and always with the new
+        /// UI off) is the window exactly as on main. The room may hang off the screen edge.
+        /// </summary>
+        public int SideRoom => _sideRoom;
+
+        public void SetSideRoom(int pixels)
+        {
+            if (pixels < 0)
+                pixels = 0;
+            if (pixels == _sideRoom)
+                return;
+            _sideRoom = pixels;
+            if (_started)
+                ApplySizedWindow(true);
+        }
+
+        /// <summary>The debug text rectangle (moves with the side room so it stays on her part of the window).</summary>
+        Rect HudRect => new Rect(PanelRect.x + _sideRoom, PanelRect.y, PanelRect.width, PanelRect.height);
         public bool IsClickThrough => _clickThrough;
         public float WindowScale => _windowScale;
         public int IdleFrameRate => idleFrameRate;
@@ -146,7 +170,7 @@ namespace AICompanion.Overlay
 
             EnsureChrome();
             bool inside = TryReadPointer(out var unityScreen, out var screenCursor);
-            bool overPanel = ShowDebugInfo && inside && OverlayPointerMath.IsInsideTopLeftRect(PanelRect, unityScreen, Screen.height);
+            bool overPanel = ShowDebugInfo && inside && OverlayPointerMath.IsInsideTopLeftRect(HudRect, unityScreen, Screen.height);
             bool overDebug = inside && IsOverDebugPanel(unityScreen);
             bool eventUi = inside && IsOverUi(unityScreen);
             bool overOtherUi = overDebug || eventUi;
@@ -290,12 +314,13 @@ namespace AICompanion.Overlay
             RefreshEmotionLabel();
             RefreshRotateLabel();
             var line = RotateStyle();
-            GUI.Box(PanelRect, GUIContent.none);
-            GUI.Label(new Rect(12f, 10f, 336f, 18f), _topmost ? TopmostOnLabel : TopmostOffLabel, line);
-            GUI.Label(new Rect(12f, 28f, 336f, 18f), _fpsText, line);
-            GUI.Label(new Rect(12f, 46f, 336f, 18f), _emotionText, line);
-            GUI.Label(new Rect(12f, 64f, 336f, 18f), AvatarAnimatorModel.DebugHint, line);
-            GUI.Label(new Rect(12f, 82f, 336f, 18f), _rotateText, line);
+            var dx = _sideRoom;
+            GUI.Box(HudRect, GUIContent.none);
+            GUI.Label(new Rect(12f + dx, 10f, 336f, 18f), _topmost ? TopmostOnLabel : TopmostOffLabel, line);
+            GUI.Label(new Rect(12f + dx, 28f, 336f, 18f), _fpsText, line);
+            GUI.Label(new Rect(12f + dx, 46f, 336f, 18f), _emotionText, line);
+            GUI.Label(new Rect(12f + dx, 64f, 336f, 18f), AvatarAnimatorModel.DebugHint, line);
+            GUI.Label(new Rect(12f + dx, 82f, 336f, 18f), _rotateText, line);
         }
 
         void OnDestroy()
@@ -541,6 +566,14 @@ namespace AICompanion.Overlay
                 out var x,
                 out var y);
 
+            // Side room (new UI only): her part keeps its place; the window grows around it.
+            if (_sideRoom > 0)
+            {
+                x -= _sideRoom;
+                width += _sideRoom * 2;
+                windowWidth = width;
+            }
+
             bool sizeChanged = width != _appliedWidth || height != _appliedHeight;
             _appliedWidth = width;
             _appliedHeight = height;
@@ -586,7 +619,7 @@ namespace AICompanion.Overlay
             if (_chrome == null || !_chrome.TryGetWindowRect(out _, out _, out var right, out var bottom))
                 return;
 
-            _anchorRight = right;
+            _anchorRight = right - _sideRoom;
             _anchorBottom = bottom;
             _hasAnchor = true;
         }

@@ -161,6 +161,17 @@ namespace AICompanion.Settings
         public float ChatBoxX = -1f;
         public float ChatBoxY = -1f;
 
+        /// <summary>
+        /// JUH-104: the chat box's place beside her. -1 = default (snap spot 4, on her right),
+        /// 0 = where the user dropped it (ChatBoxOffsetX/Y), 1..4 = a snap spot. Supersedes
+        /// ChatBoxX/ChatBoxY (window fractions), which are still read and written but no longer used.
+        /// </summary>
+        public int ChatBoxSnap = -1;
+
+        /// <summary>Free placement: the box centre relative to her head, in pixels at 100% scaling.</summary>
+        public float ChatBoxOffsetX;
+        public float ChatBoxOffsetY;
+
         /// <summary>Shows the old debug text (topmost, fps, emotion, rotate/size/zoom) top-left. Off by default; the mood readout has its own switch.</summary>
         public bool ShowDebugInfo;
 
@@ -235,9 +246,20 @@ namespace AICompanion.Settings
             ClipSoundVolume = VideoClipSound.ClampVolume(ClipSoundVolume);
             ChatBoxX = CleanFraction(ChatBoxX);
             ChatBoxY = CleanFraction(ChatBoxY);
+            if (ChatBoxSnap < -1 || ChatBoxSnap > 4)
+                ChatBoxSnap = -1;
+            ChatBoxOffsetX = CleanOffset(ChatBoxOffsetX);
+            ChatBoxOffsetY = CleanOffset(ChatBoxOffsetY);
             if (float.IsNaN(SpokenGlowIntensity) || float.IsInfinity(SpokenGlowIntensity))
                 SpokenGlowIntensity = 0.6f;
             SpokenGlowIntensity = Math.Max(0f, Math.Min(1f, SpokenGlowIntensity));
+        }
+
+        static float CleanOffset(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+                return 0f;
+            return Math.Max(-4000f, Math.Min(4000f, value));
         }
 
         /// <summary>A 0..1 position, or -1 for "not set".</summary>
@@ -608,6 +630,12 @@ namespace AICompanion.Settings
                 settings.SpokenGlow = flag;
             if (TryNumber(json, "spokenGlowIntensity", out number))
                 settings.SpokenGlowIntensity = (float)number;
+            if (TryNumber(json, "chatBoxSnap", out number))
+                settings.ChatBoxSnap = (int)Math.Round(number);
+            if (TryNumber(json, "chatBoxOffsetX", out number))
+                settings.ChatBoxOffsetX = (float)number;
+            if (TryNumber(json, "chatBoxOffsetY", out number))
+                settings.ChatBoxOffsetY = (float)number;
             settings.Normalize();
             return settings;
         }
@@ -684,6 +712,9 @@ namespace AICompanion.Settings
             Bool(sb, "showDebugInfo", source.ShowDebugInfo);
             Bool(sb, "spokenGlow", source.SpokenGlow);
             Number(sb, "spokenGlowIntensity", source.SpokenGlowIntensity, false);
+            Number(sb, "chatBoxSnap", source.ChatBoxSnap, true);
+            Number(sb, "chatBoxOffsetX", source.ChatBoxOffsetX, false);
+            Number(sb, "chatBoxOffsetY", source.ChatBoxOffsetY, false);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;

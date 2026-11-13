@@ -146,9 +146,10 @@ IDs refer to [`INVENTORY.md`](INVENTORY.md). Build the combined branch first (se
 9. [ ] G-06: with Play clip sounds on, clip sounds never play over her voice, also while a line is prefetched.
 10. [ ] DPI: at 150% and 200% Windows scaling, text in the box, wheel and settings stays readable and fits.
 11. [ ] K-01…K-09, K-13, K-16…K-20: hotkeys unchanged with the new UI on (and with the debug text hidden).
-12. [ ] N-06 movable chat box: drag it by the top bar (name / badge area) to another spot; the buttons in that bar still click; releasing does not send a message or advance a line; it cannot leave the window or the screen; restart → it comes back where you left it; move the companion to the other monitor → the box stays visible; Settings → Happi → "Reset chat position" puts it back at the bottom.
-13. [ ] N-07 spoken-text glow: while she speaks a line, its words light up warmly one by one and fade back about 0.3 s later; narration does not glow unless Voice narration is on; Skip / Show all / Stop / Esc return the text to normal at once; Settings → Happi → "Spoken text glow" off stops it; the intensity slider goes from subtle to strong.
+12. [ ] N-06 movable chat box: drag it by the top bar (name / badge area) anywhere around her, also fully beside her; four numbered ghost spots appear while dragging; let go near 1 (left of her head), 2 (right of her head: the portrait moves to her left), 3 (left of her body, navel height) or 4 (right) and it snaps there; let go elsewhere and it stays there; the header buttons still click; releasing does not send a message or advance a line; empty space still clicks through; the box follows her when she walks; at a screen edge a spot without room flips to her other side; restart → same place; other monitor → still visible; Settings → Happi → "Reset chat position" puts it back at spot 4.
+13. [ ] N-07 spoken-text glow: while she speaks a line, its words turn warm gold and grow slightly one by one, clearly visible, and fade back about 0.3 s later; narration does not glow unless Voice narration is on; Skip / Show all / Stop / Esc return the text to normal at once; Settings → Happi → "Spoken text glow" off stops it; the intensity slider goes from subtle to strong.
 14. [ ] P-02 / S-OV-10 in the new settings: Overlay → "Show debug info" toggles the debug text.
+15. [ ] N-08: click into the chat message field → a blinking text cursor and a light-blue ring show; same in the settings fields.
 
 ## 7. PowerShell 5.1 commands
 

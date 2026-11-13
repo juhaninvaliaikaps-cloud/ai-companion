@@ -315,6 +315,9 @@ namespace AICompanion.NewUI.Wheel
                 center = RadialMath.PlaceAbove(head, _theme.WheelAboveHead * scale + 28f * scale, outer, Screen.width, Screen.height, margin);
             }
 
+            // The window can reach past the screen edge (side room for the chat box): keep the wheel on screen.
+            center = ChatBoxPlacement.Clamp(center, new Vector2(outer * 2f, outer * 2f), OverlayVisibleArea.Get(_window), margin);
+
             _scale = scale;
             _wheel.Layout(center, scale);
             _wheel.SetConnector(_partWheel ? (Vector2?)_partAnchor : null, true);

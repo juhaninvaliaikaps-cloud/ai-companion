@@ -95,6 +95,8 @@ namespace AICompanion.NewUI
         Rect _visibleArea;
         float _visibleCheckAt = -1f;
         OverlayWindow _window;
+        Wheel.HeadLocator _bodyLocator;
+        readonly List<Image> _snapMarkers = new List<Image>();
 
         // Spoken-text glow (JUH-108 follow-up).
         readonly SpokenGlowTracker _glow = new SpokenGlowTracker();
@@ -136,6 +138,7 @@ namespace AICompanion.NewUI
             _sink = new VnSpeechSink(_player, _voice, RealVoice, () => _chat != null ? _chat.LastAssistantText : string.Empty);
 
             _window = GetComponent<OverlayWindow>();
+            _bodyLocator = new Wheel.HeadLocator(gameObject);
             _progress = GetComponent<AICompanion.Voice.VoiceSpeaker>();
             _glow.FadeSeconds = _theme.SpokenGlowFadeSeconds;
             _glow.CommaPause = _theme.SpokenGlowCommaPause;
@@ -169,6 +172,10 @@ namespace AICompanion.NewUI
                 _chat.SetLegacyHidden(false);
             }
 
+            ClearPortraitHooks();
+            if (_window != null)
+                _window.SetSideRoom(0);
+            _snapMarkers.Clear();
             if (_canvasObject != null)
                 Destroy(_canvasObject);
             _canvasObject = null;
@@ -209,12 +216,15 @@ namespace AICompanion.NewUI
             _player.VoiceNarration = settings != null && settings.VoiceNarration;
             _player.Tick(Time.unscaledDeltaTime);
 
+            UpdateSideRoom();
             var visible = _chat.ChatVisible;
             if (_canvasObject.activeSelf != visible)
                 _canvasObject.SetActive(visible);
             if (!visible)
             {
                 _wasVisible = false;
+                _dragging = false;
+                ClearPortraitHooks();
                 ReleaseFocus();
                 if (_micHeld)
                 {
@@ -276,6 +286,16 @@ namespace AICompanion.NewUI
                 _visibleArea = VisibleArea();
             }
 
+            // Where she is: the box lives beside her and follows her when she walks or is moved.
+            HerBody body;
+            if (!_bodyLocator.TryGetBody(Time.unscaledDeltaTime, out body))
+            {
+                body.Head = new Vector2(Screen.width * 0.5f, Screen.height * 0.82f);
+                body.FeetY = 0f;
+            }
+
+            var scale = Mathf.Max(0.5f, _layoutScale);
+            var gap = _theme.ChatSideGap * scale;
             var pointer = Pointer();
             if (_dragPending)
             {
@@ -284,50 +304,91 @@ namespace AICompanion.NewUI
                 _dragOffset = _boxCenter - pointer;
             }
 
+            var snap = settings != null ? settings.ChatBoxSnap : ChatSnapSpots.Default;
             if (_dragging)
             {
+                var near = ChatSnapSpots.Nearest(_boxCenter, body, _boxSize, gap, _theme.ChatSnapRadius * scale);
                 if (!LeftHeld())
                 {
                     _dragging = false;
-                    var saved = ChatBoxPlacement.ToSaved(_boxCenter, new Vector2(Screen.width, Screen.height));
+                    ShowSnapMarkers(false, body, gap, 0);
+                    var offset = ChatSnapSpots.OffsetFor(_boxCenter, body, scale);
+                    snap = near;
                     if (_settings != null)
                         _settings.SaveLayoutSetting(s =>
                         {
-                            s.ChatBoxX = saved.x;
-                            s.ChatBoxY = saved.y;
+                            s.ChatBoxSnap = near;
+                            s.ChatBoxOffsetX = offset.x;
+                            s.ChatBoxOffsetY = offset.y;
                         });
                 }
                 else
                 {
                     _boxCenter = ChatBoxPlacement.Clamp(pointer + _dragOffset, _boxSize, _visibleArea, _boxMargin);
+                    ShowSnapMarkers(true, body, gap, near);
                 }
             }
-            else
+
+            if (!_dragging)
             {
-                var x = settings != null ? settings.ChatBoxX : -1f;
-                var y = settings != null ? settings.ChatBoxY : -1f;
-                _boxCenter = ChatBoxPlacement.Resolve(x, y, new Vector2(Screen.width, Screen.height), _boxSize, _visibleArea, _boxMargin);
+                // A spot without room (she stands at a screen edge) flips to her other side.
+                snap = ChatSnapSpots.Fit(snap, body, _boxSize, gap, _visibleArea, _boxMargin);
+                var offset = settings != null ? new Vector2(settings.ChatBoxOffsetX, settings.ChatBoxOffsetY) : Vector2.zero;
+                _boxCenter = ChatBoxPlacement.Clamp(ChatSnapSpots.Resolve(snap, offset, scale, body, _boxSize, gap), _boxSize, _visibleArea, _boxMargin);
             }
 
             if ((_box.anchoredPosition - _boxCenter).sqrMagnitude > 0.01f)
                 _box.anchoredPosition = _boxCenter;
+
+            // The 2D portrait keeps clear of the box; spot 2 sends it to her left.
+            ExpressionPortraitPanel.NewUiAvoid = new Rect(
+                _boxCenter.x - _boxSize.x * 0.5f,
+                Screen.height - (_boxCenter.y + _boxSize.y * 0.5f),
+                _boxSize.x,
+                _boxSize.y);
+            ExpressionPortraitPanel.NewUiPreferLeft = ChatSnapSpots.PortraitGoesLeft(snap) ? true : (bool?)null;
+        }
+
+        /// <summary>While dragging: four ghost boxes at the snap spots; the one the box would snap to is brighter.</summary>
+        void ShowSnapMarkers(bool show, HerBody body, float gap, int active)
+        {
+            for (var i = 0; i < _snapMarkers.Count; i++)
+            {
+                var marker = _snapMarkers[i];
+                if (marker.gameObject.activeSelf != show)
+                    marker.gameObject.SetActive(show);
+                if (!show)
+                    continue;
+                var spot = i + 1;
+                var rect = marker.rectTransform;
+                rect.sizeDelta = _boxSize;
+                rect.anchoredPosition = ChatBoxPlacement.Clamp(ChatSnapSpots.Spot(spot, body, _boxSize, gap), _boxSize, _visibleArea, _boxMargin);
+                marker.color = spot == active ? _theme.SnapMarkerActive : _theme.SnapMarker;
+            }
+        }
+
+        void ClearPortraitHooks()
+        {
+            ExpressionPortraitPanel.NewUiAvoid = new Rect(0f, 0f, 0f, 0f);
+            ExpressionPortraitPanel.NewUiPreferLeft = null;
+        }
+
+        /// <summary>Room on each side of her for the box; none while the classic settings or the setup wizard is open (they sit at the window's left).</summary>
+        void UpdateSideRoom()
+        {
+            if (_window == null)
+                return;
+            var classic = _settings != null && _settings.IsOpen;
+            var wizard = GetComponent<SetupWizard>();
+            var wizardOpen = wizard != null && wizard.IsOpen;
+            var scale = _theme.UiScale(Screen.dpi);
+            var room = classic || wizardOpen ? 0 : ChatSnapSpots.SideRoomFor(_theme.ChatBoxWidth * scale, _theme.ChatSideGap * scale);
+            _window.SetSideRoom(room);
         }
 
         Rect VisibleArea()
         {
-            var screen = new Vector2(Screen.width, Screen.height);
-            var full = new Rect(0f, 0f, screen.x, screen.y);
-            var chrome = _window != null ? _window.Chrome : null;
-            int left;
-            int top;
-            int right;
-            int bottom;
-            if (chrome == null || !chrome.IsSupported || !chrome.TryGetWindowRect(out left, out top, out right, out bottom))
-                return full;
-            RectInt work;
-            if (!MonitorWorkArea.TryGet((left + right) / 2, (top + bottom) / 2, out work))
-                return full;
-            return ChatBoxPlacement.VisibleArea(screen, new RectInt(left, top, right - left, bottom - top), work);
+            return OverlayVisibleArea.Get(_window);
         }
 
         Vector2 Pointer()
@@ -349,7 +410,7 @@ namespace AICompanion.NewUI
             return Input.GetMouseButton(0);
         }
 
-        /// <summary>Settings > Happi > "Reset chat position": back to bottom centre.</summary>
+        /// <summary>Settings > Happi > "Reset chat position": back to the default spot (4, beside her on the right).</summary>
         public void ResetPosition()
         {
             _dragging = false;
@@ -357,6 +418,9 @@ namespace AICompanion.NewUI
             if (_settings != null)
                 _settings.SaveLayoutSetting(s =>
                 {
+                    s.ChatBoxSnap = ChatSnapSpots.Default;
+                    s.ChatBoxOffsetX = 0f;
+                    s.ChatBoxOffsetY = 0f;
                     s.ChatBoxX = -1f;
                     s.ChatBoxY = -1f;
                 });
@@ -421,19 +485,33 @@ namespace AICompanion.NewUI
                     var character = info.characterInfo[c];
                     if (!character.isVisible)
                         continue;
-                    var colors = info.meshInfo[character.materialReferenceIndex].colors32;
+                    var mesh = info.meshInfo[character.materialReferenceIndex];
+                    var colors = mesh.colors32;
+                    var vertices = mesh.vertices;
                     var v = character.vertexIndex;
-                    if (colors == null || v < 0 || v + 3 >= colors.Length)
+                    if (colors == null || vertices == null || v < 0 || v + 3 >= colors.Length || v + 3 >= vertices.Length)
                         continue;
                     var color = g > 0f ? Color32.Lerp(character.color, glow, g) : character.color;
                     colors[v] = color;
                     colors[v + 1] = color;
                     colors[v + 2] = color;
                     colors[v + 3] = color;
+
+                    // The word being said also grows a little, so the glow reads at a glance.
+                    var grow = 1f + _theme.SpokenGlowPop * g;
+                    var bl = character.vertex_BL.position;
+                    var tl = character.vertex_TL.position;
+                    var tr = character.vertex_TR.position;
+                    var br = character.vertex_BR.position;
+                    var middle = (bl + tr) * 0.5f;
+                    vertices[v] = middle + (bl - middle) * grow;
+                    vertices[v + 1] = middle + (tl - middle) * grow;
+                    vertices[v + 2] = middle + (tr - middle) * grow;
+                    vertices[v + 3] = middle + (br - middle) * grow;
                 }
             }
 
-            _dialogue.UpdateVertexData(TMP_VertexDataUpdateFlags.Colors32);
+            _dialogue.UpdateVertexData(TMP_VertexDataUpdateFlags.Colors32 | TMP_VertexDataUpdateFlags.Vertices);
             _glowDirty = any;
         }
 
@@ -456,6 +534,23 @@ namespace AICompanion.NewUI
         void BuildUi()
         {
             _canvasObject = HappiUiKit.CreateCanvas(transform, "HappiChatCanvas", 55, out _canvas);
+
+            // Snap spots shown while dragging (under the box, never catching clicks).
+            for (var i = 1; i <= 4; i++)
+            {
+                var marker = HappiUiKit.Panel(_canvasObject.transform, "SnapSpot " + i, _theme.SnapMarker, false);
+                marker.rectTransform.anchorMin = Vector2.zero;
+                marker.rectTransform.anchorMax = Vector2.zero;
+                marker.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                var ring = marker.gameObject.AddComponent<Outline>();
+                ring.effectColor = HappiTheme.WithAlpha(_theme.Hover, 0.8f);
+                ring.effectDistance = new Vector2(1.5f, -1.5f);
+                var number = HappiUiKit.Text(marker.transform, "Number", i.ToString(), _theme.FontTitle * 1.6f, HappiTheme.WithAlpha(_theme.Text, 0.85f), TextAlignmentOptions.Center, true);
+                HappiUiKit.Stretch(number.rectTransform, 0f, 0f, 0f, 0f);
+                marker.gameObject.SetActive(false);
+                _snapMarkers.Add(marker);
+            }
+
             var boxImage = HappiUiKit.Panel(_canvasObject.transform, "HappiChat", _theme.PanelBackground, true);
             _box = boxImage.rectTransform;
             var outline = boxImage.gameObject.AddComponent<Outline>();
@@ -556,7 +651,8 @@ namespace AICompanion.NewUI
             }
 
             var keyRow = _historyOpen || !_keySaved;
-            var scale = Mathf.Min(_theme.UiScale(Screen.dpi), Mathf.Max(1f, Screen.width / 440f));
+            // DPI scale, reduced only when the window is too low for the box.
+            var scale = Mathf.Min(_theme.UiScale(Screen.dpi), Mathf.Max(1f, Screen.height / 480f));
             if (Mathf.Approximately(_layoutWidth, Screen.width) && Mathf.Approximately(_layoutHeight, Screen.height)
                 && Mathf.Approximately(_layoutScale, scale) && _layoutHistory == _historyOpen && _layoutKeyRow == keyRow)
                 return;
@@ -573,7 +669,8 @@ namespace AICompanion.NewUI
             var pad = _theme.Padding * s;
             var gap = _theme.Spacing * s;
             var row = 26f * s;
-            var width = Mathf.Max(220f, Screen.width - 2f * margin);
+            // A fixed-width box (not the whole window), so it fits beside her.
+            var width = Mathf.Max(220f, Mathf.Min(_theme.ChatBoxWidth * s, Screen.width - 2f * margin));
             var inner = width - 2f * pad;
             var minHeight = 196f * s;
             var height = _historyOpen
@@ -698,6 +795,7 @@ namespace AICompanion.NewUI
             if (hint != null)
                 hint.fontSize = size;
             field.pointSize = size;
+            field.caretWidth = Mathf.Max(2, Mathf.RoundToInt(size / 7f));
         }
 
         // ---- Refresh -----------------------------------------------------------------------

@@ -108,6 +108,24 @@ namespace AICompanion.NewUI
         }
     }
 
+    /// <summary>Shows a coloured ring around a text field while it is focused.</summary>
+    public sealed class HappiFocusRing : MonoBehaviour
+    {
+        public TMP_InputField Field;
+        public Outline Ring;
+        public Color Color = Color.white;
+        bool _shown;
+
+        void LateUpdate()
+        {
+            var focused = Field != null && Field.isFocused;
+            if (focused == _shown || Ring == null)
+                return;
+            _shown = focused;
+            Ring.effectColor = focused ? Color : UnityEngine.Color.clear;
+        }
+    }
+
     /// <summary>A bar the user can press to start dragging something (the chat box header).</summary>
     public sealed class HappiDragHandle : MonoBehaviour, IPointerDownHandler
     {
@@ -395,7 +413,12 @@ namespace AICompanion.NewUI
             field.lineType = TMP_InputField.LineType.SingleLine;
             field.contentType = password ? TMP_InputField.ContentType.Password : TMP_InputField.ContentType.Standard;
             field.richText = false;
-            field.caretColor = theme.Text;
+            // A normal blinking text cursor, clearly visible on the dark field.
+            field.customCaretColor = true;
+            field.caretColor = Color.white;
+            field.caretWidth = Mathf.Max(1, Mathf.RoundToInt(theme.CaretWidth));
+            field.caretBlinkRate = theme.CaretBlinkRate;
+            field.resetOnDeActivation = true;
             field.selectionColor = HappiTheme.WithAlpha(theme.Hover, 0.45f);
             var navigation = field.navigation;
             navigation.mode = Navigation.Mode.None;
@@ -424,6 +447,15 @@ namespace AICompanion.NewUI
 
             if (field.textViewport != null)
                 Stretch(field.textViewport, 8f, 2f, 8f, 2f);
+
+            // A ring that lights up while the field has the keyboard.
+            var ring = go.AddComponent<Outline>();
+            ring.effectColor = Color.clear;
+            ring.effectDistance = new Vector2(2f, -2f);
+            var focus = go.AddComponent<HappiFocusRing>();
+            focus.Field = field;
+            focus.Ring = ring;
+            focus.Color = theme.FocusRing;
             return field;
         }
 

@@ -231,5 +231,127 @@ namespace AICompanion.Tests.EditMode
             Assert.IsFalse(back.SpokenGlow);
             Assert.AreEqual(1f, back.SpokenGlowIntensity, 0.001f);
         }
+
+        [Test]
+        public void ChatBoxPlacementKeys_HaveDefaultsAndRoundTrip()
+        {
+            var s = CompanionSettings.CreateDefault();
+            Assert.AreEqual(-1, s.ChatBoxSnap, "default spot");
+            s.ChatBoxSnap = 2;
+            s.ChatBoxOffsetX = -120.5f;
+            s.ChatBoxOffsetY = 40f;
+            var back = CompanionSettingsJson.Parse(CompanionSettingsJson.Write(s), SettingsLegacyPrefs.None);
+            Assert.AreEqual(2, back.ChatBoxSnap);
+            Assert.AreEqual(-120.5f, back.ChatBoxOffsetX, 0.01f);
+            Assert.AreEqual(40f, back.ChatBoxOffsetY, 0.01f);
+            s.ChatBoxSnap = 9;
+            Assert.AreEqual(-1, CompanionSettingsJson.Parse(CompanionSettingsJson.Write(s), SettingsLegacyPrefs.None).ChatBoxSnap, "an unknown spot is the default");
+        }
+    }
+
+    public sealed class ChatSnapSpotTests
+    {
+        // Her head at x 600, 500 px above her feet at y 20; a 340 x 280 box; 12 px gap.
+        static HerBody Body => new HerBody { Head = new Vector2(600f, 520f), FeetY = 20f };
+        static readonly Vector2 Box = new Vector2(340f, 280f);
+        const float Gap = 12f;
+
+        [Test]
+        public void Spots1And2_AreBesideHerHead()
+        {
+            var left = ChatSnapSpots.Spot(ChatSnapSpots.LeftOfHead, Body, Box, Gap);
+            var right = ChatSnapSpots.Spot(ChatSnapSpots.RightOfHead, Body, Box, Gap);
+            Assert.AreEqual(520f, left.y, 0.01f, "level with her head");
+            Assert.AreEqual(520f, right.y, 0.01f);
+            Assert.Less(left.x + Box.x * 0.5f, 600f, "the whole box is left of her head centre");
+            Assert.Greater(right.x - Box.x * 0.5f, 600f, "the whole box is right of her head centre");
+            Assert.AreEqual(600f - left.x, right.x - 600f, 0.01f, "mirror images");
+        }
+
+        [Test]
+        public void Spots3And4_AreBesideHerBodyAtNavelHeight()
+        {
+            var body = Body;
+            var left = ChatSnapSpots.Spot(ChatSnapSpots.LeftBeside, body, Box, Gap);
+            var right = ChatSnapSpots.Spot(ChatSnapSpots.RightBeside, body, Box, Gap);
+            Assert.AreEqual(body.NavelY, left.y, 0.01f);
+            Assert.AreEqual(body.NavelY, right.y, 0.01f);
+            Assert.LessOrEqual(left.x + Box.x * 0.5f, 600f - body.BodyHalfWidth, "clear of her body");
+            Assert.GreaterOrEqual(right.x - Box.x * 0.5f, 600f + body.BodyHalfWidth);
+        }
+
+        [Test]
+        public void Spots3And4_BottomNeverGoesBelowHerFeet()
+        {
+            var tall = new Vector2(340f, 700f);
+            var spot = ChatSnapSpots.Spot(ChatSnapSpots.RightBeside, Body, tall, Gap);
+            Assert.AreEqual(20f, spot.y - tall.y * 0.5f, 0.01f, "the box bottom is level with her feet");
+        }
+
+        [Test]
+        public void Nearest_SnapsOnlyWhenClose()
+        {
+            var spot3 = ChatSnapSpots.Spot(ChatSnapSpots.LeftBeside, Body, Box, Gap);
+            Assert.AreEqual(3, ChatSnapSpots.Nearest(spot3 + new Vector2(30f, -20f), Body, Box, Gap, 90f));
+            Assert.AreEqual(0, ChatSnapSpots.Nearest(spot3 + new Vector2(200f, 300f), Body, Box, Gap, 90f), "far from every spot: free");
+        }
+
+        [Test]
+        public void Resolve_FreeDefaultAndSnapped()
+        {
+            var body = Body;
+            Assert.AreEqual(ChatSnapSpots.Spot(4, body, Box, Gap), ChatSnapSpots.Resolve(-1, Vector2.zero, 1f, body, Box, Gap), "default is spot 4");
+            Assert.AreEqual(ChatSnapSpots.Spot(2, body, Box, Gap), ChatSnapSpots.Resolve(2, new Vector2(999f, 999f), 1f, body, Box, Gap));
+            var free = ChatSnapSpots.Resolve(0, new Vector2(-300f, 50f), 2f, body, Box, Gap);
+            Assert.AreEqual(new Vector2(0f, 620f), free, "offset from her head, at 200% scaling");
+            Assert.AreEqual(new Vector2(-300f, 50f), ChatSnapSpots.OffsetFor(free, body, 2f));
+        }
+
+        [Test]
+        public void FreePlacement_FollowsHerWhenSheMoves()
+        {
+            var body = Body;
+            var before = ChatSnapSpots.Resolve(0, new Vector2(250f, -100f), 1f, body, Box, Gap);
+            body.Head += new Vector2(-180f, 0f);
+            var after = ChatSnapSpots.Resolve(0, new Vector2(250f, -100f), 1f, body, Box, Gap);
+            Assert.AreEqual(before.x - 180f, after.x, 0.01f);
+        }
+
+        [Test]
+        public void Spot2_SendsThePortraitLeft()
+        {
+            Assert.IsTrue(ChatSnapSpots.PortraitGoesLeft(ChatSnapSpots.RightOfHead));
+            Assert.IsFalse(ChatSnapSpots.PortraitGoesLeft(ChatSnapSpots.LeftOfHead));
+            Assert.IsFalse(ChatSnapSpots.PortraitGoesLeft(ChatSnapSpots.Free));
+        }
+
+        [Test]
+        public void ASpotWithoutRoom_FlipsToHerOtherSide()
+        {
+            // She stands near the right screen edge: the visible part of the window ends 100 px right of her.
+            var visible = new Rect(0f, 0f, 700f, 720f);
+            Assert.AreEqual(3, ChatSnapSpots.Fit(4, Body, Box, Gap, visible, 8f), "spot 4 has no room: use 3");
+            Assert.AreEqual(3, ChatSnapSpots.Fit(-1, Body, Box, Gap, visible, 8f), "the default flips too");
+            Assert.AreEqual(1, ChatSnapSpots.Fit(2, Body, Box, Gap, visible, 8f));
+            var wide = new Rect(0f, 0f, 1400f, 720f);
+            Assert.AreEqual(4, ChatSnapSpots.Fit(4, Body, Box, Gap, wide, 8f), "room on the right: keep 4");
+            Assert.AreEqual(0, ChatSnapSpots.Fit(0, Body, Box, Gap, visible, 8f), "free placement is only clamped");
+        }
+
+        [Test]
+        public void SideRoom_FitsTheBoxAndItsGaps()
+        {
+            Assert.AreEqual(364, ChatSnapSpots.SideRoomFor(340f, 12f));
+        }
+
+        [Test]
+        public void SpokenGlow_IsClearlyVisibleAtTheDefaultSetting()
+        {
+            var theme = new HappiTheme();
+            var strength = SpokenGlowTracker.Strength(0.6f, theme.SpokenGlowMinStrength);
+            Assert.GreaterOrEqual(strength, 0.75f, "the default slider position glows strongly");
+            Assert.Greater(theme.SpokenGlowPop, 0.05f, "lit words also grow");
+            Assert.Greater(HappiTheme.Contrast(theme.SpokenGlowColor, theme.Text), 1.15f, "the glow colour differs clearly from the text colour");
+        }
     }
 }

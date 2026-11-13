@@ -47,6 +47,55 @@ namespace AICompanion.NewUI.Wheel
             _host = host;
         }
 
+        Transform _leftFoot;
+        Transform _rightFoot;
+
+        /// <summary>
+        /// Her head and feet line (window pixels from the bottom-left). Feet: the 2D video's idle
+        /// rectangle bottom, the 3D humanoid's lower foot bone, or the window bottom.
+        /// </summary>
+        public bool TryGetBody(float deltaTime, out AICompanion.NewUI.HerBody body)
+        {
+            body = default;
+            Vector2 head;
+            if (!TryGet(deltaTime, out head))
+                return false;
+            body.Head = head;
+            body.FeetY = 0f;
+
+            var video = _host != null ? _host.GetComponent<VideoAvatar>() : null;
+            Rect rect;
+            if (video != null && video.TryGetBodyRect(out rect))
+            {
+                body.FeetY = rect.y;
+                return true;
+            }
+
+            var camera = Camera.main;
+            if (_head != null && camera != null)
+            {
+                if (_leftFoot == null || _rightFoot == null)
+                {
+                    var animator = _head.GetComponentInParent<Animator>();
+                    if (animator != null && animator.isHuman)
+                    {
+                        _leftFoot = animator.GetBoneTransform(HumanBodyBones.LeftFoot);
+                        _rightFoot = animator.GetBoneTransform(HumanBodyBones.RightFoot);
+                    }
+                }
+
+                var feet = float.MaxValue;
+                if (_leftFoot != null)
+                    feet = Mathf.Min(feet, camera.WorldToScreenPoint(_leftFoot.position).y);
+                if (_rightFoot != null)
+                    feet = Mathf.Min(feet, camera.WorldToScreenPoint(_rightFoot.position).y);
+                if (feet < float.MaxValue)
+                    body.FeetY = Mathf.Max(0f, feet);
+            }
+
+            return true;
+        }
+
         public bool TryGet(float deltaTime, out Vector2 head)
         {
             head = Vector2.zero;

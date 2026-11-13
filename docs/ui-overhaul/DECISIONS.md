@@ -280,3 +280,39 @@ When speech stops (pause, mute, end of line) the words already lit fade out over
 **F7. Daytime checks without input.** The overnight checks drove the mouse; with the user at the
 PC the follow-up did not move the mouse or capture the screen. Dragging is covered by
 `ChatBoxPlacementTests` and is on the manual checklist.
+
+## Second follow-up (2026-11-13): glow, cursor, free chat box, snap spots
+
+**F8. Stronger glow.** The lit words now turn a saturated warm gold (`#FFD166`, was a pale
+cream) and grow 14% while they are said (glyph quads scaled around their centre, same vertex pass,
+still no allocations). The intensity slider now maps to 0.55–1 (was 0.25–1), so the default 0.6
+gives 0.82. All values are in `HappiTheme` (SpokenGlowColor, SpokenGlowMinStrength, SpokenGlowPop).
+
+**F9. Text cursor.** TMP's caret is set explicitly: white, 2 px (more at high DPI), blinking at
+0.85 s. The field also gets a light-blue ring while it has the keyboard, so it is obvious which
+field is active even between blinks. Every new-UI text field (chat and settings) has both.
+
+**F10. Free chat box: the window gets room beside her.** Unity has one window, so the chat box
+cannot be its own OS window. While the new UI is on, the overlay window gets transparent,
+click-through room on both sides of her (one box width + gaps, about 364 px each at 100%):
+`OverlayWindow.SetSideRoom`. Her own placement, anchor, dragging and walking use the window
+without that room (`DesktopPresence` subtracts it), so she does not move and still walks to the
+screen edges; the room may hang off the screen. The box is a fixed 340 px wide instead of the whole
+window. It is placed relative to her head, so it travels with her when she walks or is dragged
+(like a speech panel), and it is always clamped to the part of the window that is on screen.
+The debug text, the mood readout and the wheel shift or clamp with the room. With the new UI off,
+or while the classic settings or the setup wizard is open (they sit at the window's left edge),
+the room is 0 and the window is exactly as on main. A fully independent box (staying put while
+she walks) would need the overlay to cover the whole screen; that is a larger change, not done.
+
+**F11. Snap spots.** Dragging shows four ghost boxes numbered 1–4: 1 left of her head, 2 right
+of her head, 3 beside her on the left, 4 beside her on the right. Letting go within about 90 px of
+one snaps there; otherwise the box stays where it was dropped (saved as an offset from her head).
+For 3 and 4 the box is centred at navel height (0.62 of the way from her feet to her head centre),
+but its bottom never goes below her feet, so a tall box sits with its bottom level with her feet.
+Spot 2 sends the 2D expression portrait to her left (the portrait also keeps clear of the box at
+any spot). When a spot's side has no room on screen (she stands at an edge), the box uses the
+mirrored spot on her other side. Default: spot 4. Her head and feet come from the 2D video's idle
+rectangle or the 3D humanoid bones. New keys: `chatBoxSnap`, `chatBoxOffsetX`, `chatBoxOffsetY`;
+`chatBoxX`/`chatBoxY` (window fractions, from the first follow-up) are still read and written but
+no longer used.

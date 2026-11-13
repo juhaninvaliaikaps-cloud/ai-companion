@@ -405,7 +405,7 @@ namespace AICompanion.NewUI
                     v => _settings.SaveLayoutSetting(s => s.SpokenGlowIntensity = v));
 
             Section("Chat box");
-            Note("Drag the chat box by its top bar to move it. It stays inside the window and on the screen.");
+            Note("Drag the chat box by its top bar to put it anywhere around her. While you drag, four spots appear: 1 left of her head, 2 right of her head (the portrait moves to her left), 3 beside her on the left, 4 beside her on the right. Let go near one to snap there. The box stays with her when she walks.");
             Button("Reset chat position", () =>
             {
                 var chat = GetComponent<HappiChatView>();
@@ -414,10 +414,13 @@ namespace AICompanion.NewUI
                 else
                     _settings.SaveLayoutSetting(s =>
                     {
+                        s.ChatBoxSnap = -1;
+                        s.ChatBoxOffsetX = 0f;
+                        s.ChatBoxOffsetY = 0f;
                         s.ChatBoxX = -1f;
                         s.ChatBoxY = -1f;
                     });
-                _settings.SetStatusMessage("The chat box is back at the bottom.");
+                _settings.SetStatusMessage("The chat box is back beside her on the right.");
             });
 
             Section("Right-click wheel");

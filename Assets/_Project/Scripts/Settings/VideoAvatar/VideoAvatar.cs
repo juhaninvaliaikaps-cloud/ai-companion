@@ -705,6 +705,18 @@ namespace AICompanion.Settings
         /// while she walks, stops, or plays a reaction; it moves only with the size and
         /// position settings.
         /// </summary>
+        Rect _bodyRect;
+
+        /// <summary>
+        /// JUH-104: the default idle's rectangle in window pixels from the bottom-left (her feet are
+        /// near its bottom). False unless a clip is playing. Used to place the new chat box beside her.
+        /// </summary>
+        public bool TryGetBodyRect(out Rect body)
+        {
+            body = _bodyRect;
+            return _portraitHeadKnown && _state == VideoAvatarState.Playing && _bodyRect.height > 0f;
+        }
+
         public bool TryGetPortraitHead(out Vector2 head)
         {
             head = _portraitHead;
@@ -739,6 +751,7 @@ namespace AICompanion.Settings
             }
 
             _portraitHeadKnown = idleRect.height > 0f;
+            _bodyRect = idleRect;
             if (_portraitHeadKnown)
                 _portraitHead = PortraitAnchor.VideoHead(idleRect, Screen.height, _set.HeadX, _set.HeadY);
 
