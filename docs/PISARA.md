@@ -30,7 +30,7 @@ One chat turn is a drop. It falls through leaves in a fixed order, and each leaf
 | Reading prompt, first version | **Built** (this PR); not yet run against any model | Claude, tuned by Claude Code |
 | Relationship state, storage, readout | Planned, JUH-119 | DeepSeek |
 | Temperament keyword scorer (offline fallback) | Planned, JUH-119 | DeepSeek |
-| Relationship and landing math | Planned, next PR | Claude |
+| Relationship and landing math, the `landed` cue attribute, the relationship prompt line | **Built**, EditMode tests; not called from the app yet | Claude |
 | Memory tags, promotion and fading | Planned, PR after that | Claude |
 | The reading call, settings display, seeded memories, away line, wiring | Planned, JUH-118 | Claude Code |
 
@@ -104,27 +104,92 @@ A manual temperament pick in persona settings always wins over the sheet. Built-
 
 A mix averages gains and half-lives by share. It keeps the leader's baseline only when the leader has at least 60 %, and scales the rest bias by share. Intimate is never touched, and every number passes the same clamps as the presets.
 
-## Relationship (planned)
+## Relationship
 
-State per persona (`RelationshipState`, JUH-119): `Affection` -100..100, `Familiarity` 0..100, `SecondsTogether`. A new persona starts from the sheet's values.
+State per persona (`RelationshipState`, JUH-119): `Affection` -100..100, `Familiarity` 0..100, `SecondsTogether`. The math below works on plain numbers, so it does not depend on that class.
 
-**Landing.** Her reply's cue tag gets one optional attribute saying how the user's message landed:
+### Where a new persona starts
+
+`RelationshipMath.Start(sheet.relationship, out affection, out familiarity)` keeps the sheet's numbers inside what the role allows:
+
+| Role | Least familiarity |
+| --- | --- |
+| stranger | 0, and at most 15 |
+| acquaintance | 10 |
+| rival | 25 |
+| friend | 30 |
+| close_friend | 55 |
+| family | 60 |
+| partner | 70 |
+
+### Landing
+
+Her reply's cue tag gets one optional attribute: how the user's last message landed with her.
 
 `landed="complimented | thanked | comforted | teased | insulted | dismissed | apologized | flirted | neutral"`
 
-A missing or unknown value is `neutral`. The relationship leaf then scales the event:
+- `AnimationCue.Landed` carries it. A missing or unknown word is `neutral` and never makes the tag unreadable.
+- `LandingEvents.Instruction` is the sentence to add to the cue instruction (JUH-118 section 4).
 
-- Affection change = base amount for the event × a familiarity factor × a standing factor.
-- The same event can change sign. A tease from a stranger costs a little; from someone close it adds a little. An insult costs most from a stranger and least from family. A compliment from a stranger adds little and pushes Anxious (suspicion); from a partner it adds most.
-- Familiarity only grows: with real time together and a little with each exchange.
-- The leaf passes mood pushes on to the existing mood state, where the temperament scales them.
-- Affection does not drift back by itself in the first version. What was earned stays.
+### What a landed message does
 
-**Prompt.** One line after the mood line, for example: `Your relationship with the user: stepsister; you like them; you know each other very well.`
+`RelationshipMath.Land(landing, cueIntensity, affection, familiarity)` returns the new numbers, the deltas, and mood nudges.
 
-**Negative affection** means bickering and love-hate. It never closes Intimate, and it never makes her unwilling: `IntimateBoundaries` stays in every prompt.
+Affection change = table value × (0.5 + cue intensity) × standing factor. The table value slides from the stranger column to the close column with familiarity:
 
-The exact numbers come with the next PR and its tests.
+| Event | Stranger (familiarity 0) | Close (familiarity 100) |
+| --- | --- | --- |
+| complimented | +1 | +4 |
+| thanked | +1 | +2 |
+| comforted | +2 | +5 |
+| teased | -2 | +2 |
+| insulted | -10 | -3 |
+| dismissed | -3 | -6 |
+| apologized | +2 | +4 |
+| flirted | -1 | +4 |
+| neutral | 0 | 0 |
+
+Standing factor:
+
+- **Kindness** (a positive change): ×1 at affection 0, down to ×0.5 at +100 (diminishing returns) and at -100 (it lands weaker while she dislikes them).
+- **Slights** (a negative change): ×0.6 at +100 (forgiven), ×1.3 at -100 (sharper).
+
+Mood nudges are small, because her own cue emotion already moves her mood. They also slide with familiarity: a stranger's compliment pushes Flustered and Anxious (suspicion), a close one's pushes Happy and Affectionate; being dismissed by someone close pushes Sad. `RelationshipMath.PushMoods` sends them through the mood state, where the temperament scales them. Intimate is never pushed from here.
+
+### Familiarity
+
+- Every exchange adds 0.1 at familiarity 0, shrinking to nothing at 100. Kind or not, it is time spent knowing each other.
+- `RelationshipMath.FamiliarityAfter(familiarity, seconds)` adds real chat time: 20 hours cover about 63 % of what is left. One hour from zero is under 5 points.
+- Familiarity never drops.
+
+Affection does not drift back by itself. What was earned stays.
+
+### Prompt
+
+`RelationshipPrompt.Line(sheet.relationship, sheet.landing, affection, familiarity)`, one line after the mood line:
+
+`Your relationship with the user: stepsister (family); you like them; you know each other very well. Touchy about: being called childish. Warms to: being trusted with a secret.`
+
+| Affection | Phrase |
+| --- | --- |
+| -60 and below | you can't stand them right now |
+| -60 to -20 | you are at odds with them |
+| -20 to 20 | you have no strong feelings about them yet |
+| 20 to 60 | you like them |
+| 60 and above | you adore them |
+
+At -20 and below the line adds that this is love-hate between two people who choose to be here, never fear. Negative affection never closes Intimate and never makes her unwilling: `IntimateBoundaries` stays in every prompt.
+
+### Wiring (JUH-118 section 4)
+
+After each finished reply, once per reply (use `CueSerial`, as the mood does):
+
+1. `var change = RelationshipMath.Land(cue.Landed, cue.Intensity, state.Affection, state.Familiarity);`
+2. Write `change.Affection` and `change.Familiarity` to the relationship state.
+3. `RelationshipMath.PushMoods(moodState, change, cue.Intensity);`
+4. Log `change.LogLine()`.
+
+While the chat is in use, add time with `FamiliarityAfter`. Add `RelationshipPrompt.Line` after the mood line, and `LandingEvents.Instruction` to the cue instruction.
 
 ## Memory and her world (planned)
 
