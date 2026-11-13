@@ -3,10 +3,9 @@ using System;
 namespace AICompanion.Core
 {
     /// <summary>
-    /// JUH-104: whether the new Happi UI is on. The setting "New UI (preview)" turns it on
-    /// and keeps it on; the <c>-newui</c> launch argument turns it on for that launch only.
-    /// Off by default. While it is off, nothing reads the new views and the app behaves as
-    /// on main.
+    /// JUH-104: the new Happi UI is the app's UI. <see cref="Resolve"/> stays true for
+    /// compatibility with the old "New UI (preview)" key and the <c>-newui</c> launch argument;
+    /// the classic settings panel is no longer reachable.
     /// </summary>
     public static class NewUiSwitch
     {
@@ -41,10 +40,10 @@ namespace AICompanion.Core
             return false;
         }
 
-        /// <summary>On when the setting is on, or when this launch has <c>-newui</c>.</summary>
+        /// <summary>The new UI is always on now; the old preview key and -newui are accepted but ignored.</summary>
         public static bool Resolve(bool setting, string[] args)
         {
-            return setting || ArgumentPresent(args);
+            return true;
         }
 
         public static void Set(bool active)

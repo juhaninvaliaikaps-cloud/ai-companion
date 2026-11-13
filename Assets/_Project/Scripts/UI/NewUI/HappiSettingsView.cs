@@ -16,12 +16,11 @@ using UnityEngine.UI;
 namespace AICompanion.NewUI
 {
     /// <summary>
-    /// JUH-104 PR E: the new settings view in the Happi theme. Every item of
+    /// JUH-104 PR E: the app's settings view in the Happi theme. Every item of
     /// docs/ui-overhaul/INVENTORY.md section 4 is here, on the same tabs as the old panel plus a
-    /// "Happi" tab for the new UI's own options. Every change goes through the PR B presenters
+    /// "Happi" tab for the app's own options. Every change goes through the PR B presenters
     /// and the old panel as host, so settings are applied and saved exactly as before.
-    /// "Classic settings" opens the old panel at any time. 18+ items appear under the same
-    /// conditions as today. Exists only while the new UI is on.
+    /// 18+ items appear under the same conditions as today.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class HappiSettingsView : MonoBehaviour, IOverlayKeepAwake
@@ -51,7 +50,6 @@ namespace AICompanion.NewUI
         TextMeshProUGUI _title;
         TextMeshProUGUI _status;
         HappiButton _close;
-        HappiButton _classic;
         readonly List<HappiButton> _tabs = new List<HappiButton>();
         ScrollRect _scroll;
         RectTransform _viewport;
@@ -234,7 +232,6 @@ namespace AICompanion.NewUI
             _title = HappiUiKit.Text(_panel, "Title", "Happi · Settings", _theme.FontTitle, _theme.Text, TextAlignmentOptions.MidlineLeft, true);
             _title.textWrappingMode = TextWrappingModes.NoWrap;
             _close = HappiUiKit.Button(_panel, "Close", "×", _theme.FontBody, Close);
-            _classic = HappiUiKit.Button(_panel, "Classic", "Classic settings", _theme.FontSmall, () => { Close(); _settings.OpenClassic(); });
             for (var i = 0; i < TabLabels.Length; i++)
             {
                 var index = i;
@@ -289,11 +286,8 @@ namespace AICompanion.NewUI
             var inner = width - 2f * pad;
             _title.fontSize = _theme.FontTitle * s;
             HappiUiKit.Place(_close.Rect, width - pad - row, pad, row, row);
-            var classicW = 118f * s;
-            HappiUiKit.Place(_classic.Rect, width - pad - row - gap - classicW, pad, classicW, row);
-            _classic.Label.fontSize = _theme.FontSmall * s;
             _close.Label.fontSize = _theme.FontBody * s;
-            HappiUiKit.Place(_title.rectTransform, pad, pad, inner - classicW - row - 2f * gap, row);
+            HappiUiKit.Place(_title.rectTransform, pad, pad, inner - row - gap, row);
             var y = pad + row + gap;
             const int columns = 3;
             var tabW = (inner - gap * (columns - 1)) / columns;
@@ -355,7 +349,7 @@ namespace AICompanion.NewUI
             }
             catch (Exception ex)
             {
-                Note("This tab could not be drawn (" + ex.GetType().Name + "). Use Classic settings.");
+                Note("This tab could not be drawn (" + ex.GetType().Name + "). Try another tab.");
                 Debug.LogWarning("New UI: settings tab " + _tab + " failed: " + ex.Message);
             }
 
@@ -376,11 +370,7 @@ namespace AICompanion.NewUI
 
         void BuildHappi()
         {
-            Section("Happi (new UI)");
-            Toggle("New UI (preview)", S.NewUiPreview, v => Change(s => s.NewUiPreview = v));
-            Note(NewUiSwitch.ArgumentPresent(Environment.GetCommandLineArgs())
-                ? "This launch has -newui, so the new UI stays on until you restart without it."
-                : "Off returns to the classic look right away. Your settings stay.");
+            Section("Happi");
             Toggle("Voice narration", S.VoiceNarration, v => Change(s => s.VoiceNarration = v));
             Note("Off: lines between *asterisks* are shown in the chat but not spoken. Only her own words use the voice.");
             var chat = GetComponent<HappiChatView>();
@@ -721,7 +711,6 @@ namespace AICompanion.NewUI
             Note("Her current mood and the three strongest moods, top left. Mood changes are also in Player.log.");
             Toggle("Show debug info", S.ShowDebugInfo, v => Change(s => s.ShowDebugInfo = v));
             Note("Debug text top-left: topmost, frame rate, emotion, key hints, rotate, size and zoom. Off by default. The hotkeys work either way.");
-            Toggle("New UI (preview)", S.NewUiPreview, v => Change(s => s.NewUiPreview = v));
         }
 
         void BuildPrivacy()

@@ -336,9 +336,9 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void Resolve_OffByDefault()
+        public void Resolve_IsAlwaysOn()
         {
-            Assert.IsFalse(NewUiSwitch.Resolve(false, new[] { "app.exe" }));
+            Assert.IsTrue(NewUiSwitch.Resolve(false, new[] { "app.exe" }));
             Assert.IsTrue(NewUiSwitch.Resolve(true, new[] { "app.exe" }));
             Assert.IsTrue(NewUiSwitch.Resolve(false, new[] { "app.exe", "-newui" }));
         }
