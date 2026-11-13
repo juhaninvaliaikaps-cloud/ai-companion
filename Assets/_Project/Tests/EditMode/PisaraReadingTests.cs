@@ -372,6 +372,20 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(Read(new FakeProvider { Reply = reply }, false).Sheet.relationship.sharedHistory, "familiarity 70 with family");
         }
 
+        [Test]
+        public void FailedReading_NeverReplacesTheModelsSheet()
+        {
+            var good = PisaraReading.Finish(CharacterSheet.Parse(GoodReply), Prompt, CharacterSheet.SourceModel, DateTime.UtcNow);
+            var fallback = PisaraReading.Fallback(Prompt, null, DateTime.UtcNow);
+            var newer = PisaraReading.Finish(CharacterSheet.Parse(GoodReply), Prompt, CharacterSheet.SourceModel, DateTime.UtcNow);
+
+            Assert.AreSame(good, PisaraReading.Keep(good, fallback), "a failed Re-read keeps the earlier reading");
+            Assert.AreSame(newer, PisaraReading.Keep(good, newer), "a new reading replaces the old one");
+            Assert.AreSame(fallback, PisaraReading.Keep(null, fallback), "with nothing cached the fallback is stored");
+            Assert.AreSame(good, PisaraReading.Keep(fallback, good), "the model's sheet replaces a fallback");
+            Assert.AreSame(good, PisaraReading.Keep(good, null));
+        }
+
         // ---- The developer tool ----------------------------------------------------------------
 
         [Test]

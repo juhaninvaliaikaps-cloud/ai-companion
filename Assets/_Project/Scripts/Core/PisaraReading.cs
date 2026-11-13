@@ -248,6 +248,22 @@ namespace AICompanion.Core
             return Finish(sheet, personaPrompt, CharacterSheet.SourceKeywords, utcNow);
         }
 
+        /// <summary>
+        /// Which sheet to keep after a reading. A failed reading (a fallback sheet) never replaces
+        /// a sheet the model already wrote for the same prompt: a Re-read while the model is
+        /// unreachable must not throw a good reading away.
+        /// </summary>
+        public static CharacterSheet Keep(CharacterSheet existingForPrompt, CharacterSheet fresh)
+        {
+            if (fresh == null)
+                return existingForPrompt;
+            if (fresh.source != CharacterSheet.SourceModel
+                && existingForPrompt != null
+                && existingForPrompt.source == CharacterSheet.SourceModel)
+                return existingForPrompt;
+            return fresh;
+        }
+
         static string Reason(string reason, CharacterSheet sheet)
         {
             if (sheet != null && sheet.source != CharacterSheet.SourceModel)

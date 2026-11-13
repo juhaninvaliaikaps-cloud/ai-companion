@@ -69,8 +69,10 @@ namespace AICompanion.Settings
                 if (_reading)
                     return "Reading her description with the model...";
                 var line = PisaraReading.SourceLine(_sheet);
-                return _failure.Length == 0 || (_sheet != null && _sheet.source == CharacterSheet.SourceModel)
-                    ? line
+                if (_failure.Length == 0)
+                    return line;
+                return _sheet != null && _sheet.source == CharacterSheet.SourceModel
+                    ? line + " The last Re-read did not work (" + _failure + ")."
                     : line + " (" + _failure + ")";
             }
         }
@@ -181,10 +183,13 @@ namespace AICompanion.Settings
             _cancel = null;
             cancel.Dispose();
             _failure = result.Failure ?? string.Empty;
-            if (!CharacterSheetStore.Save(path, result.Sheet))
+            // A failed Re-read keeps the sheet the model wrote earlier for this prompt.
+            var kept = PisaraReading.Keep(CharacterSheetStore.LoadFor(path, prompt), result.Sheet);
+            if (ReferenceEquals(kept, result.Sheet) && !CharacterSheetStore.Save(path, kept))
                 Debug.LogWarning("Pisara reading: the sheet could not be saved.");
-            Debug.Log(PisaraReading.LogLine(persona, result.Sheet) + (_failure.Length == 0 ? string.Empty : " (" + _failure + ")"));
-            SetSheet(result.Sheet);
+            Debug.Log(PisaraReading.LogLine(persona, kept)
+                + (_failure.Length == 0 ? string.Empty : " (" + _failure + (ReferenceEquals(kept, result.Sheet) ? ")" : "; kept the earlier reading)")));
+            SetSheet(kept);
         }
 
         void SetSheet(CharacterSheet sheet)

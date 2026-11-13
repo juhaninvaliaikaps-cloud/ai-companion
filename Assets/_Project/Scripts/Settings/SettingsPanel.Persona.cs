@@ -107,10 +107,17 @@ namespace AICompanion.Settings
             var revision = keeper != null ? keeper.Revision : 0;
             if (revision == _pisaraRevision)
                 return;
-            var first = _pisaraRevision < 0;
+            if (_pisaraRevision < 0)
+            {
+                _pisaraRevision = revision;
+                return;
+            }
+
+            // While a field has the keyboard the rebuild waits, so typing is not interrupted.
+            if (AnyFieldFocused())
+                return;
             _pisaraRevision = revision;
-            if (!first && !AnyFieldFocused())
-                _rebuild = true;
+            _rebuild = true;
         }
 
         void ReloadMoodTemperament()
