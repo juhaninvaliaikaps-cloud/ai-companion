@@ -92,6 +92,45 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void RelationshipKeeper_TakesPartInStartOver()
+        {
+            Assert.IsTrue(typeof(ICompanionStartOver).IsAssignableFrom(typeof(RelationshipKeeper)));
+        }
+
+        [Test]
+        public void RelationshipKeeper_StartOverResetsAndSaves()
+        {
+            var path = Path.Combine(NewFolder(), "relationship-happi.json");
+            InstallKeyFile.KeyForPath = _ => Key();
+            var go = new GameObject("relationship-start-over-test");
+            try
+            {
+                var keeper = go.AddComponent<RelationshipKeeper>();
+                keeper.State.Affection = 55f;
+                keeper.State.Familiarity = 40f;
+                keeper.State.SecondsTogether = 100d;
+                Set(keeper, "_loaded", true);
+                Set(keeper, "_path", path);
+                Set(keeper, "_personaId", "happi");
+
+                keeper.StartOver();
+
+                Assert.AreEqual(0f, keeper.State.Affection);
+                Assert.AreEqual(0f, keeper.State.Familiarity);
+                Assert.AreEqual(0d, keeper.State.SecondsTogether);
+                Assert.IsTrue(File.Exists(path), "StartOver must save at once");
+                var saved = RelationshipStore.Load(path);
+                Assert.AreEqual(0f, saved.Affection);
+                Assert.AreEqual(0f, saved.Familiarity);
+                Assert.AreEqual(0d, saved.SecondsTogether);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
         public void ActivityWindow_OnlyCountsRecentActivity()
         {
             Assert.IsTrue(RelationshipKeeper.IsWithinActivityWindow(200f, 100f));

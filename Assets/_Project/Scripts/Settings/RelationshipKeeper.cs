@@ -11,7 +11,7 @@ namespace AICompanion.Settings
     /// keystroke, saves at most every 30 seconds and on quit, and exposes the readout line.
     /// Chat does not move affection or familiarity yet; that belongs to the later relationship leaf.
     /// </summary>
-    public sealed class RelationshipKeeper : MonoBehaviour
+    public sealed class RelationshipKeeper : MonoBehaviour, ICompanionStartOver
     {
         const float SaveSeconds = 30f;
 
@@ -64,6 +64,30 @@ namespace AICompanion.Settings
         {
             return !float.IsNaN(now) && !float.IsNaN(lastActivity)
                 && now >= lastActivity && now - lastActivity <= ActivityWindowSeconds;
+        }
+
+        /// <summary>
+        /// JUH-117 "Start over with this persona": put the relationship back where this
+        /// persona's character sheet starts it and save at once. Without a sheet, 0 and 0.
+        /// </summary>
+        public void StartOver()
+        {
+            if (!_loaded)
+                return;
+
+            float affection = 0f;
+            float familiarity = 0f;
+            var reading = GetComponent<PisaraReadingKeeper>();
+            var sheet = reading != null ? reading.Sheet : null;
+            if (sheet != null)
+                RelationshipMath.Start(sheet.relationship, out affection, out familiarity);
+
+            _state = new RelationshipState { Affection = affection, Familiarity = familiarity, SecondsTogether = 0d };
+            _dirty = true;
+            Save();
+            Debug.Log("Relationship: start over for persona "
+                + (_personaId.Length == 0 ? "(default)" : CompanionMoodStore.PersonaFileId(_personaId))
+                + " (" + _state.Readout() + ")");
         }
 
         /// <summary>"Relationship: +35, familiarity 12" for the mood readout.</summary>
