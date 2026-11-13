@@ -151,6 +151,12 @@ namespace AICompanion.Settings
         /// <summary>Shows her current mood and the three strongest moods in a corner (JUH-103 debug). Off by default.</summary>
         public bool ShowMoodDebug;
 
+        /// <summary>JUH-104: the new Happi UI (radial wheel, new chat and settings). Off by default; -newui turns it on for one launch.</summary>
+        public bool NewUiPreview;
+
+        /// <summary>JUH-108: speak narration lines too in the new chat. Off by default, so narration is shown but not voiced.</summary>
+        public bool VoiceNarration;
+
         public static CompanionSettings CreateDefault()
         {
             return new CompanionSettings();
@@ -562,6 +568,10 @@ namespace AICompanion.Settings
                 settings.IntimateExpressions = flag;
             if (TryBool(json, "showMoodDebug", out flag))
                 settings.ShowMoodDebug = flag;
+            if (TryBool(json, "newUiPreview", out flag))
+                settings.NewUiPreview = flag;
+            if (TryBool(json, "voiceNarration", out flag))
+                settings.VoiceNarration = flag;
             settings.Normalize();
             return settings;
         }
@@ -631,6 +641,8 @@ namespace AICompanion.Settings
             Number(sb, "clipSoundVolume", source.ClipSoundVolume, false);
             Bool(sb, "intimateExpressions", source.IntimateExpressions);
             Bool(sb, "showMoodDebug", source.ShowMoodDebug);
+            Bool(sb, "newUiPreview", source.NewUiPreview);
+            Bool(sb, "voiceNarration", source.VoiceNarration);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;

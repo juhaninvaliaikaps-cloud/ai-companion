@@ -46,3 +46,53 @@ wheel needs right-click. With New UI **on**, right-click on her opens the wheel 
 **A9. Inventory duplicates.** The Voice tab on `main` shows the Piper exe and Piper voice
 fields twice. The inventory lists them once (S-VO-04, S-VO-05); the new settings view shows
 them once. The old panel is not changed.
+
+## PR B
+
+**B1. Chat sending stays in ChatPanel.** Open PR #63 rewrites ChatPanel's send path (provider
+routing for the custom private endpoint, `SpeechOriginFor`). Moving `TrySend` / `Dispatch` /
+`BeginSpeech` into a presenter now would make #63 conflict on almost every line. `ChatPresenter`
+therefore owns the button behaviour and labels (Send/Stop order, Mute, Look, Escape, mic label)
+and calls ChatPanel's existing entry points (`TrySend`, `CancelReply`) through
+`ChatPanel.Presenters.cs`. ChatPanel.cs itself changes by one word (`partial`) plus the call
+sites. Privacy routing is untouched.
+
+**B2. Presenters live next to what they wrap.** `ChatPresenter` is in `AICompanion.UI` (it
+only needs Core interfaces) so the old ChatPanel can call it. The settings-side presenters
+are in `AICompanion.Settings` (`Settings/Presenters/`) because they need `CompanionSettings`,
+and Settings already references UI. The new views (`AICompanion.NewUI`) reference both.
+
+**B3. SettingsPanel is the settings host.** `SettingsPanel.Presenters.cs` implements
+`ISettingsHost` / `IPersonaHost` on top of the panel's existing `ApplyLive`, `SetStatus`,
+`UsePersona`, `ClearActivePersona`, `ConfirmClear` and `ConfirmWipe`. So every view (old tabs,
+new settings, wheel) applies and saves settings the same way and there is still only one
+live `CompanionSettings` object. No second settings file.
+
+**B4. What the old panels now call.** Chat buttons and labels (ChatPresenter), click-through
+cycle and its labels (SettingsPresenter), export (LocalDataPresenter), the eight video
+reaction test buttons and their status lines (VideoAvatarPresenter). The Persona tab is
+**not** changed, because #63 and #68 both edit SettingsPanel.Persona.cs; `PersonaPresenter`
+repeats its label wording instead, and a test pins that wording. The setup wizard already
+keeps its logic in `SetupWizardLogic.cs` (`SetupWizardFlow`, `SetupWizardGate`,
+`SetupWizardCopy`), so it is not split further.
+
+**B5. New settings keys.** `newUiPreview` and `voiceNarration` are appended to the end of the
+settings JSON reader and writer (both default false). Old files without them load with both
+off; no key was renamed or removed; the file stays encrypted by the existing
+`ProtectedLocalFile` path.
+
+**B6. Where the switch is set.** `SettingsApplicator.Apply` (startup, every change, wipe) ends
+with `NewUiSwitch.Set(Resolve(setting, args))`. `-newui` (or `--newui`) turns the new UI on
+for that launch without saving the setting.
+
+**B7. "Watch my screen" never grants consent.** The monitor list is offered only when "Whole
+screen instead of a window" and "Allow whole-screen capture" are already on in Settings →
+Screen; otherwise the presenter returns a note pointing there.
+
+**B8. "Do something" offers only existing actions.** In 2D: the reaction clips the video
+folder actually has (`AvatarReactionCatalog.Names`), plus walk left/right, stop and face me
+(the existing test actions). In 3D: the five debug emotions (keys 1–5).
+
+**B9. Mood "why".** The JUH-103 mood state keeps strengths, not a history of causes, so the
+explanation is simple: a sentence per mood (late night for sleepy, etc.) plus the three
+strongest moods. The intimate mood is never named unless the 18+ gate is open.

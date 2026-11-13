@@ -121,6 +121,9 @@ namespace AICompanion.Settings
                 if (mount.LoadedPreference != desired)
                     mount.Select(desired);
             }
+
+            // JUH-104: the new UI follows its setting, or -newui for this launch.
+            NewUiSwitch.Set(NewUiSwitch.Resolve(settings.NewUiPreview, Environment.GetCommandLineArgs()));
         }
 
         static void ApplyChat(AICompanion.AI.ChatSettings chat, CompanionSettings settings, string provider)
