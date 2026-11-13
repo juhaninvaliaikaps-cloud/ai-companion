@@ -37,6 +37,13 @@ namespace AICompanion.Settings
                 return;
             }
 
+            var mood = GetComponent<CompanionMoodKeeper>();
+            if (mood != null)
+                mood.Forget();
+            var relationship = GetComponent<RelationshipKeeper>();
+            if (relationship != null)
+                relationship.Forget();
+
             MemoryRuntime.Discard();
             _settings = CompanionSettings.CreateDefault();
             // After a full wipe she starts again as on a new install: Happi.

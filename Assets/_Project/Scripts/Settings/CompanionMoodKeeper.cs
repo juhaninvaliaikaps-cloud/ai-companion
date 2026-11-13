@@ -37,6 +37,29 @@ namespace AICompanion.Settings
             get { return _state; }
         }
 
+        public bool IsLoaded
+        {
+            get { return _loaded; }
+        }
+
+        /// <summary>
+        /// Drops the in-memory mood after a wipe. The next Update reloads the default from the
+        /// now-missing file, even when the persona id did not change.
+        /// </summary>
+        public void Forget()
+        {
+            _state = new CompanionMoodState();
+            _personaId = null;
+            _path = null;
+            _loaded = false;
+            _dirty = false;
+            _tickIn = 0f;
+            _saveIn = SaveSeconds;
+            _readout = string.Empty;
+            _lookLogged = false;
+            CompanionMoodNow.Reset();
+        }
+
         void OnEnable()
         {
             CompanionMoodInputs.CueApplied += OnCue;
