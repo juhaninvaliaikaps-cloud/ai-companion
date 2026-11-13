@@ -50,11 +50,13 @@ namespace AICompanion.Overlay
                 PlayerPrefs.GetInt(TrayPreferences.HideTaskbarKey, 0));
             _menu.Paused = PlayerPrefs.GetInt(TrayPreferences.PauseKey, 0) != 0;
             _startup = CreateStartup();
-            StartupRename.Migrate(_startup, WindowsStartupEntry.PreviousValueName, WindowsStartupEntry.ValueName);
+            _executable = CurrentExecutable();
+            // Earlier names' Run values move to this name and point at this exe (Happi.exe).
+            StartupRename.MigrateAll(_startup, WindowsStartupEntry.PreviousValueNames, WindowsStartupEntry.ValueName,
+                WindowsStartupEntry.BuildCommand(_executable));
             bool enabled;
             if (_startup.TryGetEnabled(WindowsStartupEntry.ValueName, out enabled))
                 _menu.StartWithWindows = enabled;
-            _executable = CurrentExecutable();
             ApplyPause();
             InstallTray();
             Application.quitting += OnQuitting;
@@ -114,6 +116,18 @@ namespace AICompanion.Overlay
                 return;
 
             _menu.CompanionVisible = true;
+            PushVisibility();
+        }
+
+        /// <summary>JUH-104 wheel: hides her the same way as the tray item, so the tray brings her back.</summary>
+        public void HideCompanion()
+        {
+            if (!_started)
+                StartCompanion();
+            if (!_menu.CompanionVisible)
+                return;
+
+            _menu.CompanionVisible = false;
             PushVisibility();
         }
 

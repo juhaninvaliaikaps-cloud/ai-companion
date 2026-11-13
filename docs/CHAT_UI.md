@@ -14,6 +14,7 @@ The system prompt lives on `ChatSettings.systemPrompt`. A persona selected in Se
 | **Enter** | Message field focused | Send the draft. Send is ignored while a reply is streaming. A new send also stops any speech still playing. |
 | **Esc** | A reply is streaming, speech is playing, or the field is focused | Cancel the reply and stop speech. Also leaves the text field. |
 | **Stop** | While a reply is streaming, or while speech is still playing | Same cancel as Esc. The button reads **Send** when idle. |
+| **What do you see?** | The button under the title. It reads **Stop look** while a look is in progress | Asks about the window selected under Settings → Screen. See [SCREEN_LOOK.md](SCREEN_LOOK.md). |
 | **Mute** / **F6** | **F6** is ignored while a text field is focused | Mute or unmute speech. Saved in `PlayerPrefs` (`ai-companion.tts-muted`). See [VOICE.md](VOICE.md). |
 | **F9** | Panel field is not focused | Cycle the expression portrait preview. It does not open the panel, send the draft, or start a greeting. See [PORTRAITS.md](PORTRAITS.md). |
 | **V** / **Mic** | **V** is ignored while a text field is focused. **Mic** is a hold | Record speech, then send the transcript as a **You** line. See [VOICE.md](VOICE.md). |
@@ -50,7 +51,7 @@ A missing key, a rejected request, or a model the key cannot use shows as a **No
 
 ## Try it in the Windows build
 
-1. Build and run `Builds/Windows/BackseatCatgirl.exe`.
+1. Build and run `Builds/Windows/Happi.exe`.
 2. If the key is not already in the environment or the per-user file, press **F10** if the panel is hidden, type the key into the password row, and press **Save**. The field clears and a note says the key was saved on this PC.
 3. The panel is to her left, with empty space between the panel and her body. Click the panel or press **F10** so the window comes forward, then type and press **Enter**. The reply streams. Speech is in [VOICE.md](VOICE.md).
 4. **Esc** or **Stop** cancels. **F10** hides the panel without ending the overlay. Empty pixels still click through to the desktop. Drag the window from her or from the top-left label, not from the panel.

@@ -136,10 +136,11 @@ namespace AICompanion.Tests.EditMode
         {
             AnimationClipCatalog catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>(CatalogPath);
             Assert.IsNotNull(catalog, "Missing catalog asset at " + CatalogPath);
-            Assert.AreEqual(26, catalog.Entries.Count);
+            Assert.AreEqual(45, catalog.Entries.Count);
 
             Assert.IsTrue(catalog.Validate(out List<string> problems), string.Join("\n", problems));
-            Assert.AreEqual(26, catalog.BuildPromptList().Split('\n').Length);
+            IntimateExpressions.Reset();
+            Assert.AreEqual(40, catalog.BuildPromptList().Split('\n').Length);
 
             Assert.IsTrue(catalog.TryGetById("laughing", out AnimationEntry laughing));
             Assert.AreEqual("laughing", laughing.portrait);
@@ -174,6 +175,46 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("shy", shy.portrait);
             Assert.IsTrue(catalog.TryGetById("flustered", out AnimationEntry flustered));
             Assert.AreEqual("flustered", flustered.portrait);
+
+            Assert.IsTrue(catalog.TryGetById("pouty", out AnimationEntry poutyRow));
+            Assert.AreEqual("pouty", poutyRow.portrait, "The pouty row must keep the pouty still, not the angry one.");
+
+            Assert.IsTrue(catalog.TryGetById("crying", out AnimationEntry crying));
+            Assert.AreEqual("crying", crying.portrait);
+            Assert.AreEqual(Emotion.Sad, crying.emotion);
+            Assert.IsTrue(catalog.TryGetById("crying", out AnimationEntry cryingById));
+            Assert.AreEqual("crying", cryingById.portrait);
+            Assert.IsTrue(catalog.TryGetById("smug_wink", out AnimationEntry wink));
+            Assert.AreEqual("smug_wink", wink.portrait);
+            Assert.IsTrue(catalog.TryGetById("kiss", out AnimationEntry kiss));
+            Assert.AreEqual("kiss", kiss.portrait);
+            Assert.IsTrue(catalog.TryGetById("embarrassed_worried", out AnimationEntry mixed));
+            Assert.AreEqual(Emotion.Concerned, mixed.emotion);
+
+            Assert.IsFalse(catalog.TryGetById("finger_suck", out _), "gated rows stay out of lookups while the setting is off");
+            Assert.IsFalse(catalog.BuildPromptList().Contains("finger_"), "gated rows stay out of the prompt while the setting is off");
+            Assert.IsFalse(catalog.TryGetByTag("smile", out AnimationEntry smileTag) && IntimateExpressions.IsIntimateId(smileTag.id));
+
+            IntimateExpressions.Configure(true, true, true);
+            try
+            {
+                Assert.AreEqual(45, catalog.BuildPromptList().Split('\n').Length);
+                Assert.IsTrue(catalog.TryGetById("finger_suck", out AnimationEntry fingerSuck));
+                Assert.AreEqual("finger_suck", fingerSuck.portrait);
+                Assert.AreEqual(Emotion.Flustered, fingerSuck.emotion);
+                Assert.IsTrue(catalog.TryGetById("finger_suck_hold", out AnimationEntry fingerHold));
+                Assert.AreEqual("finger_suck_hold", fingerHold.portrait);
+                Assert.IsTrue(catalog.TryGetById("finger_pull_start", out AnimationEntry fingerPull));
+                Assert.AreEqual("finger_pull_start", fingerPull.portrait);
+                Assert.AreEqual(Emotion.Shy, fingerPull.emotion);
+                Assert.IsTrue(catalog.TryGetByTag("finger_tease", out AnimationEntry teaseTag));
+                Assert.AreEqual("finger_suck", teaseTag.id);
+                Assert.IsFalse(catalog.TryGetByTag("smile", out AnimationEntry smileActive) && IntimateExpressions.IsIntimateId(smileActive.id), "finger rows must not hijack the generic smile tag");
+            }
+            finally
+            {
+                IntimateExpressions.Reset();
+            }
         }
 
         private AnimationClipCatalog NewCatalog(params AnimationEntry[] entries)

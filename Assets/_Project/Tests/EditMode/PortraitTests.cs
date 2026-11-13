@@ -30,7 +30,7 @@ namespace AICompanion.Tests.EditMode
             AssertAnimated(map, "sad", PortraitStems.Sad, PortraitStems.SadBlinkHalf, PortraitStems.SadBlinkClosed, PortraitStems.SadTalk);
             AssertAnimated(map, "surprised", PortraitStems.Surprised, PortraitStems.SurprisedBlinkHalf, PortraitStems.SurprisedBlinkClosed, PortraitStems.SurprisedTalk);
             AssertAnimated(map, "thinking", PortraitStems.Thinking, PortraitStems.ThinkingBlinkHalf, PortraitStems.ThinkingBlinkClosed, PortraitStems.ThinkingTalk);
-            AssertAnimated(map, "angry", PortraitStems.Pouty, PortraitStems.PoutyBlinkHalf, PortraitStems.PoutyBlinkClosed, PortraitStems.PoutyTalk);
+            AssertAnimated(map, "angry", PortraitStems.Angry, "angry_blink_half", "angry_blink_closed", "angry_talk");
             AssertAnimated(map, "pouty", PortraitStems.Pouty, PortraitStems.PoutyBlinkHalf, PortraitStems.PoutyBlinkClosed, PortraitStems.PoutyTalk);
             AssertAnimated(map, "excited", PortraitStems.Excited, PortraitStems.ExcitedBlinkHalf, PortraitStems.ExcitedBlinkClosed, PortraitStems.ExcitedTalk);
             AssertAnimated(map, "concerned", PortraitStems.Concerned, PortraitStems.ConcernedBlinkHalf, PortraitStems.ConcernedBlinkClosed, PortraitStems.ConcernedTalk);
@@ -38,11 +38,48 @@ namespace AICompanion.Tests.EditMode
             AssertAnimated(map, "shy", PortraitStems.Shy, PortraitStems.ShyBlinkHalf, PortraitStems.ShyBlinkClosed, PortraitStems.ShyTalk);
             AssertAnimated(map, "flustered", PortraitStems.Flustered, PortraitStems.FlusteredBlinkHalf, PortraitStems.FlusteredBlinkClosed, PortraitStems.FlusteredTalk);
 
-            AssertStill(map, "sleepy", PortraitStems.Sleepy);
-            AssertStill(map, "tired", PortraitStems.Sleepy);
-            AssertStill(map, "teasing", PortraitStems.SmugWink);
+            AssertAnimated(map, "sleepy", "sleepy", "sleepy_blink_half", "sleepy_blink_closed", "sleepy_talk");
+            AssertAnimated(map, "tired", "sleepy", "sleepy_blink_half", "sleepy_blink_closed", "sleepy_talk");
+            AssertAnimated(map, "teasing", "smug", "smug_blink_half", "smug_blink_closed", "smug_talk");
             AssertStill(map, "loving", PortraitStems.WinkSmile);
-            AssertStill(map, "embarrassed_worried", PortraitStems.EmbarrassedWorried);
+            AssertAnimated(map, "embarrassed_worried", "embarrassed_worried", "embarrassed_worried_blink_half", "embarrassed_worried_blink_closed", "embarrassed_worried_talk");
+
+            AssertAnimated(map, "crying", "crying", "crying_blink_half", "crying_blink_closed", "crying_talk");
+            AssertAnimated(map, "teary_happy", "teary_happy", "teary_happy_blink_half", "teary_happy_blink_closed", "teary_happy_talk");
+            AssertAnimated(map, "shocked", "shocked", "shocked_blink_half", "shocked_blink_closed", "shocked_talk");
+            AssertAnimated(map, "confused", "confused", "confused_blink_half", "confused_blink_closed", "confused_talk");
+            AssertAnimated(map, "bored", "bored", "bored_blink_half", "bored_blink_closed", "bored_talk");
+            AssertAnimated(map, "scared", "scared", "scared_blink_half", "scared_blink_closed", "scared_talk");
+            AssertAnimated(map, "tsundere", "tsundere", "tsundere_blink_half", "tsundere_blink_closed", "tsundere_talk");
+            AssertAnimated(map, "determined", "determined", "determined_blink_half", "determined_blink_closed", "determined_talk");
+            AssertAnimated(map, "smug", "smug", "smug_blink_half", "smug_blink_closed", "smug_talk");
+            AssertAnimated(map, "flustered_heavy", "flustered_heavy", "flustered_heavy_blink_half", "flustered_heavy_blink_closed", "flustered_heavy_talk");
+            AssertAnimated(map, "seductive", "seductive", "seductive_blink_half", "seductive_blink_closed", "seductive_talk");
+            AssertAnimated(map, "kiss", "kiss", "kiss_blink_half", "kiss_blink_closed", "kiss_talk");
+            IntimateExpressions.Reset();
+            var offMap = PortraitMap.CreateDefaults();
+            Assert.AreEqual(PortraitStems.NeutralOpen, offMap.Resolve("finger_suck").Open, "the gated set stays out of the default map");
+            IntimateExpressions.Configure(true, true, true);
+            try
+            {
+                var intimate = PortraitMap.CreateDefaults(true);
+                AssertAnimated(intimate, "finger_suck", "finger_suck", "finger_suck_blink_half", "finger_suck_blink_closed", "finger_suck_talk");
+                AssertAnimated(intimate, "finger_suck_deep", "finger_suck_deep", "finger_suck_deep_blink_half", "finger_suck_deep_blink_closed", "finger_suck_deep_talk");
+                AssertStill(intimate, "finger_suck_hold", "finger_suck_hold_00");
+                AssertStill(intimate, "finger_pull", "finger_pull_02_smile");
+                AssertStill(intimate, "finger_pull_start", "finger_pull_01");
+            }
+            finally
+            {
+                IntimateExpressions.Reset();
+            }
+
+            var wink = map.Resolve("smug_wink");
+            Assert.AreEqual("smug_wink", wink.Open);
+            Assert.AreEqual("smug_wink_talk", wink.Talk);
+            Assert.IsFalse(wink.HasBlink, "a wink has no blink frames");
+            Assert.AreEqual("smug_wink_talk", PortraitFrames.Choose(wink, PortraitLid.Closed, true));
+            Assert.AreEqual("smug_wink", PortraitFrames.Choose(wink, PortraitLid.Closed, false));
 
             Assert.AreEqual(PortraitStems.NeutralOpen, map.Resolve("not-an-emotion").Open);
             Assert.AreEqual(PortraitStems.NeutralOpen, map.Resolve(null).Open);

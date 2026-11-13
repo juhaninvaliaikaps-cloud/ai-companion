@@ -24,6 +24,12 @@ namespace AICompanion.Overlay
         public const string ValueName = AppName.Display;
         public const string PreviousValueName = AppName.PreviousDisplay;
 
+        /// <summary>Every earlier Run value name, newest first.</summary>
+        public static string[] PreviousValueNames
+        {
+            get { return AppName.PreviousDisplays; }
+        }
+
         public static string BuildCommand(string executablePath)
         {
             if (string.IsNullOrWhiteSpace(executablePath))
@@ -60,6 +66,26 @@ namespace AICompanion.Overlay
     {
         public static bool Migrate(IStartupRegistration registration, string previousName, string currentName)
         {
+            return Migrate(registration, previousName, currentName, null);
+        }
+
+        /// <summary>
+        /// Moves every earlier Run value, newest first. When <paramref name="currentCommand"/> is
+        /// set (the running exe), the new value points at it, so a renamed exe does not keep the
+        /// old exe's path. True when all of them moved.
+        /// </summary>
+        public static bool MigrateAll(IStartupRegistration registration, string[] previousNames, string currentName, string currentCommand)
+        {
+            if (previousNames == null)
+                return Migrate(registration, null, currentName, currentCommand);
+            var all = true;
+            for (var i = 0; i < previousNames.Length; i++)
+                all &= Migrate(registration, previousNames[i], currentName, currentCommand);
+            return all;
+        }
+
+        public static bool Migrate(IStartupRegistration registration, string previousName, string currentName, string currentCommand)
+        {
             if (registration == null || string.IsNullOrEmpty(currentName))
                 return false;
             if (string.IsNullOrEmpty(previousName) || previousName == currentName)
@@ -74,7 +100,8 @@ namespace AICompanion.Overlay
             string current;
             if (!registration.TryReadCommand(currentName, out current))
                 return false;
-            if (string.IsNullOrWhiteSpace(current) && !registration.TrySetEnabled(currentName, true, previous))
+            var command = string.IsNullOrWhiteSpace(currentCommand) ? previous : currentCommand;
+            if (string.IsNullOrWhiteSpace(current) && !registration.TrySetEnabled(currentName, true, command))
                 return false;
 
             return registration.TrySetEnabled(previousName, false, string.Empty);

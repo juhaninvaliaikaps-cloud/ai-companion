@@ -58,6 +58,10 @@ AnimationDirector: no cue -> neutral
 
 The cue is applied when the reply finishes, which is when the tag has arrived. Speech is already playing by then, so the face and gesture change with the spoken reply rather than with the first streamed word. A talking avatar returns to its emotion state when speech ends, because the parameter path still drives the talk state.
 
+## Reaction to the user's message
+
+The director also receives a cue before the reply exists. When a message is sent, `UserMoodDetector` reads the user's mood from their wording, and `ChatPanel` plays the matching emotion-only cue so the face responds at once. The reply cue replaces it. See [USER_MOOD.md](USER_MOOD.md).
+
 ## Tests
 
 `AnimationCueParserTests`, `CueStreamFilterTests`, `AnimationDirectorTests`, and `CueTranscriptTests` cover the tag format, split chunks, a later `<`, text after a closed tag, catalog ids, the console line, and the sealed transcript. They run in EditMode and need no Animator. The system-prompt test checks that `SystemPromptSuffix` still contains `AnimationCueParser.Instruction` and the `<animation ... />` example. `WalkRequestWiringTests` feeds a parsed reply to `AnimationDirector` and checks that `DesktopPresence` moves, sets the locomotion flag, and does not play the catalog Walk clip.

@@ -5,9 +5,9 @@ namespace AICompanion.Settings
 {
     public static class PortraitMapJson
     {
-        public static PortraitMap Parse(string json)
+        public static PortraitMap Parse(string json, bool intimate = false)
         {
-            var map = PortraitMap.CreateDefaults();
+            var map = PortraitMap.CreateDefaults(intimate);
             if (string.IsNullOrWhiteSpace(json))
                 return map;
 
@@ -17,7 +17,7 @@ namespace AICompanion.Settings
             }
             catch (FormatException)
             {
-                return PortraitMap.CreateDefaults();
+                return PortraitMap.CreateDefaults(intimate);
             }
 
             return map;

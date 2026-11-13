@@ -5,6 +5,7 @@ using AICompanion.AI;
 using AICompanion.AnimationDirector;
 using AICompanion.Core;
 using AICompanion.Memory;
+using AICompanion.UI.Presenters;
 using Director = AICompanion.AnimationDirector.AnimationDirector;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -18,7 +19,7 @@ namespace AICompanion.UI
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(-200)]
-    public sealed class ChatPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IAvatarDoubleClick, ISpeechNotes, IChatSubmitter, IChatWindow
+    public sealed partial class ChatPanel : MonoBehaviour, ICompanionStartup, IDebugPanel, IOverlayKeepAwake, IAvatarDoubleClick, ISpeechNotes, IChatSubmitter, IChatWindow
     {
         const string OpenPref = "ai-companion.chat-open";
 
@@ -35,13 +36,22 @@ namespace AICompanion.UI
         RectTransform _panelRect;
         ScrollRect _scroll;
         RectTransform _content;
-        Text _transcript;
+        // JUH-111: one Text per shown message, reused. See ChatTranscriptView.
+        readonly ChatTranscriptView _view = new ChatTranscriptView();
+        readonly System.Collections.Generic.List<Text> _messageTexts = new System.Collections.Generic.List<Text>();
+        readonly System.Collections.Generic.List<float> _messageHeights = new System.Collections.Generic.List<float>();
+        Font _transcriptFont;
+        float _laidOutWidth = -1f;
+        const float MessageSpacing = 8f;
         Text _actionLabel;
+        Text _lookLabel;
+        Button _lookButton;
         Text _muteLabel;
         Text _modelBadge;
         string _badgeProvider = string.Empty;
         string _badgeGrok = string.Empty;
         string _badgeLocal = string.Empty;
+        string _badgePrivateModel = string.Empty;
         bool _badgePrivate;
         Text _micLabel;
         Image _micImage;
@@ -77,7 +87,7 @@ namespace AICompanion.UI
         bool _started;
         bool _alive = true;
 
-        public Rect InteractiveRect => _visible ? _guiRect : new Rect(0f, 0f, 0f, 0f);
+        public Rect InteractiveRect => _visible && !_legacyHidden ? _guiRect : new Rect(0f, 0f, 0f, 0f);
 
         public ChatSettings RuntimeChat
         {
@@ -135,6 +145,9 @@ namespace AICompanion.UI
                 BindSpeech();
                 if (_speech != null && _speech.IsSpeaking)
                     return true;
+                var look = GetComponent<IScreenLook>();
+                if (look != null && look.IsBusy)
+                    return true;
                 if (_input != null && _input.isFocused)
                     return true;
                 return _keyInput != null && _keyInput.isFocused;
@@ -152,6 +165,7 @@ namespace AICompanion.UI
             _conversation = new ChatConversation();
             _exchange = new ChatExchange(_conversation);
             _exchange.SpokenDelta = ForwardSpeech;
+            _exchange.TurnReminder = AnimationCueParser.TurnReminder;
             _registry = ChatProviderFactory.Create(settings, new EnvironmentApiKeySource(), new UnityChatTransport(this), MemoryRuntime.Decorator);
             _visible = PlayerPrefs.GetInt(OpenPref, 1) != 0;
             BuildUi();
@@ -205,14 +219,7 @@ namespace AICompanion.UI
 
             if (Input.GetKeyDown(KeyCode.Escape))
             {
-                if (_conversation != null && _conversation.IsBusy)
-                    CancelReply();
-                else
-                {
-                    BindSpeech();
-                    if (_speech != null)
-                        _speech.Cancel();
-                }
+                Presenter.Escape();
 
                 if (_input != null && _input.isFocused)
                     _input.DeactivateInputField();
@@ -226,7 +233,18 @@ namespace AICompanion.UI
             var busy = _conversation != null && _conversation.IsBusy;
             var speaking = _speech != null && _speech.IsSpeaking;
             if (_actionLabel != null)
-                _actionLabel.text = busy || speaking ? "Stop" : "Send";
+                _actionLabel.text = ChatPresenter.ActionLabelFor(busy, speaking);
+            if (_lookLabel != null)
+            {
+                var look = GetComponent<IScreenLook>();
+                _lookLabel.text = ChatPresenter.LookLabelFor(look != null && look.IsBusy);
+                if (_lookButton != null)
+                {
+                    var interactable = look == null || look.LookButtonInteractable;
+                    if (_lookButton.interactable != interactable)
+                        _lookButton.interactable = interactable;
+                }
+            }
             RefreshMuteLabel();
             RefreshMic();
             RefreshModelBadge();
@@ -271,16 +289,222 @@ namespace AICompanion.UI
             return TrySend(text);
         }
 
+        public void CancelActiveReply()
+        {
+            CancelReply();
+        }
+
+        public bool SubmitObservation(ChatImageAttachment image, string windowTitle)
+        {
+            if (!_alive || image == null)
+            {
+                if (image != null)
+                    image.Wipe();
+                return false;
+            }
+
+            if (!_started)
+                StartCompanion();
+            if (!_visible)
+                SetVisible(true, false);
+            if (_conversation == null || _conversation.IsBusy)
+            {
+                image.Wipe();
+                return false;
+            }
+
+            var privacy = GetComponent<IPrivacyMode>();
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+            var providerId = settings != null
+                ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
+                : (privateMode ? ChatDefaults.LocalId : string.Empty);
+            var model = settings != null ? settings.model : string.Empty;
+            if (privateMode || !OutboundAllowsVision(privateMode))
+            {
+                _conversation.AddSystem(VisionCapability.PrivateRefusal);
+                image.Wipe();
+                RefreshTranscript(true);
+                return false;
+            }
+
+            if (ActiveChatLabel.IsLocal(providerId))
+            {
+                _conversation.AddSystem(VisionCapability.LocalRefusal);
+                image.Wipe();
+                RefreshTranscript(true);
+                return false;
+            }
+
+            if (!VisionCapability.CloudModelAcceptsImages(model) || !VisionCapability.AcceptsPayload(image))
+            {
+                _conversation.AddSystem(!VisionCapability.CloudModelAcceptsImages(model) ? VisionCapability.ModelRefusal : VisionCapability.PayloadRefusal);
+                image.Wipe();
+                RefreshTranscript(true);
+                return false;
+            }
+
+            if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
+            {
+                var message = ChatErrors.UnknownProvider(providerId);
+                _conversation.AddSystem(message);
+                image.Wipe();
+                RefreshTranscript(true);
+                return false;
+            }
+
+            if (_cancel != null)
+                _cancel.Dispose();
+            _cancel = new CancellationTokenSource();
+            BeginSpeech(privateMode, providerId);
+            var prompt = VisionPrompt.Append(DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), DirectorSuffix()));
+            var options = new ChatTurnOptions
+            {
+                Image = image,
+                SingleTurn = true,
+                Ephemeral = true,
+                BlockCloud = privateMode
+            };
+            Dispatch(provider, VisionPrompt.UserLine(windowTitle), prompt, settings.temperature, settings.maxTokens, _cancel.Token, options, false);
+            return true;
+        }
+
+        /// <summary>
+        /// Text-only follow-up after a local vision model has already described the window.
+        /// The image is not attached. The turn stays out of history and memory.
+        /// </summary>
+        public bool SubmitTextObservation(string observation)
+        {
+            if (!_alive || !VisionPrompt.HasObservation(observation))
+                return false;
+            if (!_started)
+                StartCompanion();
+            if (!_visible)
+                SetVisible(true, false);
+            if (_conversation == null || _conversation.IsBusy)
+                return false;
+
+            var privacy = GetComponent<IPrivacyMode>();
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+            var providerId = settings != null
+                ? PrivateChatRouting.ObservationProviderId(privateMode, settings.privateEndpointType)
+                : ChatDefaults.LocalId;
+            if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
+            {
+                _conversation.AddSystem(ChatErrors.UnknownProvider(providerId));
+                RefreshTranscript(true);
+                return false;
+            }
+
+            if (_cancel != null)
+                _cancel.Dispose();
+            _cancel = new CancellationTokenSource();
+            BeginSpeech(true, providerId);
+            var prompt = VisionPrompt.AppendLocalChat(DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), DirectorSuffix()));
+            var options = new ChatTurnOptions
+            {
+                SingleTurn = true,
+                Ephemeral = true,
+                BlockCloud = true
+            };
+            Dispatch(provider, VisionPrompt.LocalObservationTurn(observation), prompt, settings.temperature, settings.maxTokens, _cancel.Token, options, false);
+            return true;
+        }
+
+        /// <summary>
+        /// A screen remark written by the vision model in fast mode. The observation is kept
+        /// in session context so later replies can remember what she saw.
+        /// </summary>
+        public bool SubmitFastObservation(string observation, string reply)
+        {
+            if (!_alive || _conversation == null)
+                return false;
+
+            var text = ScreenLookCue.Strip(reply);
+            if (string.IsNullOrWhiteSpace(text) || ScreenLookCue.IsSilent(text))
+                return false;
+
+            BeginSpeech(true, ChatDefaults.LocalId);
+            _conversation.AddAssistant(text);
+            ApplyCue();
+            BindSpeech();
+            if (_speech != null)
+                _speech.CompleteUtterance();
+            RefreshTranscript(true);
+            return true;
+        }
+        /// <summary>
+        /// A look she asked for herself. The observation is answered only when it is worth
+        /// saying: the local model may reply SILENT, and then nothing is shown or spoken.
+        /// </summary>
+        public bool SubmitAutoObservation(string observation)
+        {
+            if (!_alive || !VisionPrompt.HasObservation(observation))
+                return false;
+            if (_conversation == null || _conversation.IsBusy)
+                return false;
+
+            var privacy = GetComponent<IPrivacyMode>();
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+            var providerId = settings != null
+                ? PrivateChatRouting.ObservationProviderId(privateMode, settings.privateEndpointType)
+                : ChatDefaults.LocalId;
+            if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
+                return false;
+
+            if (_cancel != null)
+                _cancel.Dispose();
+            _cancel = new CancellationTokenSource();
+            var prompt = VisionPrompt.AppendAutoLook(DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), DirectorSuffix()));
+            var text = VisionPrompt.AutoObservationTurn(observation);
+            var options = new ChatTurnOptions
+            {
+                SingleTurn = true,
+                Ephemeral = true,
+                BlockCloud = true
+            };
+            RunAutoObservation(provider, text, prompt, privateMode, providerId, options, observation, _cancel.Token);
+            return true;
+        }
+
+        async void RunAutoObservation(IChatProvider provider, string text, string prompt, bool privateMode, string providerId, ChatTurnOptions options, string observation, CancellationToken token)
+        {
+            var result = await _exchange.Run(provider, text, prompt, settings.temperature, settings.maxTokens, token, options);
+            if (!_alive || !result.Ok)
+                return;
+
+            var reply = ScreenLookCue.Strip(result.Text);
+            if (ScreenLookCue.IsSilent(reply))
+                return;
+
+            BeginSpeech(privateMode, providerId);
+            _conversation.AddAssistant(reply);
+            ScreenObservationMemory.Remember(observation);
+            ApplyCue();
+            BindSpeech();
+            if (_speech != null)
+                _speech.CompleteUtterance();
+            RefreshTranscript(true);
+            Debug.Log("Screen look: automatic look produced a remark");
+        }
+
+        static bool OutboundAllowsVision(bool privateMode)
+        {
+            return !privateMode;
+        }
+
         bool TrySend(string text)
         {
             if (_conversation == null || _conversation.IsBusy || string.IsNullOrWhiteSpace(text))
                 return false;
+            var look = GetComponent<IScreenLook>();
+            if (look != null && look.IsBusy)
+                return false;
 
             var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = privacy != null && privacy.PrivateMode;
-            var providerId = settings != null ? settings.providerId : string.Empty;
-            if (privateMode)
-                providerId = ChatDefaults.LocalId;
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+            var providerId = settings != null
+                ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
+                : (privateMode ? ChatDefaults.LocalId : string.Empty);
             if (_registry == null || settings == null || !_registry.TryGet(providerId, out var provider))
             {
                 var message = ChatErrors.UnknownProvider(providerId);
@@ -296,37 +520,111 @@ namespace AICompanion.UI
             BindSpeech();
             if (_speech != null)
             {
-                var local = privateMode || ActiveChatLabel.IsLocal(providerId);
                 _speech.Cancel();
-                _speech.BeginUtterance(new SpeechOrigin
-                {
-                    ChatProviderId = local ? ChatDefaults.LocalId : providerId,
-                    Model = local ? settings.localModel : settings.model,
-                    Private = privateMode
-                });
+                _speech.BeginUtterance(SpeechOriginFor(privateMode, providerId));
             }
 
             var suffix = string.Empty;
             var director = GetComponent<Director>();
             if (director != null)
                 suffix = director.SystemPromptSuffix;
-            var prompt = DirectorPrompt.Append(settings.systemPrompt, suffix);
+            var prompt = DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), suffix);
+
+            // JUH-21: read the user's mood on this machine. The face reacts now, before
+            // the reply, and the model gets one hint line. The reply cue replaces the face.
+            var mood = UserMoodDetector.Detect(text);
+            Debug.Log(mood.ToLogString());
+            prompt = UserMoodPrompt.Append(prompt, mood);
+            // The face reaction is shaded by her mood before the user's mood moves it.
+            if (director != null && UserMoodReaction.TryGetCue(mood, out var moodCue))
+                director.Play(moodCue);
+            CompanionMoodInputs.ReportUserMood(mood);
+
             var temperature = settings.temperature;
             var maxTokens = settings.maxTokens;
-            Dispatch(provider, text, prompt, temperature, maxTokens, _cancel.Token);
+            Dispatch(provider, text, prompt, temperature, maxTokens, _cancel.Token, null, true);
             return true;
         }
 
-        async void Dispatch(IChatProvider provider, string text, string prompt, float temperature, int maxTokens, CancellationToken token)
+        void BeginSpeech(bool privateMode, string providerId)
         {
-            var result = await _exchange.Run(provider, text, prompt, temperature, maxTokens, token);
+            BindSpeech();
+            if (_speech == null)
+                return;
+
+            _speech.Cancel();
+            _speech.BeginUtterance(SpeechOriginFor(privateMode, providerId));
+        }
+
+        /// <summary>
+        /// The voice follows the effective chat provider. A Custom server is still private,
+        /// so the origin names it but the voice route stays local.
+        /// </summary>
+        SpeechOrigin SpeechOriginFor(bool privateMode, string providerId)
+        {
+            if (privateMode && string.Equals(providerId, ChatDefaults.CustomId, StringComparison.OrdinalIgnoreCase))
+            {
+                return new SpeechOrigin
+                {
+                    ChatProviderId = ChatDefaults.CustomId,
+                    Model = settings != null ? settings.privateModel : string.Empty,
+                    Private = true
+                };
+            }
+
+            var local = privateMode || ActiveChatLabel.IsLocal(providerId);
+            return new SpeechOrigin
+            {
+                ChatProviderId = local ? ChatDefaults.LocalId : providerId,
+                Model = local
+                    ? (settings != null ? settings.localModel : string.Empty)
+                    : (settings != null ? settings.model : string.Empty),
+                Private = privateMode
+            };
+        }
+
+        string DirectorSuffix()
+        {
+            var director = GetComponent<Director>();
+            var suffix = director == null ? string.Empty : director.SystemPromptSuffix;
+            var look = GetComponent<IScreenLook>();
+            if (look != null)
+            {
+                if (look.AutoLookEnabled)
+                    suffix += ScreenLookCue.PromptLine;
+                suffix += ScreenObservationMemory.PromptLine();
+            }
+            return suffix;
+        }
+
+        void OnLookClick()
+        {
+            if (Presenter.Look() != ChatLookResult.Missing || _conversation == null)
+                return;
+
+            _conversation.AddSystem(ChatPresenter.ScreenLookMissing);
+            RefreshTranscript(true);
+        }
+
+        async void Dispatch(IChatProvider provider, string text, string prompt, float temperature, int maxTokens, CancellationToken token, ChatTurnOptions options, bool remember)
+        {
+            var result = await _exchange.Run(provider, text, prompt, temperature, maxTokens, token, options);
+            if (options != null && options.Image != null)
+                options.Image.Wipe();
             if (!_alive)
                 return;
 
             if (result.Ok)
             {
                 ApplyCue();
-                CaptureMemory(provider, text, result.Text);
+                if (remember)
+                    CaptureMemory(provider, text, result.Text);
+                if (remember && ScreenLookCue.Requests(result.Text))
+                {
+                    var look = GetComponent<IScreenLook>();
+                    if (look != null && look.RequestAutoLook())
+                        Debug.Log("Screen look: the reply asked for a look");
+                }
             }
 
             BindSpeech();
@@ -338,8 +636,10 @@ namespace AICompanion.UI
                     _speech.Cancel();
             }
 
-            if (result.Ok)
+            if (result.Ok && remember)
                 Debug.Log("Chat reply: " + result.Text);
+            else if (result.Ok)
+                Debug.Log("Screen look finished");
             else if (!string.IsNullOrEmpty(result.LogMessage))
                 Debug.LogWarning(result.LogMessage);
             else if (!string.IsNullOrEmpty(result.UserMessage))
@@ -359,20 +659,12 @@ namespace AICompanion.UI
 
         void OnActionClick()
         {
-            if (_conversation != null && _conversation.IsBusy)
+            var result = Presenter.PrimaryAction(_input != null ? _input.text : string.Empty);
+            if (result == ChatActionResult.Sent && _input != null)
             {
-                CancelReply();
-                return;
+                _input.text = string.Empty;
+                _input.ActivateInputField();
             }
-
-            BindSpeech();
-            if (_speech != null && _speech.IsSpeaking)
-            {
-                _speech.Cancel();
-                return;
-            }
-
-            SubmitDraft(_input != null ? _input.text : string.Empty);
         }
 
         void SaveKey()
@@ -424,7 +716,7 @@ namespace AICompanion.UI
                 return;
 
             var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = privacy != null && privacy.PrivateMode;
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
 
             try
             {
@@ -456,12 +748,32 @@ namespace AICompanion.UI
         /// never reached the transcript or speech, so the avatar reacts to what was said
         /// rather than to markup.
         /// </summary>
+        int _moodCueSerial;
+
         void ApplyCue()
         {
+            // What the model really wrote, so a missing or broken cue shows in Player.log.
+            Debug.Log(AnimationCueParser.DescribeTag(_exchange.LastCueTag, _exchange.LastCueStatus));
             Debug.Log(EmotionNames.FormatFieldLog(_exchange.LastCue.EmotionField));
+            // JUH-108: the new chat fires each cue at its own line and reports the mood there.
+            if (_replyCuesElsewhere)
+            {
+                _moodCueSerial = _exchange.CueSerial;
+                return;
+            }
+            // JUH-103 phase 2: the director shades the cue by the mood she had before this
+            // reply, so it plays first and the cue moves the mood after.
             var director = GetComponent<Director>();
             if (director != null)
                 director.Play(_exchange.LastCue);
+            // JUH-103: her own cue moves her lasting mood, once per finished reply. The
+            // screen-look remark paths call this without a new reply, and must not push the
+            // last cue again.
+            if (_exchange.CueSerial != _moodCueSerial)
+            {
+                _moodCueSerial = _exchange.CueSerial;
+                CompanionMoodInputs.ReportCue(_exchange.LastCue);
+            }
         }
 
         public void ShowSpeechNote(string message)
@@ -483,16 +795,12 @@ namespace AICompanion.UI
         void BindSpeech()
         {
             if (_speech == null)
-                _speech = GetComponent<ISpeechOutput>();
+                _speech = _speechOverride ?? GetComponent<ISpeechOutput>();
         }
 
         void OnMuteClick()
         {
-            BindSpeech();
-            if (_speech == null)
-                return;
-
-            _speech.SetMuted(!_speech.IsMuted);
+            Presenter.ToggleMute();
             RefreshMuteLabel();
         }
 
@@ -502,26 +810,31 @@ namespace AICompanion.UI
                 return;
 
             var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = privacy != null && privacy.PrivateMode;
-            var provider = settings.providerId ?? string.Empty;
-            var grok = settings.model ?? string.Empty;
-            var local = settings.localModel ?? string.Empty;
+            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+            var provider = settings != null
+                ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
+                : string.Empty;
+            var grok = settings != null ? settings.model ?? string.Empty : string.Empty;
+            var local = settings != null ? settings.localModel ?? string.Empty : string.Empty;
+            var privateModel = settings != null ? settings.privateModel ?? string.Empty : string.Empty;
             if (_modelBadge.text.Length > 0
                 && privateMode == _badgePrivate
                 && string.Equals(provider, _badgeProvider, StringComparison.Ordinal)
                 && string.Equals(grok, _badgeGrok, StringComparison.Ordinal)
-                && string.Equals(local, _badgeLocal, StringComparison.Ordinal))
+                && string.Equals(local, _badgeLocal, StringComparison.Ordinal)
+                && string.Equals(privateModel, _badgePrivateModel, StringComparison.Ordinal))
                 return;
 
             _badgePrivate = privateMode;
             _badgeProvider = provider;
             _badgeGrok = grok;
             _badgeLocal = local;
+            _badgePrivateModel = privateModel;
             var localNow = privateMode || ActiveChatLabel.IsLocal(provider);
             _modelBadge.color = localNow
                 ? new Color(0.72f, 0.90f, 0.78f, 0.96f)
                 : new Color(0.98f, 0.86f, 0.62f, 0.96f);
-            _modelBadge.text = ActiveChatLabel.Format(provider, privateMode, grok, local);
+            _modelBadge.text = ActiveChatLabel.Format(provider, privateMode, grok, local, privateModel);
         }
 
         void RefreshMuteLabel()
@@ -530,7 +843,7 @@ namespace AICompanion.UI
                 return;
 
             BindSpeech();
-            _muteLabel.text = _speech != null && _speech.IsMuted ? "Muted" : "Mute";
+            _muteLabel.text = ChatPresenter.MuteLabelFor(_speech != null && _speech.IsMuted);
         }
 
         void RefreshMic()
@@ -542,7 +855,7 @@ namespace AICompanion.UI
                 SetVisible(true, false);
             _wasRecording = recording;
             if (_micLabel != null)
-                _micLabel.text = recording ? "Rec" : waiting ? "..." : "Mic";
+                _micLabel.text = ChatPresenter.MicLabelFor(recording, waiting);
             if (_micImage != null)
                 _micImage.color = recording
                     ? new Color(0.72f, 0.16f, 0.18f, 1f)
@@ -805,30 +1118,100 @@ namespace AICompanion.UI
 
         void RefreshTranscript(bool force)
         {
-            if (_conversation == null || _transcript == null)
-                return;
-            if (!force && _shownRevision == _conversation.Revision)
+            if (_conversation == null || _content == null)
                 return;
 
-            _shownRevision = _conversation.Revision;
-            _transcript.text = _conversation.FormatTranscript();
-            var width = _content != null ? _content.rect.width : _guiRect.width - 16f;
+            // The panel width follows her placement, so a resize re-wraps the messages even
+            // when no new message arrived (Bugbot on #64).
+            var width = _content.rect.width;
             if (width < 8f)
                 width = Mathf.Max(8f, _guiRect.width - 16f);
+            var textWidth = Mathf.Max(8f, width - 8f);
+            var widthChanged = Mathf.Abs(textWidth - _laidOutWidth) > 0.5f;
+            var newContent = force || _shownRevision != _conversation.Revision;
+            if (!newContent && !widthChanged)
+                return;
 
-            var textRect = _transcript.rectTransform;
-            textRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
-            Canvas.ForceUpdateCanvases();
-            var height = Mathf.Max(8f, _transcript.preferredHeight);
-            textRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
-            if (_content != null)
+            // A reader at the latest message stays there through a resize; one scrolled up
+            // keeps their place (Bugbot on #64).
+            var atBottom = _scroll == null || _scroll.verticalNormalizedPosition <= 0.01f;
+            _shownRevision = _conversation.Revision;
+            _view.Update(_conversation.Lines);
+            _laidOutWidth = textWidth;
+
+            var count = _view.Count;
+            while (_messageTexts.Count < count)
+                AddMessageText();
+
+            var measure = false;
+            for (var i = 0; i < _messageTexts.Count; i++)
             {
-                _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
-                _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+                var text = _messageTexts[i];
+                if (i >= count)
+                {
+                    // Unused: empty and hidden, so it holds no mesh.
+                    if (text.gameObject.activeSelf)
+                    {
+                        text.text = string.Empty;
+                        text.gameObject.SetActive(false);
+                    }
+
+                    continue;
+                }
+
+                if (!text.gameObject.activeSelf)
+                    text.gameObject.SetActive(true);
+                if (_view.Changed(i) || widthChanged || _messageHeights[i] <= 0f)
+                {
+                    text.text = _view.Entry(i);
+                    text.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, textWidth);
+                    _messageHeights[i] = -1f;
+                    measure = true;
+                }
             }
 
-            if (_scroll != null)
+            if (measure)
+            {
+                Canvas.ForceUpdateCanvases();
+                for (var i = 0; i < count; i++)
+                {
+                    if (_messageHeights[i] < 0f)
+                        _messageHeights[i] = Mathf.Max(8f, _messageTexts[i].preferredHeight);
+                }
+            }
+
+            var y = 0f;
+            for (var i = 0; i < count; i++)
+            {
+                var rect = _messageTexts[i].rectTransform;
+                rect.anchoredPosition = new Vector2(4f, -y);
+                rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, _messageHeights[i]);
+                y += _messageHeights[i] + MessageSpacing;
+            }
+
+            var height = Mathf.Max(8f, y - MessageSpacing);
+            _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+            _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+            // New content jumps to the latest message. A resize keeps a reader at the bottom
+            // there, and leaves someone reading older messages where they were.
+            if (_scroll != null && (newContent || atBottom))
                 _scroll.verticalNormalizedPosition = 0f;
+        }
+
+        void AddMessageText()
+        {
+            var text = CreateText(_content, _transcriptFont, 14, TextAnchor.UpperLeft, string.Empty);
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.raycastTarget = false;
+            var rect = text.rectTransform;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(Mathf.Max(8f, _laidOutWidth), 8f);
+            _messageTexts.Add(text);
+            _messageHeights.Add(-1f);
         }
 
         void BuildUi()
@@ -900,10 +1283,20 @@ namespace AICompanion.UI
             actionRect.sizeDelta = new Vector2(64f, 22f);
             _actionLabel = action.GetComponentInChildren<Text>();
 
+            _lookButton = CreateButton(_panel.transform, font, "What do you see?", OnLookClick);
+            var look = _lookButton.gameObject;
+            var lookRect = look.GetComponent<RectTransform>();
+            lookRect.anchorMin = new Vector2(0f, 1f);
+            lookRect.anchorMax = new Vector2(1f, 1f);
+            lookRect.pivot = new Vector2(0.5f, 1f);
+            lookRect.anchoredPosition = new Vector2(0f, -30f);
+            lookRect.sizeDelta = new Vector2(-12f, 22f);
+            _lookLabel = look.GetComponentInChildren<Text>();
+
             var scrollObject = new GameObject("History");
             scrollObject.transform.SetParent(_panel.transform, false);
             var scrollRect = scrollObject.AddComponent<RectTransform>();
-            Stretch(scrollRect, 6f, 30f, 6f, 64f);
+            Stretch(scrollRect, 6f, 56f, 6f, 64f);
             _scroll = scrollObject.AddComponent<ScrollRect>();
             _scroll.horizontal = false;
             _scroll.vertical = true;
@@ -930,15 +1323,8 @@ namespace AICompanion.UI
             _content.sizeDelta = new Vector2(0f, 8f);
             _scroll.content = _content;
 
-            _transcript = CreateText(content.transform, font, 14, TextAnchor.UpperLeft, string.Empty);
-            _transcript.horizontalOverflow = HorizontalWrapMode.Wrap;
-            _transcript.verticalOverflow = VerticalWrapMode.Overflow;
-            var transcriptRect = _transcript.rectTransform;
-            transcriptRect.anchorMin = new Vector2(0f, 1f);
-            transcriptRect.anchorMax = new Vector2(1f, 1f);
-            transcriptRect.pivot = new Vector2(0.5f, 1f);
-            transcriptRect.anchoredPosition = Vector2.zero;
-            transcriptRect.sizeDelta = new Vector2(-8f, 8f);
+            // The messages are Texts created on demand under the content (RefreshTranscript).
+            _transcriptFont = font;
 
             var mic = CreateHoldButton(_panel.transform, font, "Mic");
             var micRect = mic.GetComponent<RectTransform>();

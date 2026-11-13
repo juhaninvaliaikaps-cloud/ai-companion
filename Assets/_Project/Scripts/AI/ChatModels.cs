@@ -6,6 +6,7 @@ namespace AICompanion.AI
     {
         public const string GrokId = "grok";
         public const string LocalId = "local";
+        public const string CustomId = "custom";
 
         /// <summary>Checked against the xAI streaming docs on 2026-10-21.</summary>
         public const string Model = "grok-4.7";
@@ -44,6 +45,29 @@ namespace AICompanion.AI
         public string Model;
         public float Temperature = ChatDefaults.Temperature;
         public int MaxTokens = ChatDefaults.MaxTokens;
+
+        /// <summary>
+        /// One JPEG for this request only. It is not copied into <see cref="Messages"/>
+        /// and must be wiped after the body is built. Null for ordinary chat.
+        /// </summary>
+        public ChatImageAttachment Image;
+
+        /// <summary>
+        /// When set, an attached image must not be posted. Private mode sets this
+        /// so a cloud vision call cannot leave the machine.
+        /// </summary>
+        public bool BlockCloud;
+    }
+
+    /// <summary>
+    /// Options for one send. Ordinary chat leaves this null.
+    /// </summary>
+    public sealed class ChatTurnOptions
+    {
+        public ChatImageAttachment Image;
+        public bool SingleTurn;
+        public bool Ephemeral;
+        public bool BlockCloud;
     }
 
     public enum ChatErrorKind

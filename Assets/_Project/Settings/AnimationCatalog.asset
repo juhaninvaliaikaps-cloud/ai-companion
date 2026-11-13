@@ -265,7 +265,7 @@ MonoBehaviour:
     tags:
     - mixed
     - care
-    emotion: 2
+    emotion: 8
     intensity: 0.5
     portrait: embarrassed_worried
     gesture: 
@@ -280,7 +280,7 @@ MonoBehaviour:
     - playful
     emotion: 2
     intensity: 0.45
-    portrait: angry
+    portrait: pouty
     gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
@@ -333,6 +333,253 @@ MonoBehaviour:
     emotion: 0
     intensity: 0.3
     portrait: sleepy
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: crying
+    description: use for strong sadness, stronger than the sad face
+    tags:
+    - tears
+    - sad
+    emotion: 2
+    intensity: 0.9
+    portrait: crying
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: teary_happy
+    description: use for happy with tears in her eyes
+    tags:
+    - tears
+    - moved
+    emotion: 1
+    intensity: 0.7
+    portrait: teary_happy
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: shocked
+    description: use for strong surprise or shock
+    tags:
+    - shock
+    - stunned
+    emotion: 3
+    intensity: 0.9
+    portrait: shocked
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: confused
+    description: use when she does not understand something
+    tags:
+    - puzzled
+    - huh
+    emotion: 4
+    intensity: 0.5
+    portrait: confused
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: bored
+    description: use when she is bored or unimpressed
+    tags:
+    - bored
+    - meh
+    emotion: 0
+    intensity: 0.3
+    portrait: bored
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: scared
+    description: use when she is afraid or startled
+    tags:
+    - fear
+    - afraid
+    emotion: 8
+    intensity: 0.7
+    portrait: scared
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: tsundere
+    description: use for a proud, denying, tsundere reaction
+    tags:
+    - denial
+    - hmph
+    emotion: 6
+    intensity: 0.6
+    portrait: tsundere
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: determined
+    description: use when she is focused and determined
+    tags:
+    - focused
+    - serious
+    emotion: 0
+    intensity: 0.6
+    portrait: determined
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: angry
+    description: use for real anger, sharper than a playful pout
+    tags:
+    - anger
+    - mad
+    emotion: 2
+    intensity: 0.6
+    portrait: angry
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: smug
+    description: use for a smug, knowing smile
+    tags:
+    - smug
+    - knowing
+    emotion: 1
+    intensity: 0.6
+    portrait: smug
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: smug_wink
+    description: use for a smug wink
+    tags:
+    - wink
+    - smug
+    emotion: 1
+    intensity: 0.65
+    portrait: smug_wink
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: flustered_heavy
+    description: use for a heavy flush when she is overwhelmed
+    tags:
+    - overwhelmed
+    - blush
+    emotion: 7
+    intensity: 0.85
+    portrait: flustered_heavy
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: seductive
+    description: use for a flirty, seductive look
+    tags:
+    - flirty
+    - alluring
+    emotion: 6
+    intensity: 0.7
+    portrait: seductive
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: kiss
+    description: use for a kiss or an affectionate kiss sound
+    tags:
+    - kiss
+    - love
+    emotion: 1
+    intensity: 0.8
+    portrait: kiss
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: finger_suck
+    description: use for a teasing moment, his fingertip at her lips
+    tags:
+    - finger_tease
+    - finger_lips
+    emotion: 7
+    intensity: 0.75
+    portrait: finger_suck
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: finger_suck_deep
+    description: use when she holds his finger between her lips with eye contact
+    tags:
+    - finger_tease
+    - finger_eye_contact
+    emotion: 7
+    intensity: 0.8
+    portrait: finger_suck_deep
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: finger_suck_hold
+    description: use when she closes her eyes, still holding it
+    tags:
+    - finger_hold
+    - finger_lips
+    emotion: 7
+    intensity: 0.8
+    portrait: finger_suck_hold
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: finger_pull
+    description: use after, a shy satisfied smile
+    tags:
+    - finger_after
+    - finger_smile
+    emotion: 6
+    intensity: 0.7
+    portrait: finger_pull
+    gesture: 
+    animatorState: Idle
+    clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}
+    durationSeconds: 2
+    priority: 0
+  - id: finger_pull_start
+    description: use when his finger is just leaving her lips
+    tags:
+    - finger_tease
+    - finger_lips
+    emotion: 6
+    intensity: 0.6
+    portrait: finger_pull_start
     gesture: 
     animatorState: Idle
     clip: {fileID: 7400000, guid: ee1015d3c728d3f609b1b6fd458c6334, type: 2}

@@ -778,8 +778,10 @@ namespace AICompanion.Avatar
             var procedural = handsMouth
                 ? EmotionFace.ProceduralTalkScale(_talkAmount, ownership)
                 : _talkAmount;
-            var faceEmotion = _expressionHold.Active ? _expressionHold.Emotion : Emotion.Neutral;
-            var intensity = _expressionHold.Active ? _expressionHold.Intensity : 0f;
+            // A reply's expression wins. Without one, her mood's rest look shows (JUH-103).
+            var rest = _expressionHold.Active ? default(MoodLook) : CompanionMoodNow.Rest;
+            var faceEmotion = _expressionHold.Active ? _expressionHold.Emotion : rest.Face;
+            var intensity = _expressionHold.Active ? _expressionHold.Intensity : rest.Intensity;
             var emotionPose = EmotionFace.ProjectOnto(
                 EmotionFace.EmotionPose(faceEmotion, intensity),
                 _boundPresets);

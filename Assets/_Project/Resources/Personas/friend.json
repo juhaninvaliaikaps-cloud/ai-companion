@@ -9,5 +9,6 @@
   "providerId": "grok",
   "model": "grok-4.7",
   "avatarSource": "auto",
-  "portraitFolder": ""
+  "portraitFolder": "",
+  "temperament": "cheerful"
 }

@@ -13,6 +13,9 @@ namespace AICompanion.AI
         public string baseUrl = ChatDefaults.BaseUrl;
         public string localModel = ChatDefaults.LocalModel;
         public string localBaseUrl = ChatDefaults.LocalBaseUrl;
+        public string privateEndpointType = PrivateEndpointTypes.Local;
+        public string privateBaseUrl = string.Empty;
+        public string privateModel = string.Empty;
         public float timeoutSeconds = ChatDefaults.TimeoutSeconds;
         public float temperature = ChatDefaults.Temperature;
         public int maxTokens = ChatDefaults.MaxTokens;
@@ -27,6 +30,9 @@ namespace AICompanion.AI
             copy.baseUrl = baseUrl;
             copy.localModel = localModel;
             copy.localBaseUrl = localBaseUrl;
+            copy.privateEndpointType = privateEndpointType;
+            copy.privateBaseUrl = privateBaseUrl;
+            copy.privateModel = privateModel;
             copy.timeoutSeconds = timeoutSeconds;
             copy.temperature = temperature;
             copy.maxTokens = maxTokens;

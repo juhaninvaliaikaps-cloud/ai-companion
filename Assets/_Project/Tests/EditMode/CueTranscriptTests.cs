@@ -88,10 +88,89 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(Emotion.Neutral, exchange.LastCue.Emotion);
         }
 
+        [Test]
+        public void Exchange_TurnReminder_GoesToTheModelOnly_AndTheRawTagIsKeptForTheLog()
+        {
+            var conversation = new ChatConversation();
+            var exchange = new ChatExchange(conversation) { TurnReminder = AnimationCueParser.TurnReminder };
+            var provider = new ScriptedProvider
+            {
+                Result = ChatResult.Success("<Animation Emotion='sad' reaction=pout>\n*She looks away.* Fine.")
+            };
+
+            var result = exchange.Run(provider, "you're cute", "persona", 0.5f, 200, CancellationToken.None).GetAwaiter().GetResult();
+
+            // The model got the reminder on the newest user message.
+            var sent = provider.Seen.Messages[provider.Seen.Messages.Count - 1];
+            Assert.AreEqual(ChatRole.User, sent.Role);
+            StringAssert.StartsWith("you're cute", sent.Content);
+            StringAssert.EndsWith(AnimationCueParser.TurnReminder, sent.Content);
+
+            // Nothing else saw it: the transcript, the display, and the next request's history.
+            Assert.AreEqual("you're cute", conversation.Lines[0].Text);
+            var followUp = conversation.BuildRequest("persona", 0.5f, 200);
+            Assert.AreEqual("you're cute", followUp.Messages[0].Content);
+
+            // A sloppy tag at the start of the reply: read, stripped, and kept raw for the log.
+            Assert.IsTrue(result.Ok);
+            Assert.AreEqual("*She looks away.* Fine.", result.Text);
+            Assert.AreEqual(Emotion.Sad, exchange.LastCue.Emotion);
+            Assert.AreEqual("pout", exchange.LastCue.Reaction);
+            Assert.AreEqual(CueParseStatus.Parsed, exchange.LastCueStatus);
+            Assert.AreEqual("<Animation Emotion='sad' reaction=pout>", exchange.LastCueTag);
+            Assert.AreEqual("Cue tag: <Animation Emotion='sad' reaction=pout>", AnimationCueParser.DescribeTag(exchange.LastCueTag, exchange.LastCueStatus));
+        }
+
+        [Test]
+        public void Exchange_ReplyWithoutATag_LogsThatNoneWasFound()
+        {
+            var conversation = new ChatConversation();
+            var exchange = new ChatExchange(conversation) { TurnReminder = AnimationCueParser.TurnReminder };
+            var provider = new ScriptedProvider { Result = ChatResult.Success("*Her cheeks flush.* Ah... I suppose.") };
+
+            exchange.Run(provider, "hi", "persona", 0.5f, 200, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.AreEqual(CueParseStatus.None, exchange.LastCueStatus);
+            Assert.AreEqual("Cue tag: none found in the reply", AnimationCueParser.DescribeTag(exchange.LastCueTag, exchange.LastCueStatus));
+        }
+
+        [Test]
+        public void Exchange_CueSerial_CountsEachFinishedReplyOnce()
+        {
+            // JUH-103: the mood takes each reply's cue once, keyed on this counter.
+            var conversation = new ChatConversation();
+            var exchange = new ChatExchange(conversation);
+            var provider = new ScriptedProvider { Result = ChatResult.Success("<animation emotion=\"happy\" />\nHi.") };
+            Assert.AreEqual(0, exchange.CueSerial);
+
+            exchange.Run(provider, "hi", "persona", 0.5f, 200, CancellationToken.None).GetAwaiter().GetResult();
+            Assert.AreEqual(1, exchange.CueSerial);
+
+            // Clearing the transcript is not a new reply.
+            conversation.ClearTranscript();
+            Assert.AreEqual(1, exchange.CueSerial);
+
+            exchange.Run(provider, "again", "persona", 0.5f, 200, CancellationToken.None).GetAwaiter().GetResult();
+            Assert.AreEqual(2, exchange.CueSerial);
+        }
+
+        [Test]
+        public void Exchange_WithoutAReminder_SendsTheMessageAsTyped()
+        {
+            var conversation = new ChatConversation();
+            var exchange = new ChatExchange(conversation);
+            var provider = new ScriptedProvider();
+
+            exchange.Run(provider, "hi", "persona", 0.5f, 200, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.AreEqual("hi", provider.Seen.Messages[0].Content);
+        }
+
         sealed class ScriptedProvider : IChatProvider
         {
             public string[] Deltas = new string[0];
             public ChatResult Result = ChatResult.Success("ok");
+            public ChatRequest Seen;
 
             public string ProviderId => "fake";
             public string DisplayName => "Fake";
@@ -99,6 +178,7 @@ namespace AICompanion.Tests.EditMode
 
             public Task<ChatResult> StreamChat(ChatRequest request, Action<string> onDelta, CancellationToken cancellationToken)
             {
+                Seen = request;
                 if (onDelta != null)
                 {
                     for (var i = 0; i < Deltas.Length; i++)

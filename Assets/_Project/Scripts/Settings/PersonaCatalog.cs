@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using AICompanion.AI;
+using AICompanion.Core;
 using UnityEngine;
 
 namespace AICompanion.Settings
@@ -135,10 +135,14 @@ namespace AICompanion.Settings
             Array.Sort(files, StringComparer.OrdinalIgnoreCase);
             for (var i = 0; i < files.Length; i++)
             {
+                var read = ProtectedLocalFile.Read(files[i]);
+                if (read.Status != LocalReadStatus.Ready)
+                    continue;
+
                 PersonaDefinition persona = null;
                 try
                 {
-                    persona = PersonaJson.Parse(File.ReadAllText(files[i]));
+                    persona = PersonaJson.Parse(read.Text);
                 }
                 catch (Exception)
                 {
@@ -147,6 +151,7 @@ namespace AICompanion.Settings
 
                 if (persona == null)
                 {
+                    ProtectedLocalFile.Quarantine(files[i]);
                     Debug.LogWarning("Persona file could not be read: " + Path.GetFileName(files[i]));
                     continue;
                 }
@@ -167,6 +172,8 @@ namespace AICompanion.Settings
 
         static int Rank(string id)
         {
+            if (string.Equals(id, PersonaDefaults.HappiId, StringComparison.OrdinalIgnoreCase))
+                return -1;
             if (string.Equals(id, "friend", StringComparison.OrdinalIgnoreCase))
                 return 0;
             if (string.Equals(id, "coach", StringComparison.OrdinalIgnoreCase))
@@ -238,8 +245,6 @@ namespace AICompanion.Settings
 
     public static class PersonaStore
     {
-        static readonly UTF8Encoding Utf8 = new UTF8Encoding(false);
-
         public static bool Save(string directory, PersonaDefinition persona)
         {
             if (persona == null || string.IsNullOrWhiteSpace(directory))
@@ -264,8 +269,7 @@ namespace AICompanion.Settings
                 if (CompanionSettingsSecrets.ContainsForbiddenSecretField(json))
                     return false;
 
-                File.WriteAllText(path, json, Utf8);
-                return true;
+                return ProtectedLocalFile.Write(path, json);
             }
             catch (Exception)
             {
@@ -298,7 +302,9 @@ namespace AICompanion.Settings
                     PersonaDefinition parsed = null;
                     try
                     {
-                        parsed = PersonaJson.Parse(File.ReadAllText(files[i]));
+                        var read = ProtectedLocalFile.Read(files[i]);
+                        if (read.Status == LocalReadStatus.Ready)
+                            parsed = PersonaJson.Parse(read.Text);
                     }
                     catch (Exception)
                     {
@@ -454,6 +460,18 @@ namespace AICompanion.Settings
                 return;
 
             PersonaApply.Overlay(settings, persona, File.Exists, Directory.Exists);
+        }
+
+        /// <summary>
+        /// The temperament of a persona (JUH-103 phase 3). No persona (the setup name), a missing
+        /// persona, or a blank or unknown preset is the default (balanced) temperament.
+        /// </summary>
+        public static AICompanion.Core.PersonaTemperament TemperamentFor(PersonaCatalog catalog, string personaId)
+        {
+            if (catalog == null || string.IsNullOrWhiteSpace(personaId))
+                return AICompanion.Core.PersonaTemperament.Default;
+            var persona = catalog.Find(personaId);
+            return AICompanion.Core.PersonaTemperaments.Get(persona == null ? null : persona.Temperament);
         }
 
         public static string SystemPrompt(CompanionSettings settings, PersonaCatalog catalog)

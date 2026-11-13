@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using AICompanion.Core;
 using UnityEngine;
 
 namespace AICompanion.Memory
@@ -132,17 +133,25 @@ namespace AICompanion.Memory
         /// <summary>Reads memory.json, or starts empty when it is missing or unreadable.</summary>
         public static MemoryStore Load(string path)
         {
-            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            var read = ProtectedLocalFile.Read(path);
+            if (read.Status != LocalReadStatus.Ready || string.IsNullOrWhiteSpace(read.Text))
                 return new MemoryStore(path, new MemoryFile());
 
             try
             {
-                var json = File.ReadAllText(path);
-                var file = JsonUtility.FromJson<MemoryFile>(json);
+                var file = JsonUtility.FromJson<MemoryFile>(read.Text);
+                if (file == null)
+                {
+                    ProtectedLocalFile.Quarantine(path);
+                    Debug.LogWarning("Memory file could not be read, starting empty: invalid");
+                    return new MemoryStore(path, new MemoryFile());
+                }
+
                 return new MemoryStore(path, file);
             }
             catch (Exception e)
             {
+                ProtectedLocalFile.Quarantine(path);
                 Debug.LogWarning("Memory file could not be read, starting empty: " + e.GetType().Name);
                 return new MemoryStore(path, new MemoryFile());
             }
@@ -355,11 +364,8 @@ namespace AICompanion.Memory
 
             try
             {
-                var folder = System.IO.Path.GetDirectoryName(_path);
-                if (!string.IsNullOrEmpty(folder))
-                    Directory.CreateDirectory(folder);
-
-                File.WriteAllText(_path, JsonUtility.ToJson(_file, true));
+                if (!ProtectedLocalFile.Write(_path, JsonUtility.ToJson(_file, true)))
+                    Debug.LogWarning("Memory could not be saved: write");
             }
             catch (Exception e)
             {

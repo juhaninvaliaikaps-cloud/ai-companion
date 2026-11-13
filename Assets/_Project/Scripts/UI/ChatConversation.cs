@@ -28,6 +28,11 @@ namespace AICompanion.UI
         public string Text { get; private set; }
         public bool Streaming { get; private set; }
 
+        /// <summary>
+        /// Screen observations stay in the session transcript and are left out of the history file.
+        /// </summary>
+        public bool KeepInHistory { get; internal set; } = true;
+
         internal void Append(string piece)
         {
             if (!string.IsNullOrEmpty(piece))
@@ -79,15 +84,36 @@ namespace AICompanion.UI
 
         public bool TryBeginSend(string userText, string systemPrompt, float temperature, int maxTokens, out ChatRequest request)
         {
+            return TryBeginSend(userText, systemPrompt, temperature, maxTokens, out request, null);
+        }
+
+        public bool TryBeginSend(string userText, string systemPrompt, float temperature, int maxTokens, out ChatRequest request, ChatTurnOptions options)
+        {
             request = null;
             var text = (userText ?? string.Empty).Trim();
             if (IsBusy || text.Length == 0)
                 return false;
 
             Generation++;
-            _lines.Add(new ChatLine(ChatLineKind.User, text, false));
-            request = BuildRequest(systemPrompt, temperature, maxTokens);
-            _lines.Add(new ChatLine(ChatLineKind.Assistant, string.Empty, true));
+            var user = new ChatLine(ChatLineKind.User, text, false);
+            _lines.Add(user);
+            request = options != null && options.SingleTurn
+                ? BuildSingle(systemPrompt, temperature, maxTokens, text)
+                : BuildRequest(systemPrompt, temperature, maxTokens);
+            if (options != null)
+            {
+                request.Image = options.Image;
+                request.BlockCloud = options.BlockCloud;
+            }
+
+            var assistant = new ChatLine(ChatLineKind.Assistant, string.Empty, true);
+            _lines.Add(assistant);
+            if (options != null && options.Ephemeral)
+            {
+                user.KeepInHistory = false;
+                assistant.KeepInHistory = false;
+            }
+
             IsBusy = true;
             Touch();
             return true;
@@ -146,7 +172,7 @@ namespace AICompanion.UI
                 }
                 else
                 {
-                    SealAssistant(result.Text);
+                    SealAssistant(ScreenLookCue.Strip(result.Text));
                 }
 
                 return;
@@ -164,6 +190,15 @@ namespace AICompanion.UI
                 AddSystem(note);
         }
 
+        /// <summary>A reply that was not triggered by a visible user turn, used by automatic looks.</summary>
+        public void AddAssistant(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+
+            _lines.Add(new ChatLine(ChatLineKind.Assistant, text.Trim(), false));
+            Touch();
+        }
         public void AddSystem(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
@@ -195,6 +230,18 @@ namespace AICompanion.UI
                 Temperature = temperature,
                 MaxTokens = maxTokens,
                 Messages = messages
+            };
+            return request;
+        }
+
+        ChatRequest BuildSingle(string systemPrompt, float temperature, int maxTokens, string userText)
+        {
+            var request = new ChatRequest
+            {
+                SystemPrompt = string.IsNullOrWhiteSpace(systemPrompt) ? ChatDefaults.SystemPrompt : systemPrompt.Trim(),
+                Temperature = temperature,
+                MaxTokens = maxTokens,
+                Messages = new List<ChatMessage> { new ChatMessage(ChatRole.User, userText ?? string.Empty) }
             };
             return request;
         }
@@ -327,8 +374,29 @@ namespace AICompanion.UI
 
         public Action<string> SpokenDelta;
 
+        /// <summary>JUH-108: every raw piece from the provider, cue tags included, before filtering. The new chat uses it to place cues on their own line.</summary>
+        public Action<string> RawDelta;
+
         /// <summary>The cue parsed from the last successful reply.</summary>
         public AnimationCue LastCue { get; private set; }
+
+        /// <summary>The tag as the model wrote it in the last reply, for the log. Empty when it wrote none.</summary>
+        public string LastCueTag { get; private set; }
+
+        /// <summary>How the last reply's tag was read: none, parsed, or not readable.</summary>
+        public CueParseStatus LastCueStatus { get; private set; }
+
+        /// <summary>
+        /// Goes up by one each time a reply finishes and <see cref="LastCue"/> is read from it.
+        /// Lets a listener act on each reply's cue exactly once.
+        /// </summary>
+        public int CueSerial { get; private set; }
+
+        /// <summary>
+        /// Added to the newest user message in each request, never to the transcript, the
+        /// display or memory. Empty sends the message as typed.
+        /// </summary>
+        public string TurnReminder;
 
         CueStreamFilter _filter;
         int _generation;
@@ -336,11 +404,17 @@ namespace AICompanion.UI
 
         public Task<ChatResult> Run(IChatProvider provider, string userText, string systemPrompt, float temperature, int maxTokens, CancellationToken token)
         {
-            if (!_conversation.TryBeginSend(userText, systemPrompt, temperature, maxTokens, out var request))
+            return Run(provider, userText, systemPrompt, temperature, maxTokens, token, null);
+        }
+
+        public Task<ChatResult> Run(IChatProvider provider, string userText, string systemPrompt, float temperature, int maxTokens, CancellationToken token, ChatTurnOptions options)
+        {
+            if (!_conversation.TryBeginSend(userText, systemPrompt, temperature, maxTokens, out var request, options))
                 return Task.FromResult(ChatResult.Fail(ChatErrorKind.Malformed, "Type a message first."));
 
             if (token.IsCancellationRequested)
             {
+                WipeImage(request);
                 var cancelled = ChatResult.Fail(ChatErrorKind.Cancelled, ChatErrors.Cancelled);
                 _conversation.Complete(cancelled);
                 return Task.FromResult(cancelled);
@@ -348,16 +422,20 @@ namespace AICompanion.UI
 
             if (provider == null)
             {
+                WipeImage(request);
                 var missing = ChatResult.Fail(ChatErrorKind.Unreachable, ChatErrors.Unreachable("the chat provider"));
                 _conversation.Complete(missing);
                 return Task.FromResult(missing);
             }
 
+            AddTurnReminder(request, TurnReminder);
             var generation = _conversation.Generation;
             _generation = generation;
             _filter = new CueStreamFilter();
             _sawPiece = false;
             LastCue = AnimationCueParser.NeutralCue;
+            LastCueTag = string.Empty;
+            LastCueStatus = CueParseStatus.None;
             if (Talking != null)
                 Talking(true);
 
@@ -368,6 +446,7 @@ namespace AICompanion.UI
                 {
                     if (!string.IsNullOrEmpty(piece))
                         _sawPiece = true;
+                    Raw(piece);
 
                     var shown = _filter.Push(piece);
                     if (shown.Length == 0)
@@ -439,7 +518,10 @@ namespace AICompanion.UI
             if (_filter != null)
             {
                 if (result.Ok && !_sawPiece && !string.IsNullOrEmpty(result.Text))
+                {
+                    Raw(result.Text);
                     _filter.Push(result.Text);
+                }
 
                 var tail = _filter.Flush();
                 if (tail.Length > 0)
@@ -458,6 +540,9 @@ namespace AICompanion.UI
                     }
 
                     LastCue = _filter.Cue;
+                    LastCueTag = _filter.RawTag;
+                    LastCueStatus = _filter.Status;
+                    CueSerial++;
                     _conversation.ReplaceStreamingAssistant(_generation, _filter.Text);
                     result = ChatResult.Success(_filter.Text);
                 }
@@ -465,6 +550,36 @@ namespace AICompanion.UI
 
             _conversation.Complete(result);
             return result;
+        }
+
+        /// <summary>Appends <paramref name="reminder"/> to the last user message of the request only.</summary>
+        public static void AddTurnReminder(ChatRequest request, string reminder)
+        {
+            if (request == null || request.Messages == null || string.IsNullOrWhiteSpace(reminder))
+                return;
+
+            for (var i = request.Messages.Count - 1; i >= 0; i--)
+            {
+                var message = request.Messages[i];
+                if (message.Role != ChatRole.User)
+                    continue;
+                request.Messages[i] = new ChatMessage(ChatRole.User, message.Content + "\n\n" + reminder.Trim());
+                return;
+            }
+        }
+
+        void Raw(string piece)
+        {
+            if (RawDelta == null || string.IsNullOrEmpty(piece))
+                return;
+
+            try
+            {
+                RawDelta(piece);
+            }
+            catch (Exception)
+            {
+            }
         }
 
         void Speak(string piece)
@@ -479,6 +594,14 @@ namespace AICompanion.UI
             catch (Exception)
             {
             }
+        }
+
+        static void WipeImage(ChatRequest request)
+        {
+            if (request == null || request.Image == null)
+                return;
+            request.Image.Wipe();
+            request.Image = null;
         }
 
         static ChatResult Read(Task<ChatResult> pending)

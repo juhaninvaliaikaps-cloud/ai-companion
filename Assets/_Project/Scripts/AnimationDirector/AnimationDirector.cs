@@ -61,29 +61,105 @@ namespace AICompanion.AnimationDirector
         {
             get
             {
-                if (catalog == null)
+                // The cue instruction is always sent. It used to be dropped with an empty
+                // gesture catalog, and then the model was never told to write a cue at all.
+                var list = catalog == null ? string.Empty : catalog.BuildPromptList();
+                var text = new System.Text.StringBuilder();
+                if (list.Length > 0)
                 {
-                    return string.Empty;
+                    text.Append("\n\nAnimations you can use. Name the gesture id in the cue tag.\n")
+                        .Append(list)
+                        .Append('\n');
+                }
+                else
+                {
+                    text.Append("\n\n");
                 }
 
-                var list = catalog.BuildPromptList();
-                if (list.Length == 0)
-                {
-                    return string.Empty;
-                }
+                var reactions = AvatarReactionCatalog.PromptLine();
+                if (reactions.Length > 0)
+                    text.Append(reactions).Append('\n');
 
-                return "\n\nAnimations you can use. Name the gesture id in the cue tag.\n"
-                    + list
-                    + "\n"
-                    + AnimationCueParser.Instruction
-                    + "\n"
-                    + EmotionNames.CatalogLine;
+                text.Append(AnimationCueParser.Instruction)
+                    .Append('\n')
+                    .Append(EmotionNames.CatalogLine);
+                if (IntimateExpressions.Active)
+                    text.Append('\n').Append(EmotionNames.IntimateCatalogLine);
+                return text.ToString();
             }
         }
 
         void Awake()
         {
             Resolve();
+        }
+
+        /// <summary>
+        /// The reaction named in the cue, or else an emotion word that is a reaction's name
+        /// (a model may write emotion="pout"). Nothing happens without a reaction avatar.
+        /// </summary>
+        void TryRequestReaction(AnimationCue cue)
+        {
+            var name = ReactionName(cue);
+            if (name.Length == 0)
+                return;
+
+            var target = GetComponent<IAvatarReactions>();
+            if (target == null || !(target is Component))
+            {
+                Debug.Log("AnimationDirector: reaction " + name + " -> no reaction avatar (2D video mode is off)");
+                return;
+            }
+
+            var result = target.RequestReaction(name);
+            Debug.Log("AnimationDirector: reaction " + name + " -> " + result.ToString().ToLowerInvariant());
+        }
+
+        /// <summary>
+        /// The reaction to ask for: the cue's reaction attribute, else a gesture or an emotion
+        /// word that names an offered reaction. Models write gesture="pout" and
+        /// gesture="turn_around" although the prompt asks for reaction= (JUH-99 player log,
+        /// 2026-11-12, Rocinante-X-12B): only the walk played.
+        /// </summary>
+        public static string ReactionName(AnimationCue cue)
+        {
+            if (!string.IsNullOrEmpty(cue.Reaction))
+                return AvatarReactionCatalog.Alias(cue.Reaction);
+
+            var gesture = cue.Gesture == null ? string.Empty : cue.Gesture.Trim().ToLowerInvariant();
+            if (gesture.Length > 0 && gesture != WalkCue && gesture != StopCue)
+            {
+                // gesture="flustered" plays; with emotion="flustered" the face already asks for it.
+                var fromGesture = AvatarReactionCatalog.Find(gesture);
+                if (fromGesture.Length > 0 && !IsEmotion(fromGesture, cue.Emotion))
+                    return fromGesture;
+            }
+
+            // An emotion word that is itself a listed reaction ("pout") is used as written,
+            // before its alias ("pout" reads as sad) can pick a different clip.
+            var word = AvatarReactionCatalog.Find(cue.EmotionField);
+            if (word.Length > 0 && !IsPlainEmotion(word))
+                return word;
+
+            // A walk or stop cue never reaches the face: Play returns after the movement. So the
+            // emotion's own clip is asked for here. It waits for the walk and plays after it.
+            if ((gesture == WalkCue || gesture == StopCue) && cue.Emotion != Emotion.Neutral)
+                return AvatarReactionCatalog.Find(cue.Emotion.ToString());
+
+            return string.Empty;
+        }
+
+        // A plain emotion such as "happy" reaches the 2D avatar through the face, not here,
+        // so it is not asked for twice.
+        static bool IsPlainEmotion(string word)
+        {
+            Emotion emotion;
+            return EmotionNames.TryParse(word, out emotion) && string.Equals(emotion.ToString(), word, System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        static bool IsEmotion(string word, Emotion emotion)
+        {
+            return string.Equals(emotion.ToString(), word, System.StringComparison.OrdinalIgnoreCase);
         }
 
         public void Resolve()
@@ -117,6 +193,11 @@ namespace AICompanion.AnimationDirector
             if (!CompanionPause.ReactionsAllowed(_suppressed))
                 return;
 
+            // A body reaction (2D video avatar) goes to the avatar, then the cue carries on.
+            // A walk or stop returns below before the face is set (as it always has), so for
+            // those ReactionName asks for the emotion's own clip instead.
+            TryRequestReaction(cue);
+
             // Walk and stop are not catalog clips. Handling them first keeps a walk row
             // with an Animator state from playing an on-the-spot loop instead of moving.
             if (TryHandleMovement(cue))
@@ -149,6 +230,7 @@ namespace AICompanion.AnimationDirector
                 return;
             }
 
+            decision = ShadeByMood(decision);
             var played = Apply(decision);
             LastDecision = decision;
             Debug.Log(AnimationDirectorLog.Format(cue, decision, played));
@@ -219,6 +301,29 @@ namespace AICompanion.AnimationDirector
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Her mood shades the reply's face (JUH-103 phase 2). A neutral cue lets the mood's
+        /// rest look show, which the face and portrait pick up once the hold is cleared.
+        /// </summary>
+        static DirectorDecision ShadeByMood(DirectorDecision decision)
+        {
+            var shaded = AnimationDirectorModel.ShadeByMood(decision, CompanionMoodNow.Shown, IntimateExpressions.Active, out var cueFace);
+            if (cueFace.Length > 0)
+            {
+                Debug.Log(CompanionMoodLooks.LogLine(CompanionMoodNow.Effective, shaded.Portrait, "softened " + cueFace + " cue"));
+                return shaded;
+            }
+
+            if (decision.Action == DirectorAction.Neutral)
+            {
+                var rest = CompanionMoodNow.Rest;
+                if (rest.HasExpression || rest.Face != Emotion.Neutral)
+                    Debug.Log(CompanionMoodLooks.LogLine(rest.Mood, rest.Expression, "neutral cue"));
+            }
+
+            return decision;
         }
 
         public void PlayNeutral()

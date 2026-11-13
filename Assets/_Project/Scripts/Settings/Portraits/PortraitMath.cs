@@ -146,6 +146,33 @@ namespace AICompanion.Settings
         public const string Excited = "15_excited";
         public const string WinkSmile = "16_wink_smile";
 
+        // Newer drawn set, added without numeric prefixes. Each has open, blink_half,
+        // blink_closed and talk frames; smug_wink is a one-eyed wink with talk only.
+        public const string Crying = "crying";
+        public const string TearyHappy = "teary_happy";
+        public const string Shocked = "shocked";
+        public const string Confused = "confused";
+        public const string Bored = "bored";
+        public const string Scared = "scared";
+        public const string Tsundere = "tsundere";
+        public const string Determined = "determined";
+        public const string Angry = "angry";
+        public const string Smug = "smug";
+        public const string SleepyAnimated = "sleepy";
+        public const string EmbarrassedWorriedAnimated = "embarrassed_worried";
+        public const string FlusteredHeavy = "flustered_heavy";
+        public const string Seductive = "seductive";
+        public const string Kiss = "kiss";
+        public const string SmugWinkAnimated = "smug_wink";
+
+        // Suggestive drawn set. finger_suck and finger_suck_deep have blink and talk frames;
+        // finger_pull, finger_pull_start and finger_suck_hold are stills.
+        public const string FingerSuck = "finger_suck";
+        public const string FingerSuckDeep = "finger_suck_deep";
+        public const string FingerSuckHold = "finger_suck_hold_00";
+        public const string FingerPull = "finger_pull_02_smile";
+        public const string FingerPullStart = "finger_pull_01";
+
         public const string NeutralOpen = "neutral_open";
         public const string NeutralBlinkHalf = "neutral_blink_half";
         public const string NeutralBlinkClosed = "neutral_blink_closed";

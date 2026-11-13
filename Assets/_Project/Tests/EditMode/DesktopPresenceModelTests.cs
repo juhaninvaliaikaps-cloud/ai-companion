@@ -29,6 +29,32 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void TheChatBoxUnderHerIsHerGround()
+        {
+            // JUH-104 spot 5: the floor rises by the room for the box; she stands on it, no fall.
+            var model = Model();
+            model.SetWorkArea(Area());
+            model.Tick(1f / 60f);
+            var onTaskbar = model.GroundY;
+
+            model.SetWorkArea(new DesktopWorkArea(0, 0, 1920, 1080 - 264));
+            for (var i = 0; i < 120; i++)
+            {
+                var frame = model.Tick(1f / 60f);
+                Assert.IsFalse(frame.Falling, "lifted onto the box, never falling through it");
+                Assert.AreEqual(onTaskbar - 264, frame.Y, "stays on top of the box");
+            }
+
+            // The box goes away: she drops back onto the taskbar.
+            model.SetWorkArea(Area());
+            Assert.AreEqual(PresenceState.Falling, model.State);
+            for (var i = 0; i < 240 && model.State == PresenceState.Falling; i++)
+                model.Tick(1f / 60f);
+            Assert.AreEqual(onTaskbar, model.GroundY);
+            Assert.AreEqual(onTaskbar, (int)model.Y);
+        }
+
+        [Test]
         public void AFootOffsetChangeKeepsHerFeetOnTheLine()
         {
             var model = Model();

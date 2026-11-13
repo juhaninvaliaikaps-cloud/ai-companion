@@ -1,5 +1,7 @@
 using System;
+using System.IO;
 using AICompanion.Avatar;
+using AICompanion.Core;
 using AICompanion.Overlay;
 using AICompanion.UI;
 using AICompanion.Voice;
@@ -15,7 +17,11 @@ namespace AICompanion.Settings
                 return;
 
             settings.Normalize();
-            var provider = AICompanion.Voice.OutboundPrivacy.ChatProviderId(settings.PrivateMode, settings.ProviderId);
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) ?? string.Empty;
+            var adultFolder = PortraitFolders.Adult(appData, Application.persistentDataPath ?? string.Empty);
+            IntimateExpressions.Configure(settings.IntimateExpressions, settings.PrivateMode,
+                !string.IsNullOrEmpty(adultFolder) && Directory.Exists(adultFolder));
+            var provider = AICompanion.Voice.OutboundPrivacy.ChatProviderId(settings.PrivateMode, settings.ProviderId, settings.PrivateEndpointType);
 
             AICompanion.Memory.MemoryRuntime.SwitchPersona(settings.PersonaId);
 
@@ -85,6 +91,7 @@ namespace AICompanion.Settings
                     window.SetTopmost(settings.AlwaysOnTop);
                 window.SetClickThroughMode(OverlayClickThroughPolicy.Parse(settings.ClickThrough));
                 window.SetIdleFrameRate(settings.IdleFrameRate);
+                window.ShowDebugInfo = settings.ShowDebugInfo;
                 if (Mathf.Abs(window.WindowScale - settings.Scale) > 0.001f)
                     window.SetWindowScale(settings.Scale);
             }
@@ -115,6 +122,9 @@ namespace AICompanion.Settings
                 if (mount.LoadedPreference != desired)
                     mount.Select(desired);
             }
+
+            // JUH-104: the new UI follows its setting, or -newui for this launch.
+            NewUiSwitch.Set(NewUiSwitch.Resolve(settings.NewUiPreview, Environment.GetCommandLineArgs()));
         }
 
         static void ApplyChat(AICompanion.AI.ChatSettings chat, CompanionSettings settings, string provider)
@@ -127,6 +137,9 @@ namespace AICompanion.Settings
             chat.localModel = settings.LocalModel;
             chat.baseUrl = settings.BaseUrl;
             chat.localBaseUrl = settings.LocalBaseUrl;
+            chat.privateEndpointType = settings.PrivateEndpointType;
+            chat.privateBaseUrl = settings.PrivateBaseUrl;
+            chat.privateModel = settings.PrivateModel;
             chat.timeoutSeconds = settings.TimeoutSeconds;
             ApplyPersona(chat, settings);
         }

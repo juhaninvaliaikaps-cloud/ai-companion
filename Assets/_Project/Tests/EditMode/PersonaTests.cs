@@ -38,13 +38,14 @@ namespace AICompanion.Tests.EditMode
         {
             var directory = PersonaFiles.BuiltInDirectory();
             var files = Directory.GetFiles(directory, "*.json");
-            Assert.AreEqual(3, files.Length);
+            Assert.AreEqual(4, files.Length);
 
             var catalog = PersonaCatalog.Load(PersonaFiles.ReadBuiltInTexts(), null);
-            Assert.AreEqual(3, catalog.Entries.Count);
-            Assert.AreEqual("friend", catalog.Entries[0].Persona.Id);
-            Assert.AreEqual("coach", catalog.Entries[1].Persona.Id);
-            Assert.AreEqual("calm", catalog.Entries[2].Persona.Id);
+            Assert.AreEqual(4, catalog.Entries.Count);
+            Assert.AreEqual("happi", catalog.Entries[0].Persona.Id, "Happi, the default, is listed first");
+            Assert.AreEqual("friend", catalog.Entries[1].Persona.Id);
+            Assert.AreEqual("coach", catalog.Entries[2].Persona.Id);
+            Assert.AreEqual("calm", catalog.Entries[3].Persona.Id);
 
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var banned = new[] { "girlfriend", "nsfw", "nude", "sexual", "uncensored", "xai-", "api_key", "apiKey" };
@@ -53,6 +54,14 @@ namespace AICompanion.Tests.EditMode
                 var persona = catalog.Entries[i].Persona;
                 Assert.IsFalse(catalog.Entries[i].UserFile);
                 Assert.IsTrue(names.Add(persona.DisplayName));
+                var builtInJson = File.ReadAllText(Path.Combine(directory, persona.Id + ".json"));
+                Assert.IsFalse(CompanionSettingsSecrets.ContainsForbiddenSecretField(builtInJson));
+                for (var b = 0; b < banned.Length; b++)
+                    StringAssert.DoesNotContain(banned[b].ToLowerInvariant(), builtInJson.ToLowerInvariant());
+                // Happi uses the user-written prompt as is and keeps the current provider, model,
+                // voice and avatar (HappiPersonaTests); the classic built-ins follow the rules below.
+                if (persona.Id == PersonaDefaults.HappiId)
+                    continue;
                 StringAssert.Contains("appropriate for any audience", persona.Personality);
                 StringAssert.Contains(persona.DisplayName, persona.Personality);
                 Assert.IsNotEmpty(persona.SpeakingStyle);
@@ -98,7 +107,9 @@ namespace AICompanion.Tests.EditMode
             var empty = DirectorPrompt.Append("   ", suffix);
             StringAssert.Contains(AnimationCueParser.Instruction, empty);
             StringAssert.Contains(EmotionNames.CatalogLine, empty);
-            Assert.AreEqual("Hello", DirectorPrompt.Append("Hello  ", null));
+            Assert.AreEqual("Hello\n\n" + IntimateBoundaries.Current, DirectorPrompt.Append("Hello  ", null));
+            Assert.AreEqual("Hello", DirectorPrompt.Append("Hello  ", null, null));
+            StringAssert.Contains(IntimateBoundaries.ConsentRule, prompt);
 
             var send = File.ReadAllText(Path.Combine(Application.dataPath, "_Project", "Scripts", "UI", "ChatPanel.cs"));
             StringAssert.Contains("DirectorPrompt.Append", send);

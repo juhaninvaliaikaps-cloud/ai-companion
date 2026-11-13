@@ -33,7 +33,7 @@ The repository's Actions workflow permissions must allow creating checks. In the
 
 ## Windows player
 
-Build `Builds\Windows\BackseatCatgirl.exe`. The standalone log is `%USERPROFILE%\AppData\LocalLow\AI Companion\Backseat Catgirl\Player.log`. The Editor log is still the Unity Editor log. It does not move with `productName`.
+Build `Builds\Windows\Happi.exe`. The standalone log is `%USERPROFILE%\AppData\LocalLow\AI Companion\Happi\Player.log`. The Editor log is still the Unity Editor log. It does not move with `productName`.
 
 ## What to test
 

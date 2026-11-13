@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using AICompanion.AI;
+using AICompanion.Core;
 using AICompanion.Overlay;
 using AICompanion.Voice;
 
@@ -72,6 +73,46 @@ namespace AICompanion.Settings
         public bool Paused;
         public bool ChatHistory;
         public bool PrivateMode;
+
+        /// <summary>Local Ollama or a user-provided OpenAI-compatible server while Private mode is on.</summary>
+        public string PrivateEndpointType = PrivateEndpointTypes.Local;
+        public string PrivateBaseUrl = string.Empty;
+        public string PrivateModel = string.Empty;
+
+        /// <summary>Manual window capture. Off until the user turns it on.</summary>
+        public bool ScreenLookEnabled;
+
+        /// <summary>
+        /// Explicit opt-in before a selected-window image is sent to the cloud vision provider.
+        /// </summary>
+        public bool ScreenCloudConsent;
+
+        /// <summary>
+        /// Ollama tag for the vision model. Empty until the user sets one.
+        /// The text chat model is a different field and is not assumed to read images.
+        /// </summary>
+        public string LocalVisionModel = string.Empty;
+
+        /// <summary>True captures a whole display instead of the selected window.</summary>
+        public bool ScreenCaptureWholeMonitor;
+
+        /// <summary>
+        /// Separate consent for whole-display capture. Window capture never widens into this.
+        /// </summary>
+        public bool ScreenWholeMonitorConsent;
+
+        /// <summary>Chosen display device name, for example \\.\DISPLAY1. Empty uses the primary display.</summary>
+        public string ScreenMonitorDevice = string.Empty;
+
+        /// <summary>Lets her request a look during chat after she has consent. Off by default.</summary>
+        public bool ScreenAutoLook;
+
+        /// <summary>Temporary hold on automatic looks. The permission above stays granted.</summary>
+        public bool ScreenAutoLookPaused;
+
+        /// <summary>Let the vision model write the screen remark instead of reloading the chat model.</summary>
+        public bool ScreenFastReply;
+
         public string CompanionName = string.Empty;
         public string Relationship = RelationshipStyles.Friend;
 
@@ -84,6 +125,75 @@ namespace AICompanion.Settings
         /// </summary>
         public string PortraitFolder = string.Empty;
         public bool ShowExpressionPortrait;
+
+        /// <summary>"3d" for the humanoid model, "video" for the looping 2D clip.</summary>
+        public string AvatarMode = AvatarModeNames.ThreeD;
+
+        /// <summary>Optional clip folder. Empty uses %APPDATA%\ProjectLeia\video-avatar.</summary>
+        public string VideoAvatarFolder = string.Empty;
+
+        /// <summary>Share of the largest size that fits the window, 0.2 to 1.</summary>
+        public float VideoAvatarSize = VideoAvatarLayout.DefaultSize;
+
+        /// <summary>Sideways shift as a share of the window width. Negative is left.</summary>
+        public float VideoAvatarOffsetX;
+
+        /// <summary>Upward shift as a share of the window height. Negative sinks the clip below the window edge.</summary>
+        public float VideoAvatarOffsetY;
+
+        /// <summary>Walking speed of the 2D avatar in clip heights per second. 0 uses the walk clip's own value.</summary>
+        public float VideoAvatarWalkSpeed;
+
+        /// <summary>Plays the sound of clips the manifest marks with "sound": true. Off by default.</summary>
+        public bool PlayClipSounds;
+
+        /// <summary>Clip sound volume, 0 to 1.</summary>
+        public float ClipSoundVolume = VideoClipSound.DefaultVolume;
+
+        /// <summary>Adult drawn expressions from the separate portraits-adult folder. Off by default.</summary>
+        public bool IntimateExpressions;
+
+        /// <summary>Shows her current mood and the three strongest moods in a corner (JUH-103 debug). Off by default.</summary>
+        public bool ShowMoodDebug;
+
+        /// <summary>JUH-104: the new Happi UI (radial wheel, new chat and settings). Off by default; -newui turns it on for one launch.</summary>
+        public bool NewUiPreview;
+
+        /// <summary>JUH-108: speak narration lines too in the new chat. Off by default, so narration is shown but not voiced.</summary>
+        public bool VoiceNarration;
+
+        /// <summary>JUH-104: where the new chat box sits, as its centre in 0..1 of the overlay window. -1 = default (bottom centre).</summary>
+        public float ChatBoxX = -1f;
+        public float ChatBoxY = -1f;
+
+        /// <summary>
+        /// JUH-104: the chat box place around her. -1 = default (spot 5 under her with the 2D avatar, else spot 4),
+        /// 0 = where the user dropped it (ChatBoxOffsetX/Y), 1..5 = a snap spot. Supersedes
+        /// ChatBoxX/ChatBoxY (window fractions), which are still read and written but no longer used.
+        /// </summary>
+        public int ChatBoxSnap = -1;
+
+        /// <summary>Free placement: the box centre relative to her head, in pixels at 100% scaling.</summary>
+        public float ChatBoxOffsetX;
+        public float ChatBoxOffsetY;
+
+        /// <summary>
+        /// JUH-104: where the 2D expression portrait sits with the new UI. 0 = automatic beside her
+        /// head (as on main), 1 = docked on the chat box left side, 2 = docked on its right side,
+        /// 3 = where the user dropped it (PortraitOffsetX/Y from her head, pixels at 100%).
+        /// </summary>
+        public int PortraitDock;
+        public float PortraitOffsetX;
+        public float PortraitOffsetY;
+
+        /// <summary>Shows the old debug text (topmost, fps, emotion, rotate/size/zoom) top-left. Off by default; the mood readout has its own switch.</summary>
+        public bool ShowDebugInfo;
+
+        /// <summary>JUH-108: the words she is saying light up in the new chat. On by default.</summary>
+        public bool SpokenGlow = true;
+
+        /// <summary>Strength of the spoken-text glow, 0 (subtle) to 1 (strong).</summary>
+        public float SpokenGlowIntensity = 0.6f;
 
         public static CompanionSettings CreateDefault()
         {
@@ -99,7 +209,12 @@ namespace AICompanion.Settings
             Model = CleanToken(Model, ChatDefaults.Model, MaxModelLength);
             BaseUrl = CleanUrl(BaseUrl, ChatDefaults.BaseUrl);
             LocalModel = CleanToken(LocalModel, ChatDefaults.LocalModel, MaxModelLength);
+            LocalVisionModel = CleanToken(LocalVisionModel, string.Empty, MaxModelLength);
+            ScreenMonitorDevice = CleanToken(ScreenMonitorDevice, string.Empty, 64);
             LocalBaseUrl = CleanUrl(LocalBaseUrl, ChatDefaults.LocalBaseUrl);
+            PrivateEndpointType = PrivateEndpointTypes.Normalize(PrivateEndpointType);
+            PrivateBaseUrl = CleanUrl(PrivateBaseUrl, string.Empty);
+            PrivateModel = CleanToken(PrivateModel, string.Empty, MaxModelLength);
             if (float.IsNaN(TimeoutSeconds) || float.IsInfinity(TimeoutSeconds) || TimeoutSeconds < 1f || TimeoutSeconds > 300f)
                 TimeoutSeconds = ChatDefaults.TimeoutSeconds;
             AvatarSource = AvatarSourceNames.Normalize(AvatarSource);
@@ -135,6 +250,45 @@ namespace AICompanion.Settings
             Relationship = RelationshipStyles.Normalize(Relationship);
             PersonaId = PersonaIds.Normalize(PersonaId);
             PortraitFolder = PersonaDefinition.CleanPath(PortraitFolder);
+            AvatarMode = AvatarModeNames.Normalize(AvatarMode);
+            VideoAvatarFolder = PersonaDefinition.CleanPath(VideoAvatarFolder);
+            if (VideoAvatarFolders.LooksRemote(VideoAvatarFolder))
+                VideoAvatarFolder = string.Empty;
+            VideoAvatarSize = VideoAvatarLayout.ClampSize(VideoAvatarSize);
+            VideoAvatarOffsetX = VideoAvatarLayout.ClampOffsetX(VideoAvatarOffsetX);
+            VideoAvatarOffsetY = VideoAvatarLayout.ClampOffsetY(VideoAvatarOffsetY);
+            if (float.IsNaN(VideoAvatarWalkSpeed) || float.IsInfinity(VideoAvatarWalkSpeed) || VideoAvatarWalkSpeed < 0f)
+                VideoAvatarWalkSpeed = 0f;
+            VideoAvatarWalkSpeed = Math.Min(VideoAvatarWalkSpeed, VideoAvatarManifest.MaxWalkSpeed);
+            ClipSoundVolume = VideoClipSound.ClampVolume(ClipSoundVolume);
+            ChatBoxX = CleanFraction(ChatBoxX);
+            ChatBoxY = CleanFraction(ChatBoxY);
+            if (ChatBoxSnap < -1 || ChatBoxSnap > 5)
+                ChatBoxSnap = -1;
+            ChatBoxOffsetX = CleanOffset(ChatBoxOffsetX);
+            ChatBoxOffsetY = CleanOffset(ChatBoxOffsetY);
+            if (PortraitDock < 0 || PortraitDock > 3)
+                PortraitDock = 0;
+            PortraitOffsetX = CleanOffset(PortraitOffsetX);
+            PortraitOffsetY = CleanOffset(PortraitOffsetY);
+            if (float.IsNaN(SpokenGlowIntensity) || float.IsInfinity(SpokenGlowIntensity))
+                SpokenGlowIntensity = 0.6f;
+            SpokenGlowIntensity = Math.Max(0f, Math.Min(1f, SpokenGlowIntensity));
+        }
+
+        static float CleanOffset(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+                return 0f;
+            return Math.Max(-4000f, Math.Min(4000f, value));
+        }
+
+        /// <summary>A 0..1 position, or -1 for "not set".</summary>
+        static float CleanFraction(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value) || value < 0f)
+                return -1f;
+            return value > 1f ? 1f : value;
         }
 
         static string CleanToken(string value, string fallback, int max)
@@ -375,6 +529,12 @@ namespace AICompanion.Settings
                 settings.LocalModel = text;
             if (TryString(json, "localBaseUrl", out text))
                 settings.LocalBaseUrl = text;
+            if (TryString(json, "privateEndpointType", out text))
+                settings.PrivateEndpointType = text;
+            if (TryString(json, "privateBaseUrl", out text))
+                settings.PrivateBaseUrl = text;
+            if (TryString(json, "privateModel", out text))
+                settings.PrivateModel = text;
             double number;
             if (TryNumber(json, "timeoutSeconds", out number))
                 settings.TimeoutSeconds = (float)number;
@@ -435,6 +595,24 @@ namespace AICompanion.Settings
                 settings.ChatHistory = flag;
             if (TryBool(json, "privateMode", out flag))
                 settings.PrivateMode = flag;
+            if (TryBool(json, "screenLookEnabled", out flag))
+                settings.ScreenLookEnabled = flag;
+            if (TryBool(json, "screenCloudConsent", out flag))
+                settings.ScreenCloudConsent = flag;
+            if (TryString(json, "localVisionModel", out text))
+                settings.LocalVisionModel = text;
+            if (TryBool(json, "screenWholeMonitorConsent", out flag))
+                settings.ScreenWholeMonitorConsent = flag;
+            if (TryBool(json, "screenCaptureWholeMonitor", out flag))
+                settings.ScreenCaptureWholeMonitor = flag;
+            if (TryString(json, "screenMonitorDevice", out text))
+                settings.ScreenMonitorDevice = text;
+            if (TryBool(json, "screenAutoLook", out flag))
+                settings.ScreenAutoLook = flag;
+            if (TryBool(json, "screenAutoLookPaused", out flag))
+                settings.ScreenAutoLookPaused = flag;
+            if (TryBool(json, "screenFastReply", out flag))
+                settings.ScreenFastReply = flag;
             if (TryString(json, "companionName", out text))
                 settings.CompanionName = text;
             if (TryString(json, "relationship", out text))
@@ -445,6 +623,52 @@ namespace AICompanion.Settings
                 settings.PortraitFolder = text;
             if (TryBool(json, "showExpressionPortrait", out flag))
                 settings.ShowExpressionPortrait = flag;
+            if (TryString(json, "avatarMode", out text))
+                settings.AvatarMode = text;
+            if (TryString(json, "videoAvatarFolder", out text))
+                settings.VideoAvatarFolder = text;
+            if (TryNumber(json, "videoAvatarSize", out number))
+                settings.VideoAvatarSize = (float)number;
+            if (TryNumber(json, "videoAvatarOffsetX", out number))
+                settings.VideoAvatarOffsetX = (float)number;
+            if (TryNumber(json, "videoAvatarOffsetY", out number))
+                settings.VideoAvatarOffsetY = (float)number;
+            if (TryNumber(json, "videoAvatarWalkSpeed", out number))
+                settings.VideoAvatarWalkSpeed = (float)number;
+            if (TryBool(json, "playClipSounds", out flag))
+                settings.PlayClipSounds = flag;
+            if (TryNumber(json, "clipSoundVolume", out number))
+                settings.ClipSoundVolume = (float)number;
+            if (TryBool(json, "intimateExpressions", out flag))
+                settings.IntimateExpressions = flag;
+            if (TryBool(json, "showMoodDebug", out flag))
+                settings.ShowMoodDebug = flag;
+            if (TryBool(json, "newUiPreview", out flag))
+                settings.NewUiPreview = flag;
+            if (TryBool(json, "voiceNarration", out flag))
+                settings.VoiceNarration = flag;
+            if (TryNumber(json, "chatBoxX", out number))
+                settings.ChatBoxX = (float)number;
+            if (TryNumber(json, "chatBoxY", out number))
+                settings.ChatBoxY = (float)number;
+            if (TryBool(json, "showDebugInfo", out flag))
+                settings.ShowDebugInfo = flag;
+            if (TryBool(json, "spokenGlow", out flag))
+                settings.SpokenGlow = flag;
+            if (TryNumber(json, "spokenGlowIntensity", out number))
+                settings.SpokenGlowIntensity = (float)number;
+            if (TryNumber(json, "chatBoxSnap", out number))
+                settings.ChatBoxSnap = (int)Math.Round(number);
+            if (TryNumber(json, "chatBoxOffsetX", out number))
+                settings.ChatBoxOffsetX = (float)number;
+            if (TryNumber(json, "chatBoxOffsetY", out number))
+                settings.ChatBoxOffsetY = (float)number;
+            if (TryNumber(json, "portraitDock", out number))
+                settings.PortraitDock = (int)Math.Round(number);
+            if (TryNumber(json, "portraitOffsetX", out number))
+                settings.PortraitOffsetX = (float)number;
+            if (TryNumber(json, "portraitOffsetY", out number))
+                settings.PortraitOffsetY = (float)number;
             settings.Normalize();
             return settings;
         }
@@ -461,6 +685,9 @@ namespace AICompanion.Settings
             String(sb, "baseUrl", source.BaseUrl);
             String(sb, "localModel", source.LocalModel);
             String(sb, "localBaseUrl", source.LocalBaseUrl);
+            String(sb, "privateEndpointType", source.PrivateEndpointType);
+            String(sb, "privateBaseUrl", source.PrivateBaseUrl);
+            String(sb, "privateModel", source.PrivateModel);
             Number(sb, "timeoutSeconds", source.TimeoutSeconds, false);
             String(sb, "avatarSource", source.AvatarSource);
             Bool(sb, "cursorLookAt", source.CursorLookAt);
@@ -490,11 +717,43 @@ namespace AICompanion.Settings
             Bool(sb, "paused", source.Paused);
             Bool(sb, "chatHistory", source.ChatHistory);
             Bool(sb, "privateMode", source.PrivateMode);
+            Bool(sb, "screenLookEnabled", source.ScreenLookEnabled);
+            Bool(sb, "screenCloudConsent", source.ScreenCloudConsent);
+            String(sb, "localVisionModel", source.LocalVisionModel);
+            Bool(sb, "screenWholeMonitorConsent", source.ScreenWholeMonitorConsent);
+            Bool(sb, "screenCaptureWholeMonitor", source.ScreenCaptureWholeMonitor);
+            String(sb, "screenMonitorDevice", source.ScreenMonitorDevice);
+            Bool(sb, "screenAutoLook", source.ScreenAutoLook);
+            Bool(sb, "screenAutoLookPaused", source.ScreenAutoLookPaused);
+            Bool(sb, "screenFastReply", source.ScreenFastReply);
             String(sb, "companionName", source.CompanionName);
             String(sb, "relationship", source.Relationship);
             String(sb, "personaId", source.PersonaId);
             String(sb, "portraitFolder", source.PortraitFolder);
             Bool(sb, "showExpressionPortrait", source.ShowExpressionPortrait);
+            String(sb, "avatarMode", source.AvatarMode);
+            String(sb, "videoAvatarFolder", source.VideoAvatarFolder);
+            Number(sb, "videoAvatarSize", source.VideoAvatarSize, false);
+            Number(sb, "videoAvatarOffsetX", source.VideoAvatarOffsetX, false);
+            Number(sb, "videoAvatarOffsetY", source.VideoAvatarOffsetY, false);
+            Number(sb, "videoAvatarWalkSpeed", source.VideoAvatarWalkSpeed, false);
+            Bool(sb, "playClipSounds", source.PlayClipSounds);
+            Number(sb, "clipSoundVolume", source.ClipSoundVolume, false);
+            Bool(sb, "intimateExpressions", source.IntimateExpressions);
+            Bool(sb, "showMoodDebug", source.ShowMoodDebug);
+            Bool(sb, "newUiPreview", source.NewUiPreview);
+            Bool(sb, "voiceNarration", source.VoiceNarration);
+            Number(sb, "chatBoxX", source.ChatBoxX, false);
+            Number(sb, "chatBoxY", source.ChatBoxY, false);
+            Bool(sb, "showDebugInfo", source.ShowDebugInfo);
+            Bool(sb, "spokenGlow", source.SpokenGlow);
+            Number(sb, "spokenGlowIntensity", source.SpokenGlowIntensity, false);
+            Number(sb, "chatBoxSnap", source.ChatBoxSnap, true);
+            Number(sb, "chatBoxOffsetX", source.ChatBoxOffsetX, false);
+            Number(sb, "chatBoxOffsetY", source.ChatBoxOffsetY, false);
+            Number(sb, "portraitDock", source.PortraitDock, true);
+            Number(sb, "portraitOffsetX", source.PortraitOffsetX, false);
+            Number(sb, "portraitOffsetY", source.PortraitOffsetY, false);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;
@@ -631,19 +890,19 @@ namespace AICompanion.Settings
 
     public static class CompanionSettingsStore
     {
-        static readonly UTF8Encoding Utf8 = new UTF8Encoding(false);
-
         public static CompanionSettings Load(string path, SettingsLegacyPrefs legacy)
         {
-            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            var read = ProtectedLocalFile.Read(path);
+            if (read.Status != LocalReadStatus.Ready)
                 return CompanionSettingsJson.Parse(null, legacy);
 
             try
             {
-                return CompanionSettingsJson.Parse(File.ReadAllText(path, Utf8), SettingsLegacyPrefs.None);
+                return CompanionSettingsJson.Parse(read.Text, SettingsLegacyPrefs.None);
             }
             catch (Exception)
             {
+                ProtectedLocalFile.Quarantine(path);
                 return CompanionSettingsJson.Parse(null, legacy);
             }
         }
@@ -657,10 +916,8 @@ namespace AICompanion.Settings
             if (CompanionSettingsSecrets.ContainsForbiddenSecretField(json))
                 throw new InvalidOperationException("Settings cannot store an API key.");
 
-            var directory = Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(directory))
-                Directory.CreateDirectory(directory);
-            File.WriteAllText(path, json, Utf8);
+            if (!ProtectedLocalFile.Write(path, json))
+                throw new IOException("Settings were not written.");
         }
     }
 }

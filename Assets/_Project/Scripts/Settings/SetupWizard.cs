@@ -536,9 +536,9 @@ namespace AICompanion.Settings
         {
             var settings = CurrentSettings();
             Note(SetupWizardCopy.PersonalityNote());
-            var shown = _nameDraftLive ? _nameDraft : settings.CompanionName;
+            var shown = _nameDraftLive ? _nameDraft : PersonaDefaults.WizardName(settings);
             if (string.IsNullOrEmpty(shown))
-                shown = CompanionPersona.DefaultName;
+                shown = PersonaDefaults.HappiName;
             _nameInput = AddField("Companion name", shown, false, value =>
             {
                 _nameDraft = value ?? string.Empty;

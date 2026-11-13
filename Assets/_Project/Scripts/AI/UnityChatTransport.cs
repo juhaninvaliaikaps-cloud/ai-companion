@@ -51,6 +51,7 @@ namespace AICompanion.AI
                 www.downloadHandler = handler;
                 var timeout = request.TimeoutSeconds <= 0f ? ChatDefaults.TimeoutSeconds : request.TimeoutSeconds;
                 www.timeout = Mathf.CeilToInt(timeout);
+                www.redirectLimit = request.FollowRedirects ? 32 : 0;
                 if (request.Headers != null)
                 {
                     for (var i = 0; i < request.Headers.Count; i++)
@@ -81,6 +82,12 @@ namespace AICompanion.AI
                 if (IsTimeout(error))
                 {
                     completion.TrySetResult(ChatHttpResult.Timeout());
+                    yield break;
+                }
+
+                if (code >= 300 && code < 400)
+                {
+                    completion.TrySetResult(ChatHttpResult.Http(code, handler.ErrorText));
                     yield break;
                 }
 
@@ -115,8 +122,6 @@ namespace AICompanion.AI
 
         sealed class StreamingDownloadHandler : DownloadHandlerScript
         {
-            const int Cap = 4096;
-
             readonly UnityWebRequest _request;
             readonly Action<string> _onChunk;
             readonly Utf8ChunkDecoder _decoder = new Utf8ChunkDecoder();
@@ -153,7 +158,7 @@ namespace AICompanion.AI
                 var code = (int)_request.responseCode;
                 if (code >= 400)
                 {
-                    AppendCap(_error, text);
+                    AppendCap(_error, text, DownloadHold.ErrorCap);
                     return true;
                 }
 
@@ -171,16 +176,16 @@ namespace AICompanion.AI
                     return true;
                 }
 
-                AppendCap(_held, text);
-                AppendCap(_error, text);
+                AppendCap(_held, text, DownloadHold.CapFor(code));
+                AppendCap(_error, text, DownloadHold.ErrorCap);
                 return true;
             }
 
-            static void AppendCap(StringBuilder sb, string text)
+            static void AppendCap(StringBuilder sb, string text, int cap)
             {
-                if (sb.Length >= Cap || string.IsNullOrEmpty(text))
+                if (cap < 1 || sb.Length >= cap || string.IsNullOrEmpty(text))
                     return;
-                var room = Cap - sb.Length;
+                var room = cap - sb.Length;
                 sb.Append(text.Length <= room ? text : text.Substring(0, room));
             }
         }

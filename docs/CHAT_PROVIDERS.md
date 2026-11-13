@@ -13,6 +13,8 @@ Change the id, model, base URL, timeout, temperature, max tokens, or system prom
 
 The endpoint is the legacy Chat Completions API, which is what xAI documents as OpenAI-compatible. Visible reply text is `delta.content`. Reasoning text (`reasoning_content`) is not shown.
 
+A one-frame window look is the exception. When chat is Grok and cloud screen consent is on, that request uses the Responses API (`/v1/responses`) because that is the image path the current xAI image-understanding guide shows for `grok-4.7`. It sends one JPEG, sets `store` to false, and does not keep the image in the transcript. When chat is local, or private mode is on, the JPEG goes only to a separate Ollama vision model on loopback. Rocinante then receives the description as text. Details and the opt-in are in [SCREEN_LOOK.md](SCREEN_LOOK.md).
+
 ## Set the xAI key
 
 The key is never stored in the repository. Resolution order:
@@ -21,7 +23,7 @@ The key is never stored in the repository. Resolution order:
 2. `%APPDATA%/ProjectLeia/secrets.json` (on Windows, `C:\Users\<you>\AppData\Roaming\ProjectLeia\secrets.json`).
 3. `Application.persistentDataPath/ProjectLeia/secrets.json`, if the file above is missing.
 
-On Windows the file is encrypted with DPAPI for the current user (`CryptProtectData`). On a machine where DPAPI is not available, including the Linux editor, the same file is plain JSON with `"protected": false`. A key saved with DPAPI on Windows does not decrypt on Linux. An environment variable wins over either file.
+On Windows the file is encrypted with DPAPI for the current user (`CryptProtectData`). On a machine where DPAPI is not available, including the Linux editor, the same file is plain JSON with `"protected": false`. A Windows player does not write that plaintext file if protection fails. A key saved with DPAPI on Windows does not decrypt on Linux. An environment variable wins over either file. Other private files in the same folder use a separate AES key; see [LOCAL_STORAGE.md](LOCAL_STORAGE.md).
 
 The value is not written to the Console, to exception text, or to the chat reply.
 
@@ -35,7 +37,7 @@ The value is not written to the Console, to exception text, or to the chat reply
 
 ### In the Windows player
 
-1. Build and run `Builds/Windows/BackseatCatgirl.exe`.
+1. Build and run `Builds/Windows/Happi.exe`.
 2. Either set `XAI_API_KEY` for that process before launch, or press **F10** and use the password field on the chat panel. **Save** writes the same per-user file and clears the field.
 3. Click the panel so the window is in front, then follow [CHAT_UI.md](CHAT_UI.md).
 

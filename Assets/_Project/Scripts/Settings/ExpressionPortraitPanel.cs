@@ -26,6 +26,7 @@ namespace AICompanion.Settings
         SettingsPanel _settings;
         ChatPanel _chat;
         AvatarMount _mount;
+        VideoAvatar _video;
         Component _animatorObject;
         IAvatarAnimator _animator;
         Component _mouthObject;
@@ -42,6 +43,11 @@ namespace AICompanion.Settings
         Texture2D _roundedTexture;
         Transform _head;
         PortraitLibrary _library = new PortraitLibrary();
+        bool _intimateLogged;
+        bool _intimateMode;
+        bool _settingKnown;
+        bool _wantedIntimate;
+        bool _wantedPrivate;
         PortraitMap _map;
         Rect _guiRect;
         string _appData = string.Empty;
@@ -59,6 +65,18 @@ namespace AICompanion.Settings
         bool _paths;
         bool _placed;
         bool? _preferLeft;
+
+        /// <summary>JUH-104: the new chat box (window pixels from the top-left) the portrait keeps clear of. Empty while the new UI is off.</summary>
+        public static Rect NewUiAvoid;
+
+        /// <summary>JUH-104: true puts the portrait on her left (the chat box took her right side). Null keeps the automatic side.</summary>
+        public static bool? NewUiPreferLeft;
+
+        /// <summary>JUH-104: where the new UI wants the portrait (window pixels from the top-left, any size). Empty = automatic.</summary>
+        public static Rect NewUiTarget;
+
+        /// <summary>Where the portrait is drawn now (window pixels from the top-left); empty while it is hidden.</summary>
+        public static Rect ShownRect;
         string _heldExpression = string.Empty;
         float _quietFor;
         PortraitPreview _preview;
@@ -120,7 +138,7 @@ namespace AICompanion.Settings
                 return;
             }
 
-            var live = AnimatorAlive() ? ExpressionName() : "neutral";
+            var live = AnimatorAlive() ? ExpressionName() : RestExpression();
             var amplitude = 0f;
             var hasAmplitude = MouthAlive();
             if (hasAmplitude)
@@ -204,6 +222,8 @@ namespace AICompanion.Settings
                 _settings = GetComponent<SettingsPanel>();
             if (_chat == null)
                 _chat = GetComponent<ChatPanel>();
+            if (_video == null)
+                _video = GetComponent<VideoAvatar>();
             if (_mount == null)
             {
                 _mount = GetComponent<AvatarMount>();
@@ -240,7 +260,11 @@ namespace AICompanion.Settings
 
         bool WantsPortrait()
         {
-            return _settings != null && _settings.CurrentSettings != null && _settings.CurrentSettings.ShowExpressionPortrait;
+            if (_settings == null || _settings.CurrentSettings == null)
+                return false;
+
+            // Shown in both avatar modes. Where it goes is decided in HeadPoint.
+            return _settings.CurrentSettings.ShowExpressionPortrait;
         }
 
         string RequestedPortraitFolder()
@@ -276,12 +300,39 @@ namespace AICompanion.Settings
             EnsurePaths();
             var requested = RequestedPortraitFolder();
             var requestChanged = !string.Equals(requested, _requested, StringComparison.Ordinal);
+            var settings = _settings != null ? _settings.CurrentSettings : null;
+            var wanted = settings != null && settings.IntimateExpressions;
+            var privateMode = settings != null && settings.PrivateMode;
+            var settingsChanged = !_settingKnown || wanted != _wantedIntimate || privateMode != _wantedPrivate;
+            _settingKnown = true;
+            _wantedIntimate = wanted;
+            _wantedPrivate = privateMode;
             _refreshIn -= delta;
-            if (!force && !requestChanged && _refreshIn > 0f && _map != null)
+            if (!force && !requestChanged && !settingsChanged && _refreshIn > 0f && _map != null)
                 return;
 
             _refreshIn = RefreshSeconds;
             _requested = requested;
+
+            // The adult set is a separate folder and a separate consent, and it stays local:
+            // Private mode must be on as well. Without the folder the setting silently has no
+            // effect, and the warning is written once.
+            var adultFolder = PortraitFolders.Adult(_appData, _persistent);
+            var adultPresent = !string.IsNullOrEmpty(adultFolder) && Directory.Exists(adultFolder);
+            if (wanted && !adultPresent && !_intimateLogged)
+            {
+                _intimateLogged = true;
+                Debug.LogWarning("Expression portraits: intimate expressions are on but " + adultFolder + " is missing. They stay off.");
+            }
+
+            IntimateExpressions.Configure(wanted, privateMode, adultPresent);
+            if (_intimateMode != IntimateExpressions.Active)
+            {
+                _intimateMode = IntimateExpressions.Active;
+                _mapStamp = -1;
+                _map = null;
+            }
+
             var folder = PortraitFolders.Select(requested, _appData, _persistent, Directory.Exists);
             if (!string.Equals(folder, _folder, StringComparison.OrdinalIgnoreCase))
             {
@@ -294,6 +345,8 @@ namespace AICompanion.Settings
             }
 
             _library = string.IsNullOrEmpty(_folder) ? new PortraitLibrary() : PortraitLibrary.Load(_folder);
+            if (IntimateExpressions.Active && adultPresent)
+                _library.Merge(PortraitLibrary.Load(adultFolder, true));
             _map = ReadMap(_folder);
             DropFailedSprites();
         }
@@ -327,7 +380,7 @@ namespace AICompanion.Settings
                 if (_map != null && _mapStamp == -2)
                     return _map;
                 _mapStamp = -2;
-                return PortraitMap.CreateDefaults();
+                return PortraitMap.CreateDefaults(IntimateExpressions.Active);
             }
 
             var path = Path.Combine(folder, PortraitFolders.MapFileName);
@@ -336,7 +389,7 @@ namespace AICompanion.Settings
                 if (_map != null && _mapStamp == 0)
                     return _map;
                 _mapStamp = 0;
-                return PortraitMap.CreateDefaults();
+                return PortraitMap.CreateDefaults(IntimateExpressions.Active);
             }
 
             long stamp;
@@ -355,11 +408,11 @@ namespace AICompanion.Settings
             _mapStamp = stamp;
             try
             {
-                return PortraitMapJson.Parse(File.ReadAllText(path));
+                return PortraitMapJson.Parse(File.ReadAllText(path), IntimateExpressions.Active);
             }
             catch (Exception)
             {
-                return PortraitMap.CreateDefaults();
+                return PortraitMap.CreateDefaults(IntimateExpressions.Active);
             }
         }
 
@@ -397,6 +450,7 @@ namespace AICompanion.Settings
             _shown = false;
             _placed = false;
             _guiRect = new Rect(0f, 0f, 0f, 0f);
+            ShownRect = new Rect(0f, 0f, 0f, 0f);
             if (_canvasObject != null && _canvasObject.activeSelf)
                 _canvasObject.SetActive(false);
         }
@@ -508,18 +562,35 @@ namespace AICompanion.Settings
             if (hint != null && !string.IsNullOrEmpty(hint.ExpressionName))
                 return hint.ExpressionName;
 
+            // No reply expression: her mood's rest look (JUH-103 phase 2).
+            if (_animator.Emotion == Emotion.Neutral)
+                return RestExpression();
             return PortraitNames.For(_animator.Emotion);
+        }
+
+        static string RestExpression()
+        {
+            var rest = CompanionMoodNow.Rest;
+            return rest.HasExpression ? rest.Expression : "neutral";
         }
 
 
         void Place(float delta)
         {
             var avoidChat = _chat != null ? _chat.InteractiveRect : new Rect(0f, 0f, 0f, 0f);
+            // JUH-104 new UI: avoid the new chat box, and keep to the side it asks for.
+            if (NewUiAvoid.width > 0f)
+                avoidChat = NewUiAvoid;
             var head = HeadPoint(delta);
-            var target = PortraitPlacement.Beside(head, Screen.width, Screen.height, avoidChat, PortraitPlacement.DebugLabel, _preferLeft);
+            var target = PortraitPlacement.Beside(head, Screen.width, Screen.height, avoidChat, PortraitPlacement.DebugLabel, NewUiPreferLeft ?? _preferLeft);
             if (target.width > 0f)
                 _preferLeft = target.x + target.width * 0.5f < head.x;
-            _guiRect = PortraitPlacement.Smooth(_guiRect, target, delta, _placed, PortraitPlacement.DeadZone);
+            // JUH-104: a place chosen in the new UI (dragged, or docked to the chat box) is used as is.
+            if (NewUiTarget.width > 0f)
+                _guiRect = NewUiTarget;
+            else
+                _guiRect = PortraitPlacement.Smooth(_guiRect, target, delta, _placed, PortraitPlacement.DeadZone);
+            ShownRect = _guiRect;
             _placed = true;
             if (_frame == null)
                 return;
@@ -536,7 +607,12 @@ namespace AICompanion.Settings
             }
 
             _frame.anchoredPosition = new Vector2(_guiRect.x - origin.x, -(_guiRect.y - origin.y));
-            _frame.sizeDelta = new Vector2(_guiRect.width, _guiRect.height);
+            // A size chosen in the new UI (docked to the chat box) scales the whole framed picture
+            // from its top-left corner; otherwise it is drawn at its normal size as on main.
+            var zoom = NewUiTarget.width > 0f && _guiRect.height > 0f ? _guiRect.height / PortraitPlacement.Height : 1f;
+            _frame.sizeDelta = new Vector2(_guiRect.width / zoom, _guiRect.height / zoom);
+            if (Mathf.Abs(_frame.localScale.x - zoom) > 0.0001f)
+                _frame.localScale = new Vector3(zoom, zoom, 1f);
             var camera = Camera.main;
             if (_canvas == null)
                 return;
@@ -554,6 +630,19 @@ namespace AICompanion.Settings
         Vector2 HeadPoint(float delta)
         {
             var fallback = new Vector2(Screen.width * 0.62f, Screen.height * 0.34f);
+
+            // In 2D mode the hidden 3D model still animates, and its head bone wanders around
+            // the window. Beside the video avatar's head the portrait keeps one place.
+            var videoHead = fallback;
+            var videoKnown = _video != null && _video.TryGetPortraitHead(out videoHead);
+            switch (PortraitAnchor.Source(_mount != null && _mount.ModelHidden, videoKnown))
+            {
+                case PortraitAnchorSource.Video:
+                    return videoHead;
+                case PortraitAnchorSource.Fixed:
+                    return fallback;
+            }
+
             if (_head == null)
             {
                 _headRetry -= delta;

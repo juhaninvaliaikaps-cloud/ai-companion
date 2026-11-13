@@ -210,7 +210,7 @@ namespace AICompanion.AnimationDirector
                 return Neutral();
             }
 
-            var portrait = EmotionNames.PortraitAlias(cue.EmotionField);
+            var portrait = EmotionNames.PortraitAlias(cue.EmotionField, cue.Intensity);
             if (cue.Emotion == Emotion.Neutral && portrait.Length == 0)
             {
                 return Neutral();
@@ -233,7 +233,42 @@ namespace AICompanion.AnimationDirector
         {
             if (!string.IsNullOrWhiteSpace(catalogPortrait))
                 return catalogPortrait;
-            return EmotionNames.PortraitAlias(cue.EmotionField);
+            return EmotionNames.PortraitAlias(cue.EmotionField, cue.Intensity);
+        }
+
+        /// <summary>
+        /// JUH-103 phase 2: the reply cue still wins, but her mood may pick a softer face in
+        /// the same family, such as a smile for a happy cue while she is sad. Only emotion
+        /// decisions are shaded; gestures and neutral pass through. <paramref name="cueFace"/>
+        /// is the face that was softened, or empty when the decision is unchanged.
+        /// </summary>
+        public static DirectorDecision ShadeByMood(DirectorDecision decision, CompanionMood mood, bool intimateActive, out string cueFace)
+        {
+            cueFace = string.Empty;
+            if (decision.Action != DirectorAction.Emotion)
+                return decision;
+            if (CompanionMoodLooks.Effective(mood, intimateActive) == CompanionMood.Content)
+                return decision;
+
+            var face = decision.Portrait.Length > 0 ? decision.Portrait : decision.Emotion.ToString().ToLowerInvariant();
+            var softer = CompanionMoodLooks.Soften(mood, face, intimateActive);
+            if (softer.Length == 0)
+                return decision;
+
+            Emotion emotion;
+            if (!EmotionNames.TryParse(softer, out emotion))
+                emotion = decision.Emotion;
+            cueFace = face;
+            return new DirectorDecision(
+                decision.Action,
+                decision.StateName,
+                emotion,
+                decision.Intensity * CompanionMoodLooks.SoftenedIntensity,
+                decision.EntryId,
+                decision.GestureLacksState,
+                softer,
+                decision.DurationSeconds,
+                decision.Priority);
         }
 
         public static DirectorDecision Neutral()

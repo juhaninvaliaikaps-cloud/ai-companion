@@ -10,13 +10,23 @@ Built-in presets ship with the app:
 
 `Assets/_Project/Resources/Personas/`
 
-There are three: **Leia** (`friend`), **Avery** (`coach`), and **Rowan** (`calm`). They are neutral and appropriate for any audience. They use the Grok model, the cloud voice `eve`, and the Auto avatar. Piper and the portrait folder are blank, so those stay on the standard defaults.
+There are four. **Happi** (`happi`) is the default companion: a cheerful, playful catgirl friend with the Cheerful temperament. Her prompt is the user-written text in `happi.json` as is. Her provider, model, voices and avatar are blank, so picking her keeps whatever is set now.
+
+The other three are **Leia** (`friend`), **Avery** (`coach`), and **Rowan** (`calm`). They are neutral and appropriate for any audience. They use the Grok model, the cloud voice `eve`, and the Auto avatar. Piper and the portrait folder are blank, so those stay on the standard defaults.
+
+### Which persona is active at start
+
+- **New install** (no `settings.json` yet): Happi. The setup wizard's Personality step shows "Happi"; keeping that name as a friend, or Skip, keeps Happi. Another name, or Girlfriend, makes your own setup-name companion as before.
+- **Existing settings**: the persona you had selected stays selected, including the setup-name companion (no persona). Nobody is switched to Happi without choosing her.
+- **Wipe all local data**: starts again as Happi, like a new install.
+
+Leia stays available on the Persona tab. The chat header and the wheel centre in the new UI show the active persona's display name.
 
 Edits and new personas are saved on this PC, outside the repository:
 
 `%APPDATA%\ProjectLeia\personas\<id>.json`
 
-On a typical Windows account that is `C:\Users\<you>\AppData\Roaming\ProjectLeia\personas\`. A saved file with the same id replaces the built-in for you. The file in the repository is not changed.
+On a typical Windows account that is `C:\Users\<you>\AppData\Roaming\ProjectLeia\personas\`. A saved file with the same id replaces the built-in for you. The file in the repository is not changed. The copy under `%APPDATA%` is encrypted. The built-in files in the repository stay plain JSON. See [LOCAL_STORAGE.md](LOCAL_STORAGE.md).
 
 `settings.json` stores `personaId` and, when a portrait folder was found, `portraitFolder`. It does not store the personality text or an API key.
 

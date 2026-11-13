@@ -29,6 +29,10 @@ namespace AICompanion.Overlay
         float _pendingSeconds;
         bool _pendingStop;
         bool _unsupportedLogged;
+        bool _hasGait;
+        float _gaitSpeed;
+        float _gaitLead;
+        float _gaitGlide;
 
         public bool KeepFrameRateActive
         {
@@ -104,6 +108,32 @@ namespace AICompanion.Overlay
             get { return _model; }
         }
 
+        /// <summary>
+        /// Matches walking to an animation that is not the 3D one. See
+        /// <see cref="DesktopPresenceModel.SetGait"/>. The values are kept and applied to the
+        /// model each step, so they also hold before the model exists.
+        /// </summary>
+        public void SetGait(float pixelsPerSecond, float stopLeadSeconds, float stopGlideSeconds)
+        {
+            _hasGait = true;
+            _gaitSpeed = pixelsPerSecond;
+            _gaitLead = stopLeadSeconds;
+            _gaitGlide = stopGlideSeconds;
+            if (_model != null)
+                _model.SetGait(_gaitSpeed, _gaitLead, _gaitGlide);
+        }
+
+        /// <summary>Back to the 3D walking speed and an immediate stop.</summary>
+        public void ClearGait()
+        {
+            _hasGait = false;
+            _gaitSpeed = 0f;
+            _gaitLead = 0f;
+            _gaitGlide = 0f;
+            if (_model != null)
+                _model.ClearGait();
+        }
+
         /// <summary>Distance from the window bottom to her soles, from FootGrounding.</summary>
         public void SetFootOffset(float pixels)
         {
@@ -139,6 +169,15 @@ namespace AICompanion.Overlay
             if (!chrome.TryGetWorkArea(out var areaLeft, out var areaTop, out var areaRight, out var areaBottom))
                 return;
 
+            // The new UI's side room is not part of her: walk with her own part of the window.
+            var side = _window.SideRoom;
+            left += side;
+            right -= side;
+            // With the chat box under her she stands on it: her part ends above it, and so does her floor.
+            var below = _window.BottomRoom;
+            bottom -= below;
+            areaBottom -= below;
+
             var frame = Advance(
                 Time.unscaledDeltaTime,
                 left,
@@ -151,7 +190,7 @@ namespace AICompanion.Overlay
                 areaBottom,
                 _window.IsDragging);
             if (frame.Moved)
-                chrome.MoveWindow(new Vector2Int(frame.X, frame.Y), _window.IsTopmost);
+                chrome.MoveWindow(new Vector2Int(frame.X - side, frame.Y), _window.IsTopmost);
         }
 
         /// <summary>
@@ -175,9 +214,15 @@ namespace AICompanion.Overlay
             var height = Mathf.Max(1, bottom - top);
 
             if (_model == null)
+            {
                 _model = new DesktopPresenceModel(width, height, seed, walkSpeed, gravity, wanderByIdle: false);
+                if (_hasGait)
+                    _model.SetGait(_gaitSpeed, _gaitLead, _gaitGlide);
+            }
             else
+            {
                 _model.SetWindowSize(width, height);
+            }
 
             _model.SetWorkArea(new DesktopWorkArea(areaLeft, areaTop, areaRight, areaBottom));
 
@@ -205,7 +250,10 @@ namespace AICompanion.Overlay
             // that was applied a line earlier. Apply only once she is not falling.
             TryApplyPending();
 
+            var wasWalking = _model.State == PresenceState.Walking;
             var frame = _model.Tick(deltaSeconds);
+            if (wasWalking && _model.State != PresenceState.Walking && _model.EndedAtEdge != 0)
+                Debug.Log("Walk: ended at the " + (_model.EndedAtEdge < 0 ? "left" : "right") + " screen edge");
             ApplyLocomotion(frame.Walking, frame.Falling, frame.FacingRight);
             return frame;
         }

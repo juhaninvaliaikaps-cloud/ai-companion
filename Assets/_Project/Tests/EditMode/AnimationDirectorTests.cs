@@ -230,13 +230,84 @@ namespace AICompanion.Tests.EditMode
 
                 StringAssert.Contains(AnimationCueParser.Instruction, prompt);
                 StringAssert.Contains("<animation emotion=\"happy\" intensity=\"0.8\" gesture=\"wave_hello\" />", prompt);
-                StringAssert.Contains("End every reply with one cue tag on its own line", prompt);
+                StringAssert.Contains("Start every reply with one cue tag on its own first line", prompt);
                 StringAssert.Contains("- wave_hello:", prompt);
                 StringAssert.Contains("gesture: wave", prompt);
             }
             finally
             {
                 Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void ShippedCatalog_PoutyGestureUsesThePoutyPortrait()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>("Assets/_Project/Settings/AnimationCatalog.asset");
+            Assert.IsNotNull(catalog);
+            var model = new AnimationDirectorModel(catalog);
+
+            var pouty = AnimationCueParser.Parse("<animation emotion=\"sad\" intensity=\"0.45\" gesture=\"pouty\" />").Cue;
+            var poutDecision = model.Decide(pouty);
+            Assert.AreEqual(Emotion.Sad, poutDecision.Emotion);
+            Assert.AreEqual("pouty", poutDecision.Portrait);
+
+            var crying = AnimationCueParser.Parse("<animation emotion=\"crying\" gesture=\"crying\" />").Cue;
+            var cryDecision = model.Decide(crying);
+            Assert.AreEqual(DirectorAction.Emotion, cryDecision.Action, "gesture=crying must be an emotion look, not a body gesture.");
+            Assert.AreEqual("crying", cryDecision.Portrait);
+        }
+
+        [Test]
+        public void ShippedCatalog_GatesIntimateExpressions()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<AnimationClipCatalog>("Assets/_Project/Settings/AnimationCatalog.asset");
+            Assert.IsNotNull(catalog);
+            var model = new AnimationDirectorModel(catalog);
+            var host = new GameObject("intimate-gate-director");
+            try
+            {
+                var director = host.AddComponent<Director>();
+                AssignCatalog(director, catalog);
+                IntimateExpressions.Reset();
+
+                var cue = AnimationCueParser.Parse("<animation emotion=\"finger_suck\" intensity=\"0.8\" />").Cue;
+                var off = model.Decide(cue);
+                Assert.AreEqual(DirectorAction.Emotion, off.Action);
+                Assert.AreEqual(Emotion.Flustered, off.Emotion, "off means the normal flustered face");
+                Assert.AreEqual(string.Empty, off.Portrait, "the finger portrait is not resolved while off");
+                Assert.IsFalse(director.SystemPromptSuffix.Contains("Intimate drawn expressions"), "the prompt has no intimate line while off");
+                Assert.IsFalse(director.SystemPromptSuffix.Contains("finger_"), "the prompt has no finger ids while off");
+
+                IntimateExpressions.Configure(true, false, true);
+                var localOff = model.Decide(cue);
+                Assert.AreEqual(Emotion.Flustered, localOff.Emotion, "private mode off means the normal flustered face");
+                Assert.AreEqual(string.Empty, localOff.Portrait, "the finger portrait is not resolved outside Private mode");
+                Assert.IsFalse(director.SystemPromptSuffix.Contains("finger_"), "private mode off removes the finger ids from the prompt immediately");
+                Assert.IsFalse(director.SystemPromptSuffix.Contains("Intimate drawn expressions"), "private mode off removes the intimate line immediately");
+
+                IntimateExpressions.Configure(true, true, true);
+                try
+                {
+                    var on = model.Decide(cue);
+                    Assert.AreEqual(DirectorAction.Emotion, on.Action);
+                    Assert.AreEqual("finger_suck", on.Portrait);
+                    StringAssert.Contains(EmotionNames.IntimateCatalogLine, director.SystemPromptSuffix);
+                    Assert.IsTrue(director.SystemPromptSuffix.Contains("finger_suck:"), "the prompt lists the gated expression");
+
+                    var smile = AnimationCueParser.Parse("<animation emotion=\"neutral\" gesture=\"smile\" />").Cue;
+                    var smileDecision = model.Decide(smile);
+                    Assert.AreNotEqual("finger_pull", smileDecision.Portrait, "a generic smile cue must not pick the finger set");
+                }
+                finally
+                {
+                    IntimateExpressions.Reset();
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+                IntimateExpressions.Reset();
             }
         }
 
@@ -254,7 +325,7 @@ namespace AICompanion.Tests.EditMode
                 var prompt = director.SystemPromptSuffix;
 
                 StringAssert.Contains("<animation emotion=\"happy\" intensity=\"0.8\" gesture=\"wave_hello\" />", prompt);
-                StringAssert.Contains("End every reply with one cue tag on its own line", prompt);
+                StringAssert.Contains("Start every reply with one cue tag on its own first line", prompt);
                 StringAssert.Contains("Leave the gesture attribute out for an emotion only", prompt);
                 StringAssert.Contains("Walk to the left is <animation emotion=\"neutral\" gesture=\"walk\" direction=\"left\" />", prompt);
                 StringAssert.Contains("direction=\"right\"", prompt);
@@ -400,7 +471,7 @@ namespace AICompanion.Tests.EditMode
             var poutDecision = model.Decide(pouty);
             Assert.AreEqual(DirectorAction.Emotion, poutDecision.Action);
             Assert.AreEqual(Emotion.Sad, poutDecision.Emotion);
-            Assert.AreEqual("angry", poutDecision.Portrait);
+            Assert.AreEqual("pouty", poutDecision.Portrait);
 
             var sleepy = AnimationCueParser.Parse("<animation emotion=\"sleepy\" />").Cue;
             var sleepyDecision = model.Decide(sleepy);

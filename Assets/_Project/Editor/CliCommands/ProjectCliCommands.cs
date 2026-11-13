@@ -17,7 +17,7 @@ namespace Unity.Pipeline.Commands
     public static class ProjectCliCommands
     {
         const string ProjectRoot = "Assets/_Project";
-        const string PlayerPath = "Builds/Windows/BackseatCatgirl.exe";
+        const string PlayerPath = "Builds/Windows/Happi.exe";
 
         [CliCommand(
             "run_editmode_tests",
@@ -115,7 +115,7 @@ namespace Unity.Pipeline.Commands
 
         [CliCommand(
             "build_windows_player",
-            "Queue a Windows x64 development player at Builds/Windows/BackseatCatgirl.exe and return immediately. Poll build_status until status is completed.",
+            "Queue a Windows x64 development player at Builds/Windows/Happi.exe and return immediately. Poll build_status until status is completed.",
             Tags = new[] { "build" })]
         public static object BuildWindowsPlayer()
         {
@@ -328,7 +328,7 @@ namespace Unity.Pipeline.Commands
             };
 
             var summary = BuildPipeline.BuildPlayer(options).summary;
-            Debug.Log("Backseat Catgirl Windows player " + summary.result + " at " + summary.outputPath);
+            Debug.Log("Happi Windows player " + summary.result + " at " + summary.outputPath);
         }
 
         public sealed class ClipRecord

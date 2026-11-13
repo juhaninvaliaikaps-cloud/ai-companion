@@ -27,11 +27,24 @@ namespace AICompanion.Core
             get { return Status != CueParseStatus.None; }
         }
 
+        /// <summary>
+        /// The tag as the model wrote it: the one that gave the cue, else the last one seen.
+        /// Cut to <see cref="AnimationCueParser.MaxRawTagLength"/> characters, on one line.
+        /// Empty when the reply had no tag.
+        /// </summary>
+        public string RawTag { get; }
+
         public CueParseResult(string text, AnimationCue cue, CueParseStatus status)
+            : this(text, cue, status, null)
+        {
+        }
+
+        public CueParseResult(string text, AnimationCue cue, CueParseStatus status, string rawTag)
         {
             Text = text ?? string.Empty;
             Cue = cue;
             Status = status;
+            RawTag = rawTag ?? string.Empty;
         }
     }
 
@@ -50,25 +63,48 @@ namespace AICompanion.Core
         public const float DefaultIntensity = 0.6f;
         public const int MaxGestureLength = 32;
 
+        public const int MaxRawTagLength = 160;
+
         public const string Instruction =
-            "End every reply with one cue tag on its own line. " +
+            "Start every reply with one cue tag on its own first line, then write the reply. " +
+            "The tag moves her face and body. It is never shown or spoken, so never mention it. " +
+            "Write it in every reply, also in roleplay and narration. " +
             "The sample <animation emotion=\"happy\" intensity=\"0.8\" gesture=\"wave_hello\" /> is the format only. " +
             "Pick the emotion that fits this reply. Happy and embarrassed are not defaults. " +
-            "A sad reply is <animation emotion=\"sad\" intensity=\"0.7\" />. " +
-            "A surprised reply is <animation emotion=\"surprised\" intensity=\"0.8\" />. " +
+            "A sad reply starts with <animation emotion=\"sad\" intensity=\"0.55\" />. " +
+            "A surprised reply starts with <animation emotion=\"surprised\" intensity=\"0.6\" />. " +
+            "For strong sadness use emotion=\"crying\" (or sad at 0.9 or more). " +
+            "For strong shock use emotion=\"shocked\" (or surprised at 0.9 or more). " +
             "Set gesture to a catalog id (wave_hello) or that row's gesture name (wave). " +
             "Leave the gesture attribute out for an emotion only. " +
             "When the user asks you to walk, move, come here, or go to one side, set gesture to walk " +
             "in that same reply, even if you only agree in the sentence. " +
             "Walk to the left is <animation emotion=\"neutral\" gesture=\"walk\" direction=\"left\" />. " +
             "Walk to the right uses direction=\"right\". Omit direction when they do not name a side. " +
-            "When they ask you to stop, wait, or stand still, set gesture to stop. " +
-            "The tag is not part of the reply text, so never mention it.";
+            "When they ask you to stop, wait, or stand still, set gesture to stop.";
+
+        /// <summary>
+        /// Added to the newest user message in the request only, never to the transcript:
+        /// local roleplay models follow the last turn more than the system prompt.
+        /// </summary>
+        public const string TurnReminder =
+            "(Start your reply with your cue tag, for example <animation emotion=\"neutral\" />.)";
+
+        /// <summary>One log line for the tag the model wrote, so Player.log shows what arrived.</summary>
+        public static string DescribeTag(string rawTag, CueParseStatus status)
+        {
+            if (status == CueParseStatus.None || string.IsNullOrEmpty(rawTag))
+                return "Cue tag: none found in the reply";
+            if (status == CueParseStatus.Invalid)
+                return "Cue tag (not readable, used neutral): " + rawTag;
+            return "Cue tag: " + rawTag;
+        }
 
         static readonly string Marker = "<" + TagName;
 
+        // Quoted with " or ', or unquoted up to a space, a slash or the end of the tag.
         static readonly Regex AttributePattern = new Regex(
-            @"([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:""([^""]*)""|'([^']*)')",
+            @"([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:""([^""]*)""|'([^']*)'|([^\s""'/>]+))",
             RegexOptions.CultureInvariant);
 
         public static AnimationCue NeutralCue
@@ -195,6 +231,7 @@ namespace AICompanion.Core
             var cue = NeutralCue;
             var status = CueParseStatus.None;
             var removed = false;
+            var rawTag = string.Empty;
 
             var i = 0;
             while (i < slice.Length)
@@ -221,15 +258,19 @@ namespace AICompanion.Core
                 if (closed)
                 {
                     AnimationCue parsed;
+                    var raw = RawTagText(slice, i, end);
                     if (TryReadCue(body, out parsed))
                     {
                         cue = parsed;
                         status = CueParseStatus.Parsed;
+                        rawTag = raw;
                     }
-                    else
+                    else if (status != CueParseStatus.Parsed)
                     {
-                        cue = new AnimationCue(Emotion.Neutral, NeutralIntensity, string.Empty, 0f, parsed.EmotionField);
+                        // A broken second tag does not undo a good first one.
+                        cue = new AnimationCue(Emotion.Neutral, NeutralIntensity, string.Empty, 0f, parsed.EmotionField, parsed.Reaction);
                         status = CueParseStatus.Invalid;
+                        rawTag = raw;
                     }
 
                     i = SkipTag(slice, builder, i, end);
@@ -237,11 +278,13 @@ namespace AICompanion.Core
                 }
 
                 DropUnclosedLine(builder, slice, i);
-                status = status == CueParseStatus.Parsed ? status : CueParseStatus.Invalid;
                 if (status != CueParseStatus.Parsed)
                 {
                     cue = NeutralCue;
+                    rawTag = RawTagText(slice, i, slice.Length);
                 }
+
+                status = status == CueParseStatus.Parsed ? status : CueParseStatus.Invalid;
 
                 break;
             }
@@ -252,7 +295,14 @@ namespace AICompanion.Core
                 visible = visible.TrimEnd();
             }
 
-            return new CueParseResult(visible, cue, status);
+            return new CueParseResult(visible, cue, status, rawTag);
+        }
+
+        static string RawTagText(string text, int start, int end)
+        {
+            var length = Math.Max(0, Math.Min(end, text.Length) - start);
+            var raw = text.Substring(start, length).Replace('\r', ' ').Replace('\n', ' ').Trim();
+            return raw.Length > MaxRawTagLength ? raw.Substring(0, MaxRawTagLength) + "..." : raw;
         }
 
         /// <summary>
@@ -277,7 +327,7 @@ namespace AICompanion.Core
             return text.Length;
         }
 
-        static readonly string[] HoldMarkers = { "<animation", "<emotion=", "<gesture=", "<intensity=", "<direction=" };
+        static readonly string[] HoldMarkers = { "<animation", "<emotion=", "<gesture=", "<intensity=", "<direction=", "<reaction=" };
 
         static bool IsHoldPoint(string text, int index)
         {
@@ -370,7 +420,7 @@ namespace AICompanion.Core
             return true;
         }
 
-        static readonly string[] LooseStarts = { "emotion=", "gesture=", "intensity=", "direction=" };
+        static readonly string[] LooseStarts = { "emotion=", "gesture=", "intensity=", "direction=", "reaction=" };
 
         static bool LooksLikeCueStart(string text)
         {
@@ -388,23 +438,22 @@ namespace AICompanion.Core
         {
             cue = NeutralCue;
             var trimmed = body == null ? string.Empty : body.Trim();
-            if (!trimmed.EndsWith("/", StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            trimmed = trimmed.Substring(0, trimmed.Length - 1);
+            // The closing slash is optional: <animation emotion="happy"> is read too.
+            if (trimmed.EndsWith("/", StringComparison.Ordinal))
+                trimmed = trimmed.Substring(0, trimmed.Length - 1);
             var emotion = Emotion.Neutral;
             var intensity = DefaultIntensity;
             var gesture = string.Empty;
             var direction = 0f;
             var emotionField = string.Empty;
+            var reaction = string.Empty;
             var ok = true;
 
             foreach (Match attribute in AttributePattern.Matches(trimmed))
             {
                 var name = attribute.Groups[1].Value.ToLowerInvariant();
-                var quoted = attribute.Groups[2].Success ? attribute.Groups[2] : attribute.Groups[3];
+                var quoted = attribute.Groups[2].Success ? attribute.Groups[2]
+                    : attribute.Groups[3].Success ? attribute.Groups[3] : attribute.Groups[4];
                 var value = quoted.Value.Trim();
 
                 switch (name)
@@ -436,17 +485,21 @@ namespace AICompanion.Core
                     case "direction":
                         direction = ParseDirection(value);
                         break;
+                    case "reaction":
+                        reaction = SanitizeGesture(value);
+                        break;
                 }
             }
 
             if (!ok)
             {
-                cue = new AnimationCue(Emotion.Neutral, NeutralIntensity, string.Empty, 0f, emotionField);
+                // A reaction named in a tag with a bad emotion still plays.
+                cue = new AnimationCue(Emotion.Neutral, NeutralIntensity, string.Empty, 0f, emotionField, reaction);
                 return false;
             }
 
             NormalizeMovementCue(ref gesture, ref direction);
-            cue = new AnimationCue(emotion, intensity, gesture, direction, emotionField);
+            cue = new AnimationCue(emotion, intensity, gesture, direction, emotionField, reaction);
             return true;
         }
 

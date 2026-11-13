@@ -1,0 +1,27 @@
+{
+    "name": "AICompanion.NewUI",
+    "rootNamespace": "AICompanion.NewUI",
+    "references": [
+        "AICompanion.Core",
+        "AICompanion.AI",
+        "AICompanion.AnimationDirector",
+        "AICompanion.Memory",
+        "AICompanion.UI",
+        "AICompanion.Voice",
+        "AICompanion.Avatar",
+        "AICompanion.Overlay",
+        "AICompanion.ScreenLook",
+        "AICompanion.Settings",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
