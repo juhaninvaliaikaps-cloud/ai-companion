@@ -152,8 +152,9 @@ namespace AICompanion.Tests.EditMode
         public void Startup_BuildsAQuotedPerUserRunCommand()
         {
             Assert.AreEqual(@"Software\Microsoft\Windows\CurrentVersion\Run", WindowsStartupEntry.RunSubKey);
-            Assert.AreEqual("Backseat Catgirl", WindowsStartupEntry.ValueName);
-            Assert.AreEqual("AI Companion", WindowsStartupEntry.PreviousValueName);
+            Assert.AreEqual("Happi", WindowsStartupEntry.ValueName);
+            Assert.AreEqual("Backseat Catgirl", WindowsStartupEntry.PreviousValueName);
+            CollectionAssert.AreEqual(new[] { "Backseat Catgirl", "AI Companion" }, WindowsStartupEntry.PreviousValueNames);
             Assert.AreEqual(
                 "\"C:\\Games\\AI Companion\\AICompanion.exe\"",
                 WindowsStartupEntry.BuildCommand(@"C:\Games\AI Companion\AICompanion.exe"));
@@ -230,13 +231,13 @@ namespace AICompanion.Tests.EditMode
         public void PrefsRename_CopiesTheOldHiveOnceAndSkipsTheMarker()
         {
             Assert.AreEqual(
-                @"Software\AI Companion\AI Companion",
+                @"Software\AI Companion\Backseat Catgirl",
                 PrefsRenamePlan.PlayerSubKey(AppName.Company, AppName.PreviousDisplay));
             Assert.AreEqual(
-                @"Software\AI Companion\Backseat Catgirl",
+                @"Software\AI Companion\Happi",
                 PrefsRenamePlan.PlayerSubKey(AppName.Company, AppName.Display));
             Assert.AreEqual(
-                @"Software\Unity\UnityEditor\AI Companion\Backseat Catgirl",
+                @"Software\Unity\UnityEditor\AI Companion\Happi",
                 PrefsRenamePlan.EditorSubKey(AppName.Company, AppName.Display));
 
             var source = new[]
@@ -249,6 +250,55 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(1, copy.Length);
             Assert.AreEqual("ai-companion.paused_h1", copy[0].Name);
             Assert.AreEqual(0, PrefsRenamePlan.ValuesToCopy(source, true).Length);
+        }
+
+        [Test]
+        public void PrefsRename_ReadsTheNewestEarlierHiveThatHasValues()
+        {
+            var keys = PrefsRenamePlan.PreviousSubKeys(false, AppName.Company, AppName.PreviousDisplays, AppName.Display);
+            CollectionAssert.AreEqual(new[] { @"Software\AI Companion\Backseat Catgirl", @"Software\AI Companion\AI Companion" }, keys);
+            Assert.AreEqual(@"Software\Unity\UnityEditor\AI Companion\Backseat Catgirl",
+                PrefsRenamePlan.PreviousSubKeys(true, AppName.Company, AppName.PreviousDisplays, AppName.Display)[0]);
+            Assert.AreEqual(0, PrefsRenamePlan.PreviousSubKeys(false, AppName.Company, new[] { AppName.Display }, AppName.Display).Length);
+
+            var value = new PrefRegistryValue { Name = "ai-companion.muted_h2", Type = 4, Data = new byte[] { 1, 0, 0, 0 } };
+            var markerOnly = new[] { new PrefRegistryValue { Name = PrefsRenamePlan.Marker, Type = 4, Data = new byte[] { 1, 0, 0, 0 } } };
+            Assert.AreEqual(0, PrefsRenamePlan.PickSource(new[] { new[] { value }, new[] { value } }));
+            Assert.AreEqual(1, PrefsRenamePlan.PickSource(new[] { markerOnly, new[] { value } }));
+            Assert.AreEqual(1, PrefsRenamePlan.PickSource(new[] { new PrefRegistryValue[0], new[] { value } }));
+            Assert.AreEqual(-1, PrefsRenamePlan.PickSource(new[] { markerOnly, new PrefRegistryValue[0] }));
+            Assert.AreEqual(-1, PrefsRenamePlan.PickSource(null));
+        }
+
+        [Test]
+        public void Startup_RenamePointsTheNewValueAtTheRunningExe_AndDropsEveryOldName()
+        {
+            var store = new MemoryStartupRegistration();
+            store.TrySetEnabled("Backseat Catgirl", true, "\"C:\\Games\\BackseatCatgirl.exe\"");
+            store.TrySetEnabled("AI Companion", true, "\"C:\\Games\\AICompanion.exe\"");
+            var happi = WindowsStartupEntry.BuildCommand(@"C:\Games\Happi.exe");
+
+            Assert.IsTrue(StartupRename.MigrateAll(store, WindowsStartupEntry.PreviousValueNames, WindowsStartupEntry.ValueName, happi));
+            Assert.AreEqual(happi, store.Command("Happi"));
+            Assert.IsNull(store.Command("Backseat Catgirl"));
+            Assert.IsNull(store.Command("AI Companion"));
+
+            // No running exe known (the Editor): the old command is kept, as before.
+            var editor = new MemoryStartupRegistration();
+            editor.TrySetEnabled("Backseat Catgirl", true, "\"C:\\old.exe\"");
+            Assert.IsTrue(StartupRename.MigrateAll(editor, WindowsStartupEntry.PreviousValueNames, WindowsStartupEntry.ValueName, string.Empty));
+            Assert.AreEqual("\"C:\\old.exe\"", editor.Command("Happi"));
+
+            // A value the person already has under the new name is left alone.
+            var kept = new MemoryStartupRegistration();
+            kept.TrySetEnabled("Happi", true, "\"D:\\Happi.exe\"");
+            kept.TrySetEnabled("Backseat Catgirl", true, "\"C:\\Games\\BackseatCatgirl.exe\"");
+            Assert.IsTrue(StartupRename.MigrateAll(kept, WindowsStartupEntry.PreviousValueNames, WindowsStartupEntry.ValueName, happi));
+            Assert.AreEqual("\"D:\\Happi.exe\"", kept.Command("Happi"));
+            Assert.IsNull(kept.Command("Backseat Catgirl"));
+
+            // Nothing to move.
+            Assert.IsTrue(StartupRename.MigrateAll(new MemoryStartupRegistration(), WindowsStartupEntry.PreviousValueNames, WindowsStartupEntry.ValueName, happi));
         }
 
         [Test]

@@ -143,7 +143,7 @@ Copy-Item "$avatar.meta" "$backup.meta" -Force
 
 & "E:\Unity Editor\6000.6.6f1\Editor\Unity.exe" -batchmode -nographics `
   -projectPath $root `
-  -buildWindows64Player "$root\Builds\Windows\BackseatCatgirl.exe" `
+  -buildWindows64Player "$root\Builds\Windows\Happi.exe" `
   -logFile "$env:TEMP\player-build.log"
 
 Copy-Item $backup $avatar -Force
@@ -154,10 +154,10 @@ Do not commit `AvatarSelection.asset` if the only difference is your local avata
 
 The Linux VM cannot run this player, so a native crash here is not reproduced and is not claimed fixed. CI script compile does not prove the capture objects are freed safely.
 
-Rebuild from the latest commit on this branch, then run `Builds\Windows\BackseatCatgirl.exe`. Quit any older `BackseatCatgirl.exe` first. The player log is `%USERPROFILE%\AppData\LocalLow\AI Companion\Backseat Catgirl\Player.log`.
+Rebuild from the latest commit on this branch, then run `Builds\Windows\Happi.exe`. Quit any older `Happi.exe` first. The player log is `%USERPROFILE%\AppData\LocalLow\AI Companion\Happi\Player.log`.
 
 ```powershell
-Select-String -Path "$env:USERPROFILE\AppData\LocalLow\AI Companion\Backseat Catgirl\Player.log" -Pattern "Screen look:" | Select-Object -Last 12
+Select-String -Path "$env:USERPROFILE\AppData\LocalLow\AI Companion\Happi\Player.log" -Pattern "Screen look:" | Select-Object -Last 12
 ```
 
 Those lines are route, sizes, JPEG byte count, base64 field length, HTTP status, and observation character count. They do not contain the picture, the window title, or the words on screen. Do not paste the chat reply if it contains private text.

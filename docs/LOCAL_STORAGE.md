@@ -62,6 +62,31 @@ On startup, and again the first time a file is read, a plaintext file is migrate
 
 A second launch finds `LEIAENC1` and does not migrate again.
 
+## Renaming to Happi
+
+The product name moved from **Backseat Catgirl** to **Happi**. Nothing in this document moves with it:
+- `%APPDATA%\ProjectLeia` holds settings, chat history, mood, memory, personas, `secrets.json` and `install-key.leia`. Its path does not use the product name.
+- DPAPI wraps the key with no entropy, using the fixed description `ProjectLeia`. The key is bound only to the Windows user, so encrypted files stay readable after the rename.
+
+Unity derives two locations from the product name, and both are carried over on the first start of Happi. The old copies are never deleted:
+
+| What | Old | New | How |
+| --- | --- | --- | --- |
+| Save folder (`Application.persistentDataPath`) | `%USERPROFILE%\AppData\LocalLow\AI Companion\Backseat Catgirl` | `…\LocalLow\AI Companion\Happi` | `SaveFolderRename` copies files that are missing in the new folder. It never overwrites. It skips `Player.log`, `Player-prev.log` and Unity's `Unity`/`Crashes` folders. It writes `renamed-from.txt` when every copy worked, and retries on the next start otherwise. |
+| PlayerPrefs (window size and zoom, mute, pause, chat open, tray options) | `HKCU\Software\AI Companion\Backseat Catgirl` | `HKCU\Software\AI Companion\Happi` | `PrefsRename` copies the newest earlier hive that has values, byte for byte, once (marker value `backseat-catgirl.prefs-migrated`). |
+
+If the Backseat Catgirl folder or hive has nothing to copy (for example a folder with only its old `Player.log`), the older **AI Companion** one is used instead. The "Start with Windows" Run value also moves to `Happi` and points at the running `Happi.exe`.
+
+The player log after the rename is `%USERPROFILE%\AppData\LocalLow\AI Companion\Happi\Player.log`. Older logs stay in the old folder.
+
+Check after the first start of Happi:
+
+```powershell
+Set-Location "$env:USERPROFILE\AppData\LocalLow\AI Companion\Happi"
+Get-Content -Encoding UTF8 .\renamed-from.txt -ErrorAction SilentlyContinue
+Select-String -Path .\Player.log -Pattern "Rename:" -ErrorAction SilentlyContinue
+```
+
 ## Unreadable files
 
 A truncated file, a flipped byte, or a file whose name does not match the name inside the tag does not throw. The bad file is moved to `<name>.unreadable-<utc>` beside it, a warning names the file, and that store starts empty. The backup is the ciphertext, not a decoded copy. The next save creates a new file with the current install key.
@@ -123,7 +148,7 @@ $bytes[$bytes.Length - 1] = $bytes[$bytes.Length - 1] -bxor 255
 
 ```powershell
 Set-Location "C:\path\to\ai-companion\Builds\Windows"
-.\BackseatCatgirl.exe
+.\Happi.exe
 ```
 
 ```powershell
