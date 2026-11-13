@@ -14,19 +14,24 @@ Columns:
 - **New UI**: where it lives in the new UI (filled in as PRs C, D and E land). `—` means not
   moved yet; the old path stays reachable.
 
+Status after PRs C–E: chat items (section 3) are in the new chat view (PR C); every settings
+item (section 4) is on the same-named tab of the new settings view (PR E), and "Classic
+settings" opens the old panel; the wizard (section 5), tray (6), debug readouts (7) and gates (8)
+are shared and unchanged. Section 9 lists what is new.
+
 ## 1. Panels and windows
 
 | ID | Panel | Implemented by | Opens with | New UI |
 | --- | --- | --- | --- | --- |
 | P-01 | Transparent overlay window (borderless, layered, topmost, click-through) | `Overlay/OverlayWindow.cs` `StartCompanion`, `Update`, `EnsureChrome`, `ApplySizedWindow` | always | unchanged (shared) |
-| P-02 | Overlay HUD top-left (topmost, fps, emotion, debug hint, rotate/size/zoom) | `Overlay/OverlayWindow.cs` `OnGUI`, `RefreshEmotionLabel`, `RefreshRotateLabel`, `AccumulateFps` | always | unchanged (shared) |
+| P-02 | Debug text top-left (topmost, fps, emotion, debug hint, rotate/size/zoom) | `Overlay/OverlayWindow.cs` `OnGUI`, `RefreshEmotionLabel`, `RefreshRotateLabel`, `AccumulateFps` | only with Settings → Overlay → "Show debug info" (S-OV-10, off by default since the follow-up) | same switch in both UIs |
 | P-03 | Chat panel beside the avatar | `UI/ChatPanel.cs` `BuildUi`, `RefreshPlacement`, `SetVisible` | F10, double-click on her, tray "Open chat" | new chat view (PR C) |
 | P-04 | Model badge (active provider/model, green local, amber cloud) | `UI/ChatPanel.cs` `RefreshModelBadge` | always while chat canvas exists | new chat view header (PR C) |
 | P-05 | Settings panel with 8 tabs | `Settings/SettingsPanel.cs` `BuildChrome`, `RebuildBody`, `Open`, `Close`, `Place` | F12, tray "Settings" | new settings view (PR E) |
 | P-06 | First-run setup wizard (5 steps) | `Settings/SetupWizard.cs` `Show`, `Hide`, `BuildChrome`, `RebuildBody`; flow in `Settings/SetupWizardLogic.cs` | first launch without settings/key, `--setup`, Settings → Privacy → "Run setup again" | old wizard (PR E if time) |
 | P-07 | Expression portrait panel | `Settings/ExpressionPortraitPanel.cs` `EnsureUi`, `Refresh`, `Place`, `Apply` | Settings → Avatar → "Show expression portrait" | unchanged (shared) |
 | P-08 | Screen-look exact-frame viewer | `Settings/SettingsPanel.Screen.cs` `BuildExactFrame`, `OpenExactFrame`, `CloseExactFrame` | Settings → Screen → "Inspect exact frame" | old panel (linked from new settings) |
-| P-09 | Mood readout (debug) | `Settings/CompanionMoodKeeper.cs` `OnGUI` | Settings → Overlay → "Show mood readout (debug)" | unchanged (shared) |
+| P-09 | Mood readout | `Settings/CompanionMoodKeeper.cs` `OnGUI` | Settings → Overlay → "Show mood readout (debug)"; top-left, below the debug text when that is shown | unchanged (shared) |
 | P-10 | System tray icon and menu | `Overlay/CompanionTray.cs`, `Overlay/WindowsTrayHost.cs`, `Overlay/TrayMenuState.cs` `Build` | right-click tray icon | unchanged (shared) |
 | P-11 | 2D video avatar | `Settings/VideoAvatar/VideoAvatar.cs` | Settings → Avatar → "Avatar: 2D video" | unchanged (shared) |
 
@@ -172,6 +177,7 @@ Every change goes through `ApplyLive` → `SettingsApplicator.Apply` → `SaveSe
 | S-OV-07 | Pause (matches tray checkmark) | `Paused` | also wheel → Leave me alone (PR D) |
 | S-OV-08 | Show mood readout (debug) | `ShowMoodDebug` | |
 | S-OV-09 | **New UI (preview)** (new, default off) | `NewUiPreview` | |
+| S-OV-10 | **Show debug info** (new, default off): shows P-02 | `ShowDebugInfo` | Overlay tab |
 
 ### 4.6 Privacy tab (`BuildPrivacy`, `SettingsPanel.LocalData.cs`, `SettingsPanel.Memory.cs`)
 
@@ -259,7 +265,7 @@ Footer: Back, Skip, Next/Done, step label "Step n of 5 · Title" (`RefreshFooter
 | ID | Action | Implemented by |
 | --- | --- | --- |
 | D-01 | Emotion keys 1–5, T talk, F9 preview | K-08, K-09, K-04 |
-| D-02 | HUD: topmost, fps, emotion label, debug hint, rotate/size/zoom | P-02 |
+| D-02 | Debug text: topmost, fps, emotion label, debug hint, rotate/size/zoom (hidden unless S-OV-10) | P-02 |
 | D-03 | Mood readout (her mood, top 3) | P-09, S-OV-08 |
 | D-04 | Video avatar test buttons and arrow keys | S-AV-10, S-AV-11, K-20 |
 | D-05 | Placement log line in Player.log | `UI/ChatPanel.cs` `LogPlacement` |
@@ -287,3 +293,7 @@ Footer: Back, Skip, Next/Done, step label "Step n of 5 · Title" (`RefreshFooter
 | N-03 | Voice narration setting | C |
 | N-04 | Main radial wheel above her head (8 fixed slices) | D |
 | N-05 | Body-part wheel component + JUH-101 hit-zone hook | D |
+| N-06 | Movable chat box: drag by the header bar anywhere around her (window side room), snap spots 1–5 while dragging (spot 2 moves the portrait left; spot 5 under her, she stands on the box, 2D only and the 2D default), saved relative to her (`ChatBoxSnap`, `ChatBoxOffsetX/Y`), kept on screen on either monitor, Settings → Happi → "Reset chat position" | follow-up |
+| N-07 | Spoken-text glow: words turn warm gold and grow as she says them; Settings → Happi → "Spoken text glow" (`SpokenGlow`, on) + intensity (`SpokenGlowIntensity`) | follow-up |
+| N-08 | Text fields: blinking cursor and a focus ring while typing | follow-up |
+| N-09 | Movable 2D portrait: drag it; dock left or right of the chat box (scaled so its top and bottom line up with the box) or leave it anywhere (saved relative to her head); `PortraitDock`, `PortraitOffsetX/Y`; Settings → Happi → "Reset portrait position" | follow-up |

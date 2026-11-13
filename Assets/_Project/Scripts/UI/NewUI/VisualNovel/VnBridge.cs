@@ -249,6 +249,20 @@ namespace AICompanion.NewUI.VisualNovel
     /// <summary>Rich text for the dialogue box: revealed lines, narration in italics, the current line highlighted.</summary>
     public static class VnRender
     {
+        /// <summary>
+        /// Index of line <paramref name="index"/> first character in the rendered dialogue text
+        /// (TMP counts characters, not rich-text tags; lines are joined by one line break).
+        /// </summary>
+        public static int LineStart(IReadOnlyList<VnSegment> segments, int index)
+        {
+            if (segments == null || index <= 0)
+                return 0;
+            var start = 0;
+            for (var i = 0; i < index && i < segments.Count; i++)
+                start += segments[i].Text.Length + 1;
+            return start;
+        }
+
         public static string Dialogue(IReadOnlyList<VnSegment> segments, int revealed, int current, HappiTheme theme)
         {
             if (segments == null || revealed <= 0)

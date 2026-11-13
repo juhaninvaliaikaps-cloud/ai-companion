@@ -142,6 +142,45 @@ namespace AICompanion.NewUI
         /// <summary>Auto-play: pause after a speech line that was not voiced (muted or TTS off).</summary>
         public float SilentSpeechSecondsPerChar = 0.04f;
 
+        // ---- Spoken-text glow (JUH-108) --------------------------------------------------
+
+        /// <summary>Warm light the words take while she says them (a warm tint over the #EAF2FF text).</summary>
+        public const string SpokenGlowHex = "#FFD166";
+        public Color SpokenGlowColor = Hex(SpokenGlowHex);
+        /// <summary>How long a word keeps fading back to normal after it was said.</summary>
+        public float SpokenGlowFadeSeconds = 0.3f;
+        /// <summary>Glow at the lowest intensity setting (the slider maps 0..1 onto this..1).</summary>
+        public float SpokenGlowMinStrength = 0.55f;
+        /// <summary>How much a word grows while it is being said (0.14 = 14% bigger), so the glow reads at a glance.</summary>
+        public float SpokenGlowPop = 0.14f;
+        /// <summary>Extra weight (in letters) for the short pause after a comma, colon or dash.</summary>
+        public float SpokenGlowCommaPause = 2f;
+        /// <summary>Extra weight (in letters) for the pause after a full stop, ! or ?.</summary>
+        public float SpokenGlowSentencePause = 4f;
+        /// <summary>Speaking pace used only when the voice reports no clip timing (about 14 letters a second).</summary>
+        public float SpokenGlowSecondsPerLetter = 0.07f;
+
+        // ---- Chat box dragging ------------------------------------------------------------
+
+        /// <summary>Seconds between checks of the monitor the window is on (for clamping the chat box).</summary>
+        public float MonitorCheckSeconds = 0.5f;
+        /// <summary>Chat box width at 100% scaling. The window gets this much room on each side of her.</summary>
+        public float ChatBoxWidth = 340f;
+        /// <summary>Space between her and a chat box placed beside her.</summary>
+        public float ChatSideGap = 12f;
+        /// <summary>While dragging, the box snaps to a spot when its centre is this close (pixels at 100%).</summary>
+        public float ChatSnapRadius = 90f;
+        public Color SnapMarker = WithAlpha(Hex(HoverHex), 0.14f);
+        public Color SnapMarkerActive = WithAlpha(Hex(HoverHex), 0.38f);
+
+        // ---- Text input -----------------------------------------------------------------
+
+        /// <summary>Blinking text cursor width in pixels at 100% scaling.</summary>
+        public float CaretWidth = 2f;
+        public float CaretBlinkRate = 0.85f;
+        /// <summary>Ring around a text field while it has the keyboard.</summary>
+        public Color FocusRing = Hex(HoverHex);
+
         // ---- Scaling for 100–200% Windows display scaling -----------------------------
 
         /// <summary>0 = follow the monitor DPI. Any other value forces that factor.</summary>

@@ -201,3 +201,154 @@ per-slice accent (pink for intimate), and draws a connector line to an anchor. J
 in through `BodyPartWheels.HitZones` and `BodyPartWheels.Register`; nothing is registered, so
 right-click always opens the main wheel now and no touch reactions were added. Slices marked
 `RequiresIntimateGate` are left out unless `IntimateExpressions.Active`.
+
+## PR E
+
+**E1. Same tabs, one more.** The new settings view keeps the old tabs (AI, Avatar, Voice,
+Controls, Overlay, Privacy, Persona, Screen) with the same items and wording, plus a "Happi"
+tab for the new UI's own options (New UI, Voice narration, Step mode, wheel help). A coverage
+test fails if any `CompanionSettings` field has no control in the view (exceptions are listed
+in the test with where they are set instead).
+
+**E2. Classic settings stay one click away.** The header has "Classic settings", which opens
+the old panel even while the new UI is on. This is the safety net for anything the new view
+misses, and for items that land on main after this PR (for example #63's Private endpoint
+section on the AI tab, which the new view does not have yet).
+
+**E3. Opening.** F12, the tray "Settings" item and the wheel all call `SettingsPanel.Open()`;
+while the new UI is on, a new `OpenOverride` hook (one added line in `Open()`) shows the new
+view instead. F12 toggles; the tray and the wheel only open.
+
+**E4. Same actions as the old tabs.** API key save/remove/test, chat history, clear, wipe,
+export, persona edit/create/delete, reset rotation and run setup go through small host
+methods in `SettingsPanel.Presenters.cs` that call the old panel's existing private methods,
+so messages, confirmations and file handling are identical. Clear and Wipe keep the two-step
+confirm (`PrivacyConfirm`).
+
+**E5. 18+ condition unchanged.** "Intimate expressions (18+)" is listed on the Avatar tab
+exactly as on the old tab (always listed, with the same note; it only takes effect with
+Private mode and the adult folder, enforced by `IntimateExpressions.Configure` as before).
+
+**E6. Setup wizard not rebuilt.** There was not enough time for a themed wizard. "Run setup
+again" (and first launch) open the existing wizard, which works with the new UI on.
+
+**E7. Wheel acts on release.** Slices act when the mouse button is released over the same
+slice it was pressed on. Acting on press let the release land on the panel a slice had just
+opened (it selected a settings tab by accident in testing).
+
+## Follow-up after the user's test (2026-11-13)
+
+**F1. Debug text hidden in both UIs.** The top-left text (topmost, fps, emotion, key hints,
+rotate/size/zoom) is drawn only with the new setting **Show debug info** (Overlay tab in both
+settings views, key `showDebugInfo`, default off). While hidden its area clicks through like any
+empty pixel. The hotkeys are unchanged. The **mood readout** stays on its own existing switch and
+moves to the top-left corner when the debug text is hidden (below it when shown).
+
+**F2. Movable chat box, saved as a fraction of the window.** The box centre is stored as 0..1 of
+the overlay window (`chatBoxX`, `chatBoxY`, default -1 = bottom centre), so it survives window
+resizes. It is always clamped to the part of the window that lies on its monitor's work area. The
+overlay's own work-area lookup (`SPI_GETWORKAREA`) only knows the primary monitor, so the chat
+box asks Windows for the monitor under the window (`MonitorFromPoint` + `GetMonitorInfo`): it
+works on both monitors, and a spot saved on another monitor or screen size snaps back on screen.
+
+**F3. Dragging.** Only the header bar starts a drag; the header buttons sit on top of it and still
+click. The drag follows the global cursor and button state (like the wheel), so a fast drag that
+leaves the box keeps going, and nothing else receives the press: no message is sent, no line is
+advanced, the overlay's click-through elsewhere is unchanged. The position is saved on release
+with a save-only path (`SettingsPanel.SaveLayoutSetting`), because a full apply rebuilds the voice
+provider (Kokoro would reload its model).
+
+**F4. Spoken-text glow timing: clip duration, not engine timestamps.** In this app none of the
+voices return word or phoneme timestamps: the xAI TTS request returns audio only, and the Piper and
+Kokoro processes return WAV audio. So the sweep uses each clip's real playback position
+(`ISpeechProgress` on `VoiceSpeaker`: the sentence a clip says, its length, and how far it has
+played). Within a clip the time is spread over that sentence's words by letter count, with short
+pauses after commas (2 letters' worth) and sentence ends (4). A line said in several clips continues
+clip by clip. Before the first clip plays, a fixed pace of 0.07 s per letter is used.
+
+**F5. Glow rendering.** The current line's characters get their TMP vertex colours blended toward a
+warm light (`#FFE3A8`, `HappiTheme.SpokenGlowColor`) while the word is said, then fade back over
+0.3 s. TMP's material glow is not used because it would light every character in the box. No
+per-letter objects, no particles, no per-frame allocations (arrays are made once per line).
+Settings > Happi: **Spoken text glow** (on by default) and an intensity slider (subtle → strong),
+both saved without a full apply. Colours, fade time, pauses and pace are in `HappiTheme`.
+
+**F6. When the glow stops.** Narration glows only when Voice narration is on (only voiced lines
+glow). Skip, Show all, Stop and a new line re-render the text, so it is back to normal at once.
+When speech stops (pause, mute, end of line) the words already lit fade out over 0.3 s.
+
+**F7. Daytime checks without input.** The overnight checks drove the mouse; with the user at the
+PC the follow-up did not move the mouse or capture the screen. Dragging is covered by
+`ChatBoxPlacementTests` and is on the manual checklist.
+
+## Second follow-up (2026-11-13): glow, cursor, free chat box, snap spots
+
+**F8. Stronger glow.** The lit words now turn a saturated warm gold (`#FFD166`, was a pale
+cream) and grow 14% while they are said (glyph quads scaled around their centre, same vertex pass,
+still no allocations). The intensity slider now maps to 0.55–1 (was 0.25–1), so the default 0.6
+gives 0.82. All values are in `HappiTheme` (SpokenGlowColor, SpokenGlowMinStrength, SpokenGlowPop).
+
+**F9. Text cursor.** TMP's caret is set explicitly: white, 2 px (more at high DPI), blinking at
+0.85 s. The field also gets a light-blue ring while it has the keyboard, so it is obvious which
+field is active even between blinks. Every new-UI text field (chat and settings) has both.
+
+**F10. Free chat box: the window gets room beside her.** Unity has one window, so the chat box
+cannot be its own OS window. While the new UI is on, the overlay window gets transparent,
+click-through room on both sides of her (one box width + gaps, about 364 px each at 100%):
+`OverlayWindow.SetSideRoom`. Her own placement, anchor, dragging and walking use the window
+without that room (`DesktopPresence` subtracts it), so she does not move and still walks to the
+screen edges; the room may hang off the screen. The box is a fixed 340 px wide instead of the whole
+window. It is placed relative to her head, so it travels with her when she walks or is dragged
+(like a speech panel), and it is always clamped to the part of the window that is on screen.
+The debug text, the mood readout and the wheel shift or clamp with the room. With the new UI off,
+or while the classic settings or the setup wizard is open (they sit at the window's left edge),
+the room is 0 and the window is exactly as on main. A fully independent box (staying put while
+she walks) would need the overlay to cover the whole screen; that is a larger change, not done.
+
+**F11. Snap spots.** Dragging shows four ghost boxes numbered 1–4: 1 left of her head, 2 right
+of her head, 3 beside her on the left, 4 beside her on the right. Letting go within about 90 px of
+one snaps there; otherwise the box stays where it was dropped (saved as an offset from her head).
+For 3 and 4 the box is centred at navel height (0.62 of the way from her feet to her head centre),
+but its bottom never goes below her feet, so a tall box sits with its bottom level with her feet.
+Spot 2 sends the 2D expression portrait to her left (the portrait also keeps clear of the box at
+any spot). When a spot's side has no room on screen (she stands at an edge), the box uses the
+mirrored spot on her other side. Default: spot 4. Her head and feet come from the 2D video's idle
+rectangle or the 3D humanoid bones. New keys: `chatBoxSnap`, `chatBoxOffsetX`, `chatBoxOffsetY`;
+`chatBoxX`/`chatBoxY` (window fractions, from the first follow-up) are still read and written but
+no longer used.
+
+## Third follow-up (2026-11-13): caret, chat box under her, movable portrait
+
+**F12. The caret really shows now.** F9 set the caret's colour, width and blink rate, but TMP
+creates the caret object only in `TMP_InputField.OnEnable`, and only when the field already has
+its text component. `TMP_DefaultControls.CreateInputField` adds the field before it assigns the
+text component, so the caret was never created. Every new-UI field is now switched off and on
+once after it is built, which creates the caret with the F9 settings. No TMP source changes.
+
+**F13. Spot 5: under her, she stands on the box; the default in 2D.** Spot 5 centres the box
+under her feet with one gap between her feet and the box top. To make room the window grows down
+by the box height plus two gaps (`OverlayWindow.BottomRoom`), and her part of the window
+(`OverlayWindow.BodyRect`) is lifted by the same amount: the 2D video is laid out in that part,
+and her walking floor (`DesktopPresence`) rises with it, so she walks along on top of the box.
+Her feet stay where they were, unless the box would then go below the taskbar: then she is
+lifted just enough. Standing on the taskbar (the usual case) she moves up by the box height and the
+box takes her old place. Spot 5 is offered only with the 2D video avatar playing: the 3D camera framing is
+fitted to the whole window and would stretch, so in 3D spot 5 is not shown while dragging and a
+saved spot 5 falls back to spot 4. The default (`chatBoxSnap` -1, also after "Reset chat
+position") is spot 5 in 2D and spot 4 in 3D. The bottom room is only there while the box is
+visible at spot 5, and it is 0 with the new UI off and while the classic settings or the setup
+wizard is open. The box height is computed from her part of the window, not the whole window, so
+the bottom room cannot make the box grow. Spot 5 is never mirrored; it is only clamped on screen.
+
+**F14. Movable 2D portrait, docked to the chat box.** The portrait can be dragged (an invisible
+handle on the chat canvas sits over it; the chat canvas sorts above the portrait's). While it is
+dragged it keeps its normal size, and two ghost spots show its docks: left and right of the chat
+box. Let go within about 90 px of one and it docks there: it is scaled (`localScale`, so the
+photo stays sharp in its frame and keeps its 128 × 144 shape) so its top and bottom are level
+with the box's top and bottom, one gap away from the box. It then moves and resizes with the box.
+If the chosen side has no room on screen, it docks on the other side. Let go anywhere else and it
+stays there at its normal size, saved as an offset from her head, so it follows her when she
+walks. New keys: `portraitDock` (0 automatic, the default and as before; 1 left of the box; 2
+right of the box; 3 free), `portraitOffsetX`, `portraitOffsetY`. Settings → Happi → "Reset
+portrait position" goes back to automatic. While the chat box is hidden, the portrait goes back to
+the automatic place beside her head (docking needs the box). With the new UI off nothing changes.

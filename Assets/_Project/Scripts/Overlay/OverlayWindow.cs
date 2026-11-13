@@ -94,6 +94,96 @@ namespace AICompanion.Overlay
         bool _companionVisible = true;
 
         public bool IsTopmost => _topmost;
+
+        /// <summary>
+        /// The debug text top-left (topmost, fps, emotion, key hints, rotate/size/zoom). Off by
+        /// default since JUH-104; Settings > Overlay > "Show debug info" turns it on. While it is
+        /// off its area clicks through like any empty pixel. Hotkeys work either way.
+        /// </summary>
+        public bool ShowDebugInfo { get; set; }
+
+        int _sideRoom;
+
+        /// <summary>
+        /// JUH-104 new UI: transparent, click-through room (pixels) added on both sides of her so
+        /// the chat box can sit beside her. Her own placement, anchor and walking use the window
+        /// without this room, so she stays where she is. 0 (the default, and always with the new
+        /// UI off) is the window exactly as on main. The room may hang off the screen edge.
+        /// </summary>
+        public int SideRoom => _sideRoom;
+
+        public void SetSideRoom(int pixels)
+        {
+            if (pixels < 0)
+                pixels = 0;
+            if (pixels == _sideRoom)
+                return;
+            _sideRoom = pixels;
+            if (_started)
+                ApplySizedWindow(true);
+        }
+
+        int _bottomRoom;
+
+        /// <summary>
+        /// JUH-104 new UI (2D video): room (pixels) below her for the chat box, so she stands on top
+        /// of it. Her part of the window is lifted by this much and her walking floor rises with it.
+        /// 0 (default, and always with the new UI off) is the window as on main.
+        /// </summary>
+        public int BottomRoom => _bottomRoom;
+
+        public void SetBottomRoom(int pixels)
+        {
+            if (pixels < 0)
+                pixels = 0;
+            if (pixels == _bottomRoom)
+                return;
+            // Resize around where she stands now (she may have walked away from the last drop point),
+            // not where she was last dropped; the floor then lifts her onto the box or lets her down.
+            if (_started && !_dragging)
+                RememberAnchor();
+            _bottomRoom = pixels;
+            _bottomRoomChangedAt = Time.unscaledTime;
+            if (_started)
+                ApplySizedWindow(true);
+        }
+
+        int _shownBottomRoom;
+        float _bottomRoomChangedAt;
+
+        /// <summary>
+        /// The bottom room that matches the frame Unity is drawing. Unity reports the new window
+        /// height a frame or two after a resize; laying her out with the new room in the old height
+        /// squashed her and the chat box, which changed the room again (a feedback loop: she kept
+        /// falling through the box). The new room is used once the window really has the new height
+        /// (or after half a second, in case Windows kept a different size).
+        /// </summary>
+        public int ShownBottomRoom
+        {
+            get
+            {
+                if (_shownBottomRoom != _bottomRoom
+                    && (Screen.height == _appliedHeight || Time.unscaledTime - _bottomRoomChangedAt > 0.5f))
+                    _shownBottomRoom = _bottomRoom;
+                return _shownBottomRoom;
+            }
+        }
+
+        /// <summary>Her own window height (pixels): the window size setting, without any room for the chat box.</summary>
+        public int BodyHeight => Mathf.Max(1, windowHeight);
+
+        /// <summary>Her part of the window in Unity screen pixels (origin bottom-left): the window without the side and bottom room.</summary>
+        public Rect BodyRect
+        {
+            get
+            {
+                var below = ShownBottomRoom;
+                return new Rect(_sideRoom, below, Mathf.Max(1, Screen.width - 2 * _sideRoom), Mathf.Max(1, Screen.height - below));
+            }
+        }
+
+        /// <summary>The debug text rectangle (moves with the side room so it stays on her part of the window).</summary>
+        Rect HudRect => new Rect(PanelRect.x + _sideRoom, PanelRect.y, PanelRect.width, PanelRect.height);
         public bool IsClickThrough => _clickThrough;
         public float WindowScale => _windowScale;
         public int IdleFrameRate => idleFrameRate;
@@ -139,7 +229,7 @@ namespace AICompanion.Overlay
 
             EnsureChrome();
             bool inside = TryReadPointer(out var unityScreen, out var screenCursor);
-            bool overPanel = inside && OverlayPointerMath.IsInsideTopLeftRect(PanelRect, unityScreen, Screen.height);
+            bool overPanel = ShowDebugInfo && inside && OverlayPointerMath.IsInsideTopLeftRect(HudRect, unityScreen, Screen.height);
             bool overDebug = inside && IsOverDebugPanel(unityScreen);
             bool eventUi = inside && IsOverUi(unityScreen);
             bool overOtherUi = overDebug || eventUi;
@@ -277,18 +367,19 @@ namespace AICompanion.Overlay
 
         void OnGUI()
         {
-            if (!_started)
+            if (!_started || !ShowDebugInfo)
                 return;
 
             RefreshEmotionLabel();
             RefreshRotateLabel();
             var line = RotateStyle();
-            GUI.Box(PanelRect, GUIContent.none);
-            GUI.Label(new Rect(12f, 10f, 336f, 18f), _topmost ? TopmostOnLabel : TopmostOffLabel, line);
-            GUI.Label(new Rect(12f, 28f, 336f, 18f), _fpsText, line);
-            GUI.Label(new Rect(12f, 46f, 336f, 18f), _emotionText, line);
-            GUI.Label(new Rect(12f, 64f, 336f, 18f), AvatarAnimatorModel.DebugHint, line);
-            GUI.Label(new Rect(12f, 82f, 336f, 18f), _rotateText, line);
+            var dx = _sideRoom;
+            GUI.Box(HudRect, GUIContent.none);
+            GUI.Label(new Rect(12f + dx, 10f, 336f, 18f), _topmost ? TopmostOnLabel : TopmostOffLabel, line);
+            GUI.Label(new Rect(12f + dx, 28f, 336f, 18f), _fpsText, line);
+            GUI.Label(new Rect(12f + dx, 46f, 336f, 18f), _emotionText, line);
+            GUI.Label(new Rect(12f + dx, 64f, 336f, 18f), AvatarAnimatorModel.DebugHint, line);
+            GUI.Label(new Rect(12f + dx, 82f, 336f, 18f), _rotateText, line);
         }
 
         void OnDestroy()
@@ -528,11 +619,22 @@ namespace AICompanion.Overlay
                 workLeft,
                 workTop,
                 workRight,
-                workBottom,
+                workBottom - _bottomRoom,
                 width,
                 height,
                 out var x,
                 out var y);
+
+            // Room below her (new UI, 2D): the window grows down; her part keeps its size.
+            height += _bottomRoom;
+
+            // Side room (new UI only): her part keeps its place; the window grows around it.
+            if (_sideRoom > 0)
+            {
+                x -= _sideRoom;
+                width += _sideRoom * 2;
+                windowWidth = width;
+            }
 
             bool sizeChanged = width != _appliedWidth || height != _appliedHeight;
             _appliedWidth = width;
@@ -579,8 +681,8 @@ namespace AICompanion.Overlay
             if (_chrome == null || !_chrome.TryGetWindowRect(out _, out _, out var right, out var bottom))
                 return;
 
-            _anchorRight = right;
-            _anchorBottom = bottom;
+            _anchorRight = right - _sideRoom;
+            _anchorBottom = bottom - _bottomRoom;
             _hasAnchor = true;
         }
 

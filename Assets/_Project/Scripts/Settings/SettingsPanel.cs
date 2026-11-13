@@ -268,6 +268,9 @@ namespace AICompanion.Settings
         {
             if (WizardIsOpen())
                 return;
+            // JUH-104: with the new UI on, the new settings view opens instead.
+            if (OpenOverride != null && OpenOverride())
+                return;
 
             if (!_started)
                 StartCompanion();
@@ -936,6 +939,8 @@ namespace AICompanion.Settings
             Note("Pause matches the tray checkmark. Speech, push-to-talk, and animation cues stay off while it is on.");
             AddToggle("Show mood readout (debug)", _settings.ShowMoodDebug, value => _settings.ShowMoodDebug = value);
             Note("Her current mood and the three strongest moods, top left. Mood changes are also in Player.log.");
+            AddToggle("Show debug info", _settings.ShowDebugInfo, value => _settings.ShowDebugInfo = value);
+            Note("Debug text top-left: topmost, frame rate, emotion, key hints, rotate, size and zoom. Off by default. The hotkeys work either way.");
             AddToggle("New UI (preview)", _settings.NewUiPreview, value => _settings.NewUiPreview = value);
             Note("The new Happi look: right-click her for the radial wheel, the new chat and the new settings. Off by default. Launching with -newui turns it on for that launch only.");
         }

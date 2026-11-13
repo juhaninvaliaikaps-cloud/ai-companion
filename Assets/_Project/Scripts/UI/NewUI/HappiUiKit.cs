@@ -56,6 +56,7 @@ namespace AICompanion.NewUI
                 if (asset == null)
                     return null;
                 asset.hideFlags = HideFlags.DontSave;
+                asset.name = family + " " + style + " (OS)";
                 if (fallback != null)
                 {
                     if (asset.fallbackFontAssetTable == null)
@@ -104,6 +105,39 @@ namespace AICompanion.NewUI
         {
             if (Rect != null && Rect.gameObject.activeSelf != visible)
                 Rect.gameObject.SetActive(visible);
+        }
+    }
+
+    /// <summary>Shows a coloured ring around a text field while it is focused.</summary>
+    public sealed class HappiFocusRing : MonoBehaviour
+    {
+        public TMP_InputField Field;
+        public Outline Ring;
+        public Color Color = Color.white;
+        bool _shown;
+
+        void LateUpdate()
+        {
+            var focused = Field != null && Field.isFocused;
+            if (focused == _shown || Ring == null)
+                return;
+            _shown = focused;
+            Ring.effectColor = focused ? Color : UnityEngine.Color.clear;
+        }
+    }
+
+    /// <summary>A bar the user can press to start dragging something (the chat box header).</summary>
+    public sealed class HappiDragHandle : MonoBehaviour, IPointerDownHandler
+    {
+        public RectTransform Rect;
+        public Action Pressed;
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            if (eventData != null && eventData.button != PointerEventData.InputButton.Left)
+                return;
+            if (Pressed != null)
+                Pressed();
         }
     }
 
@@ -379,7 +413,12 @@ namespace AICompanion.NewUI
             field.lineType = TMP_InputField.LineType.SingleLine;
             field.contentType = password ? TMP_InputField.ContentType.Password : TMP_InputField.ContentType.Standard;
             field.richText = false;
-            field.caretColor = theme.Text;
+            // A normal blinking text cursor, clearly visible on the dark field.
+            field.customCaretColor = true;
+            field.caretColor = Color.white;
+            field.caretWidth = Mathf.Max(1, Mathf.RoundToInt(theme.CaretWidth));
+            field.caretBlinkRate = theme.CaretBlinkRate;
+            field.resetOnDeActivation = true;
             field.selectionColor = HappiTheme.WithAlpha(theme.Hover, 0.45f);
             var navigation = field.navigation;
             navigation.mode = Navigation.Mode.None;
@@ -408,6 +447,21 @@ namespace AICompanion.NewUI
 
             if (field.textViewport != null)
                 Stretch(field.textViewport, 8f, 2f, 8f, 2f);
+
+            // A ring that lights up while the field has the keyboard.
+            var ring = go.AddComponent<Outline>();
+            ring.effectColor = Color.clear;
+            ring.effectDistance = new Vector2(2f, -2f);
+            var focus = go.AddComponent<HappiFocusRing>();
+            focus.Field = field;
+            focus.Ring = ring;
+            focus.Color = theme.FocusRing;
+
+            // TMP_DefaultControls adds the input field before its text component exists, and TMP
+            // creates the blinking caret only in OnEnable when a text component is set. Without
+            // this the field never gets a caret at runtime. Re-enabling runs OnEnable again.
+            field.enabled = false;
+            field.enabled = true;
             return field;
         }
 

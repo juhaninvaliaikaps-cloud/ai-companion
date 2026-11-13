@@ -143,6 +143,9 @@ namespace AICompanion.NewUI.VisualNovel
 
         public bool HasNext => _current + 1 < _segments.Count;
 
+        /// <summary>The current line is being spoken (or synthesized) right now, not read or finished.</summary>
+        public bool CurrentVoicing => _current >= 0 && !_showAll && _state == LineState.WaitingForVoice;
+
         public int PrefetchedIndex => _prefetched;
 
         public void SetTiming(VnTiming timing)

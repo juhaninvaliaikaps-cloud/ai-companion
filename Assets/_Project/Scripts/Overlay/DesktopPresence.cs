@@ -169,6 +169,15 @@ namespace AICompanion.Overlay
             if (!chrome.TryGetWorkArea(out var areaLeft, out var areaTop, out var areaRight, out var areaBottom))
                 return;
 
+            // The new UI's side room is not part of her: walk with her own part of the window.
+            var side = _window.SideRoom;
+            left += side;
+            right -= side;
+            // With the chat box under her she stands on it: her part ends above it, and so does her floor.
+            var below = _window.BottomRoom;
+            bottom -= below;
+            areaBottom -= below;
+
             var frame = Advance(
                 Time.unscaledDeltaTime,
                 left,
@@ -181,7 +190,7 @@ namespace AICompanion.Overlay
                 areaBottom,
                 _window.IsDragging);
             if (frame.Moved)
-                chrome.MoveWindow(new Vector2Int(frame.X, frame.Y), _window.IsTopmost);
+                chrome.MoveWindow(new Vector2Int(frame.X - side, frame.Y), _window.IsTopmost);
         }
 
         /// <summary>
