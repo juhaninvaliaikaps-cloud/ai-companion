@@ -32,6 +32,12 @@ namespace AICompanion.Settings
             if (!custom)
             {
                 Note("Uses the Local model and Local address above. Nothing leaves this PC.");
+                AddButton(_probeBusy ? "Testing..." : "Test local connection", () =>
+                {
+                    if (!_probeBusy)
+                        TestConnection();
+                });
+                Note("Test connection calls the local /models endpoint. No key is sent.");
                 return;
             }
 
@@ -63,7 +69,7 @@ namespace AICompanion.Settings
             _privateKeyInput = AddField("Paste a private API key", string.Empty, true, _ => { });
             AddButton("Save private key", SavePrivateKey);
             AddButton("Remove private key", RemovePrivateKey);
-            AddButton(_privateProbeBusy ? "Testing..." : "Test connection", () =>
+            AddButton(_privateProbeBusy ? "Testing..." : "Test custom connection", () =>
             {
                 if (!_privateProbeBusy)
                     TestPrivateConnection();
