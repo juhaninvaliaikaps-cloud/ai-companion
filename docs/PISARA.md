@@ -258,6 +258,17 @@ When the user returns after a long gap, one open thread is resolved with its goo
 
 The user can view and forget seeded memories like any other.
 
+## Start over with a persona
+
+Settings → Privacy → Memories → **Start over with [name]**, with a confirm step. For the active persona only, it clears:
+
+- its chat history (the saved file and the chat window);
+- everything she remembers (`MemoryStore.DeleteAll`), which also clears `seededFromHash`, so her own life is seeded fresh from the cached character sheet;
+- her mood, back to how the temperament starts (`CompanionMoodState.StartOver`): a Cheerful persona starts on her happy baseline again;
+- everything else that implements `ICompanionStartOver`. The relationship keeper (JUH-119) implements it and resets to `RelationshipMath.Start(sheet.relationship)`.
+
+It keeps the persona, its description, the character sheet, the temperament pick, the settings, and every other persona. The log says `Start over: <persona>, <n> memories forgotten, chat history cleared.`
+
 ## Guards
 
 - **Local only when it must be.** Every model call here follows `IntimateExpressions.KeepsLocal` and Private mode. A private persona never calls a cloud model.

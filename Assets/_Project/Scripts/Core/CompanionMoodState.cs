@@ -102,6 +102,19 @@ namespace AICompanion.Core
             }
         }
 
+        /// <summary>
+        /// "Start over" (JUH-117): every mood back to nothing, then the temperament's floors,
+        /// so a Cheerful persona starts on her baseline again. The temperament and the Intimate
+        /// gate are kept. True when the shown mood changed.
+        /// </summary>
+        public bool StartOver()
+        {
+            for (var i = 0; i < _strength.Length; i++)
+                _strength[i] = 0f;
+            LiftToFloors();
+            return UpdateShown();
+        }
+
         /// <summary>Raises every mood below its temperament floor to the floor. True when one moved.</summary>
         bool LiftToFloors()
         {

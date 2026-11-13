@@ -716,6 +716,19 @@ namespace AICompanion.NewUI
 
         void BuildPrivacy()
         {
+            if (_confirm.Pending == PrivacyConfirmKind.StartOver)
+            {
+                Note(PrivacyConfirm.StartOverPrompt(_settings.StartOverName));
+                Button("Confirm start over", () =>
+                {
+                    _confirm.Cancel();
+                    _settings.StartOverConfirmed();
+                    _rebuild = true;
+                }, true);
+                Button("Cancel", () => { _confirm.Cancel(); _rebuild = true; });
+                return;
+            }
+
             if (_confirm.Pending == PrivacyConfirmKind.WipeAll || _confirm.Pending == PrivacyConfirmKind.ClearHistory)
             {
                 Note(PrivacyConfirm.Prompt(_confirm.Pending, 0, null));
@@ -764,6 +777,9 @@ namespace AICompanion.NewUI
             Section("Memories on this PC");
             Note(memories.Summary);
             Note("Stored under ProjectLeia, outside the repository. Memories made in private mode are never sent to a cloud model.");
+            // JUH-117: a fresh start with this persona; her persona and her own life stay.
+            Button(StartOverText.Button(_settings.StartOverName), () => { _confirm.Request(PrivacyConfirmKind.StartOver); _rebuild = true; }, true);
+            Note("Clears this persona's chat, what she remembers about you, her mood and your relationship. Her persona and her own life stay.");
             if (memories.Count == 0)
                 return;
             if (memories.Confirm.HasPending)
