@@ -71,8 +71,6 @@ namespace AICompanion.Memory
         {
             if (request == null)
                 return null;
-            if (request.NoMemory)
-                return request;
 
             var store = _store();
             var personality = _personality();
@@ -80,12 +78,7 @@ namespace AICompanion.Memory
                 ? null
                 : store.SearchFor(LastUserMessage(request), MemoryStore.MaxSearchResults, IsLocal);
 
-            // JUH-118: memories that say when they happened get "(3 days ago)", and a short-term
-            // memory that keeps coming up becomes long-term. The fact-extraction request reads the
-            // same memories but is not her recalling them.
-            var memoryBlock = MemoryPrompt.Build(memories, DateTime.UtcNow);
-            if (memoryBlock.Length > 0 && !ReferenceEquals(request.SystemPrompt, MemoryFactExtractor.SystemPrompt))
-                WorldMemory.MarkRecalled(store, memories);
+            var memoryBlock = MemoryPrompt.Build(memories);
             var personaBlock = personality == null ? string.Empty : MemoryPrompt.BuildPersona(personality.Current);
             if (memoryBlock.Length == 0 && personaBlock.Length == 0)
                 return request;

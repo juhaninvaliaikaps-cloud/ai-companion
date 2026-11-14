@@ -264,14 +264,9 @@ namespace AICompanion.Settings
             if (_settings.ChatHistory)
                 SaveHistory();
 
-            // JUH-118: the session with the old persona ends here, while her model, privacy and
-            // memory store are still the active ones.
-            var chat = GetComponent<ChatPanel>();
-            if (chat != null)
-                chat.EndSessionForSwitch();
-
             _settings.PersonaId = newId;
 
+            var chat = GetComponent<ChatPanel>();
             if (chat != null)
                 chat.ClearTranscript();
 

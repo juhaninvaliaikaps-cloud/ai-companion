@@ -72,8 +72,6 @@ What you remember from earlier sessions:
 
 Messages, model, temperature, and token limit are copied unchanged. When nothing matches, the original request instance is returned untouched.
 
-Since JUH-118 a memory that says when it happened is written as `- (3 days ago) ...`, the entries that went into a prompt are counted as recalled (a short-term memory that came up twice becomes long-term), and a request with `ChatRequest.NoMemory` is passed through untouched. Her own life (seeded and away memories) and the session memories are described in [PISARA.md](PISARA.md), "Her world as wired".
-
 The persona text comes from the selected persona file when `personaId` is set, and otherwise from the first-run wizard (`SettingsApplicator.ApplyPersona`). The director cue instructions are already on that prompt before memories are added. `MemoryRuntime` passes no extra persona into the decorator: the two layers would otherwise restate the same name and mood. `MemoryChatProvider` still accepts a `PersonalityStore` for callers that have no wizard prompt, which is what the persona test exercises. See [PERSONAS.md](PERSONAS.md).
 
 ## Private mode

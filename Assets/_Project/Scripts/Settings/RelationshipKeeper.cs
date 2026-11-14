@@ -9,13 +9,7 @@ namespace AICompanion.Settings
     /// JUH-119: keeps the selected persona's relationship state. Loads it at start and on a
     /// persona switch, adds real time only within three minutes of the last message or
     /// keystroke, saves at most every 30 seconds and on quit, and exposes the readout line.
-    /// <para>
-    /// JUH-118 section 4: each finished reply lands through <see cref="RelationshipNow"/>
-    /// (affection, familiarity, the Mood card reason, her mood); active chat time grows
-    /// familiarity with <see cref="RelationshipMath.FamiliarityAfter"/>; a persona without a
-    /// relationship file starts from the model's reading; and the prompt line is published
-    /// for chat. While "Relationship changes" is off, nothing moves and the line is empty.
-    /// </para>
+    /// Chat does not move affection or familiarity yet; that belongs to the later relationship leaf.
     /// </summary>
     public sealed class RelationshipKeeper : MonoBehaviour, ICompanionStartOver
     {
@@ -56,108 +50,6 @@ namespace AICompanion.Settings
             get { return _history; }
         }
 
-        /// <summary>True while this persona had no relationship file and waits for a model reading to start from.</summary>
-        bool _awaitingStart;
-        float _wiringIn;
-        int _sheetRevision = -1;
-        float _publishedAffection = float.NaN;
-        float _publishedFamiliarity = float.NaN;
-        bool _publishedSwitch;
-
-        void OnEnable()
-        {
-            RelationshipNow.ReplyFinished += OnReply;
-        }
-
-        /// <summary>One finished reply to a user message: land it, record why, and nudge her mood.</summary>
-        void OnReply(AnimationCue cue)
-        {
-            if (!_loaded)
-                return;
-            var change = RelationshipNow.Land(cue, _state.Affection, _state.Familiarity);
-            if (!Apply(change))
-                return;
-            var mood = GetComponent<CompanionMoodKeeper>();
-            if (mood != null)
-                mood.ApplyRelationship(change, cue.Intensity);
-            Publish(true);
-        }
-
-        /// <summary>
-        /// About once a second: a new persona starts from the model's reading, and the prompt
-        /// line follows the sheet, the switch and the numbers. No allocation unless it changed.
-        /// </summary>
-        void TickWiring()
-        {
-            _wiringIn -= Time.unscaledDeltaTime;
-            if (_wiringIn > 0f)
-                return;
-            _wiringIn = 1f;
-
-            var reading = GetComponent<PisaraReadingKeeper>();
-            var revision = reading != null ? reading.Revision : 0;
-            var sheetChanged = revision != _sheetRevision;
-            _sheetRevision = revision;
-
-            if (_awaitingStart && reading != null)
-            {
-                var sheet = reading.SheetFor(_personaId);
-                if (sheet != null && sheet.source == CharacterSheet.SourceModel)
-                    StartFromReading(sheet);
-            }
-
-            Publish(sheetChanged);
-        }
-
-        /// <summary>
-        /// The first model reading for a persona whose relationship file did not exist: start from
-        /// <see cref="RelationshipMath.Start"/> and save. An existing relationship is never
-        /// overwritten, so a Re-read later changes nothing here.
-        /// </summary>
-        void StartFromReading(CharacterSheet sheet)
-        {
-            _awaitingStart = false;
-            float affection;
-            float familiarity;
-            RelationshipMath.Start(sheet.relationship, out affection, out familiarity);
-            _state.Affection = affection;
-            _state.Familiarity = familiarity;
-            _history.Clear();
-            _dirty = true;
-            Save();
-            Debug.Log("Relationship: started from the reading for persona " + PersonaLogId() + " (" + _state.Readout() + ")");
-            Publish(true);
-        }
-
-        /// <summary>
-        /// The prompt line for chat. Rebuilt only when the sheet, the switch or a rounded number
-        /// changed (or when <paramref name="force"/>), so time spent chatting does not allocate.
-        /// </summary>
-        void Publish(bool force)
-        {
-            var on = PisaraSwitches.Relationship;
-            var affection = (float)Math.Round(_state.Affection);
-            var familiarity = (float)Math.Round(_state.Familiarity);
-            if (!force && on == _publishedSwitch && affection == _publishedAffection && familiarity == _publishedFamiliarity)
-                return;
-            _publishedSwitch = on;
-            _publishedAffection = affection;
-            _publishedFamiliarity = familiarity;
-
-            var reading = GetComponent<PisaraReadingKeeper>();
-            var sheet = reading != null && _loaded ? reading.SheetFor(_personaId) : null;
-            // The setup name has no sheet: its own relationship text stays the only one.
-            RelationshipNow.SetPromptLine(on && sheet != null && !string.IsNullOrEmpty(_personaId)
-                ? RelationshipPrompt.Line(sheet.relationship, sheet.landing, _state.Affection, _state.Familiarity)
-                : string.Empty);
-        }
-
-        string PersonaLogId()
-        {
-            var id = CompanionMoodStore.PersonaFileId(_personaId);
-            return id.Length == 0 ? "(default)" : id;
-        }
-
         /// <summary>
         /// Applies one landed message (JUH-117): the new numbers, a history line and the log
         /// line. Does nothing while the Relationship switch is off. True when it was applied.
@@ -183,11 +75,9 @@ namespace AICompanion.Settings
             _state.Affection = RelationshipMath.ClampAffection(affection);
             _state.Familiarity = RelationshipMath.ClampFamiliarity(familiarity);
             _history.Clear();
-            _awaitingStart = false;
             _dirty = true;
             Save();
             Debug.Log("Relationship: set by the user (" + _state.Readout() + ")");
-            Publish(true);
         }
 
         /// <summary>
@@ -206,8 +96,6 @@ namespace AICompanion.Settings
             _lastActivity = float.NegativeInfinity;
             _lastRevision = -1;
             _revisionSeen = false;
-            _awaitingStart = false;
-            RelationshipNow.Reset();
         }
 
         /// <summary>True while a message or keystroke is recent enough to count as chat time.</summary>
@@ -235,10 +123,8 @@ namespace AICompanion.Settings
 
             _state = new RelationshipState { Affection = affection, Familiarity = familiarity, SecondsTogether = 0d };
             _history.Clear();
-            _awaitingStart = false;
             _dirty = true;
             Save();
-            Publish(true);
             Debug.Log("Relationship: start over for persona "
                 + (_personaId.Length == 0 ? "(default)" : CompanionMoodStore.PersonaFileId(_personaId))
                 + " (" + _state.Readout() + ")");
@@ -252,9 +138,7 @@ namespace AICompanion.Settings
 
         void OnDisable()
         {
-            RelationshipNow.ReplyFinished -= OnReply;
             Save();
-            RelationshipNow.Reset();
         }
 
         void OnApplicationQuit()
@@ -300,13 +184,9 @@ namespace AICompanion.Settings
                 if (PisaraSwitches.Relationship && _chat.ChatVisible && IsWithinActivityWindow(Time.unscaledTime, _lastActivity))
                 {
                     _state.AddSeconds(Time.unscaledDeltaTime);
-                    // JUH-118 section 4: real time spent chatting is how they get to know each other.
-                    _state.Familiarity = RelationshipMath.FamiliarityAfter(_state.Familiarity, Time.unscaledDeltaTime);
                     _dirty = true;
                 }
             }
-
-            TickWiring();
 
             _saveIn -= Time.unscaledDeltaTime;
             if (_saveIn <= 0f)
@@ -327,10 +207,6 @@ namespace AICompanion.Settings
             _state = string.IsNullOrEmpty(_path)
                 ? new RelationshipState()
                 : RelationshipStore.Load(_path);
-            // No file yet: start from this persona's model reading once it is there (never for the setup name).
-            _awaitingStart = !string.IsNullOrEmpty(persona) && !string.IsNullOrEmpty(_path) && !System.IO.File.Exists(_path);
-            _sheetRevision = -1;
-            _wiringIn = 0f;
             _loaded = true;
             _dirty = false;
             _saveIn = SaveSeconds;

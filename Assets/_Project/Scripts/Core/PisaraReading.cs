@@ -298,44 +298,17 @@ namespace AICompanion.Core
     }
 
     /// <summary>
-    /// The offline temperament guess for when no model answers: the JUH-114 keyword scorer
-    /// (<see cref="TemperamentKeywordScorer"/>, #79) mapped into sheet weights the blend can use.
+    /// The offline temperament guess for when no model answers (JUH-114 scorer, built by
+    /// DeepSeek in JUH-119). That class is not on main yet, so this returns null and the
+    /// fallback is neutral defaults. When <c>TemperamentKeywordScorer</c> lands, map its scores
+    /// into a <see cref="SheetTemperament"/> here; nothing else needs to change.
     /// </summary>
     public static class PisaraKeywords
     {
         /// <summary>Weights from the keyword scorer, or null when there is no scorer or no clear match.</summary>
         public static SheetTemperament Temperament(string personaPrompt)
         {
-            var result = TemperamentKeywordScorer.Score(personaPrompt);
-            if (result == null || result.IsBalanced)
-                return null;
-
-            // The scorer's raw scores are too low for the blend (one trait word is 0.33, under its
-            // 0.35): the best preset goes in at 0.6, and the second only when it scored above 0.2.
-            var second = string.Empty;
-            var secondScore = 0f;
-            for (var i = 0; i < PersonaTemperaments.Ids.Length; i++)
-            {
-                var id = PersonaTemperaments.Ids[i];
-                if (id == PersonaTemperaments.DefaultId || id == result.BestId)
-                    continue;
-                var score = result.Score(id);
-                if (score > secondScore)
-                {
-                    second = id;
-                    secondScore = score;
-                }
-            }
-
-            var weights = new SheetTemperament { reason = "keyword guess" };
-            weights.Set(result.BestId, BestWeight);
-            if (second.Length > 0 && secondScore > SecondMinScore)
-                weights.Set(second, SecondWeight);
-            return weights;
+            return null;
         }
-
-        public const float BestWeight = 0.6f;
-        public const float SecondWeight = 0.4f;
-        public const float SecondMinScore = 0.2f;
     }
 }

@@ -112,7 +112,6 @@ namespace AICompanion.UI
             if (_conversation == null)
                 return;
             _conversation.ClearTranscript();
-            DropSession();
             RefreshTranscript(true);
         }
 
@@ -187,7 +186,6 @@ namespace AICompanion.UI
         void OnDestroy()
         {
             _alive = false;
-            UnhookSession();
             DebugInputGuard.SetTextFieldFocused(false);
             if (_cancel != null)
             {
@@ -214,7 +212,6 @@ namespace AICompanion.UI
             DebugInputGuard.SetTextFieldFocused(fieldFocused);
             if (!_started)
                 return;
-            TickSession();
 
             EnsureCamera();
             if (Input.GetKeyDown(KeyCode.F10))
@@ -359,7 +356,7 @@ namespace AICompanion.UI
                 _cancel.Dispose();
             _cancel = new CancellationTokenSource();
             BeginSpeech(privateMode, providerId);
-            var prompt = VisionPrompt.Append(DirectorPrompt.Append(PersonaPrompt(false), DirectorSuffix()));
+            var prompt = VisionPrompt.Append(DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), DirectorSuffix()));
             var options = new ChatTurnOptions
             {
                 Image = image,
@@ -402,7 +399,7 @@ namespace AICompanion.UI
                 _cancel.Dispose();
             _cancel = new CancellationTokenSource();
             BeginSpeech(true, providerId);
-            var prompt = VisionPrompt.AppendLocalChat(DirectorPrompt.Append(PersonaPrompt(false), DirectorSuffix()));
+            var prompt = VisionPrompt.AppendLocalChat(DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), DirectorSuffix()));
             var options = new ChatTurnOptions
             {
                 SingleTurn = true,
@@ -457,7 +454,7 @@ namespace AICompanion.UI
             if (_cancel != null)
                 _cancel.Dispose();
             _cancel = new CancellationTokenSource();
-            var prompt = VisionPrompt.AppendAutoLook(DirectorPrompt.Append(PersonaPrompt(false), DirectorSuffix()));
+            var prompt = VisionPrompt.AppendAutoLook(DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), DirectorSuffix()));
             var text = VisionPrompt.AutoObservationTurn(observation);
             var options = new ChatTurnOptions
             {
@@ -531,9 +528,7 @@ namespace AICompanion.UI
             var director = GetComponent<Director>();
             if (director != null)
                 suffix = director.SystemPromptSuffix;
-            // JUH-118: her mood line, then her own life: the first scene on the first message, the away line once.
-            var prompt = DirectorPrompt.Append(PersonaPrompt(true), suffix);
-            SessionBeforeSend();
+            var prompt = DirectorPrompt.Append(CompanionMoodPrompt.AppendCurrent(settings.systemPrompt), suffix);
 
             // JUH-21: read the user's mood on this machine. The face reacts now, before
             // the reply, and the model gets one hint line. The reply cue replaces the face.
@@ -623,10 +618,7 @@ namespace AICompanion.UI
             {
                 ApplyCue();
                 if (remember)
-                {
-                    SessionReplyFinished();
                     CaptureMemory(provider, text, result.Text);
-                }
                 if (remember && ScreenLookCue.Requests(result.Text))
                 {
                     var look = GetComponent<IScreenLook>();
