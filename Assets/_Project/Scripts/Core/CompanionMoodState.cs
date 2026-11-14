@@ -395,6 +395,24 @@ namespace AICompanion.Core
         /// since it was saved fades the moods (<see cref="ApplyClosedTime"/>). Returns null
         /// when the text is not a mood file, so the caller starts at Content.
         /// </summary>
+        /// <summary>The saved time in a mood file, or null when it cannot be read.</summary>
+        public static DateTime? SavedAtUtc(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return null;
+            try
+            {
+                var file = JsonUtility.FromJson<MoodFile>(json);
+                if (file == null || file.savedUtcTicks <= 0 || file.savedUtcTicks > DateTime.MaxValue.Ticks)
+                    return null;
+                return new DateTime(file.savedUtcTicks, DateTimeKind.Utc);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
         public static CompanionMoodState FromJson(string json, DateTime nowUtc)
         {
             return FromJson(json, nowUtc, null);

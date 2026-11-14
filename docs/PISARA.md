@@ -33,7 +33,8 @@ One chat turn is a drop. It falls through leaves in a fixed order, and each leaf
 | Temperament keyword scorer (offline fallback) | Planned, JUH-119 | DeepSeek |
 | Relationship and landing math, the `landed` cue attribute, the relationship prompt line | **Built**, EditMode tests; not called from the app yet | Claude |
 | Memory tags, promotion and fading | Planned, PR after that | Claude |
-| Seeded memories, first scene, away line, landing wiring | Planned, JUH-118 sections 2 to 4 | Claude Code |
+| Seeded memories, first scene, away line, session memories | **Built** (JUH-118 sections 2 and 3), EditMode tests | Claude Code |
+| Landing and relationship wiring | Planned, JUH-118 section 4 | Claude Code |
 
 The spec PR changed nothing in how she behaves. Since JUH-118 section 1 the sheet is read and its temperament is used (see "The reading as built"). The relationship, landing and world parts of the sheet are read, cached and shown, but nothing acts on them yet.
 
@@ -241,7 +242,7 @@ While the chat is in use, add time with `FamiliarityAfter`. Add `RelationshipPro
 
 ## Memory and her world
 
-**Built** in `WorldMemory` (`Assets/_Project/Scripts/Memory/WorldMemory.cs`), with EditMode tests. Not called from the app yet; JUH-118 wires it.
+**Built** in `WorldMemory` (`Assets/_Project/Scripts/Memory/WorldMemory.cs`), with EditMode tests, and **wired into the app** in JUH-118 sections 2 and 3 (see "Her world as wired" below).
 
 `MemoryEntry` has new optional fields. They default to "an ordinary lived, long-term memory", so existing memory files load unchanged:
 
@@ -291,13 +292,22 @@ This needs no model call: the outcomes were written with the sheet. The model on
 
 `MemoryPrompt.Build(entries, nowUtc)` puts "(3 days ago)" in front of memories that say when they happened.
 
-### Wiring (JUH-118 sections 2 and 3)
+### Her world as wired (JUH-118 sections 2 and 3)
 
-1. After the reading: `if (WorldMemory.NeedsSeeding(store, sheet)) WorldMemory.Seed(...)`. Pass the persona's private flag.
-2. On the first message of a new persona, add `WorldMemory.FirstScene(sheet)` to the prompt.
-3. On start: `WorldMemory.Fade`, then `WorldMemory.ResolveThread` with the time since the last session. Add its `PromptLine` to the next prompt once, and push its moods.
-4. Where memories go into the prompt: use `MemoryPrompt.Build(entries, nowUtc)` and call `WorldMemory.MarkRecalled`.
-5. At session end: ask the model for one to three memories and store each with `AddShortTerm`.
+Memory is one file per persona (`memory-<persona>.json`), so her world is seeded into her own store. The setup name (no persona) has no sheet and no world.
+
+**Who does what.** `PisaraReadingKeeper` (settings side) owns the sheet, so it also seeds, fades, resolves the away thread and re-seeds after Start over. The chat panel cannot see the settings assembly, so the lines for the prompt travel through `WorldPromptNow` (Core), like the mood does through `CompanionMoodNow`. `ChatPanel.Session.cs` adds them to the prompt and runs the session memories.
+
+1. **Seeding.** Whenever the active persona has a sheet with `source = model` and `WorldMemory.NeedsSeeding` says so (after a reading, on start, on a persona switch, after Start over), the keeper seeds it. A fallback sheet is never seeded. The entries carry `IntimateExpressions.KeepsLocal(privateMode)` as their private flag. Log: `Pisara world: <persona> seeded N memories`.
+2. **The shared-history guard.** Before seeding, `WorldGuard.ForSeeding` makes a copy of the sheet and, when `relationship.sharedHistory` is false, leaves out every backstory fact, week entry and open thread that mentions the user ("the user", "you", "your": whole words). The cached sheet is not changed. The log says how many lines were left out.
+3. **The first scene.** `WorldGuard.FirstScene(sheet)` is `WorldMemory.FirstScene`, except that without a shared past a "right now" that already has the user in it is not used. The chat adds the line to the persona prompt only for a typed or spoken message sent into a conversation with no user or companion lines, so it is in exactly one request: the first message of a new persona, and again after Start over. A persona that already has a chat history gets no first scene.
+4. **Arriving** (app start and persona switch): `WorldMemory.Fade`, then `WorldMemory.ResolveThread`. The time away is counted from the persona's mood file (`CompanionMoodStore.SavedAtUtc`), which is saved once a minute while she is active and on quit. The roll is `UnityEngine.Random.value`. `includePrivate` is true only when this session's chat stays on the local model or the private server. When something happened: its `PromptLine` is added to every request until one reply has finished, its mood nudges go through `CompanionMoodTable.Scaled` (`CompanionMoodKeeper.TryApplyPushes`), and the log says `Away: <persona> = <text>`. A new persona (no mood file yet) has no away event, and the arrival runs before seeding, so a thread never resolves in the moment it is created.
+5. **Memories in the prompt.** `MemoryChatProvider.Enrich` uses `MemoryPrompt.Build(entries, nowUtc)` and calls `WorldMemory.MarkRecalled` with the same entries. The fact-extraction request reads the same memories but does not count as a recall, and a request with `ChatRequest.NoMemory` gets no memory block at all.
+6. **Session memories.** A session is the messages since the last pause. It ends on a persona switch (asked before the switch, so the old persona's model, privacy and store are used), after ten minutes without a message, or on quit. `SessionMemories` then asks the model once for one to three lines and stores each with `WorldMemory.AddShortTerm`. Sessions with fewer than four user messages are skipped. On quit the model gets four seconds; after that the app quits without the memories (a local 12B model usually needs longer, so quit memories mostly come from cloud models; the ten-minute pause covers the rest). Same model rule as the reading: with Private mode on or the intimate gate open only the local model or the private server is asked (`PisaraReader.MayUse`), and the memories are stored as private. `IntimateBoundaries` is in the prompt. Log: `Session memories: N stored after <why>` (never the text).
+7. **Start over.** The keeper implements `ICompanionStartOver`: right after the memories are deleted it seeds her world again from the cached sheet and drops a pending away line. The chat is empty again, so the first scene opens the next conversation.
+8. **The memory viewer** (old and new settings) labels seeded entries `(her life)` and away entries `(while you were away)`. They can be forgotten like any other memory.
+
+**Developer tool.** `Happi.exe -allowmulti -pisara-read <folder> -pisara-world` also writes `<id>.world.txt` per persona: the seeded memories, what the guard left out, her first reply, an away event with her reply to it, and the session memories of that short talk. It uses the local model and a throwaway memory file in that folder.
 
 ## Start over with a persona
 

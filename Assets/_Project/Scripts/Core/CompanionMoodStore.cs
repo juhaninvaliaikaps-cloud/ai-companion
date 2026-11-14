@@ -65,6 +65,21 @@ namespace AICompanion.Core
             return CompanionMoodState.FromJson(read.Text, nowUtc, temperament) ?? new CompanionMoodState { Temperament = temperament };
         }
 
+        /// <summary>
+        /// When this persona's mood was last saved (JUH-118: the end of her last session), or
+        /// null when there is no file or it has no time. The keeper saves once a minute and on
+        /// quit, so this is at most a minute early.
+        /// </summary>
+        public static DateTime? SavedAtUtc(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return null;
+            var read = ProtectedLocalFile.Read(path);
+            if (read.Status != LocalReadStatus.Ready)
+                return null;
+            return CompanionMoodState.SavedAtUtc(read.Text);
+        }
+
         public static bool Save(string path, CompanionMoodState state, DateTime nowUtc)
         {
             if (string.IsNullOrEmpty(path) || state == null)

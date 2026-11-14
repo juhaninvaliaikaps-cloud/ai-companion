@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using AICompanion.AI;
 using AICompanion.Core;
+using AICompanion.Memory;
 using AICompanion.UI;
 using UnityEngine;
 
@@ -22,7 +23,7 @@ namespace AICompanion.Settings
     /// One call per event (persona created, prompt changed, Re-read), never per frame. Added
     /// by <see cref="SettingsPanel"/>.
     /// </summary>
-    public sealed class PisaraReadingKeeper : MonoBehaviour
+    public sealed class PisaraReadingKeeper : MonoBehaviour, ICompanionStartOver
     {
         SettingsPanel _settings;
         ChatPanel _chat;
@@ -80,6 +81,158 @@ namespace AICompanion.Settings
         void Update()
         {
             Check();
+            World();
+        }
+
+        // ---- Her world (JUH-118 sections 2 and 3) ------------------------------------------
+
+        bool _worldDirty = true;
+        string _arrivedFor;
+        CompanionMoodPush[] _awayPushes;
+        string _awayPushesFor;
+
+        /// <summary>
+        /// Her own life in memory, for the active persona. Runs only after something changed
+        /// (a persona switch, a new sheet, Start over): no work and no allocation otherwise.
+        /// <list type="number">
+        /// <item>Once per arrival (app start or persona switch): short-term memories fade, and
+        /// if the user was away long enough one open thread turns out well or badly.</item>
+        /// <item>A sheet the model wrote is seeded into her memory once (after the shared-history
+        /// guard), and its "right now" becomes the first scene.</item>
+        /// </list>
+        /// </summary>
+        void World()
+        {
+            DeliverAwayMood();
+            if (!_worldDirty || !_seen)
+                return;
+
+            if (string.IsNullOrEmpty(_personaId))
+            {
+                // The setup name has no sheet and no world.
+                _worldDirty = false;
+                _arrivedFor = _personaId;
+                WorldPromptNow.Reset();
+                return;
+            }
+
+            var store = StoreFor(_personaId);
+            if (store == null)
+                return; // The memory store still belongs to the previous persona: try next frame.
+
+            _worldDirty = false;
+            WorldPromptNow.SetHerName(PersonaName(_personaId));
+            var privacy = GetComponent<IPrivacyMode>();
+            var keepsLocal = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+
+            if (!string.Equals(_arrivedFor, _personaId, StringComparison.Ordinal))
+            {
+                _arrivedFor = _personaId;
+                Arrive(store, keepsLocal);
+            }
+
+            var sheet = _sheet;
+            if (sheet == null || sheet.source != CharacterSheet.SourceModel)
+            {
+                // A fallback sheet has an empty world: nothing to seed, no scene.
+                WorldPromptNow.SetFirstScene(string.Empty);
+                return;
+            }
+
+            if (WorldMemory.NeedsSeeding(store, sheet))
+            {
+                var dropped = new List<string>();
+                var safe = WorldGuard.ForSeeding(sheet, dropped);
+                var added = safe == null ? 0 : WorldMemory.Seed(store, safe, DateTime.UtcNow, keepsLocal);
+                Debug.Log("Pisara world: " + PersonaLogId(_personaId) + " seeded " + added + " memories"
+                    + (dropped.Count == 0 ? string.Empty : " (" + dropped.Count + " left out: they mention the user without a shared past)"));
+                Revision++;
+            }
+
+            WorldPromptNow.SetFirstScene(WorldGuard.FirstScene(sheet));
+        }
+
+        /// <summary>
+        /// The user comes back to this persona. The time away is counted from her mood file,
+        /// which is saved once a minute while she is active and when the app quits.
+        /// </summary>
+        void Arrive(MemoryStore store, bool keepsLocal)
+        {
+            WorldPromptNow.SetAway(string.Empty);
+            var now = DateTime.UtcNow;
+            var faded = WorldMemory.Fade(store, now);
+            if (faded > 0)
+                Debug.Log("Pisara world: " + PersonaLogId(_personaId) + " forgot " + faded + " short-term memories");
+
+            var saved = CompanionMoodStore.SavedAtUtc(CompanionMoodStore.FileFor(Folder(), _personaId));
+            if (saved == null)
+                return;
+            var awaySeconds = (now - saved.Value).TotalSeconds;
+            if (awaySeconds < WorldMemory.MinAwaySeconds)
+                return;
+
+            // A private thread may only come up when this session stays on the local model or the private server.
+            var chat = Chat();
+            var providerId = chat == null ? string.Empty : PrivateChatRouting.ProviderId(keepsLocal, chat.providerId, chat.privateEndpointType);
+            var includePrivate = string.Equals(providerId, ChatDefaults.LocalId, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(providerId, ChatDefaults.CustomId, StringComparison.OrdinalIgnoreCase);
+
+            var away = WorldMemory.ResolveThread(store, awaySeconds, UnityEngine.Random.value, now, includePrivate);
+            if (!away.Happened)
+                return;
+
+            WorldPromptNow.SetAway(away.PromptLine);
+            _awayPushes = away.MoodPushes;
+            _awayPushesFor = _personaId;
+            Debug.Log("Away: " + PersonaLogId(_personaId) + " = " + away.Text);
+            Revision++;
+        }
+
+        /// <summary>The away event's mood nudges, once her mood for this persona is loaded.</summary>
+        void DeliverAwayMood()
+        {
+            if (_awayPushes == null)
+                return;
+            if (!string.Equals(_awayPushesFor, _personaId, StringComparison.Ordinal))
+            {
+                _awayPushes = null;
+                return;
+            }
+
+            var mood = GetComponent<CompanionMoodKeeper>();
+            if (mood == null || mood.TryApplyPushes(_personaId, _awayPushes, "what happened while you were away"))
+                _awayPushes = null;
+        }
+
+        /// <summary>
+        /// "Start over" (JUH-117): her memories were just deleted, which also forgets which sheet
+        /// her world came from. Seed it again from the cached sheet now, and drop a pending away
+        /// line. The chat is empty again, so the first scene opens the next conversation.
+        /// </summary>
+        public void StartOver()
+        {
+            WorldPromptNow.SetAway(string.Empty);
+            _awayPushes = null;
+            _worldDirty = true;
+            World();
+        }
+
+        /// <summary>The running memory store when it is this persona's file; null while it is still another one's.</summary>
+        static MemoryStore StoreFor(string personaId)
+        {
+            var store = MemoryRuntime.Store;
+            var expected = MemoryPaths.MemoryFile(personaId);
+            if (store == null || string.IsNullOrEmpty(expected) || string.IsNullOrEmpty(store.Path))
+                return null;
+            return string.Equals(System.IO.Path.GetFullPath(store.Path), System.IO.Path.GetFullPath(expected), StringComparison.OrdinalIgnoreCase)
+                ? store
+                : null;
+        }
+
+        static string PersonaLogId(string personaId)
+        {
+            var id = CompanionMoodStore.PersonaFileId(personaId);
+            return id.Length == 0 ? "(default)" : id;
         }
 
         void OnDisable()
@@ -106,6 +259,7 @@ namespace AICompanion.Settings
             _seen = true;
             _personaId = persona;
             _prompt = prompt;
+            _worldDirty = true;
             Begin(false);
         }
 
@@ -195,6 +349,7 @@ namespace AICompanion.Settings
         void SetSheet(CharacterSheet sheet)
         {
             _sheet = sheet;
+            _worldDirty = true;
             Revision++;
             var mood = GetComponent<CompanionMoodKeeper>();
             if (mood != null)
