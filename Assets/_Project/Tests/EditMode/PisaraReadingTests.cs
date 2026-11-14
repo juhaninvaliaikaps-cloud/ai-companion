@@ -297,6 +297,15 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void CachedFallback_DoesNotNeedAnotherModelCallUntilReread()
+        {
+            var fallback = PisaraReading.Fallback(Prompt, null, DateTime.UtcNow);
+            Assert.IsFalse(PisaraReading.NeedsModel(fallback, false), "a cached fallback is reused");
+            Assert.IsTrue(PisaraReading.NeedsModel(fallback, true), "Re-read still forces a call");
+            Assert.IsTrue(PisaraReading.NeedsModel(null, false), "the first reading calls the model");
+        }
+
+        [Test]
         public void Finish_StampsAndClamps()
         {
             var sheet = new CharacterSheet();

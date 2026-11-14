@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using AICompanion.AI;
 using AICompanion.Core;
@@ -37,7 +36,10 @@ namespace AICompanion.Settings
         string _failure = string.Empty;
         int _generation;
         CancellationTokenSource _cancel;
-        readonly HashSet<string> _tried = new HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>The prompt check is cheap, but there is no reason to do it sixty times a second.</summary>
+        const float CheckSeconds = 0.25f;
+        float _checkIn;
 
         /// <summary>Goes up whenever the sheet or the reading state changes, so settings views can refresh.</summary>
         public int Revision { get; private set; }
@@ -79,6 +81,10 @@ namespace AICompanion.Settings
 
         void Update()
         {
+            _checkIn -= Time.unscaledDeltaTime;
+            if (_checkIn > 0f)
+                return;
+            _checkIn = CheckSeconds;
             Check();
         }
 
@@ -131,16 +137,16 @@ namespace AICompanion.Settings
 
             var path = CharacterSheetStore.FileFor(Folder(), _personaId);
             var cached = force ? null : CharacterSheetStore.LoadFor(path, _prompt);
-            var key = _personaId + "\n" + CharacterSheet.HashPrompt(_prompt);
-            if (cached != null && (cached.source == CharacterSheet.SourceModel || _tried.Contains(key)))
+            if (!PisaraReading.NeedsModel(cached, force))
             {
+                // A cached model sheet, keyword sheet or fallback is used as-is. Only Re-read
+                // asks the model again, so a fallback does not cost a local-model call every launch.
                 SetSheet(cached);
                 return;
             }
 
-            // A fallback sheet from an earlier run is used meanwhile, and the model is tried once more.
+            // No cached sheet: run on neutral until the one reading returns.
             SetSheet(cached ?? CharacterSheet.Neutral(_prompt));
-            _tried.Add(key);
             Read(_personaId, _prompt, path);
         }
 
@@ -177,7 +183,10 @@ namespace AICompanion.Settings
             }
 
             if (this == null || generation != _generation || cancel.IsCancellationRequested)
+            {
+                cancel.Dispose();
                 return;
+            }
 
             _reading = false;
             _cancel = null;
