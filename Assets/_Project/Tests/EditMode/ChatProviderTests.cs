@@ -346,6 +346,17 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void PerRequestTimeout_OverridesTheProviderTimeout()
+        {
+            var transport = new ScriptedTransport();
+            var request = new ChatRequest { TimeoutSeconds = 600f };
+
+            Grok(transport, "test-key").StreamChat(request, null, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.AreEqual(600f, transport.Last.TimeoutSeconds, 0.001f);
+        }
+
+        [Test]
         public void Utf8ChunkDecoder_KeepsASplitCharacter()
         {
             var decoder = new Utf8ChunkDecoder();

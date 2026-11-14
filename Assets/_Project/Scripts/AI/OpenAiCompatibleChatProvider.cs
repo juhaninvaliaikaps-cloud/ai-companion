@@ -95,7 +95,7 @@ namespace AICompanion.AI
             {
                 Url = ChatEndpoints.CompletionsUrl(_config.BaseUrl != null ? _config.BaseUrl() : null),
                 Body = ChatCompletionJson.Build(model, request.Temperature, request.MaxTokens, request.SystemPrompt, request.Messages),
-                TimeoutSeconds = ReadTimeout(),
+                TimeoutSeconds = ReadTimeout(request),
                 FollowRedirects = !string.Equals(ProviderId, ChatDefaults.CustomId, StringComparison.OrdinalIgnoreCase)
             };
             http.Headers.Add(new KeyValuePair<string, string>("Content-Type", "application/json"));
@@ -323,6 +323,13 @@ namespace AICompanion.AI
             if (_config.ApiKey == null)
                 return null;
             return _config.ApiKey();
+        }
+
+        float ReadTimeout(ChatRequest request)
+        {
+            if (request != null && request.TimeoutSeconds > 0f)
+                return request.TimeoutSeconds;
+            return ReadTimeout();
         }
 
         float ReadTimeout()
