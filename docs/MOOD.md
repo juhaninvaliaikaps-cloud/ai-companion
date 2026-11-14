@@ -173,7 +173,7 @@ annoyed 0.52, sad 0.18, happy 0.05
 
 ## Windows checklist (phase 1)
 
-1. Settings → Overlay → turn on **Show mood readout (debug)**. The box shows `Mood: content` and `none`.
+1. Settings → Data → turn on **Show developer settings**, then Developer → turn on **Show mood readout**. The box shows `Mood: content` and `none`.
 2. Chat in a way that makes her happy, then tease her, then say something sad. The readout and `Mood: now …` lines follow. A single mild reply should not switch the mood back and forth.
 3. Leave her alone for 10 minutes: Happy fades first, Sad and Annoyed last.
 4. Quit and start again: the mood is still there, a little weaker.
