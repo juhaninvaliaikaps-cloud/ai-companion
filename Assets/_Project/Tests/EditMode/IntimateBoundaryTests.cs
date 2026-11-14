@@ -61,10 +61,11 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void IntimateCatalogLine_SaysScenesStayWilling()
+        public void IntimateCatalogLine_HasNoForcedWillingness()
         {
-            StringAssert.Contains("both of them clearly want it", EmotionNames.IntimateCatalogLine);
-            StringAssert.Contains("never pressured, scared or distressed", EmotionNames.IntimateCatalogLine);
+            StringAssert.DoesNotContain("both of them clearly want it", EmotionNames.IntimateCatalogLine);
+            StringAssert.DoesNotContain("always willing", EmotionNames.IntimateCatalogLine);
+            StringAssert.DoesNotContain("never pressured, scared or distressed", EmotionNames.IntimateCatalogLine);
         }
 
         [Test]
