@@ -42,12 +42,51 @@ namespace AICompanion.Settings
             get { return _loaded; }
         }
 
+        readonly RelationshipHistory _history = new RelationshipHistory();
+
+        /// <summary>The last few changes with a plain reason, newest first through <see cref="RelationshipHistory.Line"/> (JUH-117).</summary>
+        public RelationshipHistory History
+        {
+            get { return _history; }
+        }
+
+        /// <summary>
+        /// Applies one landed message (JUH-117): the new numbers, a history line and the log
+        /// line. Does nothing while the Relationship switch is off. True when it was applied.
+        /// The caller passes the change's mood nudges on with <see cref="RelationshipMath.PushMoods"/>.
+        /// </summary>
+        public bool Apply(RelationshipChange change)
+        {
+            if (!_loaded || !PisaraSwitches.Relationship)
+                return false;
+            _state.Affection = change.Affection;
+            _state.Familiarity = change.Familiarity;
+            _history.Record(change);
+            _dirty = true;
+            Debug.Log(change.LogLine());
+            return true;
+        }
+
+        /// <summary>The user set the numbers by hand (a correction in persona settings). Saved now.</summary>
+        public void SetByUser(float affection, float familiarity)
+        {
+            if (!_loaded)
+                return;
+            _state.Affection = RelationshipMath.ClampAffection(affection);
+            _state.Familiarity = RelationshipMath.ClampFamiliarity(familiarity);
+            _history.Clear();
+            _dirty = true;
+            Save();
+            Debug.Log("Relationship: set by the user (" + _state.Readout() + ")");
+        }
+
         /// <summary>
         /// Drops the in-memory numbers after a wipe. The next Update reloads the default from
         /// the now-missing file, even when the persona id did not change.
         /// </summary>
         public void Forget()
         {
+            _history.Clear();
             _state = new RelationshipState();
             _personaId = null;
             _path = null;
@@ -83,6 +122,7 @@ namespace AICompanion.Settings
                 RelationshipMath.Start(sheet.relationship, out affection, out familiarity);
 
             _state = new RelationshipState { Affection = affection, Familiarity = familiarity, SecondsTogether = 0d };
+            _history.Clear();
             _dirty = true;
             Save();
             Debug.Log("Relationship: start over for persona "
@@ -140,7 +180,8 @@ namespace AICompanion.Settings
                 if (_chat.ChatVisible && Input.anyKeyDown)
                     _lastActivity = Time.unscaledTime;
 
-                if (_chat.ChatVisible && IsWithinActivityWindow(Time.unscaledTime, _lastActivity))
+                // "Relationship changes" off (JUH-117) freezes familiarity from time as well.
+                if (PisaraSwitches.Relationship && _chat.ChatVisible && IsWithinActivityWindow(Time.unscaledTime, _lastActivity))
                 {
                     _state.AddSeconds(Time.unscaledDeltaTime);
                     _dirty = true;
@@ -161,6 +202,7 @@ namespace AICompanion.Settings
                 Save();
 
             _personaId = persona;
+            _history.Clear();
             _path = RelationshipStore.FileFor(SettingsPanelFolder(), persona);
             _state = string.IsNullOrEmpty(_path)
                 ? new RelationshipState()

@@ -71,6 +71,9 @@ namespace AICompanion.Memory
         public const string Lived = "";
         public const string Seeded = "seeded";
         public const string Away = "away";
+
+        /// <summary>Something new in her own life that started after the user arrived (a new open thread).</summary>
+        public const string Life = "life";
     }
 
     public static class MemoryHorizons

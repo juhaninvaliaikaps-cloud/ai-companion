@@ -233,9 +233,9 @@ At -20 and below the line adds that this is love-hate between two people who cho
 After each finished reply, once per reply (use `CueSerial`, as the mood does):
 
 1. `var change = RelationshipMath.Land(cue.Landed, cue.Intensity, state.Affection, state.Familiarity);`
-2. Write `change.Affection` and `change.Familiarity` to the relationship state.
-3. `RelationshipMath.PushMoods(moodState, change, cue.Intensity);`
-4. Log `change.LogLine()`.
+2. `if (relationshipKeeper.Apply(change)) RelationshipMath.PushMoods(moodState, change, cue.Intensity);`
+
+`RelationshipKeeper.Apply` writes the numbers, records the reason for the Mood card, logs `change.LogLine()`, and does nothing while **Relationship changes** is off.
 
 While the chat is in use, add time with `FamiliarityAfter`. Add `RelationshipPrompt.Line` after the mood line, and `LandingEvents.Instruction` to the cue instruction.
 
@@ -297,7 +297,9 @@ This needs no model call: the outcomes were written with the sheet. The model on
 2. On the first message of a new persona, add `WorldMemory.FirstScene(sheet)` to the prompt.
 3. On start: `WorldMemory.Fade`, then `WorldMemory.ResolveThread` with the time since the last session. Add its `PromptLine` to the next prompt once, and push its moods.
 4. Where memories go into the prompt: use `MemoryPrompt.Build(entries, nowUtc)` and call `WorldMemory.MarkRecalled`.
-5. At session end: ask the model for one to three memories and store each with `AddShortTerm`.
+5. At session end: ask the model for one to three memories and store each with `AddShortTerm`. Add `WorldThreads.Instruction` to the same request, then `WorldThreads.Add(store, WorldThreads.TryParse(reply), nowUtc, privateMode)`.
+
+Check `PisaraSwitches.World` before seeding and before `FirstScene`, and `PisaraSwitches.AwayEvents` before `ResolveThread`.
 
 ## Start over with a persona
 
@@ -309,6 +311,53 @@ Settings → Privacy → Memories → **Start over with [name]**, with a confirm
 - everything else that implements `ICompanionStartOver`. The relationship keeper (JUH-119) implements it and resets to `RelationshipMath.Start(sheet.relationship)`.
 
 It keeps the persona, its description, the character sheet, the temperament pick, the settings, and every other persona. The log says `Start over: <persona>, <n> memories forgotten, chat history cleared.`
+
+## Control and tuning
+
+The reading is a guess, and the numbers are untuned, so the user can see and correct what Pisara does.
+
+### Correcting the relationship
+
+Settings → Persona → Temperament → **Correct the relationship**. The user picks the role, her word for it, affection and familiarity (in steps of 10), and whether they share a past. Every click applies at once:
+
+- `PisaraCorrections.SetRelationship` writes it into the sheet and sets `relationshipLocked`. The same limits as a reading apply: a stranger stays near 0 and never shares a past; each role keeps its least familiarity.
+- The current relationship is set to the corrected numbers (`RelationshipKeeper.SetByUser`), so it applies now, not only after a Start over.
+- A new reading keeps the correction, even of an edited prompt (`PisaraCorrections.CarryOver` in `PisaraReadingKeeper`). The model cannot set the lock: `CharacterSheet.Parse` clears it.
+- **Use the reading again** drops the lock and reads her description again.
+
+The relationship line says "(your correction)" while the lock is on. Temperament already has its own manual pick.
+
+### Switches
+
+Settings → Overlay, under the mood readout, has one switch per part, all on by default (`pisaraRelationship`, `pisaraAwayEvents`, `pisaraWorld` in the settings file). Off freezes that part; nothing is deleted. `PisaraSwitches` holds the current values for code that has no settings at hand.
+
+| Switch | Off means |
+| --- | --- |
+| Relationship changes | `RelationshipKeeper.Apply` and time spent together change nothing. |
+| Life while you are away | No thread resolves between sessions, and no new thread is added. |
+| Her own world | No seeding, no first scene, no new threads. |
+
+### Why it moved
+
+The Mood card on the wheel shows where she stands ("she likes you; you know each other well") and the last four reasons, such as `An insult stung: affection -4.6` (`RelationshipHistory`, `RelationshipCard`). Neutral exchanges are not listed. The reasons last for the session.
+
+### New threads
+
+Without new threads her world runs dry: the two or three seeded ones turn out and nothing else ever happens to her. At session end the model may propose one new thread (`WorldThreads.Instruction`). It is stored with `origin = life`, as a long-term open thread, while fewer than three are open. It is about her, ordinary life, and nothing sexual; a private session's thread stays private.
+
+### Scenario runner
+
+`PisaraScenario` runs a fixed persona and a scripted conversation through the real `RelationshipMath` and mood state, without a model or a scene, and `Report()` prints the trajectory. `PisaraScenarioTests` checks the JUH-115 expectations and writes each trajectory to the test log:
+
+- a stranger is not won over by ten compliments;
+- teasing lands well with a stepsister and badly with a stranger;
+- an insult hurts at least twice as much from a stranger as from a partner;
+- an apology repairs part of an insult, not all;
+- a rival insulted five times can't stand them, and affection stays in range;
+- familiarity never drops, and earned affection does not drift back;
+- a partner's compliments make her more Affectionate than a stranger's, and Intimate is never pushed.
+
+Change a number in `RelationshipMath`, run the tests, and read the log to see what moved.
 
 ## Guards
 
