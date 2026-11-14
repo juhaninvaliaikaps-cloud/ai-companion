@@ -63,6 +63,12 @@ namespace AICompanion.AI
         /// so a cloud vision call cannot leave the machine.
         /// </summary>
         public bool BlockCloud;
+
+        /// <summary>
+        /// When set, the memory layer adds nothing to this request and counts nothing as
+        /// recalled (JUH-118). For requests that are not her talking: the session-memory request.
+        /// </summary>
+        public bool NoMemory;
     }
 
     /// <summary>

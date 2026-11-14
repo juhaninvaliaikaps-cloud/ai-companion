@@ -67,6 +67,24 @@ namespace AICompanion.Memory
         }
 
         /// <summary>One button label: the fact, truncated, plus its badges.</summary>
+        public const string HerLifeLabel = " (her life)";
+        public const string AwayLabel = " (while you were away)";
+
+        /// <summary>
+        /// JUH-118: where a memory came from, for the viewer. Seeded memories are her life before
+        /// the user, away memories happened while the user was gone; lived ones get no label.
+        /// </summary>
+        public static string OriginLabel(MemoryEntry entry)
+        {
+            if (entry == null)
+                return string.Empty;
+            if (entry.origin == MemoryOrigins.Seeded || entry.origin == MemoryOrigins.Life)
+                return HerLifeLabel;
+            if (entry.origin == MemoryOrigins.Away)
+                return AwayLabel;
+            return string.Empty;
+        }
+
         public static string Label(MemoryEntry entry, int maxLength = MaxLabelLength)
         {
             if (entry == null)
@@ -77,7 +95,7 @@ namespace AICompanion.Memory
                 text = text.Substring(0, Math.Max(0, maxLength - 1)).TrimEnd() + "…";
 
             var suffix = entry.isPrivate ? " (private)" : entry.isCore ? " (core)" : string.Empty;
-            return "Delete: " + text + suffix;
+            return "Delete: " + text + OriginLabel(entry) + suffix;
         }
     }
 }

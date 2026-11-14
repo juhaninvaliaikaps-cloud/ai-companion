@@ -194,6 +194,43 @@ namespace AICompanion.Settings
             Publish();
         }
 
+        /// <summary>
+        /// Mood nudges from outside a reply (JUH-118: what happened while the user was away),
+        /// scaled by her temperament like every other push. Returns false while this persona's
+        /// mood is not loaded yet, so the caller can try again.
+        /// </summary>
+        public bool TryApplyPushes(string personaId, CompanionMoodPush[] pushes, string cause)
+        {
+            if (!_loaded || !string.Equals(personaId ?? string.Empty, _personaId ?? string.Empty, StringComparison.Ordinal))
+                return false;
+            if (pushes == null || pushes.Length == 0)
+                return true;
+            _state.SetIntimateAllowed(IntimateExpressions.Active);
+            var changed = false;
+            for (var i = 0; i < pushes.Length; i++)
+                changed |= _state.Push(pushes[i].Mood, CompanionMoodTable.Scaled(_state, pushes[i], 1f));
+            if (changed)
+                LogShown(cause);
+            _dirty = true;
+            Publish();
+            return true;
+        }
+
+        /// <summary>
+        /// A landed message's mood nudges (JUH-118 section 4), through
+        /// <see cref="RelationshipMath.PushMoods"/> so her temperament scales them.
+        /// </summary>
+        public void ApplyRelationship(RelationshipChange change, float intensity)
+        {
+            if (!_loaded)
+                return;
+            _state.SetIntimateAllowed(IntimateExpressions.Active);
+            if (RelationshipMath.PushMoods(_state, change, intensity))
+                LogShown("how your message landed");
+            _dirty = true;
+            Publish();
+        }
+
         /// <summary>"Start over" (JUH-117): her mood back to how this persona starts, saved now.</summary>
         public void StartOver()
         {

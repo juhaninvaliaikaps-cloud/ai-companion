@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
 using AICompanion.AI;
 using AICompanion.Core;
+using AICompanion.Memory;
 using AICompanion.UI;
 using UnityEngine;
 
@@ -27,6 +29,27 @@ namespace AICompanion.Settings
         public const string Flag = "-pisara-read";
         public const string ModelFlag = "-pisara-model";
         public const string PromptFlag = "-pisara-prompt";
+
+        /// <summary>
+        /// With this flag each persona also gets <c>&lt;id&gt;.world.txt</c> (JUH-118 sections 2 and
+        /// 3): the memories seeded from the sheet, her first reply (opening mid-scene), what
+        /// happened while the user was away with her reply to it, and the session memories of
+        /// that short talk. The memory file it uses is a throwaway one in the same folder.
+        /// </summary>
+        public const string WorldFlag = "-pisara-world";
+
+        public static bool Has(string[] args, string flag)
+        {
+            if (args == null)
+                return false;
+            for (var i = 0; i < args.Length; i++)
+            {
+                if (string.Equals(args[i], flag, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
 
         public static bool Requested(string[] args)
         {
@@ -100,7 +123,8 @@ namespace AICompanion.Settings
             var read = 0;
             for (var i = 0; i < files.Length; i++)
             {
-                if (files[i].EndsWith(".sheet.json", StringComparison.OrdinalIgnoreCase))
+                if (files[i].EndsWith(".sheet.json", StringComparison.OrdinalIgnoreCase)
+                    || files[i].EndsWith(".memory.json", StringComparison.OrdinalIgnoreCase))
                     continue;
                 var persona = PersonaJson.Parse(File.ReadAllText(files[i]));
                 if (persona == null)
@@ -130,10 +154,108 @@ namespace AICompanion.Settings
                     + (result.Failure.Length == 0 ? string.Empty : " (" + result.Failure + ")")
                     + " in " + seconds.ToString("0") + " s");
                 Debug.Log("Pisara tool: " + persona.Id + " | " + choice.Line + " | " + PisaraReading.RelationshipLine(result.Sheet));
+                if (Has(Environment.GetCommandLineArgs(), WorldFlag) && result.FromModel)
+                    await World(provider, persona, prompt, result.Sheet, stem);
                 read++;
             }
 
             return read > 0 ? 0 : 3;
+        }
+
+        /// <summary>
+        /// Her world for one persona, with the same calls the app makes: guard, seed, first
+        /// scene, an away event, and session memories. The replies come from the local model
+        /// through the memory layer; the cue instructions are left out so the text reads plainly.
+        /// </summary>
+        async System.Threading.Tasks.Task World(IChatProvider local, PersonaDefinition persona, string prompt, CharacterSheet sheet, string stem)
+        {
+            var text = new StringBuilder();
+            var memoryPath = stem + ".memory.json";
+            if (File.Exists(memoryPath))
+                File.Delete(memoryPath);
+            var store = MemoryStore.Load(memoryPath);
+            var now = DateTime.UtcNow;
+
+            var dropped = new List<string>();
+            var safe = WorldGuard.ForSeeding(sheet, dropped);
+            var added = WorldMemory.Seed(store, safe, now, true);
+            text.Append("== Seeded memories (").Append(added).Append(") ==\n");
+            var entries = store.Entries;
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                var when = WorldMemory.When(entry, now);
+                text.Append("- ").Append(entry.isThread ? "[thread] " : entry.IsShortTerm ? "[short] " : "[long] ");
+                if (when.Length > 0)
+                    text.Append('(').Append(when).Append(") ");
+                text.Append(entry.text);
+                if (entry.isThread)
+                    text.Append("  | good: ").Append(entry.goodOutcome).Append("  | bad: ").Append(entry.badOutcome);
+                text.Append("\n");
+            }
+
+            text.Append("Left out by the shared-history guard (").Append(dropped.Count).Append("):\n");
+            for (var i = 0; i < dropped.Count; i++)
+                text.Append("- ").Append(dropped[i]).Append("\n");
+
+            // The same memory layer the chat uses, on the throwaway store.
+            var provider = new MemoryChatProvider(local, store);
+            var scene = WorldGuard.FirstScene(sheet);
+            var messages = new List<ChatMessage> { new ChatMessage(ChatRole.User, "Hi.") };
+            WorldPromptNow.Reset();
+            WorldPromptNow.SetFirstScene(scene);
+            var first = await Ask(provider, WorldPromptNow.Append(prompt, true), messages);
+            text.Append("\n== First scene line ==\n").Append(scene.Length == 0 ? "(none)" : scene).Append("\n");
+            text.Append("\n== First reply (user: \"Hi.\") ==\n").Append(first).Append("\n");
+            messages.Add(new ChatMessage(ChatRole.Assistant, first));
+
+            var roll = UnityEngine.Random.value;
+            var away = WorldMemory.ResolveThread(store, 8d * 3600d, roll, now, true);
+            text.Append("\n== While the user was away (8 hours, roll ").Append(roll.ToString("0.00")).Append(") ==\n");
+            if (away.Happened)
+            {
+                text.Append("Away: ").Append(persona.Id).Append(" = ").Append(away.Text).Append(away.WentWell ? "  (went well)" : "  (went badly)").Append("\n");
+                WorldPromptNow.SetAway(away.PromptLine);
+                messages.Add(new ChatMessage(ChatRole.User, "I'm back. How have you been?"));
+                var second = await Ask(provider, WorldPromptNow.Append(prompt, false), messages);
+                text.Append("Reply (user: \"I'm back. How have you been?\"):\n").Append(second).Append("\n");
+                messages.Add(new ChatMessage(ChatRole.Assistant, second));
+            }
+            else
+            {
+                text.Append("(nothing: no open thread)\n");
+            }
+
+            WorldPromptNow.Reset();
+            var transcript = SessionMemories.BuildTranscript(messages, persona.DisplayName);
+            var capture = await SessionMemories.CaptureAsync(
+                local, transcript, persona.DisplayName, SessionMemories.MinUserMessages, true, false, store, 600f, CancellationToken.None, true);
+            var memories = capture.Memories;
+            text.Append("\n== Session memories of this short talk (").Append(memories.Count).Append(") ==\n");
+            for (var i = 0; i < memories.Count; i++)
+                text.Append("- ").Append(memories[i]).Append("\n");
+            text.Append("New thread: ").Append(capture.Thread == null
+                ? "(none)"
+                : capture.Thread.text + "  | good: " + capture.Thread.goodOutcome + "  | bad: " + capture.Thread.badOutcome).Append("\n");
+
+            File.WriteAllText(stem + ".world.txt", text.ToString(), new UTF8Encoding(false));
+            Debug.Log("Pisara tool: " + persona.Id + " world: " + added + " seeded, " + dropped.Count + " left out, away "
+                + (away.Happened ? (away.WentWell ? "went well" : "went badly") : "none") + ", " + memories.Count + " session memories, new thread "
+                + (capture.Thread != null ? "yes" : "no"));
+        }
+
+        static async System.Threading.Tasks.Task<string> Ask(IChatProvider provider, string personaPrompt, List<ChatMessage> messages)
+        {
+            var request = new ChatRequest
+            {
+                SystemPrompt = personaPrompt + "\n\n" + IntimateBoundaries.PromptLine(false),
+                Messages = new List<ChatMessage>(messages),
+                Temperature = ChatDefaults.Temperature,
+                MaxTokens = 200,
+                BlockCloud = true,
+            };
+            var reply = await provider.StreamChat(request, _ => { }, CancellationToken.None);
+            return reply.Ok ? reply.Text.Trim() : "(no reply: " + reply.Error + ")";
         }
     }
 }
