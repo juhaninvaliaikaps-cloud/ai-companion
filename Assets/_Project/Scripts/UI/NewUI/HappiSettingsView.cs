@@ -616,6 +616,21 @@ namespace AICompanion.NewUI
                 }));
             }
 
+            if (IntimateExpressions.Active)
+            {
+                var adult = VideoAvatarPresenter.AdultTestReactions;
+                for (var i = 0; i < adult.Count; i++)
+                {
+                    var name = adult[i].Value;
+                    Button(adult[i].Key, () => VideoTest(a =>
+                    {
+                        var status = VideoAvatarPresenter.ReactionStatus(a.RequestReaction(name), name, VideoAvatarDirector.PendingSeconds);
+                        if (status.Length > 0)
+                            _settings.SetStatusMessage(status);
+                    }));
+                }
+            }
+
             Slider(v => v < 0.02f ? "Walk speed: from the walk clip" : "Walk speed " + v.ToString("0.00", CultureInfo.InvariantCulture) + " clip heights per second",
                 S.VideoAvatarWalkSpeed, 0f, 1f, false, v => P.Change(s => s.VideoAvatarWalkSpeed = v < 0.02f ? 0f : v));
             Toggle("Play clip sounds", S.PlayClipSounds, v => Change(s => s.PlayClipSounds = v));
