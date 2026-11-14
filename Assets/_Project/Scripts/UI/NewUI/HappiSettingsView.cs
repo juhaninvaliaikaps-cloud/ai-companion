@@ -741,6 +741,13 @@ namespace AICompanion.NewUI
             Note("Pause matches the tray checkmark. Speech, push-to-talk, and animation cues stay off while it is on.");
             Toggle("Show mood readout (debug)", S.ShowMoodDebug, v => Change(s => s.ShowMoodDebug = v));
             Note("Her current mood and the three strongest moods, top left. Mood changes are also in Player.log.");
+            // JUH-117: one switch per Pisara leaf, for tuning. Off freezes that part; nothing is deleted.
+            Toggle("Relationship changes", S.PisaraRelationship, v => Change(s => s.PisaraRelationship = v));
+            Note("How your messages land changes how much she likes you and how well you know each other. Off freezes both.");
+            Toggle("Life while you are away", S.PisaraAwayEvents, v => Change(s => s.PisaraAwayEvents = v));
+            Note("Things she is waiting for turn out, well or badly, while you are gone. Off leaves them open.");
+            Toggle("Her own world", S.PisaraWorld, v => Change(s => s.PisaraWorld = v));
+            Note("Her backstory and recent days are added to her memories, and the first chat opens mid-scene. Off stops adding; existing memories stay.");
             Toggle("Show debug info", S.ShowDebugInfo, v => Change(s => s.ShowDebugInfo = v));
             Note("Debug text top-left: topmost, frame rate, emotion, key hints, rotate, size and zoom. Off by default. The hotkeys work either way.");
         }
@@ -898,6 +905,7 @@ namespace AICompanion.NewUI
             Note(view.RelationshipLine);
             Note(view.Status);
             Button(view.Reading ? "Re-read (reading...)" : "Re-read", () => { _settings.RereadPersona(); _rebuild = true; });
+            BuildRelationshipCorrection();
             Choice("Auto", !view.Manual, () => { _settings.SetPersonaTemperamentAuto(id); _rebuild = true; });
             for (var i = 0; i < PersonaTemperaments.Ids.Length; i++)
             {
@@ -908,6 +916,53 @@ namespace AICompanion.NewUI
 
             if (current.UserFile)
                 Button(current.BuiltIn ? "Delete saved copy" : "Delete persona", () => { _settings.DeletePersona(); _rebuild = true; }, true);
+        }
+
+        bool _correctingRelationship;
+
+        /// <summary>
+        /// JUH-117: the reading is a guess, so the user can correct who she is to them. Every
+        /// click applies at once and is locked against later readings.
+        /// </summary>
+        void BuildRelationshipCorrection()
+        {
+            var sheet = _settings.ActiveSheet();
+            if (sheet == null || sheet.relationship == null)
+                return;
+
+            if (!_correctingRelationship)
+            {
+                Button("Correct the relationship", () => { _correctingRelationship = true; _rebuild = true; });
+                if (sheet.relationshipLocked)
+                    Button("Use the reading again", () => { _settings.UseReadingForRelationship(); _rebuild = true; });
+                return;
+            }
+
+            var r = sheet.relationship;
+            Note("Who is she to you? This sets where your relationship stands now; replies move it from there.");
+            for (var i = 0; i < RelationshipRoles.All.Length; i++)
+            {
+                var role = RelationshipRoles.All[i];
+                Choice(role.Replace('_', ' '), r.role == role,
+                    () => _settings.CorrectPersonaRelationship(role, r.label, r.affection, r.familiarity, r.sharedHistory));
+            }
+
+            Field("Her word for it (stepsister, coworker...)", r.label, false,
+                v => _settings.CorrectPersonaRelationship(r.role, v, r.affection, r.familiarity, r.sharedHistory));
+            Note("Affection " + Mathf.RoundToInt(r.affection) + " (-100 to 100)");
+            Button("Affection -" + (int)PisaraCorrections.Step,
+                () => _settings.CorrectPersonaRelationship(r.role, r.label, r.affection - PisaraCorrections.Step, r.familiarity, r.sharedHistory));
+            Button("Affection +" + (int)PisaraCorrections.Step,
+                () => _settings.CorrectPersonaRelationship(r.role, r.label, r.affection + PisaraCorrections.Step, r.familiarity, r.sharedHistory));
+            Note("Familiarity " + Mathf.RoundToInt(r.familiarity) + " (0 to 100)");
+            Button("Familiarity -" + (int)PisaraCorrections.Step,
+                () => _settings.CorrectPersonaRelationship(r.role, r.label, r.affection, r.familiarity - PisaraCorrections.Step, r.sharedHistory));
+            Button("Familiarity +" + (int)PisaraCorrections.Step,
+                () => _settings.CorrectPersonaRelationship(r.role, r.label, r.affection, r.familiarity + PisaraCorrections.Step, r.sharedHistory));
+            Toggle("You share a past", r.sharedHistory,
+                v => _settings.CorrectPersonaRelationship(r.role, r.label, r.affection, r.familiarity, v));
+            Note("A stranger never shares a past. Each role has a least familiarity (family 60, partner 70), so a lower pick stops there.");
+            Button("Done", () => { _correctingRelationship = false; _rebuild = true; });
         }
 
         void Save(string id, Action<PersonaDefinition> change)

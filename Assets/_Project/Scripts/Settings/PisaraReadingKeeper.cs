@@ -63,6 +63,38 @@ namespace AICompanion.Settings
             return string.Equals(personaId ?? string.Empty, _personaId ?? string.Empty, StringComparison.Ordinal) ? _sheet : null;
         }
 
+        /// <summary>
+        /// The user corrects who she is to them (JUH-117). The correction is locked into the
+        /// sheet, survives a re-read and an edited prompt, and is applied to the current
+        /// relationship at once. False when there is no sheet yet.
+        /// </summary>
+        public bool CorrectRelationship(string role, string label, float affection, float familiarity, bool sharedHistory)
+        {
+            if (_sheet == null)
+                return false;
+            PisaraCorrections.SetRelationship(_sheet, role, label, affection, familiarity, sharedHistory);
+            var path = CharacterSheetStore.FileFor(Folder(), _personaId);
+            if (!CharacterSheetStore.Save(path, _sheet))
+                Debug.LogWarning("Pisara reading: the corrected sheet could not be saved.");
+            var relationship = GetComponent<RelationshipKeeper>();
+            if (relationship != null)
+                relationship.SetByUser(_sheet.relationship.affection, _sheet.relationship.familiarity);
+            Debug.Log("Pisara reading: " + (_personaId ?? string.Empty) + " relationship corrected by the user ("
+                + PisaraReading.RelationshipLine(_sheet) + ")");
+            Revision++;
+            return true;
+        }
+
+        /// <summary>Drops the user's relationship correction and asks the model again.</summary>
+        public void UseReadingAgain()
+        {
+            if (_sheet == null)
+                return;
+            PisaraCorrections.Unlock(_sheet);
+            CharacterSheetStore.Save(CharacterSheetStore.FileFor(Folder(), _personaId), _sheet);
+            Reread();
+        }
+
         /// <summary>The line under the reading in persona settings.</summary>
         public string StatusLine
         {
@@ -192,6 +224,8 @@ namespace AICompanion.Settings
             _cancel = null;
             cancel.Dispose();
             _failure = result.Failure ?? string.Empty;
+            // The user's relationship correction survives a new reading, even of an edited prompt.
+            PisaraCorrections.CarryOver(CharacterSheetStore.Load(path), result.Sheet);
             // A failed Re-read keeps the sheet the model wrote earlier for this prompt.
             var kept = PisaraReading.Keep(CharacterSheetStore.LoadFor(path, prompt), result.Sheet);
             if (ReferenceEquals(kept, result.Sheet) && !CharacterSheetStore.Save(path, kept))

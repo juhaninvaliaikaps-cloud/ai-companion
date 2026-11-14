@@ -156,6 +156,11 @@ namespace AICompanion.Settings
         /// <summary>Shows her current mood and the three strongest moods in a corner (JUH-103 debug). Off by default.</summary>
         public bool ShowMoodDebug;
 
+        /// <summary>JUH-117 switches, one per Pisara leaf. All on by default. See <see cref="AICompanion.Core.PisaraSwitches"/>.</summary>
+        public bool PisaraRelationship = true;
+        public bool PisaraAwayEvents = true;
+        public bool PisaraWorld = true;
+
         /// <summary>JUH-104: the new Happi UI (radial wheel, new chat and settings). Off by default; -newui turns it on for one launch.</summary>
         public bool NewUiPreview;
 
@@ -649,6 +654,12 @@ namespace AICompanion.Settings
                 settings.IntimateExpressions = flag;
             if (TryBool(json, "showMoodDebug", out flag))
                 settings.ShowMoodDebug = flag;
+            if (TryBool(json, "pisaraRelationship", out flag))
+                settings.PisaraRelationship = flag;
+            if (TryBool(json, "pisaraAwayEvents", out flag))
+                settings.PisaraAwayEvents = flag;
+            if (TryBool(json, "pisaraWorld", out flag))
+                settings.PisaraWorld = flag;
             if (TryBool(json, "newUiPreview", out flag))
                 settings.NewUiPreview = flag;
             if (TryBool(json, "voiceNarration", out flag))
@@ -749,6 +760,9 @@ namespace AICompanion.Settings
             Number(sb, "clipSoundVolume", source.ClipSoundVolume, false);
             Bool(sb, "intimateExpressions", source.IntimateExpressions);
             Bool(sb, "showMoodDebug", source.ShowMoodDebug);
+            Bool(sb, "pisaraRelationship", source.PisaraRelationship);
+            Bool(sb, "pisaraAwayEvents", source.PisaraAwayEvents);
+            Bool(sb, "pisaraWorld", source.PisaraWorld);
             Bool(sb, "newUiPreview", source.NewUiPreview);
             Bool(sb, "voiceNarration", source.VoiceNarration);
             Number(sb, "chatBoxX", source.ChatBoxX, false);

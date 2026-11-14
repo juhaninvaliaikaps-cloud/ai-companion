@@ -244,7 +244,7 @@ namespace AICompanion.Settings
             var choice = PersonaRuntime.TemperamentChoiceFor(PersonaCatalog.LoadDefault(Folder()), id, sheet);
             return new PisaraPersonaView(
                 choice.Line,
-                AICompanion.Core.PisaraReading.RelationshipLine(sheet),
+                AICompanion.Core.PisaraReading.RelationshipLine(sheet) + AICompanion.Core.PisaraCorrections.Note(sheet),
                 keeper != null ? keeper.StatusLine : AICompanion.Core.PisaraReading.SourceLine(sheet),
                 !choice.Auto,
                 keeper != null && keeper.IsReading);
@@ -258,6 +258,41 @@ namespace AICompanion.Settings
                 return;
             keeper.Reread();
             SetStatus("Reading her description again. This can take a minute with a local model.");
+            _rebuild = true;
+        }
+
+        /// <summary>The active persona's character sheet, or null. Read only; correct it with <see cref="CorrectPersonaRelationship"/>.</summary>
+        public AICompanion.Core.CharacterSheet ActiveSheet()
+        {
+            var keeper = GetComponent<PisaraReadingKeeper>();
+            return keeper != null ? keeper.SheetFor(_settings != null ? _settings.PersonaId ?? string.Empty : string.Empty) : null;
+        }
+
+        /// <summary>
+        /// JUH-117: the user corrects who she is to them. Locked against later readings, and
+        /// applied to the current relationship at once.
+        /// </summary>
+        public void CorrectPersonaRelationship(string role, string label, float affection, float familiarity, bool sharedHistory)
+        {
+            var keeper = GetComponent<PisaraReadingKeeper>();
+            if (keeper == null || !keeper.CorrectRelationship(role, label, affection, familiarity, sharedHistory))
+            {
+                SetStatus("Nothing to correct yet: her description has not been read.");
+                return;
+            }
+
+            SetStatus("Relationship corrected. A new reading keeps your correction.");
+            _rebuild = true;
+        }
+
+        /// <summary>Drops the user's relationship correction and reads her description again.</summary>
+        public void UseReadingForRelationship()
+        {
+            var keeper = GetComponent<PisaraReadingKeeper>();
+            if (keeper == null)
+                return;
+            keeper.UseReadingAgain();
+            SetStatus("Your correction is dropped. Reading her description again.");
             _rebuild = true;
         }
 
