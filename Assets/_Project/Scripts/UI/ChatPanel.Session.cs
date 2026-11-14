@@ -22,6 +22,7 @@ namespace AICompanion.UI
     public sealed partial class ChatPanel
     {
         int _sessionUserMessages;
+        readonly SessionPrivacy _sessionPrivacy = new SessionPrivacy();
         int _sessionStartLine;
         float _sessionLastMessageAt;
         bool _quitHooked;
@@ -54,11 +55,21 @@ namespace AICompanion.UI
             return true;
         }
 
-        /// <summary>Called just before a user message is sent.</summary>
-        void SessionBeforeSend()
+        /// <summary>Called just before a user message is sent, with that send's private flag.</summary>
+        void SessionBeforeSend(bool keepsLocal)
         {
             if (_sessionUserMessages == 0 && _conversation != null)
                 _sessionStartLine = _conversation.Lines.Count;
+            NoteSessionPrivacy(keepsLocal);
+        }
+
+        /// <summary>
+        /// Every send notes whether it had to stay local (screen looks too), so a session that was
+        /// private at any point stays private at its end.
+        /// </summary>
+        void NoteSessionPrivacy(bool keepsLocal)
+        {
+            _sessionPrivacy.Note(keepsLocal);
         }
 
         int _landingCueSerial = -1;
@@ -120,6 +131,7 @@ namespace AICompanion.UI
         {
             _sessionUserMessages = 0;
             _sessionStartLine = 0;
+            _sessionPrivacy.Reset();
         }
 
         bool OnWantsToQuit()
@@ -142,12 +154,15 @@ namespace AICompanion.UI
         {
             var userMessages = _sessionUserMessages;
             var startLine = _sessionStartLine;
+            var keptLocal = _sessionPrivacy.KeptLocal;
             DropSession();
             if (!SessionMemories.Qualifies(userMessages) || _conversation == null || settings == null || _registry == null)
                 return false;
 
             var privacy = GetComponent<IPrivacyMode>();
-            var keepsLocal = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+            // Sticky: private at any point of the session means private now, for the routing and
+            // for the private flag of the memories (Private mode may have been turned off since).
+            var keepsLocal = keptLocal || IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             var providerId = PrivateChatRouting.ProviderId(keepsLocal, settings.providerId, settings.privateEndpointType);
             if (!_registry.TryGet(providerId, out var provider))
                 return false;

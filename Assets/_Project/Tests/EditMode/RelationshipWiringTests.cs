@@ -168,6 +168,53 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(RelationshipMath.FamiliarityAfter(10f, 10d), familiarity, 0.01f, "frame by frame is the same as all at once");
         }
 
+        static float ByClock(float start, int steps, double stepSeconds)
+        {
+            var clock = new FamiliarityClock();
+            var familiarity = start;
+            for (var i = 0; i < steps; i++)
+            {
+                if (clock.Add(stepSeconds))
+                    familiarity = clock.Apply(familiarity);
+            }
+
+            // The rest goes in before a save.
+            return clock.Apply(familiarity);
+        }
+
+        [TestCase(50f)]
+        [TestCase(80f)]
+        [TestCase(90f)]
+        public void FamiliarityClock_3600OneFrameSteps_MatchOne3600SecondStep(float start)
+        {
+            var exact = RelationshipMath.FamiliarityAfter(start, 3600d);
+            Assert.Greater(exact, start, "an hour of chatting does count");
+            Assert.AreEqual(exact, ByClock(start, 3600, 1d), 0.05f, "3600 steps of one second");
+            Assert.AreEqual(exact, ByClock(start, 3600 * 60, 1d / 60d), 0.05f, "an hour at 60 fps: the gain no longer rounds away");
+            Assert.AreEqual(exact, ByClock(start, 3600 * 30, 1d / 30d), 0.05f, "and at 30 fps the same");
+        }
+
+        [Test]
+        public void FamiliarityClock_AppliesEveryFiveSeconds_AndOnFlush()
+        {
+            var clock = new FamiliarityClock();
+            Assert.IsFalse(clock.Add(4.9d));
+            Assert.IsTrue(clock.Add(0.2d), "5 s gathered");
+            Assert.AreEqual(5.1d, clock.Pending, 1e-9);
+
+            var after = clock.Apply(90f);
+            Assert.Greater(after, 90f);
+            Assert.AreEqual(0d, clock.Pending, "used up");
+            Assert.AreEqual(after, clock.Apply(after), "nothing pending: unchanged");
+
+            clock.Add(double.NaN);
+            clock.Add(-3d);
+            Assert.AreEqual(0d, clock.Pending, "bad time is ignored");
+            clock.Add(2d);
+            clock.Clear();
+            Assert.AreEqual(0d, clock.Pending);
+        }
+
         [Test]
         public void StartValues_ComeFromTheSheet_InsideWhatTheRoleAllows()
         {
