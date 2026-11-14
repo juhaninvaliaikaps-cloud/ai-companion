@@ -69,5 +69,42 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("strip", AvatarReactionCatalog.PromptLine());
             StringAssert.Contains("she undresses", AvatarReactionCatalog.PromptLine());
         }
+
+        [Test]
+        public void Undressed_OffersOnlyNakedReactionsAndDress()
+        {
+            IntimateExpressions.Configure(true, true, true);
+            var set = VideoAvatarManifest.Resolve(Manifest, Files);
+            AvatarReactionCatalog.Set(set.OfferedReactions(), set.OfferedAdultReactions());
+            IntimateExpressions.Undress();
+
+            Assert.AreEqual(-1, set.FindReaction("happy"));
+            Assert.AreEqual(-1, set.FindReaction("strip"));
+            Assert.AreNotEqual(-1, set.FindReaction("naked_idle"));
+            Assert.IsFalse(AvatarReactionCatalog.Names.Contains("happy"));
+            Assert.IsFalse(AvatarReactionCatalog.Names.Contains("strip"));
+            Assert.IsTrue(AvatarReactionCatalog.Names.Contains("naked_idle"));
+            Assert.IsTrue(AvatarReactionCatalog.Names.Contains("dress"));
+            Assert.AreEqual("dress", AvatarReactionCatalog.Find("dress"));
+            Assert.AreEqual(string.Empty, AvatarReactionCatalog.Find("happy"));
+            StringAssert.Contains("She is naked now", AvatarReactionCatalog.PromptLine());
+            StringAssert.Contains("dress", AvatarReactionCatalog.PromptLine());
+
+            IntimateExpressions.Dress();
+            Assert.IsTrue(AvatarReactionCatalog.Names.Contains("happy"));
+            Assert.IsTrue(AvatarReactionCatalog.Names.Contains("strip"));
+            Assert.IsFalse(AvatarReactionCatalog.Names.Contains("dress"));
+        }
+
+        [Test]
+        public void MinusOneHold_IsForever()
+        {
+            IntimateExpressions.Configure(true, true, true);
+            var set = VideoAvatarManifest.Resolve(
+                "{\"clips\":[{\"name\":\"idle\",\"role\":\"idle\",\"color\":\"idle.mp4\"}," +
+                "{\"name\":\"naked_idle\",\"role\":\"reaction\",\"color\":\"naked_idle.mp4\",\"playback\":\"loop\",\"hold\":-1,\"adult\":true}]}",
+                Files);
+            Assert.IsTrue(set.Clips[set.FindReaction("naked_idle")].HoldForever);
+        }
     }
 }

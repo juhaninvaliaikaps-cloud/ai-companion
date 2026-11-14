@@ -108,7 +108,7 @@ Put a file named `video-avatar.json` in the clip folder to list the clips yourse
 | `speed` | Walk only. Window speed in clip heights per second. | `0.3` |
 | `moveStart`, `moveEnd` | Walk and walk-stop. Seconds into the clip between which her feet carry her. The window stands still outside it. `moveEnd` 0 means the end of the clip. | `0`, clip end |
 | `moveRamp` | Seconds to reach full speed after `moveStart` and to lose it before `moveEnd`. | `0.25` |
-| `hold` | A pose that follows a reaction. Seconds she holds it before facing front again, at a loop point. | `12` |
+| `hold` | A pose that follows a reaction. Seconds she holds it before facing front again, at a loop point. `-1` holds it until another reaction or the `dress` cue. | `12` |
 | `after` | On a reaction: the name of a looping reaction clip played after it as a held pose, for example `"turn_around_back"` → `"back_idle"`. On the walk-stop: `idle` if the clip ends facing front in the idle pose, so the default idle may follow. Leave it out to hold the last frame. | hold |
 | `sound` | `true` plays the clip's own sound track, with **Play clip sounds** on. See [Sound](#sound). | `false` |
 | `adult` | `true` keeps this reaction out of the prompt and reaction lookup unless the 18+ gate (Private mode + Intimate expressions + `portraits-adult`) is open. | `false` |
@@ -131,6 +131,11 @@ They are listed in the same reaction line as ordinary clips only while the gate
 is open. With the gate closed they cannot be found or requested, even if the
 manifest lists them. `adult_` / `adult-` name prefixes do the same for folders
 without a manifest.
+
+`hold: -1` keeps a naked pose until another reaction or the `dress` cue. While
+she is undressed, normal reactions and the normal test buttons are hidden; use
+`reaction="dress"` to return to the clothed idle. There is no dressing
+animation, so that cue changes state directly.
 
 To add a reaction later, add a clip with `"role": "reaction"` and a name such as `happy`, `concerned`, `surprised` or `annoyed`. `VideoAvatarClipSet.FindReaction(name)` finds it. Playing it is a later change.
 

@@ -367,7 +367,7 @@ namespace AICompanion.Settings
                 if (pose >= 0)
                 {
                     Enter(VideoAvatarAct.Pose, pose, false);
-                    _poseLeft = _set.Clips[pose].HoldSeconds;
+                    _poseLeft = _set.Clips[pose].HoldForever ? float.PositiveInfinity : _set.Clips[pose].HoldSeconds;
                     return;
                 }
 

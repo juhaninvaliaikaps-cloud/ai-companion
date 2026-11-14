@@ -214,6 +214,7 @@ namespace AICompanion.NewUI
             var look = _settings.ScreenController;
             return s.AlwaysOnTop + "|" + Mathf.RoundToInt(s.Scale * 100f) + "|" + s.Muted + "|" + s.Paused + "|" + s.HideTaskbarButton + "|" + s.StartWithWindows
                 + "|" + s.AvatarSource + "|" + s.AvatarMode + "|" + s.PersonaId + "|" + s.PrivateMode + "|" + s.ProviderId + "|" + IntimateExpressions.Active
+                + "|" + IntimateExpressions.Undressed
                 + "|" + s.PrivateEndpointType + "|" + s.PrivateBaseUrl + "|" + s.PrivateModel
                 + "|" + _settings.PrivateApiKeySaved + "|" + _settings.PrivateEndpointTestRunning
                 + "|" + (look != null ? look.Revision : 0) + "|" + _settings.ConnectionTestRunning + "|" + s.ShowMoodDebug + "|" + s.VoiceNarration
@@ -600,20 +601,25 @@ namespace AICompanion.NewUI
                 s.VideoAvatarOffsetY = 0f;
             }));
             Note("Size and position apply immediately. The window size is on the Overlay tab.");
-            Button("Test: walk left", () => VideoTest(a => a.TestWalk(-1f)));
-            Button("Test: walk right (mirrored)", () => VideoTest(a => a.TestWalk(1f)));
-            Button("Test: stop", () => VideoTest(a => a.TestStop()));
-            Button("Test: back to the front idle", () => VideoTest(a => a.TestFront()));
-            var reactions = VideoAvatarPresenter.TestReactions;
-            for (var i = 0; i < reactions.Count; i++)
+            var undressed = IntimateExpressions.Undressed;
+            if (!undressed)
             {
-                var name = reactions[i].Value;
-                Button(reactions[i].Key, () => VideoTest(a =>
+                Button("Test: walk left", () => VideoTest(a => a.TestWalk(-1f)));
+                Button("Test: walk right (mirrored)", () => VideoTest(a => a.TestWalk(1f)));
+                Button("Test: stop", () => VideoTest(a => a.TestStop()));
+                Button("Test: back to the front idle", () => VideoTest(a => a.TestFront()));
+                var reactions = VideoAvatarPresenter.TestReactions;
+                for (var i = 0; i < reactions.Count; i++)
                 {
-                    var status = VideoAvatarPresenter.ReactionStatus(a.RequestReaction(name), name, VideoAvatarDirector.PendingSeconds);
-                    if (status.Length > 0)
-                        _settings.SetStatusMessage(status);
-                }));
+                    var name = reactions[i].Value;
+                    Button(reactions[i].Key, () => VideoTest(a =>
+                    {
+                        var status = VideoAvatarPresenter.ReactionStatus(a.RequestReaction(name), name, VideoAvatarDirector.PendingSeconds);
+                        if (status.Length > 0)
+                            _settings.SetStatusMessage(status);
+                        _rebuild = true;
+                    }));
+                }
             }
 
             if (IntimateExpressions.Active)
@@ -622,11 +628,25 @@ namespace AICompanion.NewUI
                 for (var i = 0; i < adult.Count; i++)
                 {
                     var name = adult[i].Value;
+                    if (undressed && !IntimateExpressions.IsNakedCue(name))
+                        continue;
                     Button(adult[i].Key, () => VideoTest(a =>
                     {
                         var status = VideoAvatarPresenter.ReactionStatus(a.RequestReaction(name), name, VideoAvatarDirector.PendingSeconds);
                         if (status.Length > 0)
                             _settings.SetStatusMessage(status);
+                        _rebuild = true;
+                    }));
+                }
+
+                if (undressed)
+                {
+                    Button("Test: dress", () => VideoTest(a =>
+                    {
+                        var status = VideoAvatarPresenter.ReactionStatus(a.RequestReaction("dress"), "dress", VideoAvatarDirector.PendingSeconds);
+                        if (status.Length > 0)
+                            _settings.SetStatusMessage(status);
+                        _rebuild = true;
                     }));
                 }
             }

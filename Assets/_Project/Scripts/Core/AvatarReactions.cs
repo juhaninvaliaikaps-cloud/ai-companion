@@ -42,6 +42,19 @@ namespace AICompanion.Core
         {
             get
             {
+                if (IntimateExpressions.Undressed)
+                {
+                    var naked = new List<string>();
+                    for (var i = 0; i < _names.Count; i++)
+                    {
+                        if (IntimateExpressions.IsNakedCue(_names[i]))
+                            naked.Add(_names[i]);
+                    }
+
+                    naked.Add("dress");
+                    return naked;
+                }
+
                 if (_adultNames.Count == 0 || IntimateExpressions.Active)
                     return _names;
                 var visible = new List<string>(_names.Count);
@@ -103,7 +116,12 @@ namespace AICompanion.Core
         public static bool Contains(string name)
         {
             var token = AnimationCueParser.SanitizeGesture(name);
-            if (token.Length == 0 || !_names.Contains(token))
+            if (token.Length == 0)
+                return false;
+            if (IntimateExpressions.Undressed)
+                return string.Equals(token, "dress", StringComparison.Ordinal)
+                    || (IntimateExpressions.IsNakedCue(token) && _names.Contains(token));
+            if (!_names.Contains(token))
                 return false;
             return IntimateExpressions.Active || !IsAdult(token);
         }
@@ -124,6 +142,29 @@ namespace AICompanion.Core
             var token = Canonical(AnimationCueParser.SanitizeGesture(word));
             if (token.Length == 0)
                 return string.Empty;
+            if (IntimateExpressions.Undressed)
+            {
+                if (string.Equals(token, "dress", StringComparison.Ordinal))
+                    return "dress";
+                if (!IntimateExpressions.IsNakedCue(token))
+                    return string.Empty;
+                if (_names.Contains(token))
+                    return token;
+                var nakedPrefix = token + "_";
+                var nakedFound = string.Empty;
+                for (var i = 0; i < _names.Count; i++)
+                {
+                    if (!IntimateExpressions.IsNakedCue(_names[i])
+                        || !_names[i].StartsWith(nakedPrefix, StringComparison.Ordinal))
+                        continue;
+                    if (nakedFound.Length > 0)
+                        return string.Empty;
+                    nakedFound = _names[i];
+                }
+
+                return nakedFound;
+            }
+
             if (!IntimateExpressions.Active && IsAdult(token))
                 return string.Empty;
             if (_names.Contains(token))
@@ -183,7 +224,14 @@ namespace AICompanion.Core
         {
             var names = Names;
             var line = PromptLine(names);
-            if (line.Length == 0 || !IntimateExpressions.Active || _adultNames.Count == 0)
+            if (line.Length == 0)
+                return line;
+            if (IntimateExpressions.Undressed)
+            {
+                return line + " She is naked now. Use only those naked animations; to get dressed again use reaction=\"dress\". There is no dressing animation, so that cue changes her state and returns to the clothed idle.";
+            }
+
+            if (!IntimateExpressions.Active || _adultNames.Count == 0)
                 return line;
 
             var list = new StringBuilder();

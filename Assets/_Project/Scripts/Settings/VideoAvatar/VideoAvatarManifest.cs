@@ -115,6 +115,9 @@ namespace AICompanion.Settings
         /// <summary>Only read on a pose clip: seconds it is held before she faces front again, at a loop point.</summary>
         public float HoldSeconds = VideoAvatarManifest.DefaultHoldSeconds;
 
+        /// <summary>Manifest "hold": -1: stand in this pose until another reaction or dress cue, not a timer.</summary>
+        public bool HoldForever;
+
         /// <summary>The clip's own sound track is played (manifest "sound": true). Without a manifest, never.</summary>
         public bool Sound;
 
@@ -144,6 +147,7 @@ namespace AICompanion.Settings
                 && ThenIdle == other.ThenIdle
                 && string.Equals(After, other.After, StringComparison.OrdinalIgnoreCase)
                 && Mathf.Approximately(HoldSeconds, other.HoldSeconds)
+                && HoldForever == other.HoldForever
                 && Sound == other.Sound
                 && Adult == other.Adult
                 && Mathf.Approximately(Weight, other.Weight);
@@ -233,6 +237,8 @@ namespace AICompanion.Settings
                 return -1;
 
             var wanted = name.Trim();
+            if (IntimateExpressions.Undressed && !IntimateExpressions.IsNakedCue(wanted))
+                return -1;
             for (var i = 0; i < Clips.Count; i++)
             {
                 if (Clips[i].Role != VideoClipRole.Reaction
@@ -391,7 +397,10 @@ namespace AICompanion.Settings
                     spec.After = Clean(entry.after);
                 spec.Sound = entry.sound;
                 spec.Adult = entry.adult;
-                spec.HoldSeconds = entry.hold > 0f && IsNumber(entry.hold) ? Mathf.Min(entry.hold, MaxHoldSeconds) : DefaultHoldSeconds;
+                spec.HoldForever = IsNumber(entry.hold) && entry.hold < 0f;
+                spec.HoldSeconds = !spec.HoldForever && entry.hold > 0f && IsNumber(entry.hold)
+                    ? Mathf.Min(entry.hold, MaxHoldSeconds)
+                    : DefaultHoldSeconds;
                 spec.Weight = entry.weight > 0f && IsNumber(entry.weight) ? entry.weight : 1f;
                 Add(set, spec);
             }
