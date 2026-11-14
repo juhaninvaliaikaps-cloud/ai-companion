@@ -204,6 +204,16 @@ namespace AICompanion.Core
         public const float SharedHistoryFamiliarity = 50f;
 
         /// <summary>
+        /// True when the reading needs a model call. A cached sheet of any source is used as-is;
+        /// the Re-read button is the way to retry a fallback. This avoids one local-model call
+        /// per app launch for every persona whose last reading fell back.
+        /// </summary>
+        public static bool NeedsModel(CharacterSheet cached, bool force)
+        {
+            return force || cached == null;
+        }
+
+        /// <summary>
         /// Makes the model's own answers agree: local models sometimes rate a stepsister of six
         /// years at familiarity 60 and still answer "no shared past". Someone who is not a
         /// stranger and is known this well shares a past. Never the other way round, and never
