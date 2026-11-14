@@ -36,8 +36,9 @@ One chat turn is a drop. It falls through leaves in a fixed order, and each leaf
 | Start over with a persona (chat, memories, mood, relationship) | **Built**, EditMode tests; not run in a player | Claude, DeepSeek |
 | Wiring her world: seeding, first scene, away line, session memories, new threads | **Built** (JUH-118 sections 2 and 3, #91), EditMode tests | Claude Code |
 | Wiring the relationship: landing per reply, familiarity from time, start values, prompt line, Mood card reasons | **Built** (JUH-118 section 4, #91), EditMode tests | Claude Code |
+| Innocent to Perverted (18+ only): local reading, slider, drift, prompt line, moods | **Built** (JUH-116), EditMode tests; not run in a player | Claude |
 
-The spec PR changed nothing in how she behaves. Since JUH-118 section 1 the sheet is read and its temperament is used (see "The reading as built"). The relationship, landing and world parts of the sheet are read, cached and shown, but nothing acts on them yet.
+Every part of the sheet is used: the temperament since JUH-118 section 1, and the relationship, landing and world since #91.
 
 ## The character sheet
 
@@ -380,6 +381,29 @@ Without new threads her world runs dry: the two or three seeded ones turn out an
 - a partner's compliments make her more Affectionate than a stranger's, and Intimate is never pushed.
 
 Change a number in `RelationshipMath`, run the tests, and read the log to see what moved.
+
+## Innocent to Perverted (JUH-116, 18+ only)
+
+Where she sits between **Innocent (0)** and **Perverted (100)**. It reflects her sexual experience as well as her boldness. The design decisions are Jussi's (2026-11-14, on the JUH-116 issue).
+
+Only while the 18+ gate is open. While it is closed nothing is read, nothing moves, the slider is hidden and the prompt line is empty.
+
+**Start.** `InnocenceReader` reads her persona once on the local model or the user's private server, never a cloud model (`PisaraReader.MayUse` with keepsLocal; test `Read_NeverRunsWithTheGateClosed_OrOnACloudModel`). It judges what fits her most likely from her age, personality, relationships and anything the description says about her experience. A shy 18-year-old who has never dated sits near 10; a confident 26-year-old bully near 70. It is a separate request from the character sheet, because the sheet may be read by a cloud model. The reply is `{"innocence": 0-100, "reason": "..."}`. A changed prompt is read again; a failed reading is tried once more on the next launch.
+
+**Slider.** Settings, Persona, under the relationship correction: "Innocent to Perverted (18+)". Moving it sets where she is and her baseline, and a new reading no longer changes it. **Use the reading** goes back to the reading; **Read again** asks the model again.
+
+**Drift, both ways** (`InnocenceMath`):
+- Each intimate moment moves her toward experienced. An intimate moment is a finished reply whose cue is an intimate expression, or an adult video reaction (`strip` or a naked clip). The step is 2 points at intensity 0.5 when she is fully innocent, scaled 0.5x to 1.5x by intensity and by how much room is left above her.
+- Without intimate moments, what she gained above her baseline fades: nothing for 2 days, then half every 14 days. It never goes below the baseline, and is computed from her value at the last moment, so it does not compound.
+- A new reading keeps what she gained on top of the new baseline (`Rebase`).
+
+**What it changes:**
+- **The prompt line** (`InnocencePrompt`), after the relationship line: her experience, how often she makes the first move, and how comfortable she is undressed. While she is naked (`IntimateExpressions.Undressed`) it says how she feels about being naked instead. Five bands: very innocent, innocent, in between, experienced, perverted. She has no way to message first, so "the first move" means how forward she is within her replies.
+- **Her mood.** After an intimate moment the innocent side gets Flustered (and a little Anxious at the very innocent end), and the experienced side Happy and Affectionate. Being undressed pushes the same way, more strongly on the innocent side. The pushes are small (0.05 to 0.25), like the relationship ones. Intimate itself is never pushed from here.
+
+**Storage.** `innocence-<persona>.json`, encrypted, next to the relationship file, in wipe and export (`LocalDataInventory.IsInnocenceName`). **Start over** puts her back at her baseline and keeps the reading and the slider setting. A full wipe deletes the file.
+
+**Shown.** The wheel's Mood card adds `Innocence: 30 (innocent)` while the gate is open. Log lines start with `Innocence:`.
 
 ## Guards
 

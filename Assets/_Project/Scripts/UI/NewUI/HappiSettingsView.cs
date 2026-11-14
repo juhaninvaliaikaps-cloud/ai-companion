@@ -914,6 +914,7 @@ namespace AICompanion.NewUI
             if (view.Reading)
                 BuildReadingProgress();
             BuildRelationshipCorrection();
+            BuildInnocence();
             Choice("Auto", !view.Manual, () => { _settings.SetPersonaTemperamentAuto(id); _rebuild = true; });
             for (var i = 0; i < PersonaTemperaments.Ids.Length; i++)
             {
@@ -927,6 +928,32 @@ namespace AICompanion.NewUI
         }
 
         bool _correctingRelationship;
+
+        /// <summary>
+        /// JUH-116: Innocent to Perverted. Only while the 18+ gate is open; nothing about it is
+        /// shown otherwise. Every change applies at once.
+        /// </summary>
+        void BuildInnocence()
+        {
+            if (!IntimateExpressions.Active)
+                return;
+            var keeper = _settings.Innocence;
+            if (keeper == null || !keeper.IsLoaded)
+                return;
+
+            var state = keeper.State;
+            Section("Innocent to Perverted (18+)");
+            Slider(v => "Innocence " + Mathf.RoundToInt(v) + ": " + InnocenceMath.BandName(v) + " (0 innocent, 100 perverted)",
+                state.Current, InnocenceMath.Min, InnocenceMath.Max, true, v => _settings.SetInnocence(v));
+            Note(state.UserSet ? "Your setting. A new reading of her description does not change it." : keeper.ReadingLine());
+            if (Mathf.Abs(state.Current - state.Baseline) >= 1f)
+                Note("Intimate moments have moved her to " + Mathf.RoundToInt(state.Current) + ". Without them she slowly drifts back toward "
+                    + Mathf.RoundToInt(state.Baseline) + ".");
+            Note("It changes how often she makes the first move, how comfortable she is undressed, and how intimate moments make her feel.");
+            if (state.UserSet)
+                Button("Use the reading", () => { _settings.UseInnocenceReading(); _rebuild = true; });
+            Button(keeper.Reading ? "Read again (reading...)" : "Read again", () => { _settings.ReadInnocenceAgain(); _rebuild = true; });
+        }
 
         /// <summary>A light-blue indeterminate bar while the model writes her character sheet.</summary>
         void BuildReadingProgress()

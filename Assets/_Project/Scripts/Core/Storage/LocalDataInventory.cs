@@ -36,6 +36,7 @@ namespace AICompanion.Core
                 || IsHistoryName(rel)
                 || IsMoodName(rel)
                 || IsRelationshipName(rel)
+                || IsInnocenceName(rel)
                 || IsSheetName(rel);
         }
 
@@ -90,6 +91,15 @@ namespace AICompanion.Core
             if (name == "relationship.json")
                 return true;
             return name.StartsWith("relationship-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
+        }
+
+        /// <summary>Her Innocent–Perverted state per persona (JUH-116): innocence.json and innocence-&lt;persona&gt;.json.</summary>
+        public static bool IsInnocenceName(string fileName)
+        {
+            var name = Normalize(fileName);
+            if (name == "innocence.json")
+                return true;
+            return name.StartsWith("innocence-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
         }
 
         /// <summary>Her character sheet per persona (JUH-117): sheet.json and sheet-&lt;persona&gt;.json.</summary>
