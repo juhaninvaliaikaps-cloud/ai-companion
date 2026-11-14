@@ -257,5 +257,44 @@ namespace AICompanion.Tests.EditMode
             PisaraSwitches.Configure(true, true, false);
             Assert.IsNull(Capture(new FakeProvider { Reply = ReplyWithThread }, MemoryStore.Load(Path.Combine(_dir, "c.json")), true).Thread, "Her own world off");
         }
+
+        [Test]
+        public void FamiliarityTime_PerFrame_MatchesOneLongStep()
+        {
+            // JUH-118 review: one 60 fps frame's gain is lost in a float near the top of the range.
+            for (var start = 20f; start <= 95f; start += 25f)
+            {
+                var time = new FamiliarityTime();
+                var familiarity = start;
+                for (var i = 0; i < 3600 * 60; i++)
+                {
+                    time.Add(1d / 60d);
+                    familiarity = time.Apply(familiarity);
+                }
+
+                familiarity = time.Apply(familiarity, true);
+                var once = RelationshipMath.FamiliarityAfter(start, 3600d);
+                Assert.AreEqual(once, familiarity, 0.05f, "one hour from " + start);
+                Assert.Greater(familiarity, start, "time together always counts, from " + start);
+            }
+        }
+
+        [Test]
+        public void FamiliarityTime_WaitsForFiveSeconds_UnlessAskedNow()
+        {
+            var time = new FamiliarityTime();
+            time.Add(2d);
+            Assert.AreEqual(90f, time.Apply(90f), "nothing before five seconds");
+            Assert.AreEqual(2d, time.Pending, 1e-9);
+            Assert.Greater(time.Apply(90f, true), 90f, "a save applies what is pending");
+            Assert.AreEqual(0d, time.Pending);
+
+            time.Add(double.NaN);
+            time.Add(-3d);
+            Assert.AreEqual(0d, time.Pending);
+            time.Add(10d);
+            time.Clear();
+            Assert.AreEqual(50f, time.Apply(50f, true), "cleared on a persona switch or Start over");
+        }
     }
 }

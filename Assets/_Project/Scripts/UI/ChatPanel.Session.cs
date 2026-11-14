@@ -59,7 +59,12 @@ namespace AICompanion.UI
         {
             if (_sessionUserMessages == 0 && _conversation != null)
                 _sessionStartLine = _conversation.Lines.Count;
+            // A session sent while chat stayed local stays local at its end too (JUH-118 review).
+            var privacy = GetComponent<IPrivacyMode>();
+            _sessionPrivacy.Sent(IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode));
         }
+
+        readonly SessionPrivacy _sessionPrivacy = new SessionPrivacy();
 
         int _landingCueSerial = -1;
 
@@ -120,6 +125,7 @@ namespace AICompanion.UI
         {
             _sessionUserMessages = 0;
             _sessionStartLine = 0;
+            _sessionPrivacy.Reset();
         }
 
         bool OnWantsToQuit()
@@ -142,12 +148,14 @@ namespace AICompanion.UI
         {
             var userMessages = _sessionUserMessages;
             var startLine = _sessionStartLine;
+            var keptLocal = _sessionPrivacy.KeptLocal;
             DropSession();
             if (!SessionMemories.Qualifies(userMessages) || _conversation == null || settings == null || _registry == null)
                 return false;
 
             var privacy = GetComponent<IPrivacyMode>();
-            var keepsLocal = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+            // Local if any message of this session was sent while chat stayed local, not only now.
+            var keepsLocal = keptLocal || IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             var providerId = PrivateChatRouting.ProviderId(keepsLocal, settings.providerId, settings.privateEndpointType);
             if (!_registry.TryGet(providerId, out var provider))
                 return false;

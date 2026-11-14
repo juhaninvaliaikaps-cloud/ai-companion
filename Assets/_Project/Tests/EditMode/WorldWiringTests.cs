@@ -284,6 +284,40 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Session_ThatWasPrivate_StaysLocal_AfterPrivateModeIsTurnedOff()
+        {
+            // JUH-118 review: Private mode on while chatting, then off before the session ends.
+            var privacy = new SessionPrivacy();
+            privacy.Sent(true);
+            privacy.Sent(false);
+            Assert.IsTrue(privacy.KeptLocal);
+            Assert.IsTrue(privacy.AtEnd(false), "the end of a private session is still private");
+
+            var store = MemoryStore.Load(_path);
+            var cloud = new FakeProvider { Id = ChatDefaults.GrokId };
+            Assert.AreEqual(0, Capture(cloud, store, 6, privacy.AtEnd(false)).Count);
+            Assert.AreEqual(0, cloud.Calls, "nothing of a private session may reach a cloud model");
+
+            var local = new FakeProvider();
+            Assert.Greater(Capture(local, store, 6, privacy.AtEnd(false)).Count, 0);
+            foreach (var entry in store.Entries)
+                Assert.IsTrue(entry.isPrivate, "and what it remembers stays private");
+        }
+
+        [Test]
+        public void SessionPrivacy_IsOnlyLocal_WhenSomethingWasSentLocally_AndResets()
+        {
+            var privacy = new SessionPrivacy();
+            Assert.IsFalse(privacy.AtEnd(false));
+            Assert.IsTrue(privacy.AtEnd(true), "turned on just before the end counts too");
+            privacy.Sent(false);
+            Assert.IsFalse(privacy.KeptLocal);
+            privacy.Sent(true);
+            privacy.Reset();
+            Assert.IsFalse(privacy.AtEnd(false), "a new session starts open again");
+        }
+
+        [Test]
         public void Session_ATimeoutOrNoModel_StoresNothing()
         {
             var store = MemoryStore.Load(_path);

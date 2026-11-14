@@ -74,6 +74,7 @@ namespace AICompanion.Settings
         {
             if (!_loaded)
                 return;
+            _state.Familiarity = _time.Apply(_state.Familiarity, true);
             var change = RelationshipNow.Land(cue, _state.Affection, _state.Familiarity);
             if (!Apply(change))
                 return;
@@ -123,6 +124,7 @@ namespace AICompanion.Settings
             _state.Affection = affection;
             _state.Familiarity = familiarity;
             _history.Clear();
+            _time.Clear();
             _dirty = true;
             Save();
             Debug.Log("Relationship: started from the reading for persona " + PersonaLogId() + " (" + _state.Readout() + ")");
@@ -183,6 +185,7 @@ namespace AICompanion.Settings
             _state.Affection = RelationshipMath.ClampAffection(affection);
             _state.Familiarity = RelationshipMath.ClampFamiliarity(familiarity);
             _history.Clear();
+            _time.Clear();
             _awaitingStart = false;
             _dirty = true;
             Save();
@@ -197,6 +200,7 @@ namespace AICompanion.Settings
         public void Forget()
         {
             _history.Clear();
+            _time.Clear();
             _state = new RelationshipState();
             _personaId = null;
             _path = null;
@@ -235,6 +239,7 @@ namespace AICompanion.Settings
 
             _state = new RelationshipState { Affection = affection, Familiarity = familiarity, SecondsTogether = 0d };
             _history.Clear();
+            _time.Clear();
             _awaitingStart = false;
             _dirty = true;
             Save();
@@ -301,7 +306,9 @@ namespace AICompanion.Settings
                 {
                     _state.AddSeconds(Time.unscaledDeltaTime);
                     // JUH-118 section 4: real time spent chatting is how they get to know each other.
-                    _state.Familiarity = RelationshipMath.FamiliarityAfter(_state.Familiarity, Time.unscaledDeltaTime);
+                    // Collected and applied every few seconds: one frame's gain is lost in a float.
+                    _time.Add(Time.unscaledDeltaTime);
+                    _state.Familiarity = _time.Apply(_state.Familiarity);
                     _dirty = true;
                 }
             }
@@ -323,6 +330,7 @@ namespace AICompanion.Settings
 
             _personaId = persona;
             _history.Clear();
+            _time.Clear();
             _path = RelationshipStore.FileFor(SettingsPanelFolder(), persona);
             _state = string.IsNullOrEmpty(_path)
                 ? new RelationshipState()
@@ -337,9 +345,14 @@ namespace AICompanion.Settings
             Debug.Log(RelationshipLog.Line(persona, _state));
         }
 
+        readonly FamiliarityTime _time = new FamiliarityTime();
+
         void Save()
         {
-            if (!_loaded || !_dirty || string.IsNullOrEmpty(_path))
+            if (!_loaded)
+                return;
+            _state.Familiarity = _time.Apply(_state.Familiarity, true);
+            if (!_dirty || string.IsNullOrEmpty(_path))
                 return;
             if (RelationshipStore.Save(_path, _state, DateTime.UtcNow))
                 _dirty = false;
