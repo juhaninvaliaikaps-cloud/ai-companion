@@ -58,6 +58,17 @@ namespace AICompanion.Settings
 
         /// <summary>True while this persona had no relationship file and waits for a model reading to start from.</summary>
         bool _awaitingStart;
+        readonly FamiliarityClock _familiarityClock = new FamiliarityClock();
+
+        /// <summary>Applies the chat time gathered so far (before a save, a landed reply or a readout).</summary>
+        void FlushFamiliarity()
+        {
+            if (_loaded && _familiarityClock.Pending > 0d)
+            {
+                _state.Familiarity = _familiarityClock.Apply(_state.Familiarity);
+                _dirty = true;
+            }
+        }
         float _wiringIn;
         int _sheetRevision = -1;
         float _publishedAffection = float.NaN;
@@ -74,6 +85,7 @@ namespace AICompanion.Settings
         {
             if (!_loaded)
                 return;
+            FlushFamiliarity();
             var change = RelationshipNow.Land(cue, _state.Affection, _state.Familiarity);
             if (!Apply(change))
                 return;
@@ -120,6 +132,7 @@ namespace AICompanion.Settings
             float affection;
             float familiarity;
             RelationshipMath.Start(sheet.relationship, out affection, out familiarity);
+            _familiarityClock.Clear();
             _state.Affection = affection;
             _state.Familiarity = familiarity;
             _history.Clear();
@@ -184,6 +197,7 @@ namespace AICompanion.Settings
             _state.Familiarity = RelationshipMath.ClampFamiliarity(familiarity);
             _history.Clear();
             _awaitingStart = false;
+            _familiarityClock.Clear();
             _dirty = true;
             Save();
             Debug.Log("Relationship: set by the user (" + _state.Readout() + ")");
@@ -207,6 +221,7 @@ namespace AICompanion.Settings
             _lastRevision = -1;
             _revisionSeen = false;
             _awaitingStart = false;
+            _familiarityClock.Clear();
             RelationshipNow.Reset();
         }
 
@@ -236,6 +251,7 @@ namespace AICompanion.Settings
             _state = new RelationshipState { Affection = affection, Familiarity = familiarity, SecondsTogether = 0d };
             _history.Clear();
             _awaitingStart = false;
+            _familiarityClock.Clear();
             _dirty = true;
             Save();
             Publish(true);
@@ -301,7 +317,9 @@ namespace AICompanion.Settings
                 {
                     _state.AddSeconds(Time.unscaledDeltaTime);
                     // JUH-118 section 4: real time spent chatting is how they get to know each other.
-                    _state.Familiarity = RelationshipMath.FamiliarityAfter(_state.Familiarity, Time.unscaledDeltaTime);
+                    // Gathered in a double and applied every 5 s: per frame the gain rounds to nothing.
+                    if (_familiarityClock.Add(Time.unscaledDeltaTime))
+                        FlushFamiliarity();
                     _dirty = true;
                 }
             }
@@ -329,6 +347,8 @@ namespace AICompanion.Settings
                 : RelationshipStore.Load(_path);
             // No file yet: start from this persona's model reading once it is there (never for the setup name).
             _awaitingStart = !string.IsNullOrEmpty(persona) && !string.IsNullOrEmpty(_path) && !System.IO.File.Exists(_path);
+            // The previous persona's time was applied by the Save above; none carries over.
+            _familiarityClock.Clear();
             _sheetRevision = -1;
             _wiringIn = 0f;
             _loaded = true;
@@ -339,6 +359,7 @@ namespace AICompanion.Settings
 
         void Save()
         {
+            FlushFamiliarity();
             if (!_loaded || !_dirty || string.IsNullOrEmpty(_path))
                 return;
             if (RelationshipStore.Save(_path, _state, DateTime.UtcNow))

@@ -8,6 +8,47 @@ using AICompanion.Core;
 
 namespace AICompanion.Memory
 {
+    /// <summary>What one session-end request stored.</summary>
+    public sealed class SessionCapture
+    {
+        public readonly List<string> Memories = new List<string>();
+
+        /// <summary>A new open thread in her own life (JUH-117 <see cref="WorldThreads"/>), or null.</summary>
+        public MemoryEntry Thread;
+    }
+
+    /// <summary>
+    /// Whether one chat session had to stay local (JUH-118 review of #91). Every send of the
+    /// session notes <see cref="IntimateExpressions.KeepsLocal"/> at that moment, and the flag
+    /// sticks: a session that was private at any point stays private at its end, even when
+    /// Private mode was turned off (or the intimate gate closed) before the session ended. The
+    /// session-end request then goes only to the local model or the private server, and its
+    /// memories are stored as private. <see cref="Reset"/> when a new session starts.
+    /// </summary>
+    public sealed class SessionPrivacy
+    {
+        /// <summary>True when any send of this session had to stay local.</summary>
+        public bool KeptLocal { get; private set; }
+
+        /// <summary>One send of the session, with its private flag.</summary>
+        public void Note(bool keepsLocal)
+        {
+            if (keepsLocal)
+                KeptLocal = true;
+        }
+
+        /// <summary>The private flag for the session-end request: the sticky one, or the current one.</summary>
+        public bool KeepsLocal(bool keepsLocalNow)
+        {
+            return KeptLocal || keepsLocalNow;
+        }
+
+        public void Reset()
+        {
+            KeptLocal = false;
+        }
+    }
+
     /// <summary>
     /// Session memories (JUH-118 section 3, docs/PISARA.md): at the end of a session the model
     /// writes one to three short memories of it, from her side. Each is stored with
@@ -19,15 +60,6 @@ namespace AICompanion.Memory
     /// of the prompt.
     /// </para>
     /// </summary>
-    /// <summary>What one session-end request stored.</summary>
-    public sealed class SessionCapture
-    {
-        public readonly List<string> Memories = new List<string>();
-
-        /// <summary>A new open thread in her own life (JUH-117 <see cref="WorldThreads"/>), or null.</summary>
-        public MemoryEntry Thread;
-    }
-
     public static class SessionMemories
     {
         /// <summary>Sessions with fewer user messages than this are not worth a memory.</summary>

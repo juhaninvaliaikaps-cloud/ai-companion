@@ -284,6 +284,40 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Session_ThatWasPrivate_StaysLocalAndPrivate_AfterPrivateModeIsTurnedOff()
+        {
+            // 1. Messages sent in Private mode (or with the 18+ gate open). 2. Private mode is turned
+            // off, maybe another message. 3. The session ends (quit, or 10 minutes idle).
+            var privacy = new SessionPrivacy();
+            privacy.Note(true);
+            privacy.Note(false);
+            var keepsLocal = privacy.KeepsLocal(false);
+            Assert.IsTrue(keepsLocal, "the session was private at one point, so it is private at its end");
+
+            // The routing at session end picks the local model, not the cloud chat provider...
+            Assert.AreEqual(ChatDefaults.LocalId, PrivateChatRouting.ProviderId(keepsLocal, ChatDefaults.GrokId, PrivateEndpointTypes.Local));
+            Assert.AreEqual(ChatDefaults.CustomId, PrivateChatRouting.ProviderId(keepsLocal, ChatDefaults.GrokId, PrivateEndpointTypes.Custom));
+
+            // ...a cloud provider would be refused before anything is sent...
+            var store = MemoryStore.Load(_path);
+            var cloud = new FakeProvider { Id = ChatDefaults.GrokId };
+            Assert.AreEqual(0, Capture(cloud, store, 6, keepsLocal).Count);
+            Assert.AreEqual(0, cloud.Calls, "the private transcript never reaches a cloud model");
+
+            // ...and what the local model writes is stored as private.
+            var local = new FakeProvider();
+            Assert.AreEqual(2, Capture(local, store, 6, keepsLocal).Count);
+            Assert.IsTrue(local.Last.BlockCloud);
+            foreach (var entry in store.Entries)
+                Assert.IsTrue(entry.isPrivate);
+
+            // A new session starts clean, and turning Private mode on at the end still counts.
+            privacy.Reset();
+            Assert.IsFalse(privacy.KeepsLocal(false));
+            Assert.IsTrue(privacy.KeepsLocal(true));
+        }
+
+        [Test]
         public void Session_ATimeoutOrNoModel_StoresNothing()
         {
             var store = MemoryStore.Load(_path);
