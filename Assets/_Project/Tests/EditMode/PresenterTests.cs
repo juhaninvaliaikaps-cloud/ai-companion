@@ -309,6 +309,26 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void ChatBoxHeight_ClampsAndRoundTrips()
+        {
+            var settings = CompanionSettings.CreateDefault();
+            Assert.AreEqual(1f, settings.ChatBoxHeight);
+
+            settings.ChatBoxHeight = 2.5f;
+            settings.Normalize();
+            Assert.AreEqual(2f, settings.ChatBoxHeight);
+
+            settings.ChatBoxHeight = 0.1f;
+            settings.Normalize();
+            Assert.AreEqual(0.6f, settings.ChatBoxHeight);
+
+            settings.ChatBoxHeight = 1.25f;
+            var json = CompanionSettingsJson.Write(settings);
+            StringAssert.Contains("\"chatBoxHeight\": 1.25", json);
+            Assert.AreEqual(1.25f, CompanionSettingsJson.Parse(json, SettingsLegacyPrefs.None).ChatBoxHeight, 0.0001f);
+        }
+
+        [Test]
         public void ExistingKeys_StillWritten()
         {
             var json = CompanionSettingsJson.Write(CompanionSettings.CreateDefault());
