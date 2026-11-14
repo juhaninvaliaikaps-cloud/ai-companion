@@ -610,7 +610,10 @@ namespace AICompanion.NewUI
                 Button("Test: back to the front idle", () => VideoTest(a => a.TestFront()));
                 var reactions = VideoAvatarPresenter.TestReactions;
                 for (var i = 0; i < reactions.Count; i++)
-                    Button(reactions[i].Key, () => VideoReactionTest(reactions[i].Value));
+                {
+                    var name = reactions[i].Value;
+                    Button(reactions[i].Key, () => VideoReactionTest(name));
+                }
             }
 
             if (IntimateExpressions.Active)

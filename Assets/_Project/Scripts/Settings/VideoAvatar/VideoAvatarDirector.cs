@@ -213,7 +213,7 @@ namespace AICompanion.Settings
             var clip = _set.FindReaction(name);
             if (!Usable(clip) || _set.IsPoseTarget(clip))
                 return AvatarReactionResult.Refused;
-            if (Act != VideoAvatarAct.Pose)
+            if (Act != VideoAvatarAct.Pose && Act != VideoAvatarAct.Reaction)
                 return Request(name, true);
             CancelQueuedReactions();
             Enter(VideoAvatarAct.Reaction, clip, false);
