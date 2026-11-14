@@ -71,6 +71,9 @@ jobs:
       - name: Run Unity tests
         if: steps.license.outputs.skip != 'true'
         id: tests
+        # A killed container is a runner crash, not a test failure. Let the next
+        # step retry once before the job goes red.
+        continue-on-error: true
         uses: game-ci/unity-test-runner@v4.4.0
         env:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
@@ -108,13 +111,37 @@ jobs:
           githubToken: ''
           checkName: EditMode and PlayMode tests
 
+      # The runner is killed intermittently with exit 137 or "Unable to find
+      # image" before Unity produces a test result. One automatic retry avoids
+      # burning a new push or a manual rerun for that infrastructure failure.
+      - name: Retry Unity tests after a runner crash
+        if: steps.license.outputs.skip != 'true' && steps.tests.outcome == 'failure'
+        id: tests_retry
+        uses: game-ci/unity-test-runner@v4.4.0
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          GAME_CI_UNITY_LICENSING_METHOD: personal
+          GAME_CI_COVERAGE_ENABLED: "false"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          unityVersion: 6000.6.6f1
+          customImage: unityci/editor:ubuntu-6000.6.6f1-base-3
+          testMode: ${{ inputs.testMode || 'editmode' }}
+          customParameters: '-nographics'
+          cliVersion: v0.1.72
+          githubToken: ''
+          checkName: EditMode and PlayMode tests
+
       - name: Upload test results
         if: always() && steps.license.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: Test results
-          path: ${{ steps.tests.outputs.artifactsPath }}
-          if-no-files-found: warn
+          # Use the successful attempt's artifacts; if the first attempt crashed,
+          # fall back to the retry's output.
+          path: ${{ steps.tests.outputs.artifactsPath || steps.tests_retry.outputs.artifactsPath }}
+          if-no-files-found: ignore
 
   # Starts only after unity-tests finishes, so the two jobs never hold the
   # Personal seat at the same time. EditMode on the Linux editor defines
