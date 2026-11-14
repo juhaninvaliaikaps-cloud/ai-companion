@@ -229,7 +229,7 @@ namespace AICompanion.Tests.EditMode
         static List<string> Capture(FakeProvider provider, MemoryStore store, int userMessages, bool keepsLocal, float timeout = 30f)
         {
             return Task.Run(() => SessionMemories.CaptureAsync(
-                provider, "User: hi\nMira: hey", "Mira", userMessages, keepsLocal, false, store, timeout, CancellationToken.None)).Result;
+                provider, "User: hi\nMira: hey", "Mira", userMessages, keepsLocal, false, store, timeout, CancellationToken.None)).Result.Memories;
         }
 
         [Test]
@@ -289,7 +289,7 @@ namespace AICompanion.Tests.EditMode
             var store = MemoryStore.Load(_path);
             Assert.AreEqual(0, Capture(new FakeProvider { Hang = true }, store, 6, false, 1f).Count, "quit never waits for a model that hangs");
             Assert.AreEqual(0, Capture(new FakeProvider { Configured = false }, store, 6, false).Count);
-            Assert.AreEqual(0, Task.Run(() => SessionMemories.CaptureAsync(null, "x", "Mira", 6, false, false, store, 5f, CancellationToken.None)).Result.Count);
+            Assert.AreEqual(0, Task.Run(() => SessionMemories.CaptureAsync(null, "x", "Mira", 6, false, false, store, 5f, CancellationToken.None)).Result.Memories.Count);
             Assert.AreEqual(0, store.Count);
             Assert.LessOrEqual(SessionMemories.QuitTimeoutSeconds, 5f);
         }

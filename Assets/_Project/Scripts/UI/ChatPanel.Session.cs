@@ -35,6 +35,8 @@ namespace AICompanion.UI
         string PersonaPrompt(bool chatMessage)
         {
             var prompt = CompanionMoodPrompt.AppendCurrent(settings != null ? settings.systemPrompt : string.Empty);
+            // JUH-118 section 4: who she is to the user now, right after the mood line.
+            prompt = RelationshipNow.Append(prompt);
             return WorldPromptNow.Append(prompt, chatMessage && ConversationIsEmpty());
         }
 
@@ -59,12 +61,23 @@ namespace AICompanion.UI
                 _sessionStartLine = _conversation.Lines.Count;
         }
 
-        /// <summary>Called when a reply to a user message has finished.</summary>
+        int _landingCueSerial = -1;
+
+        /// <summary>
+        /// Called when a reply to a user message has finished. The relationship hears it once per
+        /// reply (guarded by <see cref="ChatExchange.CueSerial"/>), also when the tag's emotion was
+        /// unreadable: the cue is then neutral, and only the exchange itself counts.
+        /// </summary>
         void SessionReplyFinished()
         {
             WorldPromptNow.ReplyFinished();
             _sessionUserMessages++;
             _sessionLastMessageAt = Time.unscaledTime;
+            if (_exchange != null && _exchange.CueSerial != _landingCueSerial)
+            {
+                _landingCueSerial = _exchange.CueSerial;
+                RelationshipNow.ReportReply(_exchange.LastCue);
+            }
         }
 
         /// <summary>Once per frame: a long pause ends the session. No allocation.</summary>
@@ -163,9 +176,12 @@ namespace AICompanion.UI
         {
             try
             {
+                // A new thread in her own life only for a persona, while both world switches are on.
+                var askThread = herName.Length > 0 && PisaraSwitches.World && PisaraSwitches.AwayEvents;
                 var stored = await SessionMemories.CaptureAsync(
-                    provider, transcript, herName, userMessages, keepsLocal, IntimateExpressions.Active, store, timeoutSeconds, CancellationToken.None);
-                Debug.Log("Session memories: " + stored.Count + " stored after " + why + " (" + userMessages + " messages)");
+                    provider, transcript, herName, userMessages, keepsLocal, IntimateExpressions.Active, store, timeoutSeconds, CancellationToken.None, askThread);
+                Debug.Log("Session memories: " + stored.Memories.Count + " stored after " + why + " (" + userMessages + " messages)"
+                    + (askThread ? ", new thread: " + (stored.Thread != null ? "yes" : "no") : string.Empty));
             }
             catch (Exception e)
             {

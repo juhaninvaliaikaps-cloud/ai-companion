@@ -140,9 +140,20 @@ namespace AICompanion.Settings
         /// guard), and its "right now" becomes the first scene.</item>
         /// </list>
         /// </summary>
+        bool _worldSwitch = PisaraSwitches.World;
+        bool _awaySwitch = PisaraSwitches.AwayEvents;
+
         void World()
         {
             DeliverAwayMood();
+            // A switch flipped in settings: look again (turning one off freezes it, nothing is deleted).
+            if (_worldSwitch != PisaraSwitches.World || _awaySwitch != PisaraSwitches.AwayEvents)
+            {
+                _worldSwitch = PisaraSwitches.World;
+                _awaySwitch = PisaraSwitches.AwayEvents;
+                _worldDirty = true;
+            }
+
             if (!_worldDirty || !_seen)
                 return;
 
@@ -171,9 +182,9 @@ namespace AICompanion.Settings
             }
 
             var sheet = _sheet;
-            if (sheet == null || sheet.source != CharacterSheet.SourceModel)
+            if (sheet == null || sheet.source != CharacterSheet.SourceModel || !PisaraSwitches.World)
             {
-                // A fallback sheet has an empty world: nothing to seed, no scene.
+                // A fallback sheet has an empty world, and "Her own world" off means no seeding and no scene.
                 WorldPromptNow.SetFirstScene(string.Empty);
                 return;
             }
@@ -203,6 +214,8 @@ namespace AICompanion.Settings
             if (faded > 0)
                 Debug.Log("Pisara world: " + PersonaLogId(_personaId) + " forgot " + faded + " short-term memories");
 
+            if (!PisaraSwitches.AwayEvents)
+                return;
             var saved = CompanionMoodStore.SavedAtUtc(CompanionMoodStore.FileFor(Folder(), _personaId));
             if (saved == null)
                 return;

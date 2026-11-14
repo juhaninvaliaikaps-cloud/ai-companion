@@ -228,15 +228,20 @@ namespace AICompanion.Settings
 
             WorldPromptNow.Reset();
             var transcript = SessionMemories.BuildTranscript(messages, persona.DisplayName);
-            var memories = await SessionMemories.CaptureAsync(
-                local, transcript, persona.DisplayName, SessionMemories.MinUserMessages, true, false, store, 600f, CancellationToken.None);
+            var capture = await SessionMemories.CaptureAsync(
+                local, transcript, persona.DisplayName, SessionMemories.MinUserMessages, true, false, store, 600f, CancellationToken.None, true);
+            var memories = capture.Memories;
             text.Append("\n== Session memories of this short talk (").Append(memories.Count).Append(") ==\n");
             for (var i = 0; i < memories.Count; i++)
                 text.Append("- ").Append(memories[i]).Append("\n");
+            text.Append("New thread: ").Append(capture.Thread == null
+                ? "(none)"
+                : capture.Thread.text + "  | good: " + capture.Thread.goodOutcome + "  | bad: " + capture.Thread.badOutcome).Append("\n");
 
             File.WriteAllText(stem + ".world.txt", text.ToString(), new UTF8Encoding(false));
             Debug.Log("Pisara tool: " + persona.Id + " world: " + added + " seeded, " + dropped.Count + " left out, away "
-                + (away.Happened ? (away.WentWell ? "went well" : "went badly") : "none") + ", " + memories.Count + " session memories");
+                + (away.Happened ? (away.WentWell ? "went well" : "went badly") : "none") + ", " + memories.Count + " session memories, new thread "
+                + (capture.Thread != null ? "yes" : "no"));
         }
 
         static async System.Threading.Tasks.Task<string> Ask(IChatProvider provider, string personaPrompt, List<ChatMessage> messages)

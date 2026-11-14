@@ -80,8 +80,11 @@ namespace AICompanion.AnimationDirector
                 if (reactions.Length > 0)
                     text.Append(reactions).Append('\n');
 
-                text.Append(AnimationCueParser.Instruction)
-                    .Append('\n')
+                text.Append(AnimationCueParser.Instruction);
+                // JUH-118 section 4: how the user's message landed, for the relationship.
+                if (PisaraSwitches.Relationship)
+                    text.Append(' ').Append(LandingEvents.Instruction);
+                text.Append('\n')
                     .Append(EmotionNames.CatalogLine);
                 if (IntimateExpressions.Active)
                     text.Append('\n').Append(EmotionNames.IntimateCatalogLine);

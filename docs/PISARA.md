@@ -30,8 +30,8 @@ One chat turn is a drop. It falls through leaves in a fixed order, and each leaf
 | Reading prompt | **Built**, tuned against local 12B models (JUH-118 section 1) | Claude, tuned by Claude Code |
 | The reading call, cache, Re-read, persona settings display | **Built** (JUH-118 section 1), EditMode tests | Claude Code |
 | Relationship state, storage, readout; active chat time; reset on wipe and Start over | **Built** (JUH-119), EditMode tests | DeepSeek |
-| Temperament keyword scorer (offline fallback) | **Built** (JUH-119), EditMode tests; not wired into the fallback yet | DeepSeek |
-| Relationship and landing math, the `landed` cue attribute, the relationship prompt line | **Built**, EditMode tests; not called from the app yet | Claude |
+| Temperament keyword scorer (offline fallback) | **Built** (JUH-119), EditMode tests; wired into the reading's fallback (`PisaraKeywords`, #91) | DeepSeek, Claude Code |
+| Relationship and landing math, the `landed` cue attribute, the relationship prompt line | **Built**, EditMode tests; called from the app since #91 | Claude |
 | Her world in memory: seeding, short-term fading and promotion, away threads | **Built**, EditMode tests | Claude |
 | Start over with a persona (chat, memories, mood, relationship) | **Built**, EditMode tests; not run in a player | Claude, DeepSeek |
 | Wiring her world: seeding, first scene, away line, session memories, new threads | **Built** (JUH-118 sections 2 and 3, #91), EditMode tests | Claude Code |
@@ -240,6 +240,17 @@ After each finished reply, once per reply (use `CueSerial`, as the mood does):
 `RelationshipKeeper.Apply` writes the numbers, records the reason for the Mood card, logs `change.LogLine()`, and does nothing while **Relationship changes** is off.
 
 While the chat is in use, add time with `FamiliarityAfter`. Add `RelationshipPrompt.Line` after the mood line, and `LandingEvents.Instruction` to the cue instruction.
+
+### The relationship as wired (#91)
+
+Chat and the relationship keeper meet in `RelationshipNow` (Core), because the chat assembly cannot see the settings assembly.
+
+1. **Landing, once per reply.** When a reply to a user message has finished, `ChatPanel` reports its cue once (guarded by `CueSerial`) with `RelationshipNow.ReportReply`. This also happens when the tag's emotion was unreadable or the tag was missing: the cue is then neutral, which moves no affection but still counts as an exchange. `RelationshipKeeper` lands it with `RelationshipMath.Land`, then `Apply` writes the numbers, records the reason (the wheel's Mood card shows the last four), marks it dirty and logs `change.LogLine()`. If it was applied, `CompanionMoodKeeper.ApplyRelationship` sends the change's moods through `RelationshipMath.PushMoods`. Screen-look remarks are not user messages and do not land.
+2. **Familiarity from time.** The active chat time the keeper already counted (`ActivityWindowSeconds`) now also goes through `RelationshipMath.FamiliarityAfter`, frame by frame.
+3. **Start values.** When a persona is loaded and has no relationship file yet, the keeper waits for its model reading and then starts from `RelationshipMath.Start(sheet.relationship)`, once. An existing relationship is never overwritten by a reading or a Re-read. A user correction (`SetByUser`) or Start over ends the wait. The setup name never does this.
+4. **The prompt line.** The keeper publishes `RelationshipPrompt.Line(sheet.relationship, sheet.landing, affection, familiarity)`, and chat puts it right after the mood line in every request. It is rebuilt only when the sheet, the switch or a rounded number changes. It is empty for the setup name (its own relationship text stays the only one), without a sheet, and while **Relationship changes** is off.
+5. **The cue instruction** gets `LandingEvents.Instruction` (in `AnimationDirector.SystemPromptSuffix`) while **Relationship changes** is on. The streaming filter already hides the whole tag, so `landed=` never shows in the chat text (test `LandedAttribute_NeverShowsInTheChatText`).
+6. **Keyword fallback.** `PisaraKeywords.Temperament` uses `TemperamentKeywordScorer`: the best preset at 0.6, and the second-best at 0.4 only when its score is above 0.2. The raw scores are not passed on: a single trait word scores 0.33, under the blend's 0.35.
 
 ## Memory and her world
 

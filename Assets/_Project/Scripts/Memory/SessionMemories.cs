@@ -19,6 +19,15 @@ namespace AICompanion.Memory
     /// of the prompt.
     /// </para>
     /// </summary>
+    /// <summary>What one session-end request stored.</summary>
+    public sealed class SessionCapture
+    {
+        public readonly List<string> Memories = new List<string>();
+
+        /// <summary>A new open thread in her own life (JUH-117 <see cref="WorldThreads"/>), or null.</summary>
+        public MemoryEntry Thread;
+    }
+
     public static class SessionMemories
     {
         /// <summary>Sessions with fewer user messages than this are not worth a memory.</summary>
@@ -80,12 +89,19 @@ namespace AICompanion.Memory
             return string.Join("\n", lines);
         }
 
-        public static ChatRequest BuildRequest(string transcript, string herName, bool keepsLocal, bool intimateActive)
+        /// <summary>
+        /// With <paramref name="askThread"/> the request also asks for one new thread in her own
+        /// life (<see cref="WorldThreads.Instruction"/>), written as a JSON object after the lines.
+        /// </summary>
+        public static ChatRequest BuildRequest(string transcript, string herName, bool keepsLocal, bool intimateActive, bool askThread = false)
         {
             var name = string.IsNullOrWhiteSpace(herName) ? "the companion" : herName.Trim();
+            var system = SystemPrompt;
+            if (askThread)
+                system += "\n" + ThreadRule + " " + WorldThreads.Instruction;
             return new ChatRequest
             {
-                SystemPrompt = SystemPrompt + "\n" + IntimateBoundaries.PromptLine(intimateActive),
+                SystemPrompt = system + "\n" + IntimateBoundaries.PromptLine(intimateActive),
                 Messages = new List<ChatMessage>
                 {
                     new ChatMessage(ChatRole.User, "Her name: " + name + "\nThe conversation:\n" + (transcript ?? string.Empty)),
@@ -97,20 +113,59 @@ namespace AICompanion.Memory
             };
         }
 
+        /// <summary>Keeps the thread apart from the memory lines, so its JSON is never stored as a memory.</summary>
+        public const string ThreadRule = "After the memory lines, on a line of its own, you may add one JSON object.";
+
+        /// <summary>
+        /// The new thread in a reply, or null. Reads <c>{"newThread": {...}}</c>, and also a bare
+        /// <c>{"text": ..., "goodOutcome": ..., "badOutcome": ...}</c>, which local models often write.
+        /// </summary>
+        public static NewThread ParseThread(string reply)
+        {
+            var thread = WorldThreads.TryParse(reply);
+            if (thread != null)
+                return thread;
+            var json = CharacterSheet.ExtractObject(reply);
+            if (json == null || json.IndexOf("\"text\"", StringComparison.Ordinal) < 0)
+                return null;
+            return WorldThreads.TryParse("{\"newThread\": " + json + "}");
+        }
+
+        /// <summary>The reply without its JSON object, so only the memory lines are left.</summary>
+        public static string WithoutObject(string reply)
+        {
+            if (string.IsNullOrEmpty(reply))
+                return string.Empty;
+            var json = CharacterSheet.ExtractObject(reply);
+            if (json == null)
+                return reply;
+            var at = reply.IndexOf(json, StringComparison.Ordinal);
+            if (at < 0)
+            {
+                // ExtractObject cleaned it (a code fence or a trailing comma): cut from the first brace.
+                at = reply.IndexOf('{');
+                return at < 0 ? reply : reply.Substring(0, at);
+            }
+
+            return reply.Substring(0, at) + reply.Substring(at + json.Length);
+        }
+
         /// <summary>
         /// The memories in a model reply: at most <see cref="MaxMemories"/> lines, with bullets,
-        /// numbers and quotes stripped. Lines that are a heading, a tag or too short are skipped.
+        /// numbers and quotes stripped. Lines that are a heading, a tag, JSON or too short are skipped.
         /// </summary>
         public static List<string> Parse(string reply)
         {
             var result = new List<string>();
             if (string.IsNullOrWhiteSpace(reply))
                 return result;
-            var lines = reply.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+            var lines = WithoutObject(reply).Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
             for (var i = 0; i < lines.Length && result.Count < MaxMemories; i++)
             {
                 var line = Clean(lines[i]);
-                if (line.Length < 12 || line.EndsWith(":", StringComparison.Ordinal) || line.IndexOf('<') >= 0)
+                if (line.Length < 12 || line.EndsWith(":", StringComparison.Ordinal) || line.IndexOf('<') >= 0
+                    || line.IndexOf('{') >= 0 || line.IndexOf('}') >= 0 || line.IndexOf("newThread", StringComparison.OrdinalIgnoreCase) >= 0
+                    || line.StartsWith("`", StringComparison.Ordinal))
                     continue;
                 if (line.Length > MaxMemoryLength)
                     line = line.Substring(0, MaxMemoryLength).TrimEnd();
@@ -135,11 +190,13 @@ namespace AICompanion.Memory
         }
 
         /// <summary>
-        /// Asks the model and stores what it wrote. Returns the stored memories (empty when the
-        /// session was too short, the provider was refused or missing, the model did not answer
-        /// in time, or the reply held nothing usable). Never throws.
+        /// Asks the model and stores what it wrote. Returns the stored memories and the new
+        /// thread (both empty when the session was too short, the provider was refused or
+        /// missing, the model did not answer in time, or the reply held nothing usable). A thread
+        /// is asked for only with <paramref name="askThread"/>, and stored only while "Her own
+        /// world" and "Life while you are away" are on (<see cref="WorldThreads.Add"/>). Never throws.
         /// </summary>
-        public static async Task<List<string>> CaptureAsync(
+        public static async Task<SessionCapture> CaptureAsync(
             IChatProvider provider,
             string transcript,
             string herName,
@@ -148,27 +205,29 @@ namespace AICompanion.Memory
             bool intimateActive,
             MemoryStore store,
             float timeoutSeconds,
-            CancellationToken cancellation)
+            CancellationToken cancellation,
+            bool askThread = false)
         {
-            var stored = new List<string>();
+            var capture = new SessionCapture();
+            var stored = capture.Memories;
             if (store == null || !Qualifies(userMessages) || string.IsNullOrWhiteSpace(transcript))
-                return stored;
+                return capture;
             if (provider == null || !provider.IsConfigured || !PisaraReader.MayUse(provider, keepsLocal))
-                return stored;
+                return capture;
 
             ChatResult reply;
             using (var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
             {
                 try
                 {
-                    var call = provider.StreamChat(BuildRequest(transcript, herName, keepsLocal, intimateActive), _ => { }, linked.Token);
+                    var call = provider.StreamChat(BuildRequest(transcript, herName, keepsLocal, intimateActive, askThread), _ => { }, linked.Token);
                     var limit = Task.Delay(TimeSpan.FromSeconds(Math.Max(1f, timeoutSeconds)), linked.Token);
                     var first = await Task.WhenAny(call, limit);
                     if (first != call)
                     {
                         linked.Cancel();
                         call.ContinueWith(t => { var ignored = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
-                        return stored;
+                        return capture;
                     }
 
                     reply = await call;
@@ -176,12 +235,12 @@ namespace AICompanion.Memory
                 }
                 catch (Exception)
                 {
-                    return stored;
+                    return capture;
                 }
             }
 
             if (!reply.Ok)
-                return stored;
+                return capture;
 
             var memories = Parse(reply.Text);
             var now = DateTime.UtcNow;
@@ -193,7 +252,9 @@ namespace AICompanion.Memory
                     stored.Add(memories[i]);
             }
 
-            return stored;
+            if (askThread)
+                capture.Thread = WorldThreads.Add(store, ParseThread(reply.Text), now, keepsLocal);
+            return capture;
         }
     }
 }

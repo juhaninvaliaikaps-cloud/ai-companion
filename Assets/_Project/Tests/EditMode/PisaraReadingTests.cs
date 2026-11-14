@@ -155,7 +155,10 @@ namespace AICompanion.Tests.EditMode
 
             Func<string, SheetTemperament> throwing = prompt => { throw new InvalidOperationException(); };
             Assert.AreEqual(CharacterSheet.SourceDefault, Read(new FakeProvider { Reply = "nope" }, false, throwing).Sheet.source);
-            Assert.IsNull(PisaraKeywords.Temperament(Prompt), "the JUH-119 scorer is not on main yet");
+            // The JUH-119 scorer (#79) is the real fallback now: "bratty" is a tsundere word.
+            var guess = PisaraKeywords.Temperament(Prompt);
+            Assert.IsNotNull(guess);
+            Assert.AreEqual(PisaraKeywords.BestWeight, guess.tsundere, 0.001f);
         }
 
         // ---- Privacy: a private persona never calls a cloud model ---------------------------

@@ -78,7 +78,7 @@ namespace AICompanion.Memory
         {
             if (entry == null)
                 return string.Empty;
-            if (entry.origin == MemoryOrigins.Seeded)
+            if (entry.origin == MemoryOrigins.Seeded || entry.origin == MemoryOrigins.Life)
                 return HerLifeLabel;
             if (entry.origin == MemoryOrigins.Away)
                 return AwayLabel;

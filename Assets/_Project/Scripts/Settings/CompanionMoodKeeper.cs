@@ -216,6 +216,21 @@ namespace AICompanion.Settings
             return true;
         }
 
+        /// <summary>
+        /// A landed message's mood nudges (JUH-118 section 4), through
+        /// <see cref="RelationshipMath.PushMoods"/> so her temperament scales them.
+        /// </summary>
+        public void ApplyRelationship(RelationshipChange change, float intensity)
+        {
+            if (!_loaded)
+                return;
+            _state.SetIntimateAllowed(IntimateExpressions.Active);
+            if (RelationshipMath.PushMoods(_state, change, intensity))
+                LogShown("how your message landed");
+            _dirty = true;
+            Publish();
+        }
+
         /// <summary>"Start over" (JUH-117): her mood back to how this persona starts, saved now.</summary>
         public void StartOver()
         {
