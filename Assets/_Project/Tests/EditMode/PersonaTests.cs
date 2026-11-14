@@ -109,7 +109,7 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains(EmotionNames.CatalogLine, empty);
             Assert.AreEqual("Hello\n\n" + IntimateBoundaries.Current, DirectorPrompt.Append("Hello  ", null));
             Assert.AreEqual("Hello", DirectorPrompt.Append("Hello  ", null, null));
-            StringAssert.Contains(IntimateBoundaries.ConsentRule, prompt);
+            StringAssert.Contains(IntimateBoundaries.GateClosedRule, prompt);
 
             var send = File.ReadAllText(Path.Combine(Application.dataPath, "_Project", "Scripts", "UI", "ChatPanel.cs"));
             StringAssert.Contains("DirectorPrompt.Append", send);

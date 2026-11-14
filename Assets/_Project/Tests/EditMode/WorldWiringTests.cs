@@ -251,7 +251,7 @@ namespace AICompanion.Tests.EditMode
                 Assert.IsFalse(entry.isPrivate);
             }
 
-            StringAssert.Contains(IntimateBoundaries.ConsentRule, provider.Last.SystemPrompt, "IntimateBoundaries stays in every prompt");
+            StringAssert.Contains(IntimateBoundaries.GateClosedRule, provider.Last.SystemPrompt, "the closed-gate rule stays in the prompt");
             Assert.IsTrue(provider.Last.NoMemory);
             StringAssert.Contains("User: hi", provider.Last.Messages[0].Content);
         }

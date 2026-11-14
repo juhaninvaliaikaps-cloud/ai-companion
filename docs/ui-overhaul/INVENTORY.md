@@ -277,7 +277,7 @@ Footer: Back, Skip, Next/Done, step label "Step n of 5 · Title" (`RefreshFooter
 | --- | --- | --- |
 | G-01 | Intimate content only when `IntimateExpressions.Active` (enabled + Private mode + adult folder present) | `Core/IntimateExpressions.cs` `Configure`, `Allows` |
 | G-02 | Intimate/private content never goes to cloud chat or cloud TTS | `IntimateExpressions.KeepsLocal`, `Voice/OutboundPrivacy.cs`, `Voice/VoiceRoute.cs` |
-| G-03 | Consent rule in every prompt; closed gate forbids intimate scenes | `Core/IntimateBoundaries.cs` (#65) |
+| G-03 | Closed gate forbids intimate scenes; open gate adds no consent rule | `Core/IntimateBoundaries.cs` (#65) |
 | G-04 | Adult portraits load only from `%APPDATA%\ProjectLeia\portraits-adult` | `Settings/Portraits/PortraitLibrary.cs`, `SettingsApplicator` (`PortraitFolders.Adult`) |
 | G-05 | Private mode: screen image never sent to cloud | `Settings/ScreenLookController.cs`, `ChatPanel.SubmitObservation` |
 | G-06 | Clip sounds never play over her TTS | `Settings/VideoAvatar/VideoClipPlayer.cs` |

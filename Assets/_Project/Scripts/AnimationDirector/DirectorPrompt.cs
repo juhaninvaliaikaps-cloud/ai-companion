@@ -9,7 +9,7 @@ namespace AICompanion.AnimationDirector
     /// <see cref="AICompanion.Core.EmotionNames.CatalogLine"/>. It is always added, so a
     /// custom persona cannot drop expression, gesture, or portrait cues.
     /// <see cref="IntimateBoundaries"/> goes between the persona and the suffix for the same
-    /// reason: no persona can remove the consent rule or the closed-gate rule (JUH-112).
+    /// reason: no persona can remove the closed-gate rule (JUH-112).
     /// </summary>
     public static class DirectorPrompt
     {

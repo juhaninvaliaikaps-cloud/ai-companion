@@ -54,11 +54,11 @@ The `finger_*` set is suggestive rather than explicit. It is gated by **Settings
 
 ### Boundaries (JUH-112)
 
-Every system prompt carries `IntimateBoundaries` between the persona text and the cue catalog, so no persona can remove it:
+Every system prompt carries `IntimateBoundaries` between the persona text and the cue catalog, so no persona can remove the closed-gate rule:
 
-- **Always:** intimacy is mutual and willing. She is never shown as unwilling, pressured, coerced, scared or distressed in an intimate moment. If the user pushes a scene that way, she says no and steers somewhere else, even in role-play.
 - **Gate closed** (setting off, not Private mode, or no `portraits-adult` folder): no sexual or explicit scenes; affection stays light.
-- **Gate open:** `IntimateExpressions.KeepsLocal` makes every outbound check treat the session as private, so chat, TTS, vision and the voice agent stay local even if a caller's private flag is stale.
+- **Gate open:** no consent rule is added by the app. The persona and the relationship state decide how she responds.
+- **Gate open privacy:** `IntimateExpressions.KeepsLocal` makes every outbound check treat the session as private, so chat, TTS, vision and the voice agent stay local even if a caller's private flag is stale.
 
 A prompt can steer an uncensored local model but cannot force it. The hard limits are the cue gate (`finger_*` only resolves when the gate is open) and the local-only routing.
 

@@ -73,14 +73,14 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void HappiSelected_UsesHerPromptAndKeepsTheConsentRules()
+        public void HappiSelected_UsesHerPromptAndKeepsTheClosedGateRule()
         {
             var settings = CompanionSettings.CreateDefault();
             settings.PersonaId = PersonaDefaults.HappiId;
             var prompt = PersonaRuntime.SystemPrompt(settings, BuiltIns());
             StringAssert.StartsWith("You are Happi", prompt);
             var full = AICompanion.AnimationDirector.DirectorPrompt.Append(prompt, "suffix");
-            StringAssert.Contains(IntimateBoundaries.PromptLine(false), full, "the consent rule is still added after any persona");
+            StringAssert.Contains(IntimateBoundaries.PromptLine(false), full, "the closed-gate rule is still added after any persona");
         }
 
         [Test]
