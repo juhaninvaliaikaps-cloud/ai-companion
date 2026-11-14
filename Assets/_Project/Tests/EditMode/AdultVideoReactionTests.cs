@@ -65,7 +65,7 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(AvatarReactionCatalog.Names.Contains("strip"));
             Assert.IsTrue(AvatarReactionCatalog.Contains("strip"));
             Assert.AreEqual("strip", AvatarReactionCatalog.Find("strip"));
-            StringAssert.Contains("Adult-only reactions", AvatarReactionCatalog.PromptLine());
+            StringAssert.Contains("Adult-only video reactions", AvatarReactionCatalog.PromptLine());
             StringAssert.Contains("strip", AvatarReactionCatalog.PromptLine());
             StringAssert.Contains("she undresses", AvatarReactionCatalog.PromptLine());
         }
@@ -105,6 +105,23 @@ namespace AICompanion.Tests.EditMode
                 "{\"name\":\"naked_idle\",\"role\":\"reaction\",\"color\":\"naked_idle.mp4\",\"playback\":\"loop\",\"hold\":-1,\"adult\":true}]}",
                 Files);
             Assert.IsTrue(set.Clips[set.FindReaction("naked_idle")].HoldForever);
+        }
+
+        [Test]
+        public void CancelQueuedReactions_DropsTheDressTail()
+        {
+            IntimateExpressions.Configure(true, true, true);
+            var set = VideoAvatarManifest.Resolve(Manifest, Files);
+            var director = new VideoAvatarDirector(set, 1);
+
+            director.Request("naked_idle", true);
+            Assert.GreaterOrEqual(director.Queued, 0);
+            director.CancelQueuedReactions();
+            director.RequestFront();
+
+            Assert.AreEqual(-1, director.Queued);
+            Assert.AreEqual(-1, director.PendingReaction);
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
         }
     }
 }

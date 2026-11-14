@@ -610,16 +610,7 @@ namespace AICompanion.NewUI
                 Button("Test: back to the front idle", () => VideoTest(a => a.TestFront()));
                 var reactions = VideoAvatarPresenter.TestReactions;
                 for (var i = 0; i < reactions.Count; i++)
-                {
-                    var name = reactions[i].Value;
-                    Button(reactions[i].Key, () => VideoTest(a =>
-                    {
-                        var status = VideoAvatarPresenter.ReactionStatus(a.RequestReaction(name), name, VideoAvatarDirector.PendingSeconds);
-                        if (status.Length > 0)
-                            _settings.SetStatusMessage(status);
-                        _rebuild = true;
-                    }));
-                }
+                    Button(reactions[i].Key, () => VideoReactionTest(reactions[i].Value));
             }
 
             if (IntimateExpressions.Active)
@@ -630,25 +621,11 @@ namespace AICompanion.NewUI
                     var name = adult[i].Value;
                     if (undressed && !IntimateExpressions.IsNakedCue(name))
                         continue;
-                    Button(adult[i].Key, () => VideoTest(a =>
-                    {
-                        var status = VideoAvatarPresenter.ReactionStatus(a.RequestReaction(name), name, VideoAvatarDirector.PendingSeconds);
-                        if (status.Length > 0)
-                            _settings.SetStatusMessage(status);
-                        _rebuild = true;
-                    }));
+                    Button(adult[i].Key, () => VideoReactionTest(name));
                 }
 
                 if (undressed)
-                {
-                    Button("Test: dress", () => VideoTest(a =>
-                    {
-                        var status = VideoAvatarPresenter.ReactionStatus(a.RequestReaction("dress"), "dress", VideoAvatarDirector.PendingSeconds);
-                        if (status.Length > 0)
-                            _settings.SetStatusMessage(status);
-                        _rebuild = true;
-                    }));
-                }
+                    Button("Test: dress", () => VideoReactionTest("dress"));
             }
 
             Slider(v => v < 0.02f ? "Walk speed: from the walk clip" : "Walk speed " + v.ToString("0.00", CultureInfo.InvariantCulture) + " clip heights per second",
@@ -669,6 +646,19 @@ namespace AICompanion.NewUI
             }
 
             action(player);
+        }
+
+        void VideoReactionTest(string name)
+        {
+            VideoTest(a =>
+            {
+                var result = a.RequestReaction(name);
+                Debug.Log("Video test: " + name + " -> " + result);
+                var status = VideoAvatarPresenter.ReactionStatus(result, name, VideoAvatarDirector.PendingSeconds);
+                if (status.Length > 0)
+                    _settings.SetStatusMessage(status);
+                _rebuild = true;
+            });
         }
 
         void Source(string label, string source)

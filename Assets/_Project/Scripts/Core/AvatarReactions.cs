@@ -249,8 +249,10 @@ namespace AICompanion.Core
 
             if (list.Length == 0)
                 return line;
-            return line + " Adult-only reactions: " + list
-                + ". Use those only in Private mode with the 18+ switch on, when the scene is already intimate and both of you clearly want it; keep the wording suggestive.";
+            return line + " Adult-only video reactions: " + list
+                + ". Trigger these only with reaction=\"name\" in the animation cue, for example <animation emotion=\"flustered\" reaction=\"strip\" />; do not use emotion= or gesture= for them. "
+                + "When she is clothed and the scene becomes intimate, use reaction=\"strip\" first. After strip she is naked and stays naked: use only the naked animations, and reaction=\"dress\" when she should get dressed again. "
+                + "Use these only in Private mode with the 18+ switch on, when the scene is already intimate and both of you clearly want it; keep the wording suggestive.";
         }
 
         static string AdultHint(string name)

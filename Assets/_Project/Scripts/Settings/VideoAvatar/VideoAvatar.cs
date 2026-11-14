@@ -170,13 +170,26 @@ namespace AICompanion.Settings
                     return AvatarReactionResult.Refused;
                 IntimateExpressions.Dress();
                 if (_director != null)
+                {
+                    _director.CancelQueuedReactions();
                     _director.RequestFront();
+                }
+
                 return AvatarReactionResult.Started;
             }
 
             if (_director == null || _state != VideoAvatarState.Playing)
                 return AvatarReactionResult.Refused;
             var result = _director.Request(name, true);
+            if (result == AvatarReactionResult.Waiting
+                && IntimateExpressions.Undressed
+                && IntimateExpressions.IsNakedCue(name))
+            {
+                // The naked idle is an indefinitely held Pose, so a normal request would wait
+                // forever. A naked test or cue must be able to interrupt it.
+                result = _director.RequestNow(name);
+            }
+
             if (result != AvatarReactionResult.Refused)
             {
                 if (string.Equals(name, "strip", StringComparison.OrdinalIgnoreCase)

@@ -189,10 +189,35 @@ namespace AICompanion.Settings
             return AvatarReactionResult.Waiting;
         }
 
-        /// <summary>The reaction waiting for the default idle, or -1. For tests and the log.</summary>
+        /// <summary>Index of the waiting reaction, or -1. For tests and the log.</summary>
         public int PendingReaction
         {
             get { return _pendingClip; }
+        }
+
+        /// <summary>Drops a reaction that is queued or waiting, so a dress cue cannot be followed by it.</summary>
+        public void CancelQueuedReactions()
+        {
+            _queued = -1;
+            _queuedReaction = false;
+            _queuedExplicit = false;
+            ClearPending();
+        }
+
+        /// <summary>
+        /// Starts an explicit reaction now, even from a held pose. The adult naked idle holds
+        /// forever, so the ordinary Request would wait for an idle that never comes.
+        /// </summary>
+        public AvatarReactionResult RequestNow(string name)
+        {
+            var clip = _set.FindReaction(name);
+            if (!Usable(clip) || _set.IsPoseTarget(clip))
+                return AvatarReactionResult.Refused;
+            if (Act != VideoAvatarAct.Pose)
+                return Request(name, true);
+            CancelQueuedReactions();
+            Enter(VideoAvatarAct.Reaction, clip, false);
+            return AvatarReactionResult.Started;
         }
 
         bool ExplicitWaiting()
