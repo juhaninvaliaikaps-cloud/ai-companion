@@ -1039,7 +1039,7 @@ namespace AICompanion.Settings
             _state = state;
             // The prompt offers her reactions only while the 2D avatar really plays.
             if (state == VideoAvatarState.Playing && _set != null)
-                AvatarReactionCatalog.Set(_set.OfferedReactions());
+                AvatarReactionCatalog.Set(_set.OfferedReactions(), _set.OfferedAdultReactions());
             else
                 AvatarReactionCatalog.Clear();
             if (state != VideoAvatarState.Playing)

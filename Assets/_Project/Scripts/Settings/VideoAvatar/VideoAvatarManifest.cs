@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AICompanion.Core;
 using UnityEngine;
 
 namespace AICompanion.Settings
@@ -49,6 +50,8 @@ namespace AICompanion.Settings
         public float hold;
         /// <summary>True plays the clip's own sound track (with the "Play clip sounds" setting on).</summary>
         public bool sound;
+        /// <summary>Adult-only clip. Offered and playable only while IntimateExpressions.Active.</summary>
+        public bool adult;
     }
 
     /// <summary>The whole video-avatar.json file.</summary>
@@ -115,6 +118,9 @@ namespace AICompanion.Settings
         /// <summary>The clip's own sound track is played (manifest "sound": true). Without a manifest, never.</summary>
         public bool Sound;
 
+        /// <summary>Adult-only reaction. Offered and playable only while <see cref="IntimateExpressions.Active"/>.</summary>
+        public bool Adult;
+
         /// <summary>How often a variation is picked against the others.</summary>
         public float Weight = 1f;
 
@@ -139,6 +145,7 @@ namespace AICompanion.Settings
                 && string.Equals(After, other.After, StringComparison.OrdinalIgnoreCase)
                 && Mathf.Approximately(HoldSeconds, other.HoldSeconds)
                 && Sound == other.Sound
+                && Adult == other.Adult
                 && Mathf.Approximately(Weight, other.Weight);
         }
     }
@@ -202,6 +209,23 @@ namespace AICompanion.Settings
             return names;
         }
 
+        /// <summary>The adult-only reactions in the set. Catalog decides whether the gate is open.</summary>
+        public List<string> OfferedAdultReactions()
+        {
+            var names = new List<string>();
+            for (var i = 0; i < Clips.Count; i++)
+            {
+                var clip = Clips[i];
+                if (!clip.Adult || clip.Role != VideoClipRole.Reaction || IsPoseTarget(i))
+                    continue;
+                if (clip.Name.StartsWith("walk", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                names.Add(clip.Name);
+            }
+
+            return names;
+        }
+
         /// <summary>Index of a reaction clip by name, or -1.</summary>
         public int FindReaction(string name)
         {
@@ -211,9 +235,12 @@ namespace AICompanion.Settings
             var wanted = name.Trim();
             for (var i = 0; i < Clips.Count; i++)
             {
-                if (Clips[i].Role == VideoClipRole.Reaction
-                    && string.Equals(Clips[i].Name, wanted, StringComparison.OrdinalIgnoreCase))
-                    return i;
+                if (Clips[i].Role != VideoClipRole.Reaction
+                    || !string.Equals(Clips[i].Name, wanted, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (Clips[i].Adult && !IntimateExpressions.Active)
+                    return -1;
+                return i;
             }
 
             return -1;
@@ -363,6 +390,7 @@ namespace AICompanion.Settings
                 if (spec.Role == VideoClipRole.Reaction && !spec.ThenIdle)
                     spec.After = Clean(entry.after);
                 spec.Sound = entry.sound;
+                spec.Adult = entry.adult;
                 spec.HoldSeconds = entry.hold > 0f && IsNumber(entry.hold) ? Mathf.Min(entry.hold, MaxHoldSeconds) : DefaultHoldSeconds;
                 spec.Weight = entry.weight > 0f && IsNumber(entry.weight) ? entry.weight : 1f;
                 Add(set, spec);
@@ -431,6 +459,7 @@ namespace AICompanion.Settings
                 var spec = new VideoClipSpec { Name = name, ColorPath = FindFile(files, names[i]) };
                 spec.Role = ParseRole(null, name);
                 spec.Loop = ParseLoop(null, spec.Role);
+                spec.Adult = IsAdultName(name);
                 if (packed)
                     spec.Mask = VideoMaskKind.Packed;
                 else
@@ -552,6 +581,14 @@ namespace AICompanion.Settings
             }
 
             spec.Mask = VideoMaskKind.VideoAlpha;
+        }
+
+        /// <summary>A manifest-less folder can mark adult clips with an adult_ or adult- name prefix.</summary>
+        static bool IsAdultName(string name)
+        {
+            var plain = Normal(name);
+            return plain.StartsWith("adult_", StringComparison.Ordinal)
+                || plain.StartsWith("adult-", StringComparison.Ordinal);
         }
 
         public static VideoClipRole ParseRole(string role, string name)

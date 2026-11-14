@@ -36,16 +36,39 @@ namespace AICompanion.Core
         public const int MaxNames = 24;
 
         static readonly List<string> _names = new List<string>();
+        static readonly List<string> _adultNames = new List<string>();
 
         public static IReadOnlyList<string> Names
         {
-            get { return _names; }
+            get
+            {
+                if (_adultNames.Count == 0 || IntimateExpressions.Active)
+                    return _names;
+                var visible = new List<string>(_names.Count);
+                for (var i = 0; i < _names.Count; i++)
+                {
+                    if (!IsAdult(_names[i]))
+                        visible.Add(_names[i]);
+                }
+
+                return visible;
+            }
         }
 
         /// <summary>Replaces the list. Names are cleaned to cue tokens; duplicates and empties are dropped.</summary>
         public static void Set(IEnumerable<string> names)
         {
+            Set(names, null);
+        }
+
+        /// <summary>
+        /// Replaces the list. <paramref name="adultNames"/> mark the subset that is only
+        /// offered while <see cref="IntimateExpressions.Active"/>.
+        /// </summary>
+        public static void Set(IEnumerable<string> names, IEnumerable<string> adultNames)
+        {
             _names.Clear();
+            _adultNames.Clear();
             if (names == null)
                 return;
 
@@ -58,18 +81,36 @@ namespace AICompanion.Core
                 if (_names.Count >= MaxNames)
                     break;
             }
+
+            if (adultNames == null)
+                return;
+            foreach (var name in adultNames)
+            {
+                var token = AnimationCueParser.SanitizeGesture(name);
+                if (token.Length == 0 || _adultNames.Contains(token) || !_names.Contains(token))
+                    continue;
+                _adultNames.Add(token);
+            }
         }
 
         public static void Clear()
         {
             _names.Clear();
+            _adultNames.Clear();
         }
 
         /// <summary>True when <paramref name="name"/> is one of the offered reactions, ignoring case.</summary>
         public static bool Contains(string name)
         {
             var token = AnimationCueParser.SanitizeGesture(name);
-            return token.Length > 0 && _names.Contains(token);
+            if (token.Length == 0 || !_names.Contains(token))
+                return false;
+            return IntimateExpressions.Active || !IsAdult(token);
+        }
+
+        static bool IsAdult(string token)
+        {
+            return _adultNames.Contains(token);
         }
 
         /// <summary>
@@ -83,6 +124,8 @@ namespace AICompanion.Core
             var token = Canonical(AnimationCueParser.SanitizeGesture(word));
             if (token.Length == 0)
                 return string.Empty;
+            if (!IntimateExpressions.Active && IsAdult(token))
+                return string.Empty;
             if (_names.Contains(token))
                 return token;
 
@@ -90,6 +133,8 @@ namespace AICompanion.Core
             var found = string.Empty;
             for (var i = 0; i < _names.Count; i++)
             {
+                if (!IntimateExpressions.Active && IsAdult(_names[i]))
+                    continue;
                 if (!_names[i].StartsWith(prefix, StringComparison.Ordinal))
                     continue;
                 if (found.Length > 0)
@@ -136,7 +181,47 @@ namespace AICompanion.Core
         /// <summary>The prompt line for the current list, or empty when there is none.</summary>
         public static string PromptLine()
         {
-            return PromptLine(_names);
+            var names = Names;
+            var line = PromptLine(names);
+            if (line.Length == 0 || !IntimateExpressions.Active || _adultNames.Count == 0)
+                return line;
+
+            var list = new StringBuilder();
+            for (var i = 0; i < _adultNames.Count; i++)
+            {
+                if (!_names.Contains(_adultNames[i]))
+                    continue;
+                if (list.Length > 0)
+                    list.Append(", ");
+                list.Append(_adultNames[i]);
+                var hint = AdultHint(_adultNames[i]);
+                if (hint.Length > 0)
+                    list.Append(" (").Append(hint).Append(')');
+            }
+
+            if (list.Length == 0)
+                return line;
+            return line + " Adult-only reactions: " + list
+                + ". Use those only in Private mode with the 18+ switch on, when the scene is already intimate and both of you clearly want it; keep the wording suggestive.";
+        }
+
+        static string AdultHint(string name)
+        {
+            switch (name)
+            {
+                case "strip":
+                    return "she undresses";
+                case "naked_idle":
+                    return "naked breathing loop";
+                case "naked_idle_still":
+                    return "still naked loop";
+                case "bend_over":
+                    return "turns and bends over";
+                case "bend_over_end":
+                    return "returns from bending over";
+                default:
+                    return string.Empty;
+            }
         }
 
         public static string PromptLine(IReadOnlyList<string> names)
