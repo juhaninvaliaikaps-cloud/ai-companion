@@ -24,16 +24,17 @@ One chat turn is a drop. It falls through leaves in a fixed order, and each leaf
 
 | Part | State | Owner |
 | --- | --- | --- |
-| Sheet format, parser, clamps, prompt hash | **Built** (this PR), EditMode tests | Claude |
-| Sheet store (encrypted, per persona, in wipe and export) | **Built** (this PR), EditMode tests | Claude |
-| Temperament blend from sheet weights (JUH-114 step 4) | **Built** (this PR), EditMode tests | Claude |
+| Sheet format, parser, clamps, prompt hash | **Built**, EditMode tests | Claude |
+| Sheet store (encrypted, per persona, in wipe and export) | **Built**, EditMode tests | Claude |
+| Temperament blend from sheet weights (JUH-114 step 4) | **Built**, EditMode tests | Claude |
 | Reading prompt | **Built**, tuned against local 12B models (JUH-118 section 1) | Claude, tuned by Claude Code |
 | The reading call, cache, Re-read, persona settings display | **Built** (JUH-118 section 1), EditMode tests | Claude Code |
-| Relationship state, storage, readout | Planned, JUH-119 | DeepSeek |
-| Temperament keyword scorer (offline fallback) | Planned, JUH-119 | DeepSeek |
+| Relationship state, storage, readout; active chat time; reset on wipe and Start over | **Built** (JUH-119), EditMode tests | DeepSeek |
+| Temperament keyword scorer (offline fallback) | **Built** (JUH-119), EditMode tests; not wired into the fallback yet | DeepSeek |
 | Relationship and landing math, the `landed` cue attribute, the relationship prompt line | **Built**, EditMode tests; not called from the app yet | Claude |
-| Memory tags, promotion and fading | Planned, PR after that | Claude |
-| Seeded memories, first scene, away line, landing wiring | Planned, JUH-118 sections 2 to 4 | Claude Code |
+| Her world in memory: seeding, short-term fading and promotion, away threads | **Built**, EditMode tests; not called from the app yet | Claude |
+| Start over with a persona (chat, memories, mood, relationship) | **Built**, EditMode tests; not run in a player | Claude, DeepSeek |
+| Wiring: seeding, first scene, away line, session memories, landing and the relationship prompt line | Planned, JUH-118 sections 2 to 4 (orders posted 2026-11-14) | Claude Code |
 
 The spec PR changed nothing in how she behaves. Since JUH-118 section 1 the sheet is read and its temperament is used (see "The reading as built"). The relationship, landing and world parts of the sheet are read, cached and shown, but nothing acts on them yet.
 
