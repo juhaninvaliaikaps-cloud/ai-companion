@@ -65,7 +65,6 @@ namespace AICompanion.Settings.Presenters
         public void SetPaused(bool on) => Change(s => s.Paused = on);
         public void SetAlwaysOnTop(bool on) => Change(s => s.AlwaysOnTop = on);
         public void SetShowMoodDebug(bool on) => Change(s => s.ShowMoodDebug = on);
-        public void SetNewUiPreview(bool on) => Change(s => s.NewUiPreview = on);
         public void SetVoiceNarration(bool on) => Change(s => s.VoiceNarration = on);
         public void SetTtsEnabled(bool on) => Change(s => s.TtsEnabled = on);
 

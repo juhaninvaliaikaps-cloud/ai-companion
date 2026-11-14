@@ -241,15 +241,12 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void NewKeys_DefaultOffAndToggle()
+        public void VoiceNarration_DefaultsOffAndToggles()
         {
             var host = new FakeSettingsHost();
             var p = new SettingsPresenter(host);
-            Assert.IsFalse(host.Settings.NewUiPreview);
             Assert.IsFalse(host.Settings.VoiceNarration);
-            p.SetNewUiPreview(true);
             p.SetVoiceNarration(true);
-            Assert.IsTrue(host.Settings.NewUiPreview);
             Assert.IsTrue(host.Settings.VoiceNarration);
         }
 
@@ -290,21 +287,17 @@ namespace AICompanion.Tests.EditMode
             var settings = CompanionSettingsJson.Parse(old, SettingsLegacyPrefs.None);
             Assert.IsTrue(settings.PrivateMode);
             Assert.IsTrue(settings.ShowMoodDebug);
-            Assert.IsFalse(settings.NewUiPreview);
             Assert.IsFalse(settings.VoiceNarration);
         }
 
         [Test]
-        public void NewKeys_RoundTrip()
+        public void VoiceNarration_RoundTrips()
         {
             var settings = CompanionSettings.CreateDefault();
-            settings.NewUiPreview = true;
             settings.VoiceNarration = true;
             var json = CompanionSettingsJson.Write(settings);
-            StringAssert.Contains("\"newUiPreview\": true", json);
             StringAssert.Contains("\"voiceNarration\": true", json);
             var back = CompanionSettingsJson.Parse(json, SettingsLegacyPrefs.None);
-            Assert.IsTrue(back.NewUiPreview);
             Assert.IsTrue(back.VoiceNarration);
         }
 
@@ -344,23 +337,6 @@ namespace AICompanion.Tests.EditMode
         public void Reset()
         {
             NewUiSwitch.Reset();
-        }
-
-        [Test]
-        public void Argument_IsRecognised()
-        {
-            Assert.IsTrue(NewUiSwitch.ArgumentPresent(new[] { "app.exe", "-newui" }));
-            Assert.IsTrue(NewUiSwitch.ArgumentPresent(new[] { "app.exe", "--NewUI" }));
-            Assert.IsFalse(NewUiSwitch.ArgumentPresent(new[] { "app.exe", "--setup" }));
-            Assert.IsFalse(NewUiSwitch.ArgumentPresent(null));
-        }
-
-        [Test]
-        public void Resolve_IsAlwaysOn()
-        {
-            Assert.IsTrue(NewUiSwitch.Resolve(false, new[] { "app.exe" }));
-            Assert.IsTrue(NewUiSwitch.Resolve(true, new[] { "app.exe" }));
-            Assert.IsTrue(NewUiSwitch.Resolve(false, new[] { "app.exe", "-newui" }));
         }
 
         [Test]

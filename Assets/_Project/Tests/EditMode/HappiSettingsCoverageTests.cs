@@ -17,7 +17,6 @@ namespace AICompanion.Tests.EditMode
             { "CompanionName", "setup wizard (Privacy > Run setup again)" },
             { "Relationship", "setup wizard (Privacy > Run setup again)" },
             { "ScreenMonitorDevice", "set by picking a display on the Screen tab (ScreenLookPresenter.SelectMonitor)" },
-            { "NewUiPreview", "obsolete preview key; the new UI is always on" },
         };
 
         static string ViewSource()
