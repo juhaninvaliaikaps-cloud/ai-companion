@@ -42,7 +42,9 @@ namespace AICompanion.AI
         /// <summary>A full sheet is about 900 to 1400 tokens of JSON.</summary>
         public const int MaxTokens = 2200;
         public const float Temperature = 0.5f;
-        public const float DefaultTimeoutSeconds = 180f;
+        public const float DefaultTimeoutSeconds = 1200f;
+        /// <summary>A local 12B model on a small GPU can take many minutes to write the sheet.</summary>
+        public const float RequestTimeoutSeconds = 1200f;
 
         public const string NoModel = "no model is set up";
         public const string CloudRefused = "private: a cloud model may not read this persona";
@@ -76,6 +78,7 @@ namespace AICompanion.AI
                 },
                 Temperature = Temperature,
                 MaxTokens = MaxTokens,
+                TimeoutSeconds = RequestTimeoutSeconds,
                 BlockCloud = keepsLocal,
             };
         }

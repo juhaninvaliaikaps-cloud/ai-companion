@@ -87,6 +87,7 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(1, provider.Last.Messages.Count);
             Assert.AreEqual(ChatRole.User, provider.Last.Messages[0].Role);
             StringAssert.Contains(Prompt, provider.Last.Messages[0].Content);
+            Assert.AreEqual(PisaraReader.RequestTimeoutSeconds, provider.Last.TimeoutSeconds, "the reading gets its own long timeout");
             Assert.IsNull(provider.Last.Image);
         }
 

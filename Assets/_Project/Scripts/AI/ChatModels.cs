@@ -47,6 +47,12 @@ namespace AICompanion.AI
         public int MaxTokens = ChatDefaults.MaxTokens;
 
         /// <summary>
+        /// Optional timeout for this request only. Zero uses the provider's configured
+        /// timeout. The Pisara reading uses a longer one than ordinary chat.
+        /// </summary>
+        public float TimeoutSeconds;
+
+        /// <summary>
         /// One JPEG for this request only. It is not copied into <see cref="Messages"/>
         /// and must be wiped after the body is built. Null for ordinary chat.
         /// </summary>
