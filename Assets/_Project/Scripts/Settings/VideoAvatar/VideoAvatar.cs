@@ -89,6 +89,7 @@ namespace AICompanion.Settings
         bool _reload;
         bool _gaitSet;
         bool _shaderWarned;
+        bool _adultGateWasActive;
 
         public VideoAvatarState State
         {
@@ -252,6 +253,16 @@ namespace AICompanion.Settings
 
             if (_state == VideoAvatarState.Loading)
                 TickLoading(delta);
+
+            var adultActive = IntimateExpressions.Active;
+            if (_adultGateWasActive && !adultActive && _state == VideoAvatarState.Playing && _director != null)
+            {
+                // The gate can close while the naked pose is held forever. Do not leave
+                // that clip on screen after the user has turned the 18+ gate off.
+                _director.ReturnToClothedIdle();
+            }
+
+            _adultGateWasActive = adultActive;
 
             if (_state == VideoAvatarState.Playing)
                 TickPlaying(settings, delta);
