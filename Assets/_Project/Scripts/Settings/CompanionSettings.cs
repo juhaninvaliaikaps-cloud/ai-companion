@@ -177,6 +177,9 @@ namespace AICompanion.Settings
         public float ChatBoxOffsetX;
         public float ChatBoxOffsetY;
 
+        /// <summary>JUH-117 chatbox: height multiplier, 0.6 to 2.0. The newest line sits at the bottom.</summary>
+        public float ChatBoxHeight = 1f;
+
         /// <summary>
         /// JUH-104: where the 2D expression portrait sits with the new UI. 0 = automatic beside her
         /// head (as on main), 1 = docked on the chat box left side, 2 = docked on its right side,
@@ -267,6 +270,9 @@ namespace AICompanion.Settings
                 ChatBoxSnap = -1;
             ChatBoxOffsetX = CleanOffset(ChatBoxOffsetX);
             ChatBoxOffsetY = CleanOffset(ChatBoxOffsetY);
+            if (float.IsNaN(ChatBoxHeight) || float.IsInfinity(ChatBoxHeight))
+                ChatBoxHeight = 1f;
+            ChatBoxHeight = Math.Max(0.6f, Math.Min(2f, ChatBoxHeight));
             if (PortraitDock < 0 || PortraitDock > 3)
                 PortraitDock = 0;
             PortraitOffsetX = CleanOffset(PortraitOffsetX);
@@ -663,6 +669,8 @@ namespace AICompanion.Settings
                 settings.ChatBoxOffsetX = (float)number;
             if (TryNumber(json, "chatBoxOffsetY", out number))
                 settings.ChatBoxOffsetY = (float)number;
+            if (TryNumber(json, "chatBoxHeight", out number))
+                settings.ChatBoxHeight = (float)number;
             if (TryNumber(json, "portraitDock", out number))
                 settings.PortraitDock = (int)Math.Round(number);
             if (TryNumber(json, "portraitOffsetX", out number))
@@ -751,6 +759,7 @@ namespace AICompanion.Settings
             Number(sb, "chatBoxSnap", source.ChatBoxSnap, true);
             Number(sb, "chatBoxOffsetX", source.ChatBoxOffsetX, false);
             Number(sb, "chatBoxOffsetY", source.ChatBoxOffsetY, false);
+        Number(sb, "chatBoxHeight", source.ChatBoxHeight, false);
             Number(sb, "portraitDock", source.PortraitDock, true);
             Number(sb, "portraitOffsetX", source.PortraitOffsetX, false);
             Number(sb, "portraitOffsetY", source.PortraitOffsetY, false);
