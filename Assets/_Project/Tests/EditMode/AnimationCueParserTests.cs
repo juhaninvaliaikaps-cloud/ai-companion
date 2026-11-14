@@ -131,6 +131,21 @@ namespace AICompanion.Tests.EditMode
                 Assert.AreEqual(Emotion.Shy, pull.Cue.Emotion);
                 Assert.AreEqual("finger_pull", EmotionNames.PortraitAlias(pull.Cue.EmotionField, pull.Cue.Intensity));
                 Assert.AreEqual("finger_suck_hold", EmotionNames.PortraitAlias("finger_suck_hold"));
+
+                // Small models sometimes put the portrait in reaction= or gesture=.
+                // The gated portrait is promoted to an emotion instead of being sent
+                // to the video reaction path, which has no finger_suck_start.
+                var promoted = AnimationCueParser.Parse("Mm.\n<animation emotion=\"flustered\" intensity=\"0.7\" reaction=\"finger_suck_start\" />");
+                Assert.AreEqual(CueParseStatus.Parsed, promoted.Status);
+                Assert.AreEqual("finger_suck_start", promoted.Cue.EmotionField);
+                Assert.AreEqual(string.Empty, promoted.Cue.Reaction);
+                Assert.AreEqual("finger_suck", EmotionNames.PortraitAlias(promoted.Cue.EmotionField, promoted.Cue.Intensity));
+
+                var promotedGesture = AnimationCueParser.Parse("Mm.\n<animation emotion=\"flustered\" intensity=\"0.7\" gesture=\"finger_suck_start\" />");
+                Assert.AreEqual(CueParseStatus.Parsed, promotedGesture.Status);
+                Assert.AreEqual(string.Empty, promotedGesture.Cue.Gesture);
+                Assert.AreEqual("finger_suck", EmotionNames.PortraitAlias(promotedGesture.Cue.EmotionField, promotedGesture.Cue.Intensity));
+                StringAssert.Contains("emotion=\"finger_suck\"", EmotionNames.IntimateCatalogLine);
             }
             finally
             {
