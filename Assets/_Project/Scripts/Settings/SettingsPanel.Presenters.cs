@@ -224,14 +224,16 @@ namespace AICompanion.Settings
             public readonly string Status;
             public readonly bool Manual;
             public readonly bool Reading;
+            public readonly float ReadingStartedAt;
 
-            public PisaraPersonaView(string temperamentLine, string relationshipLine, string status, bool manual, bool reading)
+            public PisaraPersonaView(string temperamentLine, string relationshipLine, string status, bool manual, bool reading, float readingStartedAt)
             {
                 TemperamentLine = temperamentLine ?? string.Empty;
                 RelationshipLine = relationshipLine ?? string.Empty;
                 Status = status ?? string.Empty;
                 Manual = manual;
                 Reading = reading;
+                ReadingStartedAt = readingStartedAt;
             }
         }
 
@@ -247,7 +249,8 @@ namespace AICompanion.Settings
                 AICompanion.Core.PisaraReading.RelationshipLine(sheet) + AICompanion.Core.PisaraCorrections.Note(sheet),
                 keeper != null ? keeper.StatusLine : AICompanion.Core.PisaraReading.SourceLine(sheet),
                 !choice.Auto,
-                keeper != null && keeper.IsReading);
+                keeper != null && keeper.IsReading,
+                keeper != null ? keeper.ReadingStartedAt : 0f);
         }
 
         /// <summary>The "Re-read" button: asks the model again for the active persona's sheet.</summary>
