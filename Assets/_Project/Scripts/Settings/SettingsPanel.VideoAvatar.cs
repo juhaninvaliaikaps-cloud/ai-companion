@@ -97,6 +97,16 @@ namespace AICompanion.Settings
                 var reaction = reactions[i].Value;
                 AddButton(reactions[i].Key, () => VideoReaction(reaction));
             }
+
+            if (AICompanion.Core.IntimateExpressions.Active)
+            {
+                var adult = Presenters.VideoAvatarPresenter.AdultTestReactions;
+                for (var i = 0; i < adult.Count; i++)
+                {
+                    var reaction = adult[i].Value;
+                    AddButton(adult[i].Key, () => VideoReaction(reaction));
+                }
+            }
             var speedLabel = AddLabel(VideoSpeedText(_settings.VideoAvatarWalkSpeed));
             AddSlider(_settings.VideoAvatarWalkSpeed, 0f, 1f, false, value =>
             {
