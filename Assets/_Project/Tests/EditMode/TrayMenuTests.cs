@@ -363,7 +363,7 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(0, TrayIconImage.Alpha(pixels, 0, 0));
             Assert.AreEqual(255, TrayIconImage.Alpha(pixels, 16, 16));
             Assert.Greater(TrayIconImage.Red(pixels, 16, 16), 200);
-            Assert.Less(TrayIconImage.Red(pixels, 13, 15), 80);
+            Assert.Less(TrayIconImage.Red(pixels, 7, 12), 80);
 
             var reds = new HashSet<byte>();
             for (var i = 2; i < pixels.Length; i += 4)
