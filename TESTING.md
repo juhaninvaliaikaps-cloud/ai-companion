@@ -29,6 +29,8 @@ A second job, **Windows player script compile**, starts after that test job fini
 
 If `UNITY_EMAIL` or `UNITY_PASSWORD` is missing, the job prints a notice and succeeds without running Unity. That keeps the check from failing before the secrets exist. After the secrets are set, the next run executes the tests.
 
+The test container is occasionally killed by the runner with `exit 137` or an image-pull failure before Unity produces results. The workflow runs the test action once more automatically in that case. If both attempts fail, the job is red; a real test failure is not hidden.
+
 The repository's Actions workflow permissions must allow creating checks. In the GitHub repo, open **Settings > Actions > General > Workflow permissions** and choose **Read and write permissions**. The workflow also requests `checks: write` for the token it uses.
 
 ## Windows player
