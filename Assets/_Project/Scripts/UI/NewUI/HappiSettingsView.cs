@@ -71,6 +71,11 @@ namespace AICompanion.NewUI
         string _exportFolder = string.Empty;
         string _signature;
         TextMeshProUGUI _videoStatus;
+        RectTransform _readingTrack;
+        RectTransform _readingFill;
+        TextMeshProUGUI _readingLabel;
+        float _readingStartedAt;
+        int _shownReadingSeconds = -1;
         float _layoutW = -1f;
         float _layoutH = -1f;
 
@@ -190,6 +195,8 @@ namespace AICompanion.NewUI
                 if (_videoStatus.text != text)
                     _videoStatus.text = text;
             }
+
+            AnimateReadingBar();
 
             var status = _settings.StatusMessage;
             var shown = HappiUiKit.Literal(status);
@@ -318,6 +325,9 @@ namespace AICompanion.NewUI
                 return;
             _building = true;
             BlurFields();
+            _readingTrack = null;
+            _readingFill = null;
+            _readingLabel = null;
             for (var i = _body.childCount - 1; i >= 0; i--)
                 Destroy(_body.GetChild(i).gameObject);
             if (_frameRoot != null)
@@ -905,6 +915,8 @@ namespace AICompanion.NewUI
             Note(view.RelationshipLine);
             Note(view.Status);
             Button(view.Reading ? "Re-read (reading...)" : "Re-read", () => { _settings.RereadPersona(); _rebuild = true; });
+            if (view.Reading)
+                BuildReadingProgress();
             BuildRelationshipCorrection();
             Choice("Auto", !view.Manual, () => { _settings.SetPersonaTemperamentAuto(id); _rebuild = true; });
             for (var i = 0; i < PersonaTemperaments.Ids.Length; i++)
@@ -919,6 +931,52 @@ namespace AICompanion.NewUI
         }
 
         bool _correctingRelationship;
+
+        /// <summary>A light-blue indeterminate bar while the model writes her character sheet.</summary>
+        void BuildReadingProgress()
+        {
+            _readingStartedAt = Time.unscaledTime;
+            _shownReadingSeconds = -1;
+            _readingLabel = HappiUiKit.Text(_body, "ReadingLabel",
+                "Reading her description with the model...", _theme.FontSmall * _s, _theme.Text,
+                TextAlignmentOptions.MidlineLeft, false);
+            Place(_readingLabel.rectTransform, 20f * _s);
+
+            _readingTrack = HappiUiKit.Panel(_body, "ReadingTrack", _theme.PanelInset, false).rectTransform;
+            Place(_readingTrack, 14f * _s);
+
+            var fill = HappiUiKit.Panel(_readingTrack, "ReadingFill", _theme.Hover, false);
+            _readingFill = fill.rectTransform;
+            _readingFill.anchorMin = new Vector2(0f, 0f);
+            _readingFill.anchorMax = new Vector2(0f, 1f);
+            _readingFill.pivot = new Vector2(0f, 0.5f);
+            _readingFill.anchoredPosition = new Vector2(4f * _s, 0f);
+            _readingFill.sizeDelta = new Vector2(20f * _s, -6f * _s);
+
+            Note("A large local model can take several minutes.");
+        }
+
+        void AnimateReadingBar()
+        {
+            if (_readingTrack == null || _readingFill == null)
+                return;
+            var width = _readingTrack.rect.width - 8f * _s;
+            if (width <= 1f)
+                return;
+
+            var phase = Mathf.Repeat(Time.unscaledTime * 0.55f, 1f);
+            var fillWidth = Mathf.Lerp(width * 0.22f, width * 0.62f, Mathf.Sin(phase * Mathf.PI));
+            _readingFill.sizeDelta = new Vector2(fillWidth, -6f * _s);
+            _readingFill.anchoredPosition = new Vector2(4f * _s + (width - fillWidth) * phase, 0f);
+
+            var seconds = Mathf.Max(0, Mathf.FloorToInt(Time.unscaledTime - _readingStartedAt));
+            if (seconds != _shownReadingSeconds)
+            {
+                _shownReadingSeconds = seconds;
+                _readingLabel.text = "Reading her description with the model... "
+                    + (seconds / 60).ToString("0") + ":" + (seconds % 60).ToString("00");
+            }
+        }
 
         /// <summary>
         /// JUH-117: the reading is a guess, so the user can correct who she is to them. Every
