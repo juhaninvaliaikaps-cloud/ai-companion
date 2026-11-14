@@ -38,6 +38,7 @@ namespace AICompanion.Settings
         string _failure = string.Empty;
         int _generation;
         CancellationTokenSource _cancel;
+        readonly HashSet<string> _tried = new HashSet<string>(StringComparer.Ordinal);
 
         /// <summary>The prompt check is cheap, but there is no reason to do it sixty times a second.</summary>
         const float CheckSeconds = 0.25f;
@@ -104,6 +105,8 @@ namespace AICompanion.Settings
             {
                 if (_reading)
                     return "Reading her description with the model...";
+                if (_sheet != null && _sheet.source != CharacterSheet.SourceModel)
+                    return PisaraReading.FallbackStatus;
                 var line = PisaraReading.SourceLine(_sheet);
                 if (_failure.Length == 0)
                     return line;
@@ -337,16 +340,22 @@ namespace AICompanion.Settings
 
             var path = CharacterSheetStore.FileFor(Folder(), _personaId);
             var cached = force ? null : CharacterSheetStore.LoadFor(path, _prompt);
-            if (!PisaraReading.NeedsModel(cached, force))
+            if (cached != null && cached.source == CharacterSheet.SourceModel)
             {
-                // A cached model sheet, keyword sheet or fallback is used as-is. Only Re-read
-                // asks the model again, so a fallback does not cost a local-model call every launch.
                 SetSheet(cached);
                 return;
             }
 
-            // No cached sheet: run on neutral until the one reading returns.
+            var key = _personaId + "\n" + CharacterSheet.HashPrompt(_prompt);
+            if (!PisaraReading.ShouldRetryFallback(cached, force, ProviderReady(), _tried.Contains(key)))
+            {
+                SetSheet(cached);
+                return;
+            }
+
+            // A fallback sheet is used while the one retry for this launch runs.
             SetSheet(cached ?? CharacterSheet.Neutral(_prompt));
+            _tried.Add(key);
             Read(_personaId, _prompt, path);
         }
 
@@ -448,6 +457,15 @@ namespace AICompanion.Settings
             var id = PrivateChatRouting.ProviderId(keepsLocal, chat.providerId, chat.privateEndpointType);
             IChatProvider provider;
             return _registry.TryGet(id, out provider) ? provider : null;
+        }
+
+        /// <summary>True when a fallback can be retried without violating the privacy rule.</summary>
+        bool ProviderReady()
+        {
+            var privacy = GetComponent<IPrivacyMode>();
+            var keepsLocal = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+            var provider = Provider(keepsLocal);
+            return provider != null && provider.IsConfigured && PisaraReader.MayUse(provider, keepsLocal);
         }
 
         string PersonaName(string personaId)

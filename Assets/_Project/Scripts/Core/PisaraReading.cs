@@ -214,6 +214,27 @@ namespace AICompanion.Core
         }
 
         /// <summary>
+        /// True when a cached fallback should be sent to the model once this launch. A model
+        /// sheet is never re-read automatically; Re-read forces it.
+        /// </summary>
+        public static bool ShouldRetryFallback(CharacterSheet cached, bool force, bool providerReady, bool alreadyTried)
+        {
+            if (force || cached == null)
+                return true;
+            if (cached.source == CharacterSheet.SourceModel)
+                return false;
+            return providerReady && !alreadyTried;
+        }
+
+        /// <summary>The status line shown when the cached sheet is only a fallback.</summary>
+        public const string FallbackStatus = "Her description could not be read. Press Re-read.";
+
+        public static bool IsFallback(CharacterSheet sheet)
+        {
+            return sheet != null && sheet.source != CharacterSheet.SourceModel;
+        }
+
+        /// <summary>
         /// Makes the model's own answers agree: local models sometimes rate a stepsister of six
         /// years at familiarity 60 and still answer "no shared past". Someone who is not a
         /// stranger and is known this well shares a past. Never the other way round, and never
