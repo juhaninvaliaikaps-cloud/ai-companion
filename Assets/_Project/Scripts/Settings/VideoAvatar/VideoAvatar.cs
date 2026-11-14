@@ -164,9 +164,40 @@ namespace AICompanion.Settings
         /// </summary>
         public AvatarReactionResult RequestReaction(string name)
         {
+            if (string.Equals(name, "dress", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!IntimateExpressions.Undressed)
+                    return AvatarReactionResult.Refused;
+                IntimateExpressions.Dress();
+                if (_director != null)
+                {
+                    _director.CancelQueuedReactions();
+                    _director.RequestFront();
+                }
+
+                return AvatarReactionResult.Started;
+            }
+
             if (_director == null || _state != VideoAvatarState.Playing)
                 return AvatarReactionResult.Refused;
-            return _director.Request(name, true);
+            var result = _director.Request(name, true);
+            if (result == AvatarReactionResult.Waiting
+                && IntimateExpressions.Undressed
+                && IntimateExpressions.IsNakedCue(name))
+            {
+                // The naked idle is an indefinitely held Pose, so a normal request would wait
+                // forever. A naked test or cue must be able to interrupt it.
+                result = _director.RequestNow(name);
+            }
+
+            if (result != AvatarReactionResult.Refused)
+            {
+                if (string.Equals(name, "strip", StringComparison.OrdinalIgnoreCase)
+                    || IntimateExpressions.IsNakedCue(name))
+                    IntimateExpressions.Undress();
+            }
+
+            return result;
         }
 
         /// <summary>Test control: return to the default idle from a held pose, the side idle, or a variation.</summary>
@@ -1039,7 +1070,7 @@ namespace AICompanion.Settings
             _state = state;
             // The prompt offers her reactions only while the 2D avatar really plays.
             if (state == VideoAvatarState.Playing && _set != null)
-                AvatarReactionCatalog.Set(_set.OfferedReactions());
+                AvatarReactionCatalog.Set(_set.OfferedReactions(), _set.OfferedAdultReactions());
             else
                 AvatarReactionCatalog.Clear();
             if (state != VideoAvatarState.Playing)

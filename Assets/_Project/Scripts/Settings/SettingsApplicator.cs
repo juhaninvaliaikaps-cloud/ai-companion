@@ -21,6 +21,7 @@ namespace AICompanion.Settings
             var adultFolder = PortraitFolders.Adult(appData, Application.persistentDataPath ?? string.Empty);
             IntimateExpressions.Configure(settings.IntimateExpressions, settings.PrivateMode,
                 !string.IsNullOrEmpty(adultFolder) && Directory.Exists(adultFolder));
+            PisaraSwitches.Configure(settings.PisaraRelationship, settings.PisaraAwayEvents, settings.PisaraWorld);
             var provider = AICompanion.Voice.OutboundPrivacy.ChatProviderId(settings.PrivateMode, settings.ProviderId, settings.PrivateEndpointType);
 
             AICompanion.Memory.MemoryRuntime.SwitchPersona(settings.PersonaId);

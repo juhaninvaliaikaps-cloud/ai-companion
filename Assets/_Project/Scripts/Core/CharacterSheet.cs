@@ -172,6 +172,12 @@ namespace AICompanion.Core
         /// <summary>Set by code: when the sheet was made, ISO 8601 UTC.</summary>
         public string createdAtUtc = string.Empty;
 
+        /// <summary>
+        /// Set by code: the user corrected <see cref="relationship"/> by hand
+        /// (<see cref="PisaraCorrections"/>). A later reading keeps the correction.
+        /// </summary>
+        public bool relationshipLocked;
+
         public SheetTemperament temperament = new SheetTemperament();
         public SheetRelationship relationship = new SheetRelationship();
         public SheetLanding landing = new SheetLanding();
@@ -235,6 +241,7 @@ namespace AICompanion.Core
             sheet.promptHash = string.Empty;
             sheet.source = SourceModel;
             sheet.createdAtUtc = string.Empty;
+            sheet.relationshipLocked = false;
             sheet.Normalize();
             return sheet;
         }

@@ -466,6 +466,10 @@ namespace AICompanion.NewUI.Wheel
             var keeper = GetComponent<CompanionMoodKeeper>();
             var top3 = keeper != null && keeper.State != null ? keeper.State.DescribeTop3() : string.Empty;
             var text = MoodPresenter.Describe(CompanionMoodNow.Shown, CompanionMoodNow.Strength, top3, IntimateExpressions.Active, DateTime.Now.Hour + DateTime.Now.Minute / 60f);
+            // JUH-117: where she stands with the user, and why it last moved.
+            var relationship = GetComponent<RelationshipKeeper>();
+            if (relationship != null && relationship.IsLoaded)
+                text += "\n\n" + RelationshipCard.Describe(relationship.State.Affection, relationship.State.Familiarity, relationship.History, PisaraSwitches.Relationship);
             var settings = _settings != null ? _settings.CurrentSettings : null;
             var debug = settings != null && settings.ShowMoodDebug;
             ShowCard("Mood", text, new[]

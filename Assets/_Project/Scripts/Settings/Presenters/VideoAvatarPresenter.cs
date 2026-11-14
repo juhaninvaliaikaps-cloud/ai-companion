@@ -61,6 +61,16 @@ namespace AICompanion.Settings.Presenters
             new KeyValuePair<string, string>("Test: turn around (back)", "turn_around_back"),
         };
 
+        /// <summary>The adult-only test buttons, shown only while the 18+ gate is open.</summary>
+        public static readonly IReadOnlyList<KeyValuePair<string, string>> AdultTestReactions = new[]
+        {
+            new KeyValuePair<string, string>("Test: strip", "strip"),
+            new KeyValuePair<string, string>("Test: naked idle", "naked_idle"),
+            new KeyValuePair<string, string>("Test: naked idle still", "naked_idle_still"),
+            new KeyValuePair<string, string>("Test: bend over", "bend_over"),
+            new KeyValuePair<string, string>("Test: bend over end", "bend_over_end"),
+        };
+
         public const string NotPlaying = "The 2D avatar is not playing.";
 
         /// <summary>

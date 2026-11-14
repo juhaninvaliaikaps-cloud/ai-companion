@@ -38,7 +38,10 @@ namespace AICompanion.Settings
         string _failure = string.Empty;
         int _generation;
         CancellationTokenSource _cancel;
-        readonly HashSet<string> _tried = new HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>The prompt check is cheap, but there is no reason to do it sixty times a second.</summary>
+        const float CheckSeconds = 0.25f;
+        float _checkIn;
 
         /// <summary>Goes up whenever the sheet or the reading state changes, so settings views can refresh.</summary>
         public int Revision { get; private set; }
@@ -62,6 +65,38 @@ namespace AICompanion.Settings
             return string.Equals(personaId ?? string.Empty, _personaId ?? string.Empty, StringComparison.Ordinal) ? _sheet : null;
         }
 
+        /// <summary>
+        /// The user corrects who she is to them (JUH-117). The correction is locked into the
+        /// sheet, survives a re-read and an edited prompt, and is applied to the current
+        /// relationship at once. False when there is no sheet yet.
+        /// </summary>
+        public bool CorrectRelationship(string role, string label, float affection, float familiarity, bool sharedHistory)
+        {
+            if (_sheet == null)
+                return false;
+            PisaraCorrections.SetRelationship(_sheet, role, label, affection, familiarity, sharedHistory);
+            var path = CharacterSheetStore.FileFor(Folder(), _personaId);
+            if (!CharacterSheetStore.Save(path, _sheet))
+                Debug.LogWarning("Pisara reading: the corrected sheet could not be saved.");
+            var relationship = GetComponent<RelationshipKeeper>();
+            if (relationship != null)
+                relationship.SetByUser(_sheet.relationship.affection, _sheet.relationship.familiarity);
+            Debug.Log("Pisara reading: " + (_personaId ?? string.Empty) + " relationship corrected by the user ("
+                + PisaraReading.RelationshipLine(_sheet) + ")");
+            Revision++;
+            return true;
+        }
+
+        /// <summary>Drops the user's relationship correction and asks the model again.</summary>
+        public void UseReadingAgain()
+        {
+            if (_sheet == null)
+                return;
+            PisaraCorrections.Unlock(_sheet);
+            CharacterSheetStore.Save(CharacterSheetStore.FileFor(Folder(), _personaId), _sheet);
+            Reread();
+        }
+
         /// <summary>The line under the reading in persona settings.</summary>
         public string StatusLine
         {
@@ -80,6 +115,10 @@ namespace AICompanion.Settings
 
         void Update()
         {
+            _checkIn -= Time.unscaledDeltaTime;
+            if (_checkIn > 0f)
+                return;
+            _checkIn = CheckSeconds;
             Check();
             World();
         }
@@ -285,16 +324,16 @@ namespace AICompanion.Settings
 
             var path = CharacterSheetStore.FileFor(Folder(), _personaId);
             var cached = force ? null : CharacterSheetStore.LoadFor(path, _prompt);
-            var key = _personaId + "\n" + CharacterSheet.HashPrompt(_prompt);
-            if (cached != null && (cached.source == CharacterSheet.SourceModel || _tried.Contains(key)))
+            if (!PisaraReading.NeedsModel(cached, force))
             {
+                // A cached model sheet, keyword sheet or fallback is used as-is. Only Re-read
+                // asks the model again, so a fallback does not cost a local-model call every launch.
                 SetSheet(cached);
                 return;
             }
 
-            // A fallback sheet from an earlier run is used meanwhile, and the model is tried once more.
+            // No cached sheet: run on neutral until the one reading returns.
             SetSheet(cached ?? CharacterSheet.Neutral(_prompt));
-            _tried.Add(key);
             Read(_personaId, _prompt, path);
         }
 
@@ -331,12 +370,17 @@ namespace AICompanion.Settings
             }
 
             if (this == null || generation != _generation || cancel.IsCancellationRequested)
+            {
+                cancel.Dispose();
                 return;
+            }
 
             _reading = false;
             _cancel = null;
             cancel.Dispose();
             _failure = result.Failure ?? string.Empty;
+            // The user's relationship correction survives a new reading, even of an edited prompt.
+            PisaraCorrections.CarryOver(CharacterSheetStore.Load(path), result.Sheet);
             // A failed Re-read keeps the sheet the model wrote earlier for this prompt.
             var kept = PisaraReading.Keep(CharacterSheetStore.LoadFor(path, prompt), result.Sheet);
             if (ReferenceEquals(kept, result.Sheet) && !CharacterSheetStore.Save(path, kept))

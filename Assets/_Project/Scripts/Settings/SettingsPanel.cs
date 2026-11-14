@@ -75,6 +75,17 @@ namespace AICompanion.Settings
         bool _setupGate;
         bool _wizardClaimed;
 
+        int _personaRevision;
+
+        /// <summary>
+        /// Goes up when the active persona is applied or edited, so views can refresh the name
+        /// without loading the persona catalog from disk on a timer.
+        /// </summary>
+        public int PersonaRevision
+        {
+            get { return _personaRevision; }
+        }
+
         public event Action SetupReplayRequested;
 
         public CompanionSettings CurrentSettings => _settings;
@@ -446,6 +457,7 @@ namespace AICompanion.Settings
                 _applying = false;
             }
 
+            _personaRevision++;
             SaveSettings();
         }
 

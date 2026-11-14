@@ -38,8 +38,24 @@ namespace AICompanion.Core
             Intensity = ClampIntensity(intensity);
             Gesture = gesture ?? string.Empty;
             Direction = NormalizeDirection(direction);
-            EmotionField = EmotionNames.SanitizeField(emotionField);
-            Reaction = AnimationCueParser.SanitizeGesture(reaction);
+            var emotionValue = EmotionNames.SanitizeField(emotionField);
+            var reactionValue = AnimationCueParser.SanitizeGesture(reaction);
+            // Small models sometimes put a gated portrait id in reaction= or gesture=
+            // instead of emotion=. The portraits are emotion values, so promote it before
+            // the reaction path can reject an id that only exists in the portrait set.
+            if (IntimateExpressions.IsIntimateId(reactionValue) && IntimateExpressions.Allows(reactionValue))
+            {
+                emotionValue = reactionValue;
+                reactionValue = string.Empty;
+            }
+            else if (IntimateExpressions.IsIntimateId(Gesture) && IntimateExpressions.Allows(Gesture))
+            {
+                emotionValue = Gesture;
+                Gesture = string.Empty;
+            }
+
+            EmotionField = emotionValue;
+            Reaction = reactionValue;
         }
 
         /// <summary>-1 left, +1 right, 0 when the side was not named or the value is not a number.</summary>

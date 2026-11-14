@@ -156,6 +156,11 @@ namespace AICompanion.Settings
         /// <summary>Shows her current mood and the three strongest moods in a corner (JUH-103 debug). Off by default.</summary>
         public bool ShowMoodDebug;
 
+        /// <summary>JUH-117 switches, one per Pisara leaf. All on by default. See <see cref="AICompanion.Core.PisaraSwitches"/>.</summary>
+        public bool PisaraRelationship = true;
+        public bool PisaraAwayEvents = true;
+        public bool PisaraWorld = true;
+
         /// <summary>JUH-104: the new Happi UI (radial wheel, new chat and settings). Off by default; -newui turns it on for one launch.</summary>
         public bool NewUiPreview;
 
@@ -176,6 +181,9 @@ namespace AICompanion.Settings
         /// <summary>Free placement: the box centre relative to her head, in pixels at 100% scaling.</summary>
         public float ChatBoxOffsetX;
         public float ChatBoxOffsetY;
+
+        /// <summary>JUH-117 chatbox: height multiplier, 0.6 to 2.0. The newest line sits at the bottom.</summary>
+        public float ChatBoxHeight = 1f;
 
         /// <summary>
         /// JUH-104: where the 2D expression portrait sits with the new UI. 0 = automatic beside her
@@ -267,6 +275,9 @@ namespace AICompanion.Settings
                 ChatBoxSnap = -1;
             ChatBoxOffsetX = CleanOffset(ChatBoxOffsetX);
             ChatBoxOffsetY = CleanOffset(ChatBoxOffsetY);
+            if (float.IsNaN(ChatBoxHeight) || float.IsInfinity(ChatBoxHeight))
+                ChatBoxHeight = 1f;
+            ChatBoxHeight = Math.Max(0.6f, Math.Min(2f, ChatBoxHeight));
             if (PortraitDock < 0 || PortraitDock > 3)
                 PortraitDock = 0;
             PortraitOffsetX = CleanOffset(PortraitOffsetX);
@@ -643,6 +654,12 @@ namespace AICompanion.Settings
                 settings.IntimateExpressions = flag;
             if (TryBool(json, "showMoodDebug", out flag))
                 settings.ShowMoodDebug = flag;
+            if (TryBool(json, "pisaraRelationship", out flag))
+                settings.PisaraRelationship = flag;
+            if (TryBool(json, "pisaraAwayEvents", out flag))
+                settings.PisaraAwayEvents = flag;
+            if (TryBool(json, "pisaraWorld", out flag))
+                settings.PisaraWorld = flag;
             if (TryBool(json, "newUiPreview", out flag))
                 settings.NewUiPreview = flag;
             if (TryBool(json, "voiceNarration", out flag))
@@ -663,6 +680,8 @@ namespace AICompanion.Settings
                 settings.ChatBoxOffsetX = (float)number;
             if (TryNumber(json, "chatBoxOffsetY", out number))
                 settings.ChatBoxOffsetY = (float)number;
+            if (TryNumber(json, "chatBoxHeight", out number))
+                settings.ChatBoxHeight = (float)number;
             if (TryNumber(json, "portraitDock", out number))
                 settings.PortraitDock = (int)Math.Round(number);
             if (TryNumber(json, "portraitOffsetX", out number))
@@ -741,6 +760,9 @@ namespace AICompanion.Settings
             Number(sb, "clipSoundVolume", source.ClipSoundVolume, false);
             Bool(sb, "intimateExpressions", source.IntimateExpressions);
             Bool(sb, "showMoodDebug", source.ShowMoodDebug);
+            Bool(sb, "pisaraRelationship", source.PisaraRelationship);
+            Bool(sb, "pisaraAwayEvents", source.PisaraAwayEvents);
+            Bool(sb, "pisaraWorld", source.PisaraWorld);
             Bool(sb, "newUiPreview", source.NewUiPreview);
             Bool(sb, "voiceNarration", source.VoiceNarration);
             Number(sb, "chatBoxX", source.ChatBoxX, false);
@@ -751,6 +773,7 @@ namespace AICompanion.Settings
             Number(sb, "chatBoxSnap", source.ChatBoxSnap, true);
             Number(sb, "chatBoxOffsetX", source.ChatBoxOffsetX, false);
             Number(sb, "chatBoxOffsetY", source.ChatBoxOffsetY, false);
+        Number(sb, "chatBoxHeight", source.ChatBoxHeight, false);
             Number(sb, "portraitDock", source.PortraitDock, true);
             Number(sb, "portraitOffsetX", source.PortraitOffsetX, false);
             Number(sb, "portraitOffsetY", source.PortraitOffsetY, false);

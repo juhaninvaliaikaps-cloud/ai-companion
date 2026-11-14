@@ -32,7 +32,8 @@ namespace AICompanion.Core
         /// The finger referred to is the user's, and the wording stays suggestive, not explicit.
         /// </summary>
         public const string IntimateCatalogLine =
-            "Intimate drawn expressions are on. They refer to the user's finger at her lips, not her own. " +
+            "Intimate drawn expressions are on. They are emotion values: write them as emotion=\"finger_suck\" (not gesture= or reaction=). " +
+            "They refer to the user's finger at her lips, not her own. " +
             "finger_suck: his fingertip held at her lips, teasing. " +
             "finger_suck_deep: holding his finger between her lips, eye contact. " +
             "finger_suck_hold: eyes closed, holding it. " +
@@ -135,6 +136,8 @@ namespace AICompanion.Core
                 case "finger_suck":
                 case "finger_suck_deep":
                 case "finger_suck_hold":
+                case "finger_suck_start":
+                case "finger_suck_deep_start":
                     emotion = Emotion.Flustered;
                     return true;
                 case "annoyed":
@@ -219,6 +222,10 @@ namespace AICompanion.Core
                 case "finger_pull":
                 case "finger_pull_start":
                     return token;
+                case "finger_suck_start":
+                    return "finger_suck";
+                case "finger_suck_deep_start":
+                    return "finger_suck_deep";
                 case "excited":
                 case "loving":
                 case "laughing":

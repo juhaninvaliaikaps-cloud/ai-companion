@@ -24,17 +24,18 @@ One chat turn is a drop. It falls through leaves in a fixed order, and each leaf
 
 | Part | State | Owner |
 | --- | --- | --- |
-| Sheet format, parser, clamps, prompt hash | **Built** (this PR), EditMode tests | Claude |
-| Sheet store (encrypted, per persona, in wipe and export) | **Built** (this PR), EditMode tests | Claude |
-| Temperament blend from sheet weights (JUH-114 step 4) | **Built** (this PR), EditMode tests | Claude |
+| Sheet format, parser, clamps, prompt hash | **Built**, EditMode tests | Claude |
+| Sheet store (encrypted, per persona, in wipe and export) | **Built**, EditMode tests | Claude |
+| Temperament blend from sheet weights (JUH-114 step 4) | **Built**, EditMode tests | Claude |
 | Reading prompt | **Built**, tuned against local 12B models (JUH-118 section 1) | Claude, tuned by Claude Code |
 | The reading call, cache, Re-read, persona settings display | **Built** (JUH-118 section 1), EditMode tests | Claude Code |
-| Relationship state, storage, readout | Planned, JUH-119 | DeepSeek |
-| Temperament keyword scorer (offline fallback) | Planned, JUH-119 | DeepSeek |
+| Relationship state, storage, readout; active chat time; reset on wipe and Start over | **Built** (JUH-119), EditMode tests | DeepSeek |
+| Temperament keyword scorer (offline fallback) | **Built** (JUH-119), EditMode tests; not wired into the fallback yet | DeepSeek |
 | Relationship and landing math, the `landed` cue attribute, the relationship prompt line | **Built**, EditMode tests; not called from the app yet | Claude |
-| Memory tags, promotion and fading | Planned, PR after that | Claude |
-| Seeded memories, first scene, away line, session memories | **Built** (JUH-118 sections 2 and 3), EditMode tests | Claude Code |
-| Landing and relationship wiring | Planned, JUH-118 section 4 | Claude Code |
+| Her world in memory: seeding, short-term fading and promotion, away threads | **Built**, EditMode tests | Claude |
+| Start over with a persona (chat, memories, mood, relationship) | **Built**, EditMode tests; not run in a player | Claude, DeepSeek |
+| Wiring her world: seeding, first scene, away line, session memories, new threads | **Built** (JUH-118 sections 2 and 3, #91), EditMode tests | Claude Code |
+| Wiring the relationship: landing per reply, familiarity from time, start values, prompt line, Mood card reasons | **Built** (JUH-118 section 4, #91), EditMode tests | Claude Code |
 
 The spec PR changed nothing in how she behaves. Since JUH-118 section 1 the sheet is read and its temperament is used (see "The reading as built"). The relationship, landing and world parts of the sheet are read, cached and shown, but nothing acts on them yet.
 
@@ -108,7 +109,7 @@ The prompt that is hashed and sent is the persona text the chat uses (personalit
 
 **Which model.** The one this persona's chat would use, chosen by `PrivateChatRouting.ProviderId` with `IntimateExpressions.KeepsLocal(privateMode)`, exactly like a chat message. With Private mode on or the intimate gate open that is the local model or the user's own private server, and `PisaraReader.MayUse` refuses any other provider before anything is sent (test: `Private_NeverCallsACloudModel`). A persona whose provider is set to the local model is read by the local model. The request does not pass through the memory layer, so remembered facts about the user are not sent with it. `IntimateBoundaries` is appended to the system prompt.
 
-**Fallback.** No model, a refused provider, a timeout (180 s), an error, a reply without a usable object, or an empty object all give a neutral sheet (`source = default`). The keyword scorer (JUH-119) is not on main yet: `PisaraKeywords.Temperament` is the one place to plug it in, and then the fallback becomes `source = keywords`. The fallback is saved too, so the app does not ask again on every frame or every switch. A fallback never replaces a sheet the model already wrote for the same prompt (`PisaraReading.Keep`): a Re-read while the model is unreachable keeps the earlier reading and says so.
+**Fallback.** No model, a refused provider, a timeout (180 s), an error, a reply without a usable object, or an empty object all give a neutral sheet (`source = default`). The keyword scorer (JUH-119) is not on main yet: `PisaraKeywords.Temperament` is the one place to plug it in, and then the fallback becomes `source = keywords`. The fallback is saved too, so the app does not ask again on every frame or every switch. A cached fallback is used on later launches as-is: **Re-read** is the only thing that retries the model, so every launch does not cost another local-model call. A fallback never replaces a sheet the model already wrote for the same prompt (`PisaraReading.Keep`): a Re-read while the model is unreachable keeps the earlier reading and says so.
 
 **One correction in code.** Local models often give `close_friend` for a stepsister. When the label names a relative (`PisaraReading.IsKinLabel`: sister, stepbrother, mother-in-law, cousin and so on) the role is set to `family`, unless the model said `partner`.
 
@@ -234,9 +235,9 @@ At -20 and below the line adds that this is love-hate between two people who cho
 After each finished reply, once per reply (use `CueSerial`, as the mood does):
 
 1. `var change = RelationshipMath.Land(cue.Landed, cue.Intensity, state.Affection, state.Familiarity);`
-2. Write `change.Affection` and `change.Familiarity` to the relationship state.
-3. `RelationshipMath.PushMoods(moodState, change, cue.Intensity);`
-4. Log `change.LogLine()`.
+2. `if (relationshipKeeper.Apply(change)) RelationshipMath.PushMoods(moodState, change, cue.Intensity);`
+
+`RelationshipKeeper.Apply` writes the numbers, records the reason for the Mood card, logs `change.LogLine()`, and does nothing while **Relationship changes** is off.
 
 While the chat is in use, add time with `FamiliarityAfter`. Add `RelationshipPrompt.Line` after the mood line, and `LandingEvents.Instruction` to the cue instruction.
 
@@ -306,6 +307,8 @@ Memory is one file per persona (`memory-<persona>.json`), so her world is seeded
 6. **Session memories.** A session is the messages since the last pause. It ends on a persona switch (asked before the switch, so the old persona's model, privacy and store are used), after ten minutes without a message, or on quit. `SessionMemories` then asks the model once for one to three lines and stores each with `WorldMemory.AddShortTerm`. Sessions with fewer than four user messages are skipped. On quit the model gets four seconds; after that the app quits without the memories (a local 12B model usually needs longer, so quit memories mostly come from cloud models; the ten-minute pause covers the rest). Same model rule as the reading: with Private mode on or the intimate gate open only the local model or the private server is asked (`PisaraReader.MayUse`), and the memories are stored as private. `IntimateBoundaries` is in the prompt. Log: `Session memories: N stored after <why>` (never the text).
 7. **Start over.** The keeper implements `ICompanionStartOver`: right after the memories are deleted it seeds her world again from the cached sheet and drops a pending away line. The chat is empty again, so the first scene opens the next conversation.
 8. **The memory viewer** (old and new settings) labels seeded entries `(her life)` and away entries `(while you were away)`. They can be forgotten like any other memory.
+9. **New threads.** The session-end request also carries `WorldThreads.Instruction` (only for a persona, and only while **Her own world** and **Life while you are away** are on). A `newThread` object in the reply is stored with `WorldThreads.Add` (at most 3 open threads, with the session's private flag); its JSON is never stored as a memory line. Log: `Session memories: N stored after <why>, new thread: yes|no`.
+10. **Switches** (Overlay tab): **Her own world** off skips seeding and the first scene; **Life while you are away** off skips `ResolveThread` and new threads. Nothing stored is deleted.
 
 **Developer tool.** `Happi.exe -allowmulti -pisara-read <folder> -pisara-world` also writes `<id>.world.txt` per persona: the seeded memories, what the guard left out, her first reply, an away event with her reply to it, and the session memories of that short talk. It uses the local model and a throwaway memory file in that folder.
 
@@ -319,6 +322,53 @@ Settings → Privacy → Memories → **Start over with [name]**, with a confirm
 - everything else that implements `ICompanionStartOver`. The relationship keeper (JUH-119) implements it and resets to `RelationshipMath.Start(sheet.relationship)`.
 
 It keeps the persona, its description, the character sheet, the temperament pick, the settings, and every other persona. The log says `Start over: <persona>, <n> memories forgotten, chat history cleared.`
+
+## Control and tuning
+
+The reading is a guess, and the numbers are untuned, so the user can see and correct what Pisara does.
+
+### Correcting the relationship
+
+Settings → Persona → Temperament → **Correct the relationship**. The user picks the role, her word for it, affection and familiarity (in steps of 10), and whether they share a past. Every click applies at once:
+
+- `PisaraCorrections.SetRelationship` writes it into the sheet and sets `relationshipLocked`. The same limits as a reading apply: a stranger stays near 0 and never shares a past; each role keeps its least familiarity.
+- The current relationship is set to the corrected numbers (`RelationshipKeeper.SetByUser`), so it applies now, not only after a Start over.
+- A new reading keeps the correction, even of an edited prompt (`PisaraCorrections.CarryOver` in `PisaraReadingKeeper`). The model cannot set the lock: `CharacterSheet.Parse` clears it.
+- **Use the reading again** drops the lock and reads her description again.
+
+The relationship line says "(your correction)" while the lock is on. Temperament already has its own manual pick.
+
+### Switches
+
+Settings → Overlay, under the mood readout, has one switch per part, all on by default (`pisaraRelationship`, `pisaraAwayEvents`, `pisaraWorld` in the settings file). Off freezes that part; nothing is deleted. `PisaraSwitches` holds the current values for code that has no settings at hand.
+
+| Switch | Off means |
+| --- | --- |
+| Relationship changes | `RelationshipKeeper.Apply` and time spent together change nothing. |
+| Life while you are away | No thread resolves between sessions, and no new thread is added. |
+| Her own world | No seeding, no first scene, no new threads. |
+
+### Why it moved
+
+The Mood card on the wheel shows where she stands ("she likes you; you know each other well") and the last four reasons, such as `An insult stung: affection -4.6` (`RelationshipHistory`, `RelationshipCard`). Neutral exchanges are not listed. The reasons last for the session.
+
+### New threads
+
+Without new threads her world runs dry: the two or three seeded ones turn out and nothing else ever happens to her. At session end the model may propose one new thread (`WorldThreads.Instruction`). It is stored with `origin = life`, as a long-term open thread, while fewer than three are open. It is about her, ordinary life, and nothing sexual; a private session's thread stays private.
+
+### Scenario runner
+
+`PisaraScenario` runs a fixed persona and a scripted conversation through the real `RelationshipMath` and mood state, without a model or a scene, and `Report()` prints the trajectory. `PisaraScenarioTests` checks the JUH-115 expectations and writes each trajectory to the test log:
+
+- a stranger is not won over by ten compliments;
+- teasing lands well with a stepsister and badly with a stranger;
+- an insult hurts at least twice as much from a stranger as from a partner;
+- an apology repairs part of an insult, not all;
+- a rival insulted five times can't stand them, and affection stays in range;
+- familiarity never drops, and earned affection does not drift back;
+- a partner's compliments make her more Affectionate than a stranger's, and Intimate is never pushed.
+
+Change a number in `RelationshipMath`, run the tests, and read the log to see what moved.
 
 ## Guards
 

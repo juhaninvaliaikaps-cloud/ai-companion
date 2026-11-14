@@ -214,6 +214,7 @@ namespace AICompanion.NewUI
             var look = _settings.ScreenController;
             return s.AlwaysOnTop + "|" + Mathf.RoundToInt(s.Scale * 100f) + "|" + s.Muted + "|" + s.Paused + "|" + s.HideTaskbarButton + "|" + s.StartWithWindows
                 + "|" + s.AvatarSource + "|" + s.AvatarMode + "|" + s.PersonaId + "|" + s.PrivateMode + "|" + s.ProviderId + "|" + IntimateExpressions.Active
+                + "|" + IntimateExpressions.Undressed
                 + "|" + s.PrivateEndpointType + "|" + s.PrivateBaseUrl + "|" + s.PrivateModel
                 + "|" + _settings.PrivateApiKeySaved + "|" + _settings.PrivateEndpointTestRunning
                 + "|" + (look != null ? look.Revision : 0) + "|" + _settings.ConnectionTestRunning + "|" + s.ShowMoodDebug + "|" + s.VoiceNarration
@@ -399,6 +400,9 @@ namespace AICompanion.NewUI
 
             Section("Chat box");
             Note("Drag the chat box by its top bar to put it anywhere around her. While you drag, spots appear: 1 left of her head, 2 right of her head (the portrait moves to her left), 3 beside her on the left, 4 beside her on the right, 5 under her, so she stands on it (2D video avatar only). Let go near one to snap there. The box stays with her when she walks. By default it sits under her (2D) or beside her on the right (3D).");
+            Slider(v => "Chat box height: " + Mathf.RoundToInt(v * 100f) + "%", S.ChatBoxHeight, 0.6f, 2f, false,
+                v => Change(s => s.ChatBoxHeight = v));
+            Note("Taller shows more of the recent conversation. The newest line stays at the bottom and older lines leave the top. Drag the chat box to move it.");
             Button("Reset chat position", () =>
             {
                 var chat = GetComponent<HappiChatView>();
@@ -600,20 +604,34 @@ namespace AICompanion.NewUI
                 s.VideoAvatarOffsetY = 0f;
             }));
             Note("Size and position apply immediately. The window size is on the Overlay tab.");
-            Button("Test: walk left", () => VideoTest(a => a.TestWalk(-1f)));
-            Button("Test: walk right (mirrored)", () => VideoTest(a => a.TestWalk(1f)));
-            Button("Test: stop", () => VideoTest(a => a.TestStop()));
-            Button("Test: back to the front idle", () => VideoTest(a => a.TestFront()));
-            var reactions = VideoAvatarPresenter.TestReactions;
-            for (var i = 0; i < reactions.Count; i++)
+            var undressed = IntimateExpressions.Undressed;
+            if (!undressed)
             {
-                var name = reactions[i].Value;
-                Button(reactions[i].Key, () => VideoTest(a =>
+                Button("Test: walk left", () => VideoTest(a => a.TestWalk(-1f)));
+                Button("Test: walk right (mirrored)", () => VideoTest(a => a.TestWalk(1f)));
+                Button("Test: stop", () => VideoTest(a => a.TestStop()));
+                Button("Test: back to the front idle", () => VideoTest(a => a.TestFront()));
+                var reactions = VideoAvatarPresenter.TestReactions;
+                for (var i = 0; i < reactions.Count; i++)
                 {
-                    var status = VideoAvatarPresenter.ReactionStatus(a.RequestReaction(name), name, VideoAvatarDirector.PendingSeconds);
-                    if (status.Length > 0)
-                        _settings.SetStatusMessage(status);
-                }));
+                    var name = reactions[i].Value;
+                    Button(reactions[i].Key, () => VideoReactionTest(name));
+                }
+            }
+
+            if (IntimateExpressions.Active)
+            {
+                var adult = VideoAvatarPresenter.AdultTestReactions;
+                for (var i = 0; i < adult.Count; i++)
+                {
+                    var name = adult[i].Value;
+                    if (undressed && !IntimateExpressions.IsNakedCue(name))
+                        continue;
+                    Button(adult[i].Key, () => VideoReactionTest(name));
+                }
+
+                if (undressed)
+                    Button("Test: dress", () => VideoReactionTest("dress"));
             }
 
             Slider(v => v < 0.02f ? "Walk speed: from the walk clip" : "Walk speed " + v.ToString("0.00", CultureInfo.InvariantCulture) + " clip heights per second",
@@ -634,6 +652,19 @@ namespace AICompanion.NewUI
             }
 
             action(player);
+        }
+
+        void VideoReactionTest(string name)
+        {
+            VideoTest(a =>
+            {
+                var result = a.RequestReaction(name);
+                Debug.Log("Video test: " + name + " -> " + result);
+                var status = VideoAvatarPresenter.ReactionStatus(result, name, VideoAvatarDirector.PendingSeconds);
+                if (status.Length > 0)
+                    _settings.SetStatusMessage(status);
+                _rebuild = true;
+            });
         }
 
         void Source(string label, string source)
@@ -710,6 +741,13 @@ namespace AICompanion.NewUI
             Note("Pause matches the tray checkmark. Speech, push-to-talk, and animation cues stay off while it is on.");
             Toggle("Show mood readout (debug)", S.ShowMoodDebug, v => Change(s => s.ShowMoodDebug = v));
             Note("Her current mood and the three strongest moods, top left. Mood changes are also in Player.log.");
+            // JUH-117: one switch per Pisara leaf, for tuning. Off freezes that part; nothing is deleted.
+            Toggle("Relationship changes", S.PisaraRelationship, v => Change(s => s.PisaraRelationship = v));
+            Note("How your messages land changes how much she likes you and how well you know each other. Off freezes both.");
+            Toggle("Life while you are away", S.PisaraAwayEvents, v => Change(s => s.PisaraAwayEvents = v));
+            Note("Things she is waiting for turn out, well or badly, while you are gone. Off leaves them open.");
+            Toggle("Her own world", S.PisaraWorld, v => Change(s => s.PisaraWorld = v));
+            Note("Her backstory and recent days are added to her memories, and the first chat opens mid-scene. Off stops adding; existing memories stay.");
             Toggle("Show debug info", S.ShowDebugInfo, v => Change(s => s.ShowDebugInfo = v));
             Note("Debug text top-left: topmost, frame rate, emotion, key hints, rotate, size and zoom. Off by default. The hotkeys work either way.");
         }
@@ -867,6 +905,7 @@ namespace AICompanion.NewUI
             Note(view.RelationshipLine);
             Note(view.Status);
             Button(view.Reading ? "Re-read (reading...)" : "Re-read", () => { _settings.RereadPersona(); _rebuild = true; });
+            BuildRelationshipCorrection();
             Choice("Auto", !view.Manual, () => { _settings.SetPersonaTemperamentAuto(id); _rebuild = true; });
             for (var i = 0; i < PersonaTemperaments.Ids.Length; i++)
             {
@@ -877,6 +916,53 @@ namespace AICompanion.NewUI
 
             if (current.UserFile)
                 Button(current.BuiltIn ? "Delete saved copy" : "Delete persona", () => { _settings.DeletePersona(); _rebuild = true; }, true);
+        }
+
+        bool _correctingRelationship;
+
+        /// <summary>
+        /// JUH-117: the reading is a guess, so the user can correct who she is to them. Every
+        /// click applies at once and is locked against later readings.
+        /// </summary>
+        void BuildRelationshipCorrection()
+        {
+            var sheet = _settings.ActiveSheet();
+            if (sheet == null || sheet.relationship == null)
+                return;
+
+            if (!_correctingRelationship)
+            {
+                Button("Correct the relationship", () => { _correctingRelationship = true; _rebuild = true; });
+                if (sheet.relationshipLocked)
+                    Button("Use the reading again", () => { _settings.UseReadingForRelationship(); _rebuild = true; });
+                return;
+            }
+
+            var r = sheet.relationship;
+            Note("Who is she to you? This sets where your relationship stands now; replies move it from there.");
+            for (var i = 0; i < RelationshipRoles.All.Length; i++)
+            {
+                var role = RelationshipRoles.All[i];
+                Choice(role.Replace('_', ' '), r.role == role,
+                    () => _settings.CorrectPersonaRelationship(role, r.label, r.affection, r.familiarity, r.sharedHistory));
+            }
+
+            Field("Her word for it (stepsister, coworker...)", r.label, false,
+                v => _settings.CorrectPersonaRelationship(r.role, v, r.affection, r.familiarity, r.sharedHistory));
+            Note("Affection " + Mathf.RoundToInt(r.affection) + " (-100 to 100)");
+            Button("Affection -" + (int)PisaraCorrections.Step,
+                () => _settings.CorrectPersonaRelationship(r.role, r.label, r.affection - PisaraCorrections.Step, r.familiarity, r.sharedHistory));
+            Button("Affection +" + (int)PisaraCorrections.Step,
+                () => _settings.CorrectPersonaRelationship(r.role, r.label, r.affection + PisaraCorrections.Step, r.familiarity, r.sharedHistory));
+            Note("Familiarity " + Mathf.RoundToInt(r.familiarity) + " (0 to 100)");
+            Button("Familiarity -" + (int)PisaraCorrections.Step,
+                () => _settings.CorrectPersonaRelationship(r.role, r.label, r.affection, r.familiarity - PisaraCorrections.Step, r.sharedHistory));
+            Button("Familiarity +" + (int)PisaraCorrections.Step,
+                () => _settings.CorrectPersonaRelationship(r.role, r.label, r.affection, r.familiarity + PisaraCorrections.Step, r.sharedHistory));
+            Toggle("You share a past", r.sharedHistory,
+                v => _settings.CorrectPersonaRelationship(r.role, r.label, r.affection, r.familiarity, v));
+            Note("A stranger never shares a past. Each role has a least familiarity (family 60, partner 70), so a lower pick stops there.");
+            Button("Done", () => { _correctingRelationship = false; _rebuild = true; });
         }
 
         void Save(string id, Action<PersonaDefinition> change)
