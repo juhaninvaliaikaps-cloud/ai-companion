@@ -399,6 +399,9 @@ namespace AICompanion.NewUI
 
             Section("Chat box");
             Note("Drag the chat box by its top bar to put it anywhere around her. While you drag, spots appear: 1 left of her head, 2 right of her head (the portrait moves to her left), 3 beside her on the left, 4 beside her on the right, 5 under her, so she stands on it (2D video avatar only). Let go near one to snap there. The box stays with her when she walks. By default it sits under her (2D) or beside her on the right (3D).");
+            Slider(v => "Chat box height: " + Mathf.RoundToInt(v * 100f) + "%", S.ChatBoxHeight, 0.6f, 2f, false,
+                v => Change(s => s.ChatBoxHeight = v));
+            Note("Taller shows more of the recent conversation. The newest line stays at the bottom and older lines leave the top. Drag the chat box to move it.");
             Button("Reset chat position", () =>
             {
                 var chat = GetComponent<HappiChatView>();

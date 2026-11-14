@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using AICompanion.Core;
 using AICompanion.NewUI.VisualNovel;
@@ -73,10 +74,18 @@ namespace AICompanion.NewUI
         int _shownSerial = -1;
         int _shownCurrent = -2;
         int _shownRevealed = -1;
+        bool _shownFinished;
         string _shownLastAssistant;
+        readonly List<string> _finishedReplies = new List<string>();
+        readonly List<int> _finishedVisible = new List<int>();
+        int _finishedVisibleChars;
+        int _appendedSerial = -1;
+        int _shownLineCount = -1;
+        const int MaxFinishedReplies = 12;
         float _layoutWidth = -1f;
         float _layoutHeight = -1f;
         float _layoutScale = -1f;
+        float _layoutChatHeight = -1f;
         bool _layoutHistory;
         bool _layoutKeyRow;
         float _historyWidth = -1f;
@@ -763,14 +772,15 @@ namespace AICompanion.NewUI
             _userLine.textWrappingMode = TextWrappingModes.NoWrap;
 
             _dialogueHit = HappiUiKit.Panel(_box, "Dialogue", _theme.PanelInset, true);
+            _dialogueHit.gameObject.AddComponent<RectMask2D>();
             var dialogueButton = _dialogueHit.gameObject.AddComponent<Button>();
             dialogueButton.transition = Selectable.Transition.None;
             var nav = dialogueButton.navigation;
             nav.mode = Navigation.Mode.None;
             dialogueButton.navigation = nav;
             dialogueButton.onClick.AddListener(OnDialogueClick);
-            _dialogue = HappiUiKit.Text(_dialogueHit.transform, "Text", string.Empty, _theme.FontBody, _theme.Text, TextAlignmentOptions.TopLeft, false);
-            _dialogue.overflowMode = TextOverflowModes.Page;
+            _dialogue = HappiUiKit.Text(_dialogueHit.transform, "Text", string.Empty, _theme.FontBody, _theme.Text, TextAlignmentOptions.BottomLeft, false);
+            _dialogue.overflowMode = TextOverflowModes.Overflow;
             HappiUiKit.Stretch(_dialogue.rectTransform, 8f, 6f, 8f, 6f);
             _note = HappiUiKit.Text(_box, "Note", string.Empty, _theme.FontSmall, _theme.TextMuted, TextAlignmentOptions.TopLeft, false);
             _note.fontStyle = FontStyles.Italic;
@@ -817,18 +827,22 @@ namespace AICompanion.NewUI
             }
 
             var keyRow = _historyOpen || !_keySaved;
+            var settings = _settings != null ? _settings.CurrentSettings : null;
+            var chatHeight = settings != null ? Mathf.Clamp(settings.ChatBoxHeight, 0.6f, 2f) : 1f;
             // Her own height (the window without the room for the box): the box size must not depend
             // on that room, or making room would resize the box and change the room again.
             var bodyHeight = _window != null ? (float)_window.BodyHeight : Screen.height;
             // DPI scale, reduced only when the window is too low for the box.
             var scale = Mathf.Min(_theme.UiScale(Screen.dpi), Mathf.Max(1f, bodyHeight / 480f));
             if (Mathf.Approximately(_layoutWidth, Screen.width) && Mathf.Approximately(_layoutHeight, Screen.height)
-                && Mathf.Approximately(_layoutScale, scale) && _layoutHistory == _historyOpen && _layoutKeyRow == keyRow)
+                && Mathf.Approximately(_layoutScale, scale) && Mathf.Approximately(_layoutChatHeight, chatHeight)
+                && _layoutHistory == _historyOpen && _layoutKeyRow == keyRow)
                 return;
 
             _layoutWidth = Screen.width;
             _layoutHeight = Screen.height;
             _layoutScale = scale;
+            _layoutChatHeight = chatHeight;
             _layoutHistory = _historyOpen;
             _layoutKeyRow = keyRow;
             _shownRevision = -1;
@@ -841,8 +855,8 @@ namespace AICompanion.NewUI
             // A fixed-width box (not the whole window), so it fits beside her.
             var width = Mathf.Max(220f, Mathf.Min(_theme.ChatBoxWidth * s, Screen.width - 2f * margin));
             var inner = width - 2f * pad;
-            var minHeight = 196f * s;
-            var collapsed = Mathf.Clamp(bodyHeight * 0.40f, minHeight, 320f * s);
+            var minHeight = 196f * s * chatHeight;
+            var collapsed = Mathf.Clamp(bodyHeight * 0.40f * chatHeight, minHeight, 320f * s * chatHeight);
             var height = _historyOpen ? Mathf.Max(minHeight, bodyHeight * 0.82f) : collapsed;
             if (keyRow)
                 height += row + gap;
@@ -936,8 +950,6 @@ namespace AICompanion.NewUI
             y += userH + gap * 0.5f;
             HappiUiKit.Place(_dialogueHit.rectTransform, pad, y, inner, Mathf.Max(24f * s, bottom - y));
             _historyWidth = -1f;
-            if (_dialogue.text.Length > 0)
-                KeepCurrentLineVisible();
         }
 
         void SetFonts(float s)
@@ -1021,16 +1033,25 @@ namespace AICompanion.NewUI
             var serial = _sink.ReplySerial;
             var current = _player.Current;
             var revealed = _player.Revealed;
+            var finished = _player.Finished;
             var lastAssistant = _chat.LastAssistantText;
+            var lineCount = _chat.TranscriptLines.Count;
+            if (revision < _shownRevision || (_shownLineCount >= 0 && lineCount < _shownLineCount))
+                ClearFinishedReplies();
+            _shownLineCount = lineCount;
             if (revision == _shownRevision && serial == _shownSerial && current == _shownCurrent && revealed == _shownRevealed
-                && ReferenceEquals(lastAssistant, _shownLastAssistant) && !_sink.Streaming)
+                && finished == _shownFinished && ReferenceEquals(lastAssistant, _shownLastAssistant) && !_sink.Streaming)
                 return;
 
             _shownRevision = revision;
             _shownSerial = serial;
             _shownCurrent = current;
             _shownRevealed = revealed;
+            _shownFinished = finished;
             _shownLastAssistant = lastAssistant;
+
+            if (finished)
+                AppendFinishedReply(serial);
 
             var lines = _chat.TranscriptLines;
             string user = string.Empty;
@@ -1052,35 +1073,77 @@ namespace AICompanion.NewUI
             _userLine.text = user.Length > 0 ? "You: " + HappiUiKit.Literal(Shorten(user, 160)) : string.Empty;
             _note.text = HappiUiKit.Literal(Shorten(note, 220));
 
+            var previous = _finishedReplies.Count == 0 ? string.Empty : string.Join("\n", _finishedReplies);
             string text;
-            if (_player.Segments.Count > 0)
+            if (_player.Segments.Count > 0 && _appendedSerial != serial)
             {
                 text = VnRender.Dialogue(_player.Segments, _player.Revealed, _player.Finished ? -1 : _player.Current, _theme);
-                _glowLineStart = VnRender.LineStart(_player.Segments, _player.Current);
+                _glowLineStart = _finishedVisibleChars + (previous.Length > 0 ? 1 : 0)
+                    + VnRender.LineStart(_player.Segments, _player.Current);
+            }
+            else if (previous.Length > 0)
+            {
+                text = previous;
+                _glowLineStart = 0;
             }
             else if (_sink.Streaming)
-                text = "<i>…</i>";
+                text = "<i>...</i>";
             else if (!string.IsNullOrEmpty(lastAssistant))
                 text = HappiUiKit.Literal(Shorten(lastAssistant, ChatTranscriptView.MaxShownCharacters));
             else
                 text = "<i>" + HappiUiKit.Literal("Say hi to " + CompanionName() + ".") + "</i>";
 
+            if (previous.Length > 0 && !string.IsNullOrEmpty(text) && !string.Equals(text, previous, StringComparison.Ordinal))
+                text = previous + "\n" + text;
+
             if (_dialogue.text != text)
-            {
                 _dialogue.text = text;
-                KeepCurrentLineVisible();
-            }
         }
 
-        /// <summary>Long replies: drop the oldest revealed lines from view so the current one stays inside the box.</summary>
-        void KeepCurrentLineVisible()
+        void AppendFinishedReply(int serial)
         {
-            _dialogue.overflowMode = TextOverflowModes.Page;
-            _dialogue.pageToDisplay = 1;
-            _dialogue.ForceMeshUpdate();
-            if (_dialogue.textInfo == null)
+            if (_appendedSerial == serial || _player.Segments.Count == 0)
+            {
+                _appendedSerial = serial;
                 return;
-            _dialogue.pageToDisplay = Mathf.Max(1, _dialogue.textInfo.pageCount);
+            }
+
+            var rendered = VnRender.Dialogue(_player.Segments, _player.Segments.Count, -1, _theme);
+            if (!string.IsNullOrEmpty(rendered))
+            {
+                if (_finishedReplies.Count > 0)
+                    _finishedVisibleChars++;
+                var visible = 0;
+                for (var i = 0; i < _player.Segments.Count; i++)
+                {
+                    visible += _player.Segments[i].Text.Length;
+                    if (i > 0)
+                        visible++;
+                }
+
+                _finishedReplies.Add(rendered);
+                _finishedVisible.Add(visible);
+                _finishedVisibleChars += visible;
+                while (_finishedReplies.Count > MaxFinishedReplies)
+                {
+                    _finishedVisibleChars -= _finishedVisible[0];
+                    _finishedReplies.RemoveAt(0);
+                    _finishedVisible.RemoveAt(0);
+                    if (_finishedReplies.Count > 0)
+                        _finishedVisibleChars--;
+                }
+            }
+
+            _appendedSerial = serial;
+        }
+
+        void ClearFinishedReplies()
+        {
+            _finishedReplies.Clear();
+            _finishedVisible.Clear();
+            _finishedVisibleChars = 0;
+            _appendedSerial = -1;
+            _glowLineStart = 0;
         }
 
         void RefreshHistory()
