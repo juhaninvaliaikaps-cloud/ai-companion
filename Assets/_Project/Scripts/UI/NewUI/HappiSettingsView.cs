@@ -383,8 +383,6 @@ namespace AICompanion.NewUI
         void BuildHappi()
         {
             Section("Happi");
-            Toggle("Voice narration", S.VoiceNarration, v => Change(s => s.VoiceNarration = v));
-            Note("Off: lines between *asterisks* are shown in the chat but not spoken. Only her own words use the voice.");
             var chat = GetComponent<HappiChatView>();
             if (chat != null && chat.Player != null)
             {
@@ -717,9 +715,7 @@ namespace AICompanion.NewUI
                 _settings.SetStatusMessage("The Whisper model applies on the next recording. The .bin file is not part of the app.");
             });
             Field("Speech language", S.SttLanguage, false, v => Change(s => s.SttLanguage = v));
-            Note("Placeholder. Wake word is not in this build.");
-            Note("Local and private replies use Piper only. Cloud TTS does not receive them.");
-            Note("Placeholder. The voice agent is not in this build. Private mode blocks it.");
+            Note("Local and private replies use Piper or Kokoro. Cloud TTS does not receive them.");
         }
 
         void BuildControls()
@@ -728,7 +724,7 @@ namespace AICompanion.NewUI
             var entries = HotkeyCatalog.Current(S.PushToTalkKey);
             for (var i = 0; i < entries.Length; i++)
                 Label(entries[i].Keys + "   " + entries[i].Action);
-            Section("New UI");
+            Section("Keys");
             Label("Right-click her   Radial wheel");
             Label("Shift + right-click   Rotate mode");
             Label("Space / click (Step mode)   Next chat line");

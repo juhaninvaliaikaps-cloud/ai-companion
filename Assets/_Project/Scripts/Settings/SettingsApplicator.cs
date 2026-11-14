@@ -125,7 +125,7 @@ namespace AICompanion.Settings
             }
 
             // JUH-104: the new UI follows its setting, or -newui for this launch.
-            NewUiSwitch.Set(NewUiSwitch.Resolve(settings.NewUiPreview, Environment.GetCommandLineArgs()));
+            NewUiSwitch.Set(true);
         }
 
         static void ApplyChat(AICompanion.AI.ChatSettings chat, CompanionSettings settings, string provider)
