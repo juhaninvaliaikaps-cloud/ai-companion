@@ -1012,12 +1012,15 @@ namespace AICompanion.NewUI
             }
         }
 
-        /// <summary>Her name, refreshed every two seconds (the persona catalog is read from disk).</summary>
+        /// <summary>Her name, cached until the active persona is applied or edited.</summary>
         string CompanionName()
         {
-            if (_companionName == null || Time.unscaledTime >= _companionNameAt)
+            var current = _settings != null ? _settings.CurrentSettings : null;
+            var key = (current != null ? current.PersonaId : string.Empty)
+                + "|" + (_settings != null ? _settings.PersonaRevision : 0);
+            if (_companionName == null || !string.Equals(_companionNameKey, key, StringComparison.Ordinal))
             {
-                _companionNameAt = Time.unscaledTime + 2f;
+                _companionNameKey = key;
                 _companionName = Wheel.HappiNames.Companion(_settings);
             }
 
@@ -1025,7 +1028,7 @@ namespace AICompanion.NewUI
         }
 
         string _companionName;
-        float _companionNameAt;
+        string _companionNameKey;
 
         void RefreshDialogue()
         {
