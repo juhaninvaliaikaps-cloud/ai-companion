@@ -896,6 +896,10 @@ namespace AICompanion.NewUI
                 Slider(v => "Glow intensity: " + (v < 0.34f ? "subtle" : v < 0.67f ? "medium" : "strong"), S.SpokenGlowIntensity, 0f, 1f, false,
                     v => _settings.SaveLayoutSetting(s => s.SpokenGlowIntensity = v));
 
+            // JUH-122: floating pieces near her when how your message landed moves the relationship.
+            Toggle("Show relationship changes while chatting", S.ShowRelationshipFeedback, v => Change(s => s.ShowRelationshipFeedback = v));
+            Note("A small heart floats up beside her when a message moves how much she likes you; a critical hit pops out big and gold.");
+
             Section("Chat box");
             Note("Drag the chat box by its top bar to put it anywhere around her. While you drag, spots appear: 1 left of her head, 2 right of her head (the portrait moves to her left), 3 beside her on the left, 4 beside her on the right, 5 under her, so she stands on it (2D video avatar only). Let go near one to snap there. The box stays with her when she walks.");
             Slider(v => "Chat box height: " + Mathf.RoundToInt(v * 100f) + "%", S.ChatBoxHeight, 0.6f, 2f, false,

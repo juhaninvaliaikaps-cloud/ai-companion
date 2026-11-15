@@ -50,6 +50,9 @@ namespace AICompanion.Settings
 
         readonly RelationshipHistory _history = new RelationshipHistory();
 
+        /// <summary>The familiarity band last shown (JUH-122); -1 until the first landing of this persona.</summary>
+        int _announcedBand = -1;
+
         /// <summary>The last few changes with a plain reason, newest first through <see cref="RelationshipHistory.Line"/> (JUH-117).</summary>
         public RelationshipHistory History
         {
@@ -136,6 +139,7 @@ namespace AICompanion.Settings
             _state.Affection = affection;
             _state.Familiarity = familiarity;
             _history.Clear();
+            _announcedBand = -1;
             _dirty = true;
             Save();
             Debug.Log("Relationship: started from the reading for persona " + PersonaLogId() + " (" + _state.Readout() + ")");
@@ -180,11 +184,20 @@ namespace AICompanion.Settings
         {
             if (!_loaded || !PisaraSwitches.Relationship)
                 return false;
+            var familiarityBefore = _state.Familiarity;
             _state.Affection = change.Affection;
             _state.Familiarity = change.Familiarity;
             _history.Record(change);
             _dirty = true;
             Debug.Log(change.LogLine());
+            // JUH-122: the floating pieces. The band is compared with the last one announced, so a
+            // band reached through chat time shows with the next landing.
+            if (_announcedBand < 0)
+                _announcedBand = RelationshipCard.KnowingBand(familiarityBefore);
+            var notice = RelationshipNotice.From(change, _announcedBand);
+            if (notice.NewBand)
+                _announcedBand = notice.Band;
+            RelationshipNow.ReportChanged(notice);
             return true;
         }
 
@@ -196,6 +209,7 @@ namespace AICompanion.Settings
             _state.Affection = RelationshipMath.ClampAffection(affection);
             _state.Familiarity = RelationshipMath.ClampFamiliarity(familiarity);
             _history.Clear();
+            _announcedBand = -1;
             _awaitingStart = false;
             _familiarityClock.Clear();
             _dirty = true;
@@ -211,6 +225,7 @@ namespace AICompanion.Settings
         public void Forget()
         {
             _history.Clear();
+            _announcedBand = -1;
             _state = new RelationshipState();
             _personaId = null;
             _path = null;
@@ -250,6 +265,7 @@ namespace AICompanion.Settings
 
             _state = new RelationshipState { Affection = affection, Familiarity = familiarity, SecondsTogether = 0d };
             _history.Clear();
+            _announcedBand = -1;
             _awaitingStart = false;
             _familiarityClock.Clear();
             _dirty = true;
@@ -341,6 +357,7 @@ namespace AICompanion.Settings
 
             _personaId = persona;
             _history.Clear();
+            _announcedBand = -1;
             _path = RelationshipStore.FileFor(SettingsPanelFolder(), persona);
             _state = string.IsNullOrEmpty(_path)
                 ? new RelationshipState()
