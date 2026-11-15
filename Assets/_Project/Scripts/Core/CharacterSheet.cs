@@ -160,6 +160,7 @@ namespace AICompanion.Core
         public const int MaxLineLength = 200;
         public const int MaxPhraseLength = 80;
         public const int MaxLabelLength = 40;
+        public const int MaxReadByLength = 80;
 
         public int version = CurrentVersion;
 
@@ -171,6 +172,15 @@ namespace AICompanion.Core
 
         /// <summary>Set by code: when the sheet was made, ISO 8601 UTC.</summary>
         public string createdAtUtc = string.Empty;
+
+        /// <summary>
+        /// Set by code (JUH-126): true when this reading went to a cloud model, whether the
+        /// Pisara cloud service or the chat cloud model. Old sheets default to false.
+        /// </summary>
+        public bool readInCloud;
+
+        /// <summary>Set by code (JUH-126): the model that read the sheet, such as "claude-opus-5-5 (cloud)".</summary>
+        public string readBy = string.Empty;
 
         /// <summary>
         /// Set by code: the user corrected <see cref="relationship"/> by hand
@@ -242,6 +252,8 @@ namespace AICompanion.Core
             sheet.source = SourceModel;
             sheet.createdAtUtc = string.Empty;
             sheet.relationshipLocked = false;
+            sheet.readInCloud = false;
+            sheet.readBy = string.Empty;
             sheet.Normalize();
             return sheet;
         }
@@ -277,6 +289,7 @@ namespace AICompanion.Core
             version = CurrentVersion;
             promptHash = promptHash ?? string.Empty;
             createdAtUtc = createdAtUtc ?? string.Empty;
+            readBy = Line(readBy, MaxReadByLength);
             if (source != SourceModel && source != SourceKeywords)
                 source = SourceDefault;
 

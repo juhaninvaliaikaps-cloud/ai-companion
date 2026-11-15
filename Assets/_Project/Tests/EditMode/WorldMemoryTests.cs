@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using AICompanion.AI;
 using AICompanion.Core;
 using AICompanion.Memory;
+using AICompanion.Settings;
 using NUnit.Framework;
 
 namespace AICompanion.Tests.EditMode
@@ -101,6 +103,41 @@ namespace AICompanion.Tests.EditMode
         }
 
         // ---- seeding -------------------------------------------------------------------------
+
+        [Test]
+        public void SeedKeepsLocal_FollowsTheSheetNotTheLastRead()
+        {
+            var local = Sheet();
+            local.readInCloud = false;
+            var cloud = Sheet("prompt two");
+            cloud.readInCloud = true;
+
+            Assert.IsTrue(WorldMemory.SeedKeepsLocal(local), "a locally read sheet stays private");
+            Assert.IsFalse(WorldMemory.SeedKeepsLocal(cloud), "a cloud-read sheet is not private");
+            Assert.IsTrue(WorldMemory.SeedKeepsLocal(null));
+        }
+
+        [Test]
+        public void GrokChatOutsidePrivate_SeedsSharedWorld()
+        {
+            var settings = CompanionSettings.CreateDefault();
+            settings.PisaraCloud = false;
+            settings.ProviderId = ChatDefaults.GrokId;
+            var choice = PisaraModelChoice.For(settings, false, false, true, true);
+            Assert.IsFalse(choice.UseCloud);
+
+            var keepsLocal = IntimateExpressions.KeepsLocal(false);
+            Assert.IsFalse(keepsLocal);
+            var readInCloud = PisaraModelChoice.ReadInCloud(choice, keepsLocal);
+            Assert.IsTrue(readInCloud, "a chat path outside private mode went to a cloud model");
+
+            var sheet = Sheet();
+            sheet.readInCloud = readInCloud;
+            var store = MemoryStore.Load(_path);
+            Assert.Greater(WorldMemory.Seed(store, sheet, Met, WorldMemory.SeedKeepsLocal(sheet)), 0);
+            foreach (var entry in store.Entries)
+                Assert.IsFalse(entry.isPrivate, "the Grok chat world must be shared");
+        }
 
         [Test]
         public void Seed_WritesBackstoryTheLastWeekAndThreads_Once()

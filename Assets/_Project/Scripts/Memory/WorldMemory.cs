@@ -64,6 +64,15 @@ namespace AICompanion.Memory
         }
 
         /// <summary>
+        /// JUH-126: the privacy of the seeded world follows the sheet, not the current gate or
+        /// another persona's read. Only a sheet read by the cloud is seeded as not private.
+        /// </summary>
+        public static bool SeedKeepsLocal(CharacterSheet sheet)
+        {
+            return sheet == null || !sheet.readInCloud;
+        }
+
+        /// <summary>
         /// Writes her life before the user into memory: backstory as long-term facts, the last
         /// week as short-term memories dated before <paramref name="metAtUtc"/>, and open
         /// threads. An earlier seeding from another sheet is replaced; lived and away memories

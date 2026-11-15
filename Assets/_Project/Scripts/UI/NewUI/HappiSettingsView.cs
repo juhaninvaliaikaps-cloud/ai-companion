@@ -228,6 +228,8 @@ namespace AICompanion.NewUI
                 + "|" + IntimateExpressions.Undressed
                 + "|" + s.PrivateEndpointType + "|" + s.PrivateBaseUrl + "|" + s.PrivateModel
                 + "|" + _settings.PrivateApiKeySaved + "|" + _settings.PrivateEndpointTestRunning
+                + "|" + s.PisaraCloud + "|" + s.PisaraCloudBaseUrl + "|" + s.PisaraCloudModel
+                + "|" + _settings.PisaraApiKeySaved + "|" + _settings.PisaraApiKeyFromEnvironment
                 + "|" + (look != null ? look.Revision : 0) + "|" + _settings.ConnectionTestRunning + "|" + s.ShowMoodDebug + "|" + s.VoiceNarration
                 + "|" + _settings.PisaraRevision;
         }
@@ -491,7 +493,7 @@ namespace AICompanion.NewUI
             var memories = _settings.Memories;
             Section("Memories");
             Note(memories.Summary);
-            Note("Stored on this PC under ProjectLeia. Memories made in private mode are never sent to a cloud model.");
+            Note("Stored on this PC under ProjectLeia. Memories made by the local model in private mode are never sent to a cloud model; a cloud Pisara reading's seeded memories are not private.");
             // JUH-117: a fresh start with this persona; her persona and her own life stay.
             Button(StartOverText.Button(_settings.StartOverName), () => { _confirm.Request(PrivacyConfirmKind.StartOver); _rebuild = true; }, true);
             Note("Clears this persona's chat, what she remembers about you, her mood and your relationship. Her persona and her own life stay.");
@@ -559,8 +561,26 @@ namespace AICompanion.NewUI
         {
             Section("Private mode");
             Toggle("Private mode", S.PrivateMode, v => { Change(s => s.PrivateMode = v); _rebuild = true; });
-            Note("On: chat goes only to the local Ollama model or your own server, and cloud voice and the voice agent get nothing. Off by default.");
+            Note("On: chat, voice, the voice agent, session memories, memory capture, innocence and 18+ secrets stay local. The Pisara cloud reading can still use its own service when that is on. Off by default.");
             Label("Active now: " + P.ActiveModelText);
+
+            // JUH-126: the reading can use its own cloud service; chat is unchanged.
+            Section("Pisara model");
+            Toggle("Use a cloud model for Pisara readings", S.PisaraCloud, v =>
+            {
+                Change(s => s.PisaraCloud = v);
+                _rebuild = true;
+            });
+            Note("For reading her description into a character sheet only. Chat, session memories and memory capture keep their own model.");
+            if (S.PisaraCloud)
+            {
+                Field("Pisara base URL", S.PisaraCloudBaseUrl, false, v => Change(s => s.PisaraCloudBaseUrl = v));
+                Field("Pisara model", S.PisaraCloudModel, false, v => Change(s => s.PisaraCloudModel = v));
+                Note("Empty uses the Grok chat base URL and model. The Pisara key is on the Keys tab.");
+                Note("Her description goes to this cloud service for the reading. That includes the normal world and seeded memories. The request is built with 18+ off; innocence, 18+ secrets and everything else 18+ stay on the local model.");
+                if (S.PrivateMode)
+                    Note("Private mode does not move this reading: it still uses the Pisara cloud service when it is on. Chat, voice, session memories and the 18+ parts stay local.");
+            }
 
             if (!S.PrivateMode)
             {
@@ -1006,6 +1026,22 @@ namespace AICompanion.NewUI
 
         void BuildKeys()
         {
+            Section("Pisara API key");
+            Note(ApiKeyMask.Label(_settings.PisaraApiKeySaved) + ".");
+            var pisaraKey = Field("Paste a new Pisara API key", string.Empty, true, null);
+            Button("Save Pisara key", () =>
+            {
+                _settings.SavePisaraApiKey(pisaraKey != null ? pisaraKey.text : string.Empty);
+                if (pisaraKey != null)
+                    pisaraKey.text = string.Empty;
+                _rebuild = true;
+            });
+            Button("Remove Pisara key", () => { _settings.RemovePisaraApiKey(); _rebuild = true; });
+            if (_settings.PisaraApiKeyFromEnvironment)
+                Note("PISARA_API_KEY is set and overrides the saved Pisara key.");
+            Note("If no Pisara key is set, the Grok key is used for Pisara readings.");
+            Note("Set the Pisara base URL too when this key is for another service.");
+
             Note(HotkeyCatalog.RebindNote);
             var entries = HotkeyCatalog.Current(S.PushToTalkKey);
             for (var i = 0; i < entries.Length; i++)

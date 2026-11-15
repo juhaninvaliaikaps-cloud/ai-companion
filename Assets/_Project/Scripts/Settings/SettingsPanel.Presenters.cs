@@ -12,6 +12,7 @@ namespace AICompanion.Settings
     public sealed partial class SettingsPanel : ISettingsHost, IPersonaHost
     {
         SettingsPresenter _settingsPresenter;
+        bool? _pisaraKeySaved;
         PersonaPresenter _personaPresenter;
         ScreenLookPresenter _screenPresenter;
         MemoryPresenter _memoryPresenter;
@@ -185,6 +186,65 @@ namespace AICompanion.Settings
         public bool ApiKeySaved => FileHasKey();
 
         public bool ApiKeyFromEnvironment => EnvOverrides();
+
+        /// <summary>True when a Pisara-specific key is saved in its own encrypted file.</summary>
+        public bool PisaraApiKeySaved
+        {
+            get
+            {
+                if (!_pisaraKeySaved.HasValue)
+                {
+                    string key;
+                    _pisaraKeySaved = AICompanion.AI.PisaraApiKeyStore.TryLoad(out key) && !string.IsNullOrWhiteSpace(key);
+                }
+
+                return _pisaraKeySaved.Value;
+            }
+        }
+
+        public bool PisaraApiKeyFromEnvironment
+        {
+            get
+            {
+                string key;
+                return AICompanion.AI.PisaraApiKeyStore.TryEnvironment(out key);
+            }
+        }
+
+        public void SavePisaraApiKey(string key)
+        {
+            var trimmed = (key ?? string.Empty).Trim();
+            if (trimmed.Length == 0)
+            {
+                SetStatus("Enter a Pisara API key to save. A saved key stays masked.");
+                return;
+            }
+
+            try
+            {
+                AICompanion.AI.PisaraApiKeyStore.Save(trimmed);
+                _pisaraKeySaved = true;
+                SetStatus("Pisara API key saved in the encrypted local store.");
+            }
+            catch (System.Exception)
+            {
+                SetStatus("Could not save the Pisara API key.");
+            }
+        }
+
+        public void RemovePisaraApiKey()
+        {
+            try
+            {
+                AICompanion.AI.PisaraApiKeyStore.Delete();
+                _pisaraKeySaved = false;
+                SetStatus("Pisara API key removed.");
+            }
+            catch (System.Exception)
+            {
+                SetStatus("The Pisara API key could not be removed.");
+            }
+        }
 
         public bool ConnectionTestRunning => _probeBusy;
 

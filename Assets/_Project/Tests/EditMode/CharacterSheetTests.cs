@@ -78,11 +78,13 @@ namespace AICompanion.Tests.EditMode
         [Test]
         public void Parse_FillsMissingParts_AndTheModelCannotSetTheHashOrSource()
         {
-            var sheet = CharacterSheet.Parse("{ \"promptHash\": \"abc\", \"source\": \"keywords\", \"createdAtUtc\": \"x\", \"version\": 7, \"temperament\": { \"shy\": 0.8 } }");
+            var sheet = CharacterSheet.Parse("{ \"promptHash\": \"abc\", \"source\": \"keywords\", \"createdAtUtc\": \"x\", \"version\": 7, \"readInCloud\": true, \"readBy\": \"the model\", \"temperament\": { \"shy\": 0.8 } }");
             Assert.IsNotNull(sheet);
             Assert.AreEqual(string.Empty, sheet.promptHash);
             Assert.AreEqual(CharacterSheet.SourceModel, sheet.source);
             Assert.AreEqual(string.Empty, sheet.createdAtUtc);
+            Assert.IsFalse(sheet.readInCloud, "the model cannot claim the sheet came from the cloud");
+            Assert.AreEqual(string.Empty, sheet.readBy);
             Assert.AreEqual(CharacterSheet.CurrentVersion, sheet.version);
             Assert.AreEqual(0.8f, sheet.temperament.shy, 0.0001f);
             Assert.AreEqual(RelationshipRoles.Stranger, sheet.relationship.role);
@@ -202,12 +204,16 @@ namespace AICompanion.Tests.EditMode
             var sheet = CharacterSheet.Parse(Reply);
             sheet.promptHash = CharacterSheet.HashPrompt("prompt");
             sheet.createdAtUtc = "2026-11-13T20:00:00Z";
+            sheet.readInCloud = true;
+            sheet.readBy = "claude-opus-5-5 (cloud)";
 
             var back = CharacterSheet.FromJson(sheet.ToJson());
             Assert.IsNotNull(back);
             Assert.AreEqual(sheet.promptHash, back.promptHash);
             Assert.AreEqual(CharacterSheet.SourceModel, back.source);
             Assert.AreEqual("2026-11-13T20:00:00Z", back.createdAtUtc);
+            Assert.IsTrue(back.readInCloud);
+            Assert.AreEqual("claude-opus-5-5 (cloud)", back.readBy);
             Assert.AreEqual(sheet.relationship.label, back.relationship.label);
             Assert.AreEqual(sheet.world.backstory.Count, back.world.backstory.Count);
             Assert.AreEqual(sheet.world.openThreads[0].goodOutcome, back.world.openThreads[0].goodOutcome);
@@ -235,6 +241,8 @@ namespace AICompanion.Tests.EditMode
                 Assert.IsNull(CharacterSheetStore.Load(path));
                 var sheet = CharacterSheet.Parse(Reply);
                 sheet.promptHash = CharacterSheet.HashPrompt("the prompt");
+                sheet.readInCloud = true;
+                sheet.readBy = "grok-4.7 (cloud)";
                 Assert.IsTrue(CharacterSheetStore.Save(path, sheet));
                 Assert.IsFalse(CharacterSheetStore.Save(null, sheet));
                 Assert.IsFalse(CharacterSheetStore.Save(path, null));
@@ -245,6 +253,8 @@ namespace AICompanion.Tests.EditMode
                 var loaded = CharacterSheetStore.LoadFor(path, "the prompt");
                 Assert.IsNotNull(loaded);
                 Assert.AreEqual("stepsister", loaded.relationship.label);
+                Assert.IsTrue(loaded.readInCloud);
+                Assert.AreEqual("grok-4.7 (cloud)", loaded.readBy);
                 Assert.IsNull(CharacterSheetStore.LoadFor(path, "an edited prompt"));
                 Assert.IsNull(CharacterSheetStore.Load(CharacterSheetStore.FileFor(folder, "kiki")));
             }

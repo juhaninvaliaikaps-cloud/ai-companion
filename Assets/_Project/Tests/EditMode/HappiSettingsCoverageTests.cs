@@ -72,6 +72,29 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void PisaraCloud_DefaultsOff_HasItsOwnFields_AndRoundTrips()
+        {
+            var fresh = CompanionSettings.CreateDefault();
+            Assert.IsFalse(fresh.PisaraCloud);
+            Assert.AreEqual(string.Empty, fresh.PisaraCloudBaseUrl);
+            Assert.AreEqual(string.Empty, fresh.PisaraCloudModel);
+
+            fresh.PisaraCloud = true;
+            fresh.PisaraCloudBaseUrl = "https://api.anthropic.com/v1/";
+            fresh.PisaraCloudModel = "claude-opus-5-5";
+            var parsed = CompanionSettingsJson.Parse(CompanionSettingsJson.Write(fresh), SettingsLegacyPrefs.None);
+            Assert.IsTrue(parsed.PisaraCloud);
+            Assert.AreEqual("https://api.anthropic.com/v1/", parsed.PisaraCloudBaseUrl);
+            Assert.AreEqual("claude-opus-5-5", parsed.PisaraCloudModel);
+
+            var source = ViewSource();
+            StringAssert.Contains("Pisara model", source);
+            StringAssert.Contains("Use a cloud model for Pisara readings", source);
+            StringAssert.Contains("Pisara base URL", source);
+            StringAssert.Contains("Pisara API key", source);
+        }
+
+        [Test]
         public void AdultToggleKeepsTheSameWordingAndCondition()
         {
             var source = ViewSource();

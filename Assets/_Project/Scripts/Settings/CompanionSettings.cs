@@ -161,6 +161,18 @@ namespace AICompanion.Settings
         public bool PisaraAwayEvents = true;
         public bool PisaraWorld = true;
 
+        /// <summary>
+        /// JUH-126: read her character sheet with a separate cloud model. Off by default; the
+        /// chat provider and model are still used when this is off. Private mode keeps readings local.
+        /// </summary>
+        public bool PisaraCloud;
+
+        /// <summary>Empty uses <see cref="BaseUrl"/>. Only used while <see cref="PisaraCloud"/> is on.</summary>
+        public string PisaraCloudBaseUrl = string.Empty;
+
+        /// <summary>Empty uses <see cref="Model"/>. Only used while <see cref="PisaraCloud"/> is on.</summary>
+        public string PisaraCloudModel = string.Empty;
+
         /// <summary>JUH-122: floating pieces near her when the relationship moves. On by default.</summary>
         public bool ShowRelationshipFeedback = true;
 
@@ -226,6 +238,8 @@ namespace AICompanion.Settings
             PrivateEndpointType = PrivateEndpointTypes.Normalize(PrivateEndpointType);
             PrivateBaseUrl = CleanUrl(PrivateBaseUrl, string.Empty);
             PrivateModel = CleanToken(PrivateModel, string.Empty, MaxModelLength);
+            PisaraCloudBaseUrl = CleanUrl(PisaraCloudBaseUrl, string.Empty);
+            PisaraCloudModel = CleanToken(PisaraCloudModel, string.Empty, MaxModelLength);
             if (float.IsNaN(TimeoutSeconds) || float.IsInfinity(TimeoutSeconds) || TimeoutSeconds < 1f || TimeoutSeconds > 300f)
                 TimeoutSeconds = ChatDefaults.TimeoutSeconds;
             AvatarSource = AvatarSourceNames.Normalize(AvatarSource);
@@ -663,6 +677,12 @@ namespace AICompanion.Settings
                 settings.PisaraAwayEvents = flag;
             if (TryBool(json, "pisaraWorld", out flag))
                 settings.PisaraWorld = flag;
+            if (TryBool(json, "pisaraCloud", out flag))
+                settings.PisaraCloud = flag;
+            if (TryString(json, "pisaraCloudBaseUrl", out text))
+                settings.PisaraCloudBaseUrl = text;
+            if (TryString(json, "pisaraCloudModel", out text))
+                settings.PisaraCloudModel = text;
             if (TryBool(json, "showRelationshipFeedback", out flag))
                 settings.ShowRelationshipFeedback = flag;
             if (TryBool(json, "voiceNarration", out flag))
@@ -768,6 +788,9 @@ namespace AICompanion.Settings
             Bool(sb, "pisaraRelationship", source.PisaraRelationship);
             Bool(sb, "pisaraAwayEvents", source.PisaraAwayEvents);
             Bool(sb, "pisaraWorld", source.PisaraWorld);
+            Bool(sb, "pisaraCloud", source.PisaraCloud);
+            String(sb, "pisaraCloudBaseUrl", source.PisaraCloudBaseUrl);
+            String(sb, "pisaraCloudModel", source.PisaraCloudModel);
             Bool(sb, "showRelationshipFeedback", source.ShowRelationshipFeedback);
             Bool(sb, "voiceNarration", source.VoiceNarration);
             Bool(sb, "showDeveloperSettings", source.ShowDeveloperSettings);
