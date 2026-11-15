@@ -161,7 +161,6 @@ namespace AICompanion.Settings
         public bool PisaraAwayEvents = true;
         public bool PisaraWorld = true;
 
-        /// <summary>JUH-104: the new Happi UI (radial wheel, new chat and settings). Off by default; -newui turns it on for one launch.</summary>
         /// <summary>JUH-108: speak narration lines too in the new chat. Off by default, so narration is shown but not voiced.</summary>
         public bool VoiceNarration;
 

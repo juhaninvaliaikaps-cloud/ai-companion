@@ -435,7 +435,7 @@ namespace AICompanion.NewUI
             Note(view.Status);
             Button(view.Reading ? "Re-read (reading...)" : "Re-read", () => { _settings.RereadPersona(); _rebuild = true; });
             if (view.Reading)
-                BuildReadingProgress();
+                BuildReadingProgress(view.ReadingStartedAt);
             BuildRelationshipCorrection();
             BuildInnocence();
             Note("Temperament: how quickly her moods build and fade. Auto takes it from her description.");
@@ -1063,9 +1063,9 @@ namespace AICompanion.NewUI
         }
 
         /// <summary>A light-blue indeterminate bar while the model writes her character sheet.</summary>
-        void BuildReadingProgress()
+        void BuildReadingProgress(float startedAt)
         {
-            _readingStartedAt = Time.unscaledTime;
+            _readingStartedAt = startedAt > 0f ? startedAt : Time.unscaledTime;
             _shownReadingSeconds = -1;
             _readingLabel = HappiUiKit.Text(_body, "ReadingLabel",
                 "Reading her description with the model...", _theme.FontSmall * _s, _theme.Text,

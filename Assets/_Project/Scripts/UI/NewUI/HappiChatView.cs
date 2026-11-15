@@ -78,6 +78,7 @@ namespace AICompanion.NewUI
         string _shownLastAssistant;
         readonly List<string> _finishedReplies = new List<string>();
         readonly List<int> _finishedVisible = new List<int>();
+        string _finishedJoined = string.Empty;
         int _finishedVisibleChars;
         int _appendedSerial = -1;
         int _shownLineCount = -1;
@@ -1076,7 +1077,7 @@ namespace AICompanion.NewUI
             _userLine.text = user.Length > 0 ? "You: " + HappiUiKit.Literal(Shorten(user, 160)) : string.Empty;
             _note.text = HappiUiKit.Literal(Shorten(note, 220));
 
-            var previous = _finishedReplies.Count == 0 ? string.Empty : string.Join("\n", _finishedReplies);
+            var previous = _finishedJoined;
             string text;
             if (_player.Segments.Count > 0 && _appendedSerial != serial)
             {
@@ -1135,6 +1136,8 @@ namespace AICompanion.NewUI
                     if (_finishedReplies.Count > 0)
                         _finishedVisibleChars--;
                 }
+
+                _finishedJoined = string.Join("\n", _finishedReplies);
             }
 
             _appendedSerial = serial;
@@ -1144,6 +1147,7 @@ namespace AICompanion.NewUI
         {
             _finishedReplies.Clear();
             _finishedVisible.Clear();
+            _finishedJoined = string.Empty;
             _finishedVisibleChars = 0;
             _appendedSerial = -1;
             _glowLineStart = 0;
