@@ -6,7 +6,7 @@ namespace AICompanion.Core
     /// <summary>
     /// One prompt line with where she stands with the user (JUH-117), so her wording matches
     /// the numbers. It goes after the mood line. Negative affection is described as bickering
-    /// and love-hate; the consent rule in <see cref="IntimateBoundaries"/> still applies and
+    /// and love-hate; the closed-gate rule in <see cref="IntimateBoundaries"/> still applies and
     /// this line never mentions Intimate.
     /// </summary>
     public static class RelationshipPrompt

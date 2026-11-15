@@ -77,13 +77,13 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void Request_CarriesTheSheetPromptTheConsentRuleAndThePersonaAsData()
+        public void Request_CarriesTheSheetPromptAndTheClosedGateRule()
         {
             var provider = new FakeProvider();
             Read(provider, false);
             StringAssert.StartsWith(CharacterSheetPrompt.System, provider.Last.SystemPrompt);
-            StringAssert.Contains(IntimateBoundaries.ConsentRule, provider.Last.SystemPrompt, "IntimateBoundaries stays in every prompt");
             StringAssert.Contains(IntimateBoundaries.GateClosedRule, provider.Last.SystemPrompt);
+            StringAssert.DoesNotContain("mutual and willing", provider.Last.SystemPrompt);
             Assert.AreEqual(1, provider.Last.Messages.Count);
             Assert.AreEqual(ChatRole.User, provider.Last.Messages[0].Role);
             StringAssert.Contains(Prompt, provider.Last.Messages[0].Content);

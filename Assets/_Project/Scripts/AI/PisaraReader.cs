@@ -63,8 +63,8 @@ namespace AICompanion.AI
         }
 
         /// <summary>
-        /// The request. The consent rule (<see cref="IntimateBoundaries"/>) is part of the system
-        /// prompt, like in every other prompt.
+        /// The request. The closed-gate rule (<see cref="IntimateBoundaries"/>) is part of the
+        /// system prompt, like in every other prompt. An open gate adds no consent rule.
         /// </summary>
         public static ChatRequest BuildRequest(string personaName, string personaPrompt, bool keepsLocal, bool intimateActive, string systemOverride = null)
         {
