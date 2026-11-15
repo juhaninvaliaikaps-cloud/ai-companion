@@ -41,7 +41,7 @@ namespace AICompanion.Voice
             // An open intimate gate counts as private even if the origin's flag is stale.
             var privateMode = IntimateExpressions.KeepsLocal(origin.Private);
             var chatId = origin.ChatProviderId;
-            var local = !VoiceRoute.UsesCloudTts(privateMode, chatId);
+            var local = !VoiceRoute.UsesCloudTts(privateMode, chatId, origin.BaseUrl);
             var model = string.IsNullOrWhiteSpace(origin.Model)
                 ? (local ? ChatDefaults.LocalModel : ChatDefaults.Model)
                 : origin.Model.Trim();

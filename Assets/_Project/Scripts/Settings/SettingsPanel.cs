@@ -750,7 +750,7 @@ namespace AICompanion.Settings
 
             if (!privateMode)
             {
-                var localActive = !VoiceRoute.UsesCloudTts(privateMode, _settings.ProviderId);
+                var localActive = !VoiceRoute.UsesCloudTts(privateMode, _settings.ProviderId, _settings.BaseUrl);
                 AddButton(ProviderButton("Grok", grok, localActive), () =>
                 {
                     _settings.ProviderId = ChatDefaults.GrokId;
@@ -861,7 +861,7 @@ namespace AICompanion.Settings
         void BuildVoice()
         {
             AddLabel("Active now: " + ActiveModelText());
-            var cloudVoice = VoiceRoute.UsesCloudTts(_settings.PrivateMode, _settings.ProviderId);
+            var cloudVoice = VoiceRoute.UsesCloudTts(_settings.PrivateMode, _settings.ProviderId, _settings.BaseUrl);
             Note(cloudVoice
                 ? "Voice follows chat. Grok replies use the cloud voice."
                 : "Voice follows chat. Local and private replies use Piper and are not sent to cloud TTS.");
@@ -1186,7 +1186,9 @@ namespace AICompanion.Settings
 
         IEnumerator Probe(int serial)
         {
-            var plan = ConnectionProbe.Plan(_settings.PrivateMode, _settings.ProviderId, ChatDefaults.BaseUrl, _settings.LocalBaseUrl);
+            var plan = ConnectionProbe.Plan(_settings.PrivateMode, _settings.ProviderId,
+                string.IsNullOrWhiteSpace(_settings.BaseUrl) ? ChatDefaults.BaseUrl : _settings.BaseUrl,
+                _settings.LocalBaseUrl);
             SetStatus(plan.Summary);
             if (!plan.Allowed)
             {
