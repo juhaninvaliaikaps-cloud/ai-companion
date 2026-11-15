@@ -354,3 +354,10 @@ walks. New keys: `portraitDock` (0 automatic, the default and as before; 1 left 
 right of the box; 3 free), `portraitOffsetX`, `portraitOffsetY`. Settings → Happi → "Reset
 portrait position" goes back to automatic. While the chat box is hidden, the portrait goes back to
 the automatic place beside her head (docking needs the box). With the new UI off nothing changes.
+
+## Chat box resize and wheel (JUH-127, Jussi 2026-11-15)
+
+**G1. Resized like a window.** Any edge or corner of the chat box can be dragged (8 invisible handles, `ChatResizeHandle`, 6 px edges and 14 px corners at 100%). The Windows resize cursor shows over them (`ResizeCursor`, player only). The size is saved in pixels at 100% scaling (`chatBoxWidthPx`, `chatBoxHeightPx`; 0 is the automatic size) and is the same for all personas. Limits: 260 × 190 px at 100% (every row fits, more with the API key row), at most the visible area. The edges not dragged stay put (`ChatBoxResize.Apply`); on release the snap spot or free offset is picked again like after a header drag. While resizing, the room the overlay window keeps beside and under her stays as it was, and follows the new size after release. With a chosen size, opening History shares the box instead of making it taller. Settings → Chat: the Chat box height slider is replaced by **Reset chat box size** (an old height factor still sets the automatic height).
+
+**G2. The wheel scrolls the chat, like a normal chat** (Jussi: "Just like normal chatbox works"). Wheel up anywhere over the box opens the history at the newest message and scrolls back; wheel down scrolls forward, and past the newest message it closes the history again when the wheel opened it (`ChatWheel.Decide`). History opened with the button stays open until the button closes it. The wheel over her body still zooms; over the box it does not.
+

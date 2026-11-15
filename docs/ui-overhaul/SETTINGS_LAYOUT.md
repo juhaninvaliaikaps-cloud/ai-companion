@@ -8,7 +8,7 @@ The settings window is sorted by what you want to do. Jussi approved the layout 
 | **AI** | **Private mode** first, because it decides the rest. Then **Pisara model** (off by default): use a cloud model for character-sheet readings, its base URL and model. Then Grok or Local Ollama, or with Private mode on, Local Ollama or Custom server. Model, address, keys, connection tests. **Model for this persona.** |
 | **Voice** | Speak replies, Voice narration, volume, Muted (F6). **Voice engine:** cloud voice, Piper or Kokoro and their files, TTS language. **Voice for this persona.** **Speech input:** push-to-talk and its key, Whisper model, speech language. |
 | **Look** | 3D model or 2D video. The 2D video folder, size, position, walk speed, clip sounds. **3D avatar:** source, expression portrait, reset rotation, look at cursor. **3D avatar for this persona.** |
-| **Chat** | Step through replies, spoken text glow. **Chat box:** height, reset position. **Portrait:** reset position. **Chat history:** save, clear. |
+| **Chat** | Step through replies, spoken text glow. **Chat box:** reset size (JUH-127: the box is resized by dragging its edges and corners; the old height slider is gone), reset position. **Portrait:** reset position. **Chat history:** save, clear. |
 | **Screen** | Screen-look consents and the window or display picker (unchanged). |
 | **Window** | Always on top (F8), size, click-through, idle frame rate, taskbar button, start with Windows. |
 | **Data** | Export (folder or zip), Run setup again, Wipe all local data, Show developer settings. |

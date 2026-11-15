@@ -8,6 +8,7 @@ using AICompanion.UI;
 using AICompanion.UI.Presenters;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Director = AICompanion.AnimationDirector.AnimationDirector;
 
@@ -114,6 +115,25 @@ namespace AICompanion.NewUI
         Vector2 _portraitDragOffset;
         int _placedSnap = ChatSnapSpots.Default;
         float _roomBoxHeight;
+
+        // JUH-127: resizing by the edges and corners, and the mouse wheel over the box.
+        readonly ChatResizeHandle[] _resizeHandles = new ChatResizeHandle[8];
+        ResizeEdges _resizePending;
+        ResizeEdges _resizeEdges;
+        bool _resizing;
+        Rect _resizeStart;
+        Vector2 _resizePointerStart;
+        Vector2 _resizeSize;
+        float _roomBoxWidth;
+        float _layoutBoxWidth = -1f;
+        float _layoutBoxHeight = -1f;
+        bool _historyByWheel;
+        bool _historyWasAtBottom = true;
+        float _pendingWheel;
+        PointerEventData _wheelEvent;
+        HappiButton[] _controlRow;
+        HappiButton[] _fontButtons;
+        static readonly float[] ControlWeights = { 0.9f, 1f, 0.8f, 1.1f, 1.9f };
 
         // Spoken-text glow (JUH-108 follow-up).
         readonly SpokenGlowTracker _glow = new SpokenGlowTracker();
@@ -246,6 +266,8 @@ namespace AICompanion.NewUI
             {
                 _wasVisible = false;
                 _dragging = false;
+                _resizing = false;
+                _resizePending = ResizeEdges.None;
                 ClearPortraitHooks();
                 ReleaseFocus();
                 if (_micHeld)
@@ -272,6 +294,9 @@ namespace AICompanion.NewUI
             ApplyGlow(settings);
             if (_historyOpen)
                 RefreshHistory();
+            ApplyPendingWheel();
+            ShowResizeCursor();
+            _historyWasAtBottom = !_historyOpen || HistoryAtBottom();
             SyncFocus();
         }
 
@@ -320,7 +345,56 @@ namespace AICompanion.NewUI
             var gap = _theme.ChatSideGap * scale;
             var under = UnderAllowed();
             var pointer = Pointer();
-            if (_dragPending)
+            if (_resizePending != ResizeEdges.None)
+            {
+                // JUH-127: an edge or corner was pressed: resize from where the box is now.
+                _resizeEdges = _resizePending;
+                _resizePending = ResizeEdges.None;
+                _resizing = true;
+                _dragging = false;
+                _dragPending = false;
+                _resizeStart = new Rect(_boxCenter - _boxSize * 0.5f, _boxSize);
+                _resizePointerStart = pointer;
+                _resizeSize = _boxSize;
+            }
+
+            if (_resizing)
+            {
+                if (!LeftHeld())
+                {
+                    // Let go: save the size (100% units) and where it is, the same way a header drag does.
+                    _resizing = false;
+                    var near = ChatSnapSpots.Nearest(_boxCenter, body, _boxSize, gap, _theme.ChatSnapRadius * scale, under, _visibleArea, _boxMargin);
+                    var placed = ChatSnapSpots.OffsetFor(_boxCenter, body, scale);
+                    var widthUnits = ChatBoxResize.ToUnits(_resizeSize.x, scale);
+                    var heightUnits = ChatBoxResize.ToUnits(_resizeSize.y, scale);
+                    if (_settings != null)
+                        _settings.SaveLayoutSetting(s =>
+                        {
+                            s.ChatBoxSnap = near;
+                            s.ChatBoxOffsetX = placed.x;
+                            s.ChatBoxOffsetY = placed.y;
+                            s.ChatBoxWidthPx = widthUnits;
+                            s.ChatBoxHeightPx = heightUnits;
+                        });
+                    _layoutWidth = -1f;
+                    Debug.Log("New UI: chat box resized to " + Mathf.RoundToInt(widthUnits) + " x " + Mathf.RoundToInt(heightUnits));
+                }
+                else
+                {
+                    var bounds = new Rect(
+                        _visibleArea.xMin + _boxMargin,
+                        _visibleArea.yMin + _boxMargin,
+                        Mathf.Max(0f, _visibleArea.width - 2f * _boxMargin),
+                        Mathf.Max(0f, _visibleArea.height - 2f * _boxMargin));
+                    var min = new Vector2(ChatBoxResize.MinWidth * scale, MinBoxHeight(scale));
+                    var rect = ChatBoxResize.Apply(_resizeStart, pointer - _resizePointerStart, _resizeEdges, min, bounds);
+                    _resizeSize = rect.size;
+                    _boxCenter = rect.center;
+                }
+            }
+
+            if (_dragPending && !_resizing)
             {
                 _dragPending = false;
                 _dragging = true;
@@ -352,7 +426,7 @@ namespace AICompanion.NewUI
                 }
             }
 
-            if (!_dragging)
+            if (!_dragging && !_resizing)
             {
                 // A spot without room (she stands at a screen edge) flips to her other side; spot 5
                 // needs the 2D avatar and becomes spot 4 without it.
@@ -373,6 +447,12 @@ namespace AICompanion.NewUI
                 _boxSize.y);
             ExpressionPortraitPanel.NewUiPreferLeft = ChatSnapSpots.PortraitGoesLeft(snap) ? true : (bool?)null;
             PlacePortrait(settings, body, scale, gap, pointer);
+        }
+
+        /// <summary>JUH-127: the smallest box height now: every row, and the API key row when it shows.</summary>
+        float MinBoxHeight(float scale)
+        {
+            return (ChatBoxResize.MinHeight + (_layoutKeyRow ? 32f : 0f)) * scale;
         }
 
         /// <summary>Spot 5 (under her) needs the 2D video avatar: its layout can leave room below her.</summary>
@@ -525,7 +605,9 @@ namespace AICompanion.NewUI
             var scale = _theme.UiScale(Screen.dpi);
             var gap = _theme.ChatSideGap * scale;
             var visible = _chat != null && _chat.ChatVisible;
-            var side = classic || wizardOpen ? 0 : ChatSnapSpots.SideRoomFor(_theme.ChatBoxWidth * scale, gap);
+            // JUH-127: the room follows the box's real width; it is set from the layout, not while resizing.
+            var roomWidth = _roomBoxWidth > 0f ? _roomBoxWidth : _theme.ChatBoxWidth * scale;
+            var side = classic || wizardOpen ? 0 : ChatSnapSpots.SideRoomFor(roomWidth, gap);
             var below = !classic && !wizardOpen && visible && _placedSnap == ChatSnapSpots.Under && _roomBoxHeight > 0f
                 ? ChatSnapSpots.BottomRoomFor(_roomBoxHeight, gap)
                 : 0;
@@ -757,6 +839,8 @@ namespace AICompanion.NewUI
             _historyScroll.vertical = true;
             _historyScroll.movementType = ScrollRect.MovementType.Clamped;
             _historyScroll.scrollSensitivity = 24f;
+            // JUH-127: after the ScrollRect, so it sees the wheel too: scrolling down past the newest closes it.
+            historyImage.gameObject.AddComponent<ChatWheelCatcher>().Scrolled = e => OnWheel(e, true);
             var viewport = HappiUiKit.Rect(_historyRoot, "Viewport");
             HappiUiKit.Stretch(viewport, 6f, 6f, 6f, 6f);
             viewport.gameObject.AddComponent<RectMask2D>();
@@ -804,6 +888,28 @@ namespace AICompanion.NewUI
             _keyInput = HappiUiKit.Input(_box, "ApiKey", "API key", _theme.FontSmall, true);
             _keyInput.onSubmit.AddListener(_ => SaveKey());
             _saveKey = HappiUiKit.Button(_box, "SaveKey", "Save", _theme.FontSmall, SaveKey);
+
+            _controlRow = new[] { _mode, _next, _skip, _showAll, _narration };
+            _fontButtons = new[] { _history, _mute, _look, _mode, _next, _skip, _showAll, _narration, _mic, _send, _saveKey };
+
+            // JUH-127: the wheel anywhere over the box (its children's scroll events bubble up here).
+            _box.gameObject.AddComponent<ChatWheelCatcher>().Scrolled = e => OnWheel(e, false);
+
+            // JUH-127: the edges and corners, last so they sit above everything in the box.
+            var edges = new[]
+            {
+                ResizeEdges.Left, ResizeEdges.Right, ResizeEdges.Bottom, ResizeEdges.Top,
+                ResizeEdges.TopLeft, ResizeEdges.TopRight, ResizeEdges.BottomLeft, ResizeEdges.BottomRight,
+            };
+            for (var i = 0; i < edges.Length; i++)
+            {
+                var image = HappiUiKit.Panel(_box, "Resize " + edges[i], new Color(0f, 0f, 0f, 0f), true);
+                var handle = image.gameObject.AddComponent<ChatResizeHandle>();
+                handle.Edges = edges[i];
+                handle.Rect = image.rectTransform;
+                handle.Pressed = e => _resizePending = e;
+                _resizeHandles[i] = handle;
+            }
         }
 
         void AddHold(UnityEngine.EventSystems.EventTrigger trigger, UnityEngine.EventSystems.EventTriggerType type, bool held)
@@ -835,9 +941,15 @@ namespace AICompanion.NewUI
             var bodyHeight = _window != null ? (float)_window.BodyHeight : Screen.height;
             // DPI scale, reduced only when the window is too low for the box.
             var scale = Mathf.Min(_theme.UiScale(Screen.dpi), Mathf.Max(1f, bodyHeight / 480f));
+            // JUH-127: the size the user dragged to (100% units, 0 for automatic), or the size being dragged now.
+            var savedWidth = settings != null ? settings.ChatBoxWidthPx : 0f;
+            var savedHeight = settings != null ? settings.ChatBoxHeightPx : 0f;
+            var targetWidth = _resizing ? _resizeSize.x : savedWidth;
+            var targetHeight = _resizing ? _resizeSize.y : savedHeight;
             if (Mathf.Approximately(_layoutWidth, Screen.width) && Mathf.Approximately(_layoutHeight, Screen.height)
                 && Mathf.Approximately(_layoutScale, scale) && Mathf.Approximately(_layoutChatHeight, chatHeight)
-                && _layoutHistory == _historyOpen && _layoutKeyRow == keyRow)
+                && _layoutHistory == _historyOpen && _layoutKeyRow == keyRow
+                && Mathf.Approximately(_layoutBoxWidth, targetWidth) && Mathf.Approximately(_layoutBoxHeight, targetHeight))
                 return;
 
             _layoutWidth = Screen.width;
@@ -846,6 +958,8 @@ namespace AICompanion.NewUI
             _layoutChatHeight = chatHeight;
             _layoutHistory = _historyOpen;
             _layoutKeyRow = keyRow;
+            _layoutBoxWidth = targetWidth;
+            _layoutBoxHeight = targetHeight;
             _shownRevision = -1;
 
             var s = scale;
@@ -853,16 +967,42 @@ namespace AICompanion.NewUI
             var pad = _theme.Padding * s;
             var gap = _theme.Spacing * s;
             var row = 26f * s;
-            // A fixed-width box (not the whole window), so it fits beside her.
-            var width = Mathf.Max(220f, Mathf.Min(_theme.ChatBoxWidth * s, Screen.width - 2f * margin));
-            var inner = width - 2f * pad;
+            // Automatic: a fixed-width box (not the whole window), so it fits beside her.
+            var maxWidth = Screen.width - 2f * margin;
+            var maxHeight = Screen.height - 2f * margin;
+            var autoWidth = Mathf.Max(220f, Mathf.Min(_theme.ChatBoxWidth * s, maxWidth));
             var minHeight = 196f * s * chatHeight;
             var collapsed = Mathf.Clamp(bodyHeight * 0.40f * chatHeight, minHeight, 320f * s * chatHeight);
-            var height = _historyOpen ? Mathf.Max(minHeight, bodyHeight * 0.82f) : collapsed;
-            if (keyRow)
-                height += row + gap;
-            // The room under her (spot 5) follows the closed box: opening History does not lift her.
-            _roomBoxHeight = collapsed + (!_keySaved ? row + gap : 0f);
+            float width;
+            float height;
+            if (_resizing)
+            {
+                // JUH-127: being dragged; ChatBoxResize.Apply already kept it inside the limits.
+                width = _resizeSize.x;
+                height = _resizeSize.y;
+            }
+            else
+            {
+                width = ChatBoxResize.Resolve(savedWidth, autoWidth, s, Mathf.Min(ChatBoxResize.MinWidth * s, maxWidth), maxWidth);
+                if (savedHeight > 0f)
+                {
+                    // A size the user chose: opening History shares it instead of making the box taller.
+                    height = ChatBoxResize.Resolve(savedHeight, collapsed, s, Mathf.Min(MinBoxHeight(s), maxHeight), maxHeight);
+                    _roomBoxHeight = height;
+                }
+                else
+                {
+                    height = _historyOpen ? Mathf.Max(minHeight, bodyHeight * 0.82f) : collapsed;
+                    if (keyRow)
+                        height += row + gap;
+                    // The room under her (spot 5) follows the closed box: opening History does not lift her.
+                    _roomBoxHeight = collapsed + (!_keySaved ? row + gap : 0f);
+                }
+
+                _roomBoxWidth = width;
+            }
+
+            var inner = width - 2f * pad;
             height = Mathf.Min(height, Screen.height - 2f * margin);
 
             _box.anchorMin = Vector2.zero;
@@ -917,8 +1057,9 @@ namespace AICompanion.NewUI
             HappiUiKit.Place(_send.Rect, pad + inner - sendW, bottom - inputRow, sendW, inputRow);
             bottom -= inputRow + gap;
 
-            var controls = new[] { _mode, _next, _skip, _showAll, _narration };
-            var weights = new[] { 0.9f, 1f, 0.8f, 1.1f, 1.9f };
+            // Cached arrays: the layout runs every frame while the box is being resized.
+            var controls = _controlRow;
+            var weights = ControlWeights;
             var total = 0f;
             for (var i = 0; i < weights.Length; i++)
                 total += weights[i];
@@ -951,6 +1092,31 @@ namespace AICompanion.NewUI
             y += userH + gap * 0.5f;
             HappiUiKit.Place(_dialogueHit.rectTransform, pad, y, inner, Mathf.Max(24f * s, bottom - y));
             _historyWidth = -1f;
+            PlaceResizeHandles(width, height, s);
+        }
+
+        /// <summary>JUH-127: the 8 handles along the edges and in the corners (in box coordinates, top-left, y down).</summary>
+        void PlaceResizeHandles(float width, float height, float s)
+        {
+            var edge = ChatBoxResize.EdgeThickness * s;
+            var corner = ChatBoxResize.CornerSize * s;
+            for (var i = 0; i < _resizeHandles.Length; i++)
+            {
+                var handle = _resizeHandles[i];
+                if (handle == null)
+                    continue;
+                switch (handle.Edges)
+                {
+                    case ResizeEdges.Left: HappiUiKit.Place(handle.Rect, 0f, corner, edge, height - 2f * corner); break;
+                    case ResizeEdges.Right: HappiUiKit.Place(handle.Rect, width - edge, corner, edge, height - 2f * corner); break;
+                    case ResizeEdges.Top: HappiUiKit.Place(handle.Rect, corner, 0f, width - 2f * corner, edge); break;
+                    case ResizeEdges.Bottom: HappiUiKit.Place(handle.Rect, corner, height - edge, width - 2f * corner, edge); break;
+                    case ResizeEdges.TopLeft: HappiUiKit.Place(handle.Rect, 0f, 0f, corner, corner); break;
+                    case ResizeEdges.TopRight: HappiUiKit.Place(handle.Rect, width - corner, 0f, corner, corner); break;
+                    case ResizeEdges.BottomLeft: HappiUiKit.Place(handle.Rect, 0f, height - corner, corner, corner); break;
+                    case ResizeEdges.BottomRight: HappiUiKit.Place(handle.Rect, width - corner, height - corner, corner, corner); break;
+                }
+            }
         }
 
         void SetFonts(float s)
@@ -960,7 +1126,7 @@ namespace AICompanion.NewUI
             _userLine.fontSize = _theme.FontSmall * s;
             _dialogue.fontSize = _theme.FontBody * s;
             _note.fontSize = _theme.FontSmall * s;
-            var buttons = new[] { _history, _mute, _look, _mode, _next, _skip, _showAll, _narration, _mic, _send, _saveKey };
+            var buttons = _fontButtons;
             for (var i = 0; i < buttons.Length; i++)
                 buttons[i].Label.fontSize = _theme.FontSmall * s;
             _close.Label.fontSize = _theme.FontBody * s;
@@ -1280,8 +1446,95 @@ namespace AICompanion.NewUI
         void ToggleHistory()
         {
             _historyOpen = !_historyOpen;
+            _historyByWheel = false;
             _history.Text = _historyOpen ? "Hide" : "History";
             _historyWidth = -1f;
+        }
+
+        // ---- The mouse wheel (JUH-127) -----------------------------------------------------
+
+        /// <summary>
+        /// The wheel over the box: up opens the history at the newest message and scrolls back;
+        /// down past the newest closes it again when the wheel opened it (<see cref="ChatWheel"/>).
+        /// <paramref name="overHistory"/> is true when the history list's own ScrollRect already scrolled.
+        /// </summary>
+        void OnWheel(PointerEventData e, bool overHistory)
+        {
+            if (_canvasObject == null || !_canvasObject.activeSelf)
+                return;
+            switch (ChatWheel.Decide(_historyOpen, _historyByWheel, _historyWasAtBottom, e.scrollDelta.y))
+            {
+                case ChatWheelAction.Open:
+                    _historyOpen = true;
+                    _historyByWheel = true;
+                    _history.Text = "Hide";
+                    _historyWidth = -1f;
+                    // Applied once the list is laid out at the newest message (next frame).
+                    _pendingWheel += e.scrollDelta.y;
+                    break;
+                case ChatWheelAction.Scroll:
+                    if (!overHistory)
+                        _historyScroll.OnScroll(e);
+                    break;
+                case ChatWheelAction.Close:
+                    _historyOpen = false;
+                    _historyByWheel = false;
+                    _history.Text = "History";
+                    _historyWidth = -1f;
+                    _pendingWheel = 0f;
+                    break;
+            }
+        }
+
+        /// <summary>The wheel step that opened the history, applied once the list is filled. One event object, reused.</summary>
+        void ApplyPendingWheel()
+        {
+            if (Mathf.Abs(_pendingWheel) < 0.01f)
+                return;
+            if (!_historyOpen)
+            {
+                _pendingWheel = 0f;
+                return;
+            }
+
+            if (_historyWidth <= 0f || EventSystem.current == null)
+                return;
+            if (_wheelEvent == null)
+                _wheelEvent = new PointerEventData(EventSystem.current);
+            _wheelEvent.scrollDelta = new Vector2(0f, _pendingWheel);
+            _pendingWheel = 0f;
+            _historyScroll.OnScroll(_wheelEvent);
+        }
+
+        /// <summary>At the newest message, or the whole history fits without scrolling.</summary>
+        bool HistoryAtBottom()
+        {
+            var viewport = _historyScroll.viewport;
+            if (viewport != null && _historyContent.rect.height <= viewport.rect.height + 1f)
+                return true;
+            return ChatWheel.AtBottom(_historyScroll.verticalNormalizedPosition);
+        }
+
+        /// <summary>The Windows resize cursor while over an edge or corner, or while resizing.</summary>
+        void ShowResizeCursor()
+        {
+            if (_resizing)
+            {
+                ResizeCursor.Show(_resizeEdges);
+                return;
+            }
+
+            if (_dragging)
+                return;
+            for (var i = 0; i < _resizeHandles.Length; i++)
+            {
+                var handle = _resizeHandles[i];
+                if (handle != null && handle.Hovered)
+                {
+                    ResizeCursor.Show(handle.Edges);
+                    return;
+                }
+            }
         }
 
         void SaveKey()

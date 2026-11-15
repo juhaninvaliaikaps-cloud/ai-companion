@@ -201,6 +201,13 @@ namespace AICompanion.Settings
         public float ChatBoxHeight = 1f;
 
         /// <summary>
+        /// JUH-127: the chat box size the user dragged it to, in pixels at 100% scaling. 0 is the
+        /// automatic size (the theme width; the height from <see cref="ChatBoxHeight"/>).
+        /// </summary>
+        public float ChatBoxWidthPx;
+        public float ChatBoxHeightPx;
+
+        /// <summary>
         /// JUH-104: where the 2D expression portrait sits with the new UI. 0 = automatic beside her
         /// head (as on main), 1 = docked on the chat box left side, 2 = docked on its right side,
         /// 3 = where the user dropped it (PortraitOffsetX/Y from her head, pixels at 100%).
@@ -295,6 +302,8 @@ namespace AICompanion.Settings
             if (float.IsNaN(ChatBoxHeight) || float.IsInfinity(ChatBoxHeight))
                 ChatBoxHeight = 1f;
             ChatBoxHeight = Math.Max(0.6f, Math.Min(2f, ChatBoxHeight));
+            ChatBoxWidthPx = CleanBoxSize(ChatBoxWidthPx);
+            ChatBoxHeightPx = CleanBoxSize(ChatBoxHeightPx);
             if (PortraitDock < 0 || PortraitDock > 3)
                 PortraitDock = 0;
             PortraitOffsetX = CleanOffset(PortraitOffsetX);
@@ -302,6 +311,14 @@ namespace AICompanion.Settings
             if (float.IsNaN(SpokenGlowIntensity) || float.IsInfinity(SpokenGlowIntensity))
                 SpokenGlowIntensity = 0.6f;
             SpokenGlowIntensity = Math.Max(0f, Math.Min(1f, SpokenGlowIntensity));
+        }
+
+        /// <summary>JUH-127: a dragged chat box size, above 0, or 0 for the automatic size.</summary>
+        static float CleanBoxSize(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value) || value <= 0f)
+                return 0f;
+            return Math.Min(10000f, value);
         }
 
         static float CleanOffset(float value)
@@ -707,6 +724,10 @@ namespace AICompanion.Settings
                 settings.ChatBoxOffsetY = (float)number;
             if (TryNumber(json, "chatBoxHeight", out number))
                 settings.ChatBoxHeight = (float)number;
+            if (TryNumber(json, "chatBoxWidthPx", out number))
+                settings.ChatBoxWidthPx = (float)number;
+            if (TryNumber(json, "chatBoxHeightPx", out number))
+                settings.ChatBoxHeightPx = (float)number;
             if (TryNumber(json, "portraitDock", out number))
                 settings.PortraitDock = (int)Math.Round(number);
             if (TryNumber(json, "portraitOffsetX", out number))
@@ -803,6 +824,8 @@ namespace AICompanion.Settings
             Number(sb, "chatBoxOffsetX", source.ChatBoxOffsetX, false);
             Number(sb, "chatBoxOffsetY", source.ChatBoxOffsetY, false);
         Number(sb, "chatBoxHeight", source.ChatBoxHeight, false);
+            Number(sb, "chatBoxWidthPx", source.ChatBoxWidthPx, false);
+            Number(sb, "chatBoxHeightPx", source.ChatBoxHeightPx, false);
             Number(sb, "portraitDock", source.PortraitDock, true);
             Number(sb, "portraitOffsetX", source.PortraitOffsetX, false);
             Number(sb, "portraitOffsetY", source.PortraitOffsetY, false);
