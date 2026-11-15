@@ -950,7 +950,7 @@ namespace AICompanion.NewUI
             Toggle("Hide taskbar button", S.HideTaskbarButton, v => Change(s => s.HideTaskbarButton = v));
             Toggle("Start with Windows", S.StartWithWindows, v => Change(s => s.StartWithWindows = v));
             Note("Takes effect the next time you sign in.");
-            Note("Pause her from the wheel (Leave me alone) or the tray.");
+            Note("Pause her from the wheel (Pause her) or the tray.");
         }
 
         // ---- Data: export, wipe, setup -----------------------------------------------------

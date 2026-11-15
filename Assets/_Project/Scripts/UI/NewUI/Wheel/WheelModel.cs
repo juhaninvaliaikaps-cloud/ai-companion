@@ -58,48 +58,47 @@ namespace AICompanion.NewUI.Wheel
     /// <summary>The main wheel's fixed slices, clockwise from the top (approved mockup).</summary>
     public static class MainWheel
     {
-        public const string Talk = "talk";
-        public const string WatchScreen = "watch_screen";
-        public const string Mood = "mood";
-        public const string Persona = "persona";
-        public const string DoSomething = "do_something";
-        public const string LeaveMeAlone = "leave_me_alone";
-        public const string Memories = "memories";
+        // JUH-121 (Jussi, 2026-11-15): six slices, Settings at the top centre. Two labels follow
+        // the state: the chat slice says what clicking does (Hide chat / Show chat), and so does
+        // the pause slice (Pause her / Resume her).
         public const string Settings = "settings";
+        public const string Talk = "talk";
+        public const string Profile = "profile";
+        public const string WatchScreen = "watch_screen";
+        public const string Persona = "persona";
+        public const string Pause = "pause";
 
-        /// <summary>Fixed order. Settings is last, so it sits top-left, just before Talk.</summary>
+        /// <summary>No longer on the wheel (JUH-121); kept for the mood gate rule and its tests.</summary>
+        public const string DoSomething = "do_something";
+
         public static readonly IReadOnlyList<string> Order = new[]
         {
-            Talk, WatchScreen, Mood, Persona, DoSomething, LeaveMeAlone, Memories, Settings,
+            Settings, Talk, Profile, WatchScreen, Persona, Pause,
         };
 
-        public static string Label(string id, bool paused)
+        /// <summary>The slice's label. <paramref name="chatVisible"/> and <paramref name="paused"/> say what clicking will do.</summary>
+        public static string Label(string id, bool paused, bool chatVisible)
         {
             switch (id)
             {
-                case Talk:
-                    return "Talk";
-                case WatchScreen:
-                    return "Watch my screen";
-                case Mood:
-                    return "Mood";
-                case Persona:
-                    return "Persona";
-                case DoSomething:
-                    return "Do something";
-                case LeaveMeAlone:
-                    return paused ? "Come back" : "Leave me alone";
-                case Memories:
-                    return "Memories";
                 case Settings:
                     return "Settings";
+                case Talk:
+                    return chatVisible ? "Hide chat" : "Show chat";
+                case Profile:
+                    return "Profile";
+                case WatchScreen:
+                    return "Watch my screen";
+                case Persona:
+                    return "Persona";
+                case Pause:
+                    return paused ? "Resume her" : "Pause her";
                 default:
                     return id ?? string.Empty;
             }
         }
     }
 
-    /// <summary>What a slice gate decided.</summary>
     public readonly struct SliceGate
     {
         public readonly bool Enabled;
