@@ -296,6 +296,7 @@ namespace AICompanion.NewUI
                 RefreshHistory();
             ApplyPendingWheel();
             ShowResizeCursor();
+            PollWheelClose();
             _historyWasAtBottom = !_historyOpen || HistoryAtBottom();
             SyncFocus();
         }
@@ -830,7 +831,7 @@ namespace AICompanion.NewUI
             _history = HappiUiKit.Button(_box, "History", "History", _theme.FontSmall, ToggleHistory);
             _mute = HappiUiKit.Button(_box, "Mute", ChatPresenter.MuteOffLabel, _theme.FontSmall, () => _chat.Presenter.ToggleMute());
             _look = HappiUiKit.Button(_box, "Look", ChatPresenter.LookLabelIdle, _theme.FontSmall, OnLook);
-            _close = HappiUiKit.Button(_box, "Close", "×", _theme.FontBody, () => _chat.ShowChat(false));
+            _close = HappiUiKit.Button(_box, "Close", "Ã—", _theme.FontBody, () => _chat.ShowChat(false));
 
             var historyImage = HappiUiKit.Panel(_box, "HistoryArea", _theme.PanelInset, true);
             _historyRoot = historyImage.rectTransform;
@@ -839,8 +840,6 @@ namespace AICompanion.NewUI
             _historyScroll.vertical = true;
             _historyScroll.movementType = ScrollRect.MovementType.Clamped;
             _historyScroll.scrollSensitivity = 24f;
-            // JUH-127: after the ScrollRect, so it sees the wheel too: scrolling down past the newest closes it.
-            historyImage.gameObject.AddComponent<ChatWheelCatcher>().Scrolled = e => OnWheel(e, true);
             var viewport = HappiUiKit.Rect(_historyRoot, "Viewport");
             HappiUiKit.Stretch(viewport, 6f, 6f, 6f, 6f);
             viewport.gameObject.AddComponent<RectMask2D>();
@@ -871,7 +870,7 @@ namespace AICompanion.NewUI
             _note.fontStyle = FontStyles.Italic;
 
             _mode = HappiUiKit.Button(_box, "Mode", "Auto", _theme.FontSmall, ToggleMode);
-            _next = HappiUiKit.Button(_box, "Next", "Next ›", _theme.FontSmall, () => _player.Next());
+            _next = HappiUiKit.Button(_box, "Next", "Next â€º", _theme.FontSmall, () => _player.Next());
             _skip = HappiUiKit.Button(_box, "Skip", "Skip", _theme.FontSmall, () => _player.Skip());
             _showAll = HappiUiKit.Button(_box, "ShowAll", "Show all", _theme.FontSmall, () => _player.ShowAll());
             _narration = HappiUiKit.Button(_box, "Narration", "Narration voice: off", _theme.FontSmall, ToggleNarration);
@@ -893,7 +892,7 @@ namespace AICompanion.NewUI
             _fontButtons = new[] { _history, _mute, _look, _mode, _next, _skip, _showAll, _narration, _mic, _send, _saveKey };
 
             // JUH-127: the wheel anywhere over the box (its children's scroll events bubble up here).
-            _box.gameObject.AddComponent<ChatWheelCatcher>().Scrolled = e => OnWheel(e, false);
+            _box.gameObject.AddComponent<ChatWheelCatcher>().Scrolled = e => OnWheel(e);
 
             // JUH-127: the edges and corners, last so they sit above everything in the box.
             var edges = new[]
@@ -904,11 +903,11 @@ namespace AICompanion.NewUI
             for (var i = 0; i < edges.Length; i++)
             {
                 var image = HappiUiKit.Panel(_box, "Resize " + edges[i], new Color(0f, 0f, 0f, 0f), true);
-                var handle = image.gameObject.AddComponent<ChatResizeHandle>();
-                handle.Edges = edges[i];
-                handle.Rect = image.rectTransform;
-                handle.Pressed = e => _resizePending = e;
-                _resizeHandles[i] = handle;
+                var resizeHandle = image.gameObject.AddComponent<ChatResizeHandle>();
+                resizeHandle.Edges = edges[i];
+                resizeHandle.Rect = image.rectTransform;
+                resizeHandle.Pressed = e => _resizePending = e;
+                _resizeHandles[i] = resizeHandle;
             }
         }
 
@@ -1015,7 +1014,7 @@ namespace AICompanion.NewUI
 
             SetFonts(s);
 
-            // Header: name + badge on the left, History / Mute / Look / × on the right.
+            // Header: name + badge on the left, History / Mute / Look / Ã— on the right.
             var y = pad;
             var closeW = row;
             var lookW = 112f * s;
@@ -1395,7 +1394,7 @@ namespace AICompanion.NewUI
         {
             if (string.IsNullOrEmpty(text) || text.Length <= max)
                 return text ?? string.Empty;
-            return "…" + text.Substring(text.Length - max);
+            return "â€¦" + text.Substring(text.Length - max);
         }
 
         // ---- Actions ---------------------------------------------------------------------
@@ -1458,7 +1457,7 @@ namespace AICompanion.NewUI
         /// down past the newest closes it again when the wheel opened it (<see cref="ChatWheel"/>).
         /// <paramref name="overHistory"/> is true when the history list's own ScrollRect already scrolled.
         /// </summary>
-        void OnWheel(PointerEventData e, bool overHistory)
+        void OnWheel(PointerEventData e)
         {
             if (_canvasObject == null || !_canvasObject.activeSelf)
                 return;
@@ -1473,17 +1472,36 @@ namespace AICompanion.NewUI
                     _pendingWheel += e.scrollDelta.y;
                     break;
                 case ChatWheelAction.Scroll:
-                    if (!overHistory)
-                        _historyScroll.OnScroll(e);
+                    _historyScroll.OnScroll(e);
                     break;
                 case ChatWheelAction.Close:
-                    _historyOpen = false;
-                    _historyByWheel = false;
-                    _history.Text = "History";
-                    _historyWidth = -1f;
-                    _pendingWheel = 0f;
+                    CloseHistoryByWheel();
                     break;
             }
+        }
+
+        /// <summary>
+        /// The history list's own ScrollRect consumes wheel events before the box sees them.
+        /// Watch the raw wheel while the pointer is over the box so a wheel-down at the
+        /// newest message can still close a wheel-opened history.
+        /// </summary>
+        void PollWheelClose()
+        {
+            if (!_historyOpen || !_historyByWheel || Input.mouseScrollDelta.y >= -0.01f)
+                return;
+            if (_box == null || !RectTransformUtility.RectangleContainsScreenPoint(_box, Input.mousePosition, null))
+                return;
+            if (HistoryAtBottom())
+                CloseHistoryByWheel();
+        }
+
+        void CloseHistoryByWheel()
+        {
+            _historyOpen = false;
+            _historyByWheel = false;
+            _history.Text = "History";
+            _historyWidth = -1f;
+            _pendingWheel = 0f;
         }
 
         /// <summary>The wheel step that opened the history, applied once the list is filled. One event object, reused.</summary>
