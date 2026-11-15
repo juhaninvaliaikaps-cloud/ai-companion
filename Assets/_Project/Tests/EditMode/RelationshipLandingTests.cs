@@ -155,8 +155,10 @@ namespace AICompanion.Tests.EditMode
         {
             Assert.AreEqual(-5f, Delta(LandingEvent.Insulted, 0f, 0f, 0f), 0.001f);
             Assert.AreEqual(-10f, Delta(LandingEvent.Insulted, 0f, 0f, 0.5f), 0.001f);
-            Assert.AreEqual(-15f, Delta(LandingEvent.Insulted, 0f, 0f, 1f), 0.001f);
-            Assert.AreEqual(-15f, Delta(LandingEvent.Insulted, 0f, 0f, 9f), 0.001f);
+            // JUH-122: from intensity 0.85 a landing is a critical hit and doubles (1 and 9 used to be -15).
+            Assert.AreEqual(-13.4f, Delta(LandingEvent.Insulted, 0f, 0f, 0.84f), 0.001f);
+            Assert.AreEqual(-30f, Delta(LandingEvent.Insulted, 0f, 0f, 1f), 0.001f);
+            Assert.AreEqual(-30f, Delta(LandingEvent.Insulted, 0f, 0f, 9f), 0.001f);
             Assert.AreEqual(-5f, Delta(LandingEvent.Insulted, 0f, 0f, float.NaN), 0.001f);
         }
 

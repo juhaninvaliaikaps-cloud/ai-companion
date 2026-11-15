@@ -33,6 +33,16 @@ namespace AICompanion.Core
             "One of complimented, thanked, comforted, teased, insulted, dismissed, apologized, flirted, neutral. " +
             "Judge it as she would, given how well you two know each other. Use neutral for ordinary talk.";
 
+        /// <summary>
+        /// The reminder added to the newest user message while relationship changes are on
+        /// (JUH-122): <see cref="AnimationCueParser.TurnReminder"/> with landed in the example. Local
+        /// models follow this reminder more than the system prompt, and without it they wrote the
+        /// cue tag but never landed, so nothing ever moved.
+        /// </summary>
+        public const string TurnReminder =
+            "(Start your reply with your cue tag, for example <animation emotion=\"neutral\" landed=\"neutral\" />. " +
+            "Set landed to how my message landed with you: complimented, thanked, comforted, teased, insulted, dismissed, apologized, flirted or neutral.)";
+
         static readonly string[] Names =
         {
             "neutral", "complimented", "thanked", "comforted", "teased", "insulted", "dismissed", "apologized", "flirted",
@@ -107,10 +117,16 @@ namespace AICompanion.Core
         public float FamiliarityDelta;
         public CompanionMoodPush[] MoodPushes;
 
+        /// <summary>
+        /// A critical hit (JUH-122): the landing hit hard, so the affection change was multiplied by
+        /// <see cref="RelationshipMath.CritMultiplier"/>. Up or down, as <see cref="AffectionDelta"/> says.
+        /// </summary>
+        public bool Critical;
+
         /// <summary>For Player.log: <c>Relationship: insulted → affection -6.2 (now 18.8), familiarity +0.1 (now 70.1)</c>.</summary>
         public string LogLine()
         {
-            return "Relationship: " + LandingEvents.Name(Landing) + " → affection " + Signed(AffectionDelta)
+            return "Relationship: " + LandingEvents.Name(Landing) + (Critical ? " (critical)" : string.Empty) + " → affection " + Signed(AffectionDelta)
                 + " (now " + Affection.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)
                 + "), familiarity " + Signed(FamiliarityDelta)
                 + " (now " + Familiarity.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + ")";
@@ -147,6 +163,15 @@ namespace AICompanion.Core
 
         /// <summary>Familiarity gained per exchange at 0, shrinking to nothing at 100.</summary>
         public const float FamiliarityPerExchange = 0.1f;
+
+        // ---- Critical hits (JUH-122) ---------------------------------------------------------
+        // Proposed defaults, still to be confirmed by Jussi: change them here only.
+
+        /// <summary>A critical hit multiplies the affection change by this, before the clamps.</summary>
+        public const float CritMultiplier = 2f;
+
+        /// <summary>A landing whose cue intensity is at least this is a critical hit. No random crits.</summary>
+        public const float CritIntensity = 0.85f;
 
         // Affection change at intensity 0.5, for a stranger (familiarity 0) and for someone
         // close (familiarity 100). Indexed by LandingEvent.
@@ -223,8 +248,28 @@ namespace AICompanion.Core
         /// <summary>
         /// One landed message. <paramref name="intensity"/> is her cue intensity (0 to 1): a
         /// stronger reaction moves more, from half to one and a half times the table value.
+        /// A critical hit (<see cref="IsCritical"/>) doubles the affection change, inside the same clamps.
         /// </summary>
         public static RelationshipChange Land(LandingEvent landing, float intensity, float affection, float familiarity)
+        {
+            return Land(landing, intensity, affection, familiarity, false);
+        }
+
+        /// <summary>
+        /// True when this landing is a critical hit: a real landing (not neutral) that the model
+        /// marked as very strong (cue intensity <see cref="CritIntensity"/> or more), or that hit
+        /// one of her secrets. <paramref name="secretHit"/> is the hook for JUH-123: pass true when
+        /// the cue's <c>secret=</c> names one of her likes or dislikes. Nothing passes it yet.
+        /// </summary>
+        public static bool IsCritical(LandingEvent landing, float intensity, bool secretHit)
+        {
+            if (landing == LandingEvent.Neutral)
+                return false;
+            return secretHit || AnimationCue.ClampIntensity(intensity) >= CritIntensity;
+        }
+
+        /// <summary>As <see cref="Land(LandingEvent, float, float, float)"/>; <paramref name="secretHit"/> is the JUH-123 crit hook.</summary>
+        public static RelationshipChange Land(LandingEvent landing, float intensity, float affection, float familiarity, bool secretHit)
         {
             affection = ClampAffection(affection);
             familiarity = ClampFamiliarity(familiarity);
@@ -239,6 +284,9 @@ namespace AICompanion.Core
             var amount = 0.5f + AnimationCue.ClampIntensity(intensity);
             var raw = StrangerDelta[index] + (CloseDelta[index] - StrangerDelta[index]) * close;
             var delta = raw * amount * Standing(raw, affection);
+            var critical = IsCritical(landing, intensity, secretHit) && delta != 0f;
+            if (critical)
+                delta *= CritMultiplier;
 
             var newAffection = ClampAffection(affection + delta);
             // Every exchange, kind or not, is time spent knowing each other.
@@ -252,6 +300,7 @@ namespace AICompanion.Core
                 AffectionDelta = newAffection - affection,
                 FamiliarityDelta = newFamiliarity - familiarity,
                 MoodPushes = BlendPushes(StrangerPushes[index], ClosePushes[index], close),
+                Critical = critical,
             };
         }
 

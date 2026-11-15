@@ -139,6 +139,10 @@ namespace AICompanion.Settings
                 gameObject.AddComponent<PisaraReadingKeeper>();
             }
 
+            // JUH-122: scripted messages for checking the chat by hand (-pisara-chat <file>).
+            if (PisaraChatTool.Requested(Environment.GetCommandLineArgs()) && GetComponent<PisaraChatTool>() == null)
+                gameObject.AddComponent<PisaraChatTool>();
+
             _applying = true;
             try
             {

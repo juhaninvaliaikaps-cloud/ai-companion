@@ -537,6 +537,9 @@ namespace AICompanion.UI
             // JUH-118: her mood line, then her own life: the first scene on the first message, the away line once.
             var prompt = DirectorPrompt.Append(PersonaPrompt(true), suffix);
             SessionBeforeSend(privateMode);
+            // JUH-122: local models follow this reminder more than the system prompt, so it also
+            // asks for landed="..." while relationship changes are on (otherwise nothing ever lands).
+            _exchange.TurnReminder = PisaraSwitches.Relationship ? LandingEvents.TurnReminder : AnimationCueParser.TurnReminder;
 
             // JUH-21: read the user's mood on this machine. The face reacts now, before
             // the reply, and the model gets one hint line. The reply cue replaces the face.

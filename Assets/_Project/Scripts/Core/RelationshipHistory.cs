@@ -51,16 +51,45 @@ namespace AICompanion.Core
         }
 
         /// <summary>
-        /// "A tease landed well: affection +1.8" or "An insult stung: affection -4.6". Empty for
-        /// a neutral exchange or a change smaller than 0.05.
+        /// "A tease landed well: affection +1.8" or "An insult stung: affection -4.6"; a critical
+        /// hit starts with "Critical: " (JUH-122). Empty for a neutral exchange or a change smaller than 0.05.
         /// </summary>
         public static string Describe(RelationshipChange change)
         {
             if (change.Landing == LandingEvent.Neutral || System.Math.Abs(change.AffectionDelta) < 0.05f)
                 return string.Empty;
             var up = change.AffectionDelta > 0f;
-            return Phrase(change.Landing, up) + ": affection "
+            return (change.Critical ? "Critical: " : string.Empty) + Phrase(change.Landing, up) + ": affection "
                 + change.AffectionDelta.ToString("+0.#;-0.#", CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>
+        /// The short name on a floating piece (JUH-122): "Compliment", "Brushed off". Empty for
+        /// neutral. Kept next to <see cref="Phrase"/> so the two stay in step.
+        /// </summary>
+        public static string ShortName(LandingEvent landing)
+        {
+            switch (landing)
+            {
+                case LandingEvent.Complimented:
+                    return "Compliment";
+                case LandingEvent.Thanked:
+                    return "Thanked";
+                case LandingEvent.Comforted:
+                    return "Comfort";
+                case LandingEvent.Teased:
+                    return "Tease";
+                case LandingEvent.Insulted:
+                    return "Insult";
+                case LandingEvent.Dismissed:
+                    return "Brushed off";
+                case LandingEvent.Apologized:
+                    return "Apology";
+                case LandingEvent.Flirted:
+                    return "Flirt";
+                default:
+                    return string.Empty;
+            }
         }
 
         static string Phrase(LandingEvent landing, bool up)
@@ -132,14 +161,30 @@ namespace AICompanion.Core
         /// <summary>The prompt's familiarity bands, said about the two of you.</summary>
         public static string Knowing(float familiarity)
         {
+            switch (KnowingBand(familiarity))
+            {
+                case 0:
+                    return "you have only just met";
+                case 1:
+                    return "you know each other a little";
+                case 2:
+                    return "you know each other well";
+                default:
+                    return "you know each other very well";
+            }
+        }
+
+        /// <summary>Which familiarity band this is: 0 just met, 1 a little, 2 well, 3 very well.</summary>
+        public static int KnowingBand(float familiarity)
+        {
             familiarity = RelationshipMath.ClampFamiliarity(familiarity);
             if (familiarity < 10f)
-                return "you have only just met";
+                return 0;
             if (familiarity < 35f)
-                return "you know each other a little";
+                return 1;
             if (familiarity < 70f)
-                return "you know each other well";
-            return "you know each other very well";
+                return 2;
+            return 3;
         }
     }
 }

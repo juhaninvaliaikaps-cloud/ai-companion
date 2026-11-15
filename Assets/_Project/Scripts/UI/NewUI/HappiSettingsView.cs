@@ -750,6 +750,8 @@ namespace AICompanion.NewUI
             // JUH-117: one switch per Pisara leaf, for tuning. Off freezes that part; nothing is deleted.
             Toggle("Relationship changes", S.PisaraRelationship, v => Change(s => s.PisaraRelationship = v));
             Note("How your messages land changes how much she likes you and how well you know each other. Off freezes both.");
+            // JUH-122 (moves to the Chat tab with JUH-121).
+            Toggle("Show relationship changes while chatting", S.ShowRelationshipFeedback, v => Change(s => s.ShowRelationshipFeedback = v));
             Toggle("Life while you are away", S.PisaraAwayEvents, v => Change(s => s.PisaraAwayEvents = v));
             Note("Things she is waiting for turn out, well or badly, while you are gone. Off leaves them open.");
             Toggle("Her own world", S.PisaraWorld, v => Change(s => s.PisaraWorld = v));

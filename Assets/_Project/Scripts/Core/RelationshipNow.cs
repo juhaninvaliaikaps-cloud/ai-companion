@@ -23,6 +23,20 @@ namespace AICompanion.Core
         /// <summary>One finished reply to a user message, with its cue (neutral when the tag was missing or unreadable).</summary>
         public static event Action<AnimationCue> ReplyFinished;
 
+        /// <summary>
+        /// A landing changed the relationship (JUH-122): raised by <c>RelationshipKeeper.Apply</c> only
+        /// when the change was applied, so never while "Relationship changes" is off. The floating
+        /// pieces near her listen.
+        /// </summary>
+        public static event Action<RelationshipNotice> Changed;
+
+        public static void ReportChanged(RelationshipNotice notice)
+        {
+            var handler = Changed;
+            if (handler != null)
+                handler(notice);
+        }
+
         public static string PromptLine
         {
             get { return _line; }
@@ -60,7 +74,8 @@ namespace AICompanion.Core
         /// </summary>
         public static RelationshipChange Land(AnimationCue cue, float affection, float familiarity)
         {
-            return RelationshipMath.Land(cue.Landed, cue.Intensity, affection, familiarity);
+            // JUH-123 will pass the cue's secret= hit here as the crit hook.
+            return RelationshipMath.Land(cue.Landed, cue.Intensity, affection, familiarity, false);
         }
     }
 }

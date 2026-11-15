@@ -161,6 +161,9 @@ namespace AICompanion.Settings
         public bool PisaraAwayEvents = true;
         public bool PisaraWorld = true;
 
+        /// <summary>JUH-122: floating pieces near her when the relationship moves. On by default.</summary>
+        public bool ShowRelationshipFeedback = true;
+
         /// <summary>JUH-104: the new Happi UI (radial wheel, new chat and settings). Off by default; -newui turns it on for one launch.</summary>
         /// <summary>JUH-108: speak narration lines too in the new chat. Off by default, so narration is shown but not voiced.</summary>
         public bool VoiceNarration;
@@ -658,6 +661,8 @@ namespace AICompanion.Settings
                 settings.PisaraAwayEvents = flag;
             if (TryBool(json, "pisaraWorld", out flag))
                 settings.PisaraWorld = flag;
+            if (TryBool(json, "showRelationshipFeedback", out flag))
+                settings.ShowRelationshipFeedback = flag;
             if (TryBool(json, "voiceNarration", out flag))
                 settings.VoiceNarration = flag;
             if (TryNumber(json, "chatBoxX", out number))
@@ -759,6 +764,7 @@ namespace AICompanion.Settings
             Bool(sb, "pisaraRelationship", source.PisaraRelationship);
             Bool(sb, "pisaraAwayEvents", source.PisaraAwayEvents);
             Bool(sb, "pisaraWorld", source.PisaraWorld);
+            Bool(sb, "showRelationshipFeedback", source.ShowRelationshipFeedback);
             Bool(sb, "voiceNarration", source.VoiceNarration);
             Number(sb, "chatBoxX", source.ChatBoxX, false);
             Number(sb, "chatBoxY", source.ChatBoxY, false);

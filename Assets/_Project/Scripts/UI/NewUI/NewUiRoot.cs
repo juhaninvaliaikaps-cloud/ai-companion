@@ -61,10 +61,20 @@ namespace AICompanion.NewUI
             if (settingsView == null)
                 settingsView = gameObject.AddComponent<HappiSettingsView>();
             settingsView.Attach(settings, chat);
+
+            // JUH-122: floating relationship changes near her head.
+            var floating = GetComponent<FloatingFeedbackView>();
+            if (floating == null)
+                floating = gameObject.AddComponent<FloatingFeedbackView>();
+            floating.Attach(settings);
         }
 
         void TurnOff()
         {
+            var floating = GetComponent<FloatingFeedbackView>();
+            if (floating != null)
+                floating.Detach();
+
             var settingsView = GetComponent<HappiSettingsView>();
             if (settingsView != null)
                 settingsView.Detach();
