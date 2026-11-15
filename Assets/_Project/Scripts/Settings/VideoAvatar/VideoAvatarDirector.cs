@@ -205,6 +205,17 @@ namespace AICompanion.Settings
         }
 
         /// <summary>
+        /// The 18+ gate closed: drop adult reactions and return to the clothed idle, even if
+        /// the naked pose was set to hold forever.
+        /// </summary>
+        public void ReturnToClothedIdle()
+        {
+            CancelQueuedReactions();
+            if (Act != VideoAvatarAct.Idle && Act != VideoAvatarAct.Walk)
+                EnterIdle();
+        }
+
+        /// <summary>
         /// Starts an explicit reaction now, even from a held pose. The adult naked idle holds
         /// forever, so the ordinary Request would wait for an idle that never comes.
         /// </summary>
