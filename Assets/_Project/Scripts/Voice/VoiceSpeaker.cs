@@ -366,6 +366,10 @@ namespace AICompanion.Voice
                 // Kokoro loads its model on the first request, which takes about 17 s here.
                 if (voiceSettings != null && string.Equals(voiceSettings.provider, KokoroTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
                     limit = Mathf.Max(limit, 150f);
+                // Chatterbox loads its model on the first request and then synthesizes;
+                // the 20 s default timeout cut off the first reply before its WAV arrived.
+                if (voiceSettings != null && string.Equals(voiceSettings.provider, ChatterboxTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+                    limit = Mathf.Max(limit, 240f);
                 if (Time.realtimeSinceStartup - _requestStartedAt > limit + 1f)
                 {
                     var screen = ChatErrors.TimedOut("the voice");
