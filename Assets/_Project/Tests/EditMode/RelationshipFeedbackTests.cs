@@ -203,6 +203,62 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(0, feedback.Count);
         }
 
+        /// <summary>The view's slot guard, frame by frame: slot i shows piece i, as FloatingFeedbackView does.</summary>
+        static int RunFrames(RelationshipFeedback feedback, int[] shown, float from, float to, float step)
+        {
+            var setups = 0;
+            for (var now = from; now <= to; now += step)
+            {
+                feedback.Tick(now);
+                for (var i = 0; i < feedback.Count; i++)
+                {
+                    var piece = feedback.Piece(i);
+                    if (!RelationshipFeedback.NeedsSetup(shown[i], piece))
+                        continue;
+                    shown[i] = piece.Id;
+                    setups++;
+                }
+
+                for (var i = feedback.Count; i < shown.Length; i++)
+                    shown[i] = 0;
+            }
+
+            return setups;
+        }
+
+        [Test]
+        public void APiece_IsSetUpOnce_NotEveryFrame()
+        {
+            var feedback = new RelationshipFeedback();
+            var shown = new int[RelationshipFeedback.Capacity];
+            feedback.Add(Notice(Change(LandingEvent.Complimented, 1.5f)), 0f, true);
+            Assert.AreEqual(1, RunFrames(feedback, shown, 0f, 1f, 1f / 60f), "a normal piece: once over 60 frames");
+
+            feedback.Add(Notice(Change(LandingEvent.Complimented, 4.8f, true)), 1f, true);
+            Assert.AreEqual(1, RunFrames(feedback, shown, 1f, 1.4f, 1f / 60f), "the crit: once; the normal piece is not set up again");
+        }
+
+        [Test]
+        public void TwoPiecesInOneFrame_HaveTheirOwnIds_AndAShiftSetsUpTheRightText()
+        {
+            var feedback = new RelationshipFeedback();
+            var shown = new int[RelationshipFeedback.Capacity];
+            feedback.Add(Notice(Change(LandingEvent.Thanked, 0.8f)), 0f, true);
+            feedback.Add(Notice(Change(LandingEvent.Teased, 1f, false, 70f), 2), 0.5f, true);
+            Assert.AreEqual(3, feedback.Count, "the thanks, the tease and the new band");
+            Assert.AreEqual(feedback.Piece(1).StartTime, feedback.Piece(2).StartTime, "the landing and the band start in the same frame");
+            Assert.AreNotEqual(feedback.Piece(1).Id, feedback.Piece(2).Id);
+            Assert.AreEqual(3, RunFrames(feedback, shown, 0.5f, 0.6f, 1f / 60f));
+
+            // The thanks was pushed out (two normal pieces at most) and goes; the others move down a slot.
+            var setups = RunFrames(feedback, shown, 0.6f, 0.9f, 1f / 60f);
+            Assert.AreEqual(2, feedback.Count);
+            Assert.AreEqual(2, setups, "each slot that now holds another piece sets it up once");
+            Assert.AreEqual(feedback.Piece(0).Id, shown[0]);
+            Assert.AreEqual(feedback.Piece(1).Id, shown[1]);
+            Assert.AreEqual(0, RunFrames(feedback, shown, 0.9f, 1.5f, 1f / 60f), "nothing again until something changes");
+        }
+
         // ---- The motion -----------------------------------------------------------------------------
 
         [Test]

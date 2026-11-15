@@ -62,6 +62,12 @@ namespace AICompanion.Core
     /// <summary>One piece on screen: what it says, when it started, and when it was pushed out.</summary>
     public struct FeedbackPiece
     {
+        /// <summary>
+        /// Unique per piece (from 1), so a view sets a piece up once even when two pieces start in
+        /// the same frame (a landing and a new band) or the pool shifts. 0 is "no piece".
+        /// </summary>
+        public int Id;
+
         public FeedbackKind Kind;
 
         /// <summary>The big number ("+1.5"), empty for a familiarity band or a secret.</summary>
@@ -118,6 +124,7 @@ namespace AICompanion.Core
 
         readonly FeedbackPiece[] _pieces = new FeedbackPiece[Capacity];
         int _count;
+        int _nextId = 1;
 
         public int Count
         {
@@ -270,7 +277,18 @@ namespace AICompanion.Core
                 _count--;
             }
 
+            piece.Id = _nextId++;
             _pieces[_count++] = piece;
+        }
+
+        /// <summary>
+        /// True when a view slot that last set up <paramref name="shownId"/> must set up this piece
+        /// (text, colours, layout). False on every later frame of the same piece, so a piece is set
+        /// up once and only moved after that.
+        /// </summary>
+        public static bool NeedsSetup(int shownId, FeedbackPiece piece)
+        {
+            return shownId != piece.Id;
         }
 
         // ---- The text ---------------------------------------------------------------------------

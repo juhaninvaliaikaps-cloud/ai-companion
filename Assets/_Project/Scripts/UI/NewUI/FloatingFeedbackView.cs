@@ -46,8 +46,13 @@ namespace AICompanion.NewUI
             public TextMeshProUGUI Caption;
             public TextMeshProUGUI Label;
             public HorizontalLayoutGroup Row;
-            public float ShownStart = float.NaN;
+
+            /// <summary>The piece this slot was last set up for; 0 for none.</summary>
+            public int ShownId;
         }
+
+        /// <summary>How many times a slot was set up (text, colours, layout). Once per piece, not per frame.</summary>
+        public int SetupCount { get; private set; }
 
         SettingsPanel _settings;
         Wheel.HeadLocator _head;
@@ -221,7 +226,7 @@ namespace AICompanion.NewUI
                 var slot = _slots[i];
                 if (slot.Root.gameObject.activeSelf)
                     slot.Root.gameObject.SetActive(false);
-                slot.ShownStart = float.NaN;
+                slot.ShownId = 0;
             }
         }
 
@@ -230,9 +235,12 @@ namespace AICompanion.NewUI
         {
             if (!slot.Root.gameObject.activeSelf)
                 slot.Root.gameObject.SetActive(true);
-            if (slot.ShownStart == piece.StartTime && slot.Label.text == piece.Label)
+            // Once per piece: a normal piece's text is "Amount Label", so comparing the text never
+            // matched and every piece was rebuilt each frame (review of #107).
+            if (!RelationshipFeedback.NeedsSetup(slot.ShownId, piece))
                 return;
-            slot.ShownStart = piece.StartTime;
+            slot.ShownId = piece.Id;
+            SetupCount++;
 
             var crit = piece.IsCritical;
             var border = Pink;
