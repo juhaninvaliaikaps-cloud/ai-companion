@@ -285,6 +285,42 @@ namespace AICompanion.Settings
             _rebuild = true;
         }
 
+        /// <summary>JUH-116: the active persona's Innocent–Perverted keeper, or null. Adult mode only.</summary>
+        public InnocenceKeeper Innocence
+        {
+            get { return GetComponent<InnocenceKeeper>(); }
+        }
+
+        /// <summary>JUH-116: the slider. Ignored while the 18+ gate is closed.</summary>
+        public void SetInnocence(float value)
+        {
+            var keeper = GetComponent<InnocenceKeeper>();
+            if (keeper != null && AICompanion.Core.IntimateExpressions.Active)
+                keeper.SetByUser(value);
+        }
+
+        /// <summary>JUH-116: back to what the reading said.</summary>
+        public void UseInnocenceReading()
+        {
+            var keeper = GetComponent<InnocenceKeeper>();
+            if (keeper == null || !AICompanion.Core.IntimateExpressions.Active)
+                return;
+            keeper.UseReading();
+            SetStatus("Innocence is back to the reading of her description.");
+            _rebuild = true;
+        }
+
+        /// <summary>JUH-116: read her innocence again with the local model.</summary>
+        public void ReadInnocenceAgain()
+        {
+            var keeper = GetComponent<InnocenceKeeper>();
+            if (keeper == null || !AICompanion.Core.IntimateExpressions.Active)
+                return;
+            keeper.ReadAgain();
+            SetStatus("Reading her innocence with the local model.");
+            _rebuild = true;
+        }
+
         /// <summary>Drops the user's relationship correction and reads her description again.</summary>
         public void UseReadingForRelationship()
         {
@@ -318,7 +354,8 @@ namespace AICompanion.Settings
             get
             {
                 var keeper = GetComponent<PisaraReadingKeeper>();
-                return keeper != null ? keeper.Revision : 0;
+                var innocence = GetComponent<InnocenceKeeper>();
+                return (keeper != null ? keeper.Revision : 0) + (innocence != null ? innocence.Revision : 0);
             }
         }
 

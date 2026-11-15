@@ -470,6 +470,10 @@ namespace AICompanion.NewUI.Wheel
             var relationship = GetComponent<RelationshipKeeper>();
             if (relationship != null && relationship.IsLoaded)
                 text += "\n\n" + RelationshipCard.Describe(relationship.State.Affection, relationship.State.Familiarity, relationship.History, PisaraSwitches.Relationship);
+            // JUH-116: only while the 18+ gate is open.
+            var innocence = GetComponent<InnocenceKeeper>();
+            if (IntimateExpressions.Active && innocence != null && innocence.IsLoaded)
+                text += "\n" + innocence.State.Readout() + ".";
             var settings = _settings != null ? _settings.CurrentSettings : null;
             var debug = settings != null && settings.ShowMoodDebug;
             ShowCard("Mood", text, new[]
