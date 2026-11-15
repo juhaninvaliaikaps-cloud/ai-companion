@@ -360,3 +360,9 @@ the automatic place beside her head (docking needs the box). With the new UI off
 
 **G2. One scrollable conversation window** (Jussi: "Remove the history thing all together... one window that is scrollable up and down"). There is no History button and no separate history panel: the transcript and the live reply share one `ScrollRect`. Hold the middle mouse button and drag over the window to scroll back and forward; the normal wheel also scrolls it. The wheel over her body still zooms; over the box it does not.
 
+
+## Portrait scaling and transcript font (JUH-132, Jussi 2026-11-15)
+
+**G3. The 2D portrait resizes like the chat box.** Drag any edge or corner of the portrait; the opposite edge stays fixed. Size is saved as `portraitWidthPx` / `portraitHeightPx` at 100% scaling (0 is the automatic 128x144), with **Reset portrait size** in Settings → Look → Portrait. The frame never grows past the largest source portrait image (`ExpressionPortraitPanel.NativeSize`), so a drawing is never upscaled and blurred. Corners keep the image aspect ratio; the frame content is the same layered portrait set, just larger.
+
+**G4. One transcript font size.** The live reply and the finished transcript entries both use the body font. The old History tab's small font is gone; a reply does not shrink after it finishes.
