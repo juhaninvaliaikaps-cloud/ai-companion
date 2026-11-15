@@ -922,8 +922,18 @@ namespace AICompanion.NewUI
 
             Section("Chat box");
             Note("Drag the chat box by its top bar to put it anywhere around her. While you drag, spots appear: 1 left of her head, 2 right of her head (the portrait moves to her left), 3 beside her on the left, 4 beside her on the right, 5 under her, so she stands on it (2D video avatar only). Let go near one to snap there. The box stays with her when she walks.");
-            Slider(v => "Chat box height: " + Mathf.RoundToInt(v * 100f) + "%", S.ChatBoxHeight, 0.6f, 2f, false,
-                v => Change(s => s.ChatBoxHeight = v));
+            // JUH-127: the box is resized by dragging its edges and corners; the old height slider is gone.
+            Note("Drag any edge or corner of the chat box to resize it, like a window. Hold the middle mouse button and drag over the chat to scroll back through the conversation.");
+            Button("Reset chat box size", () =>
+            {
+                _settings.SaveLayoutSetting(s =>
+                {
+                    s.ChatBoxWidthPx = 0f;
+                    s.ChatBoxHeightPx = 0f;
+                    s.ChatBoxHeight = 1f;
+                });
+                _settings.SetStatusMessage("The chat box is back to its automatic size.");
+            });
             Button("Reset chat position", () =>
             {
                 var view = GetComponent<HappiChatView>();
