@@ -4,6 +4,7 @@ using AICompanion.Core;
 using AICompanion.Memory;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace AICompanion.NewUI.Wheel
@@ -56,6 +57,9 @@ namespace AICompanion.NewUI.Wheel
         readonly ScrollRect _scroll;
         readonly RectTransform _viewport;
         readonly RectTransform _content;
+        readonly RectTransform _tip;
+        readonly TextMeshProUGUI _tipText;
+        readonly Image _tipBackground;
 
         Func<ProfileData> _source;
         ProfileData _data;
@@ -106,6 +110,19 @@ namespace AICompanion.NewUI.Wheel
             _content.pivot = new Vector2(0.5f, 1f);
             _content.sizeDelta = new Vector2(0f, 8f);
             _scroll.content = _content;
+
+            // JUH-133: a readable popup for the small secret/kink chips. It lives on the
+            // profile root, outside the masked scroll body, so it is not clipped.
+            var tip = HappiUiKit.Panel(_root, "SecretTip", theme.PanelBackground, false);
+            _tipBackground = tip;
+            _tip = tip.rectTransform;
+            _tip.anchorMin = _tip.anchorMax = new Vector2(0.5f, 0.5f);
+            _tip.pivot = new Vector2(0.5f, 0f);
+            _tipText = HappiUiKit.Text(_tip, "TipText", string.Empty, theme.FontBody, theme.Text, TextAlignmentOptions.TopLeft, false);
+            _tipText.textWrappingMode = TextWrappingModes.Normal;
+            _tipText.overflowMode = TextOverflowModes.Overflow;
+            _tipText.raycastTarget = false;
+            _tip.gameObject.SetActive(false);
             _root.gameObject.SetActive(false);
         }
 
@@ -155,6 +172,7 @@ namespace AICompanion.NewUI.Wheel
 
         public void Hide()
         {
+            HideTip();
             _root.gameObject.SetActive(false);
         }
 
@@ -169,6 +187,7 @@ namespace AICompanion.NewUI.Wheel
 
         void Select(Tab tab)
         {
+            HideTip();
             _tab = tab;
             _data = _source != null ? _source() : null;
             if (_data == null)
@@ -188,6 +207,7 @@ namespace AICompanion.NewUI.Wheel
 
         void Rebuild()
         {
+            HideTip();
             for (var i = _content.childCount - 1; i >= 0; i--)
                 UnityEngine.Object.Destroy(_content.GetChild(i).gameObject);
             _y = 0f;
@@ -345,6 +365,13 @@ namespace AICompanion.NewUI.Wheel
                 var text = HappiUiKit.Text(_content, "SecretText", HappiUiKit.Literal(item.Text), size,
                     item.Found ? _theme.Text : _theme.TextMuted, TextAlignmentOptions.Center, item.Newest);
                 text.overflowMode = TextOverflowModes.Ellipsis;
+                text.raycastTarget = true;
+                var hover = text.gameObject.AddComponent<ProfileChipHover>();
+                hover.Text = item.Found
+                    ? title + "\n" + item.Text
+                    : title + "\nNot found yet. Talk with her to uncover this.";
+                hover.Enter = OnChipEnter;
+                hover.Exit = OnChipExit;
                 var width = Mathf.Min(TextWidth, text.GetPreferredValues(text.text, 0f, 0f).x + 2f * padX);
                 if (x > 0f && x + width > TextWidth)
                 {
@@ -369,6 +396,82 @@ namespace AICompanion.NewUI.Wheel
         /// JUH-125: "Her 18+ secrets · 1 of 6 found", only while the gate is open: Kinks,
         /// Sensitive areas, Shy to do, and how shy she is now.
         /// </summary>
+        // ---- Secret / kink tooltip ------------------------------------------------------
+
+        void OnChipEnter(ProfileChipHover chip)
+        {
+            if (chip == null || _tip == null || string.IsNullOrEmpty(chip.Text))
+                return;
+            var s = _scale;
+            var pad = 10f * s;
+            var width = Mathf.Min(360f * s, _root.sizeDelta.x - 2f * pad);
+            _tipText.fontSize = _theme.FontBody * s;
+            _tipText.text = HappiUiKit.Literal(chip.Text);
+            var contentWidth = Mathf.Max(20f, width - 2f * pad);
+            var height = Mathf.Max(24f * s, _tipText.GetPreferredValues(_tipText.text, contentWidth, 0f).y + 2f * pad);
+            _tip.sizeDelta = new Vector2(width, height);
+            _tipText.rectTransform.anchorMin = _tipText.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            _tipText.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            _tipText.rectTransform.sizeDelta = new Vector2(contentWidth, height - 2f * pad);
+            _tipText.rectTransform.anchoredPosition = Vector2.zero;
+
+            var anchor = chip.Rect;
+            if (anchor == null)
+                return;
+            var canvas = _root.GetComponentInParent<Canvas>();
+            var camera = canvas != null ? canvas.worldCamera : null;
+            var world = anchor.TransformPoint(anchor.rect.center);
+            var screen = RectTransformUtility.WorldToScreenPoint(camera, world);
+            Vector2 local;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(_root, screen, camera, out local))
+                return;
+
+            var halfW = _root.sizeDelta.x * 0.5f;
+            var halfH = _root.sizeDelta.y * 0.5f;
+            local.x = Mathf.Clamp(local.x, -halfW + width * 0.5f + 4f, halfW - width * 0.5f - 4f);
+            local.y = Mathf.Clamp(local.y + anchor.rect.height * 0.5f + 8f * s,
+                0f, halfH - height * 0.5f - 4f);
+            _tip.anchoredPosition = local;
+            _tip.SetAsLastSibling();
+            _tip.gameObject.SetActive(true);
+        }
+
+        void OnChipExit(ProfileChipHover chip)
+        {
+            HideTip();
+        }
+
+        void HideTip()
+        {
+            if (_tip != null && _tip.gameObject.activeSelf)
+                _tip.gameObject.SetActive(false);
+        }
+
+        sealed class ProfileChipHover : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+        {
+            public string Text;
+            public RectTransform Rect;
+            public Action<ProfileChipHover> Enter;
+            public Action<ProfileChipHover> Exit;
+
+            void Awake()
+            {
+                Rect = transform as RectTransform;
+            }
+
+            public void OnPointerEnter(PointerEventData eventData)
+            {
+                if (Enter != null)
+                    Enter(this);
+            }
+
+            public void OnPointerExit(PointerEventData eventData)
+            {
+                if (Exit != null)
+                    Exit(this);
+            }
+        }
+
         void BuildIntimateSecrets(ProfileIntimateSecrets s)
         {
             if (s == null)
