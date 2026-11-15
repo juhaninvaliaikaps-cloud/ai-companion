@@ -305,7 +305,7 @@ namespace AICompanion.Tests.EditMode
 
             Assert.AreEqual(
                 "Your relationship with the user: stepsister (family); you like them; you know each other very well. " +
-                "Touchy about: being called childish. Warms to: being trusted with a secret.",
+                "Touchy about: (t1) being called childish. Warms to: (w1) being trusted with a secret.",
                 RelationshipPrompt.Line(sheet, landing, 25f, 70f));
 
             Assert.AreEqual(

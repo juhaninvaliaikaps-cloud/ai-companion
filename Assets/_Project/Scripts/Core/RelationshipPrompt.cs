@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Text;
 
 namespace AICompanion.Core
@@ -39,7 +38,9 @@ namespace AICompanion.Core
 
         /// <summary>
         /// For example: <c>Your relationship with the user: stepsister (family); you like them; you
-        /// know each other very well. Touchy about: being called childish. Warms to: being trusted.</c>
+        /// know each other very well. Touchy about: (t1) being called childish. Warms to: (w1) being trusted.</c>
+        /// The ids in brackets are her secrets (JUH-123): the model names the one a message hit
+        /// with <c>secret="t1"</c>. All of them are listed, up to five per list.
         /// </summary>
         public static string Line(SheetRelationship sheet, SheetLanding landing, float affection, float familiarity)
         {
@@ -60,8 +61,9 @@ namespace AICompanion.Core
             else if (RelationshipMath.ClampFamiliarity(familiarity) < 10f)
                 sb.Append(" Be a little guarded; trust is earned.");
 
-            AppendList(sb, " Touchy about: ", landing == null ? null : landing.touchy);
-            AppendList(sb, " Warms to: ", landing == null ? null : landing.winsHerOver);
+            var secrets = HerSecrets.From(landing);
+            HerSecrets.AppendPromptList(sb, " Touchy about: ", secrets, SecretGroup.Stings);
+            HerSecrets.AppendPromptList(sb, " Warms to: ", secrets, SecretGroup.WinsHerOver);
             return sb.ToString();
         }
 
@@ -71,23 +73,6 @@ namespace AICompanion.Core
             var body = prompt == null ? string.Empty : prompt.TrimEnd();
             var line = Line(sheet, landing, affection, familiarity);
             return body.Length == 0 ? line : body + "\n" + line;
-        }
-
-        static void AppendList(StringBuilder sb, string lead, List<string> items)
-        {
-            if (items == null || items.Count == 0)
-                return;
-            var any = false;
-            for (var i = 0; i < items.Count && i < 3; i++)
-            {
-                if (string.IsNullOrWhiteSpace(items[i]))
-                    continue;
-                sb.Append(any ? ", " : lead).Append(items[i].Trim().TrimEnd('.'));
-                any = true;
-            }
-
-            if (any)
-                sb.Append('.');
         }
     }
 }

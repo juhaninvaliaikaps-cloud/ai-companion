@@ -268,7 +268,7 @@ namespace AICompanion.Core
                     else if (status != CueParseStatus.Parsed)
                     {
                         // A broken second tag does not undo a good first one.
-                        cue = new AnimationCue(Emotion.Neutral, NeutralIntensity, string.Empty, 0f, parsed.EmotionField, parsed.Reaction, parsed.Landed);
+                        cue = new AnimationCue(Emotion.Neutral, NeutralIntensity, string.Empty, 0f, parsed.EmotionField, parsed.Reaction, parsed.Landed, parsed.Secret);
                         status = CueParseStatus.Invalid;
                         rawTag = raw;
                     }
@@ -420,7 +420,7 @@ namespace AICompanion.Core
             return true;
         }
 
-        static readonly string[] LooseStarts = { "emotion=", "gesture=", "intensity=", "direction=", "reaction=", "landed=" };
+        static readonly string[] LooseStarts = { "emotion=", "gesture=", "intensity=", "direction=", "reaction=", "landed=", "secret=" };
 
         static bool LooksLikeCueStart(string text)
         {
@@ -448,6 +448,7 @@ namespace AICompanion.Core
             var emotionField = string.Empty;
             var reaction = string.Empty;
             var landed = LandingEvent.Neutral;
+            var secret = string.Empty;
             var ok = true;
 
             foreach (Match attribute in AttributePattern.Matches(trimmed))
@@ -493,18 +494,22 @@ namespace AICompanion.Core
                         // JUH-117: an unknown word is neutral and never makes the tag unreadable.
                         landed = LandingEvents.Parse(value);
                         break;
+                    case HerSecrets.Attribute:
+                        // JUH-123: an id that is not one of hers is dropped later, never an unreadable tag.
+                        secret = HerSecrets.SanitizeId(value);
+                        break;
                 }
             }
 
             if (!ok)
             {
                 // A reaction named in a tag with a bad emotion still plays.
-                cue = new AnimationCue(Emotion.Neutral, NeutralIntensity, string.Empty, 0f, emotionField, reaction, landed);
+                cue = new AnimationCue(Emotion.Neutral, NeutralIntensity, string.Empty, 0f, emotionField, reaction, landed, secret);
                 return false;
             }
 
             NormalizeMovementCue(ref gesture, ref direction);
-            cue = new AnimationCue(emotion, intensity, gesture, direction, emotionField, reaction, landed);
+            cue = new AnimationCue(emotion, intensity, gesture, direction, emotionField, reaction, landed, secret);
             return true;
         }
 

@@ -7,7 +7,7 @@ Mockup: https://claude.ai/artifact/3Za6cHCRA24ozNUnTz6ceD. Jussi picked Feelings
 | Tab | What it shows | Built by |
 | --- | --- | --- |
 | **Feelings** | The affection bar from −100 to +100. It fills from the middle toward her marker: pink when she likes you, grey when not. Then the familiarity bar, her mood now with her three strongest moods, and why the relationship moved recently (the last 4 reasons). | `Core/ProfileModel.cs` `ProfileFeelings` |
-| **Personality** | The temperament radar (Calm, Cheerful, Shy, Tsundere, Moody) from the reading, and the reading's line and reason. While 18+ is on, it also shows Innocent to Perverted. Her likes and dislikes are left out until JUH-123 makes them something to discover. | `ProfilePersonality`, `RadarGraphic` |
+| **Personality** | The temperament radar (Calm, Cheerful, Shy, Tsundere, Moody) from the reading, and the reading's line and reason. While 18+ is on, it also shows Innocent to Perverted. Then **Her secrets** (JUH-123): "3 of 8 found", in two groups, What stings her and What wins her over. A found one shows its text, the rest are locked "Not found yet" chips, and the newest find has a gold outline. | `ProfilePersonality`, `ProfileSecrets`, `RadarGraphic` |
 | **Her world** | What she is doing right now, what she is waiting for (open threads), what happened while you were away, her last days, and her backstory (6 shown, "Show all"). | `Memory/ProfileWorld.cs` `ProfileWorld` |
 | **Memories** | What she remembers about you, newest first (8 shown), and Manage in Settings. Her own life is on Her world, not here. | `ProfileMemories` |
 

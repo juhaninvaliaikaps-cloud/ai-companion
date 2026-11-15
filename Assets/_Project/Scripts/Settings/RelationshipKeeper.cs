@@ -53,6 +53,30 @@ namespace AICompanion.Settings
         /// <summary>The familiarity band last shown (JUH-122); -1 until the first landing of this persona.</summary>
         int _announcedBand = -1;
 
+        // JUH-123: which of her secrets were found, for this persona, saved next to the relationship.
+        SecretsState _secrets = new SecretsState();
+        string _secretsPath;
+        bool _secretsDirty;
+
+        /// <summary>Her secrets found so far (JUH-123).</summary>
+        public SecretsState Secrets
+        {
+            get { return _secrets; }
+        }
+
+        /// <summary>Profile → Personality → Her secrets, from this persona's sheet. Built when the panel opens, never per frame.</summary>
+        public ProfileSecrets SecretsView()
+        {
+            var sheet = CurrentSheet();
+            return ProfileSecrets.Build(HerSecrets.From(sheet != null ? sheet.landing : null), _loaded ? _secrets : null);
+        }
+
+        CharacterSheet CurrentSheet()
+        {
+            var reading = GetComponent<PisaraReadingKeeper>();
+            return reading != null && _loaded ? reading.SheetFor(_personaId) : null;
+        }
+
         /// <summary>The last few changes with a plain reason, newest first through <see cref="RelationshipHistory.Line"/> (JUH-117).</summary>
         public RelationshipHistory History
         {
@@ -89,9 +113,34 @@ namespace AICompanion.Settings
             if (!_loaded)
                 return;
             FlushFamiliarity();
-            var change = RelationshipNow.Land(cue, _state.Affection, _state.Familiarity);
-            if (!Apply(change))
+
+            // JUH-123: a secret the reply names. The first find is a critical hit; one found
+            // before lands like any other message. An id that is not one of hers is ignored.
+            var hit = SecretHitKind.None;
+            var secret = default(SecretItem);
+            if (PisaraSwitches.Relationship && !string.IsNullOrEmpty(cue.Secret))
+            {
+                var sheet = CurrentSheet();
+                hit = HerSecrets.Check(_secrets, HerSecrets.From(sheet != null ? sheet.landing : null), cue.Secret, out secret);
+                if (hit == SecretHitKind.None)
+                    Debug.Log("Secrets: the reply named \"" + cue.Secret + "\", which is not one of hers; ignored");
+            }
+
+            var first = hit == SecretHitKind.First;
+            var change = RelationshipNow.Land(cue, _state.Affection, _state.Familiarity, first);
+            if (!Apply(change, first ? secret.Text : null))
                 return;
+            if (first && _secrets.Reveal(secret.Key))
+            {
+                _secretsDirty = true;
+                SaveSecrets();
+                Debug.Log("Secrets: found " + secret.Id + " for persona " + PersonaLogId() + " (" + _secrets.FoundCount + " found)");
+            }
+            else if (hit == SecretHitKind.Again)
+            {
+                Debug.Log("Secrets: " + secret.Id + " was found before; an ordinary landing");
+            }
+
             var mood = GetComponent<CompanionMoodKeeper>();
             if (mood != null)
                 mood.ApplyRelationship(change, cue.Intensity);
@@ -180,7 +229,7 @@ namespace AICompanion.Settings
         /// line. Does nothing while the Relationship switch is off. True when it was applied.
         /// The caller passes the change's mood nudges on with <see cref="RelationshipMath.PushMoods"/>.
         /// </summary>
-        public bool Apply(RelationshipChange change)
+        public bool Apply(RelationshipChange change, string secretFound = null)
         {
             if (!_loaded || !PisaraSwitches.Relationship)
                 return false;
@@ -194,7 +243,7 @@ namespace AICompanion.Settings
             // band reached through chat time shows with the next landing.
             if (_announcedBand < 0)
                 _announcedBand = RelationshipCard.KnowingBand(familiarityBefore);
-            var notice = RelationshipNotice.From(change, _announcedBand);
+            var notice = RelationshipNotice.From(change, _announcedBand, secretFound);
             if (notice.NewBand)
                 _announcedBand = notice.Band;
             RelationshipNow.ReportChanged(notice);
@@ -237,6 +286,9 @@ namespace AICompanion.Settings
             _revisionSeen = false;
             _awaitingStart = false;
             _familiarityClock.Clear();
+            _secrets = new SecretsState();
+            _secretsPath = null;
+            _secretsDirty = false;
             RelationshipNow.Reset();
         }
 
@@ -264,6 +316,10 @@ namespace AICompanion.Settings
                 RelationshipMath.Start(sheet.relationship, out affection, out familiarity);
 
             _state = new RelationshipState { Affection = affection, Familiarity = familiarity, SecondsTogether = 0d };
+            // JUH-123: start over hides her secrets again.
+            _secrets.Clear();
+            _secretsDirty = true;
+            SaveSecrets();
             _history.Clear();
             _announcedBand = -1;
             _awaitingStart = false;
@@ -362,6 +418,9 @@ namespace AICompanion.Settings
             _state = string.IsNullOrEmpty(_path)
                 ? new RelationshipState()
                 : RelationshipStore.Load(_path);
+            _secretsPath = string.IsNullOrEmpty(_path) ? null : SecretsStore.FileFor(SettingsPanelFolder(), persona);
+            _secrets = SecretsStore.Load(_secretsPath);
+            _secretsDirty = false;
             // No file yet: start from this persona's model reading once it is there (never for the setup name).
             _awaitingStart = !string.IsNullOrEmpty(persona) && !string.IsNullOrEmpty(_path) && !System.IO.File.Exists(_path);
             // The previous persona's time was applied by the Save above; none carries over.
@@ -374,8 +433,17 @@ namespace AICompanion.Settings
             Debug.Log(RelationshipLog.Line(persona, _state));
         }
 
+        void SaveSecrets()
+        {
+            if (!_secretsDirty || string.IsNullOrEmpty(_secretsPath))
+                return;
+            if (SecretsStore.Save(_secretsPath, _secrets))
+                _secretsDirty = false;
+        }
+
         void Save()
         {
+            SaveSecrets();
             FlushFamiliarity();
             if (!_loaded || !_dirty || string.IsNullOrEmpty(_path))
                 return;

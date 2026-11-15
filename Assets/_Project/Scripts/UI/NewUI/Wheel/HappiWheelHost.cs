@@ -517,6 +517,7 @@ namespace AICompanion.NewUI.Wheel
             var gate = IntimateExpressions.Active && innocence != null && innocence.IsLoaded;
             var temperamentLine = _settings != null ? _settings.PisaraView().TemperamentLine : string.Empty;
             data.Personality = ProfilePersonality.Build(sheet, temperamentLine, gate, gate ? innocence.State.Current : InnocenceMath.Default);
+            data.Secrets = loaded ? relationship.SecretsView() : null;
 
             var store = MemoryRuntime.Store;
             var entries = store != null ? store.Entries : null;
