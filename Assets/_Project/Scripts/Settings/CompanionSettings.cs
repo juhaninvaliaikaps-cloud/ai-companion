@@ -215,6 +215,9 @@ namespace AICompanion.Settings
         public int PortraitDock;
         public float PortraitOffsetX;
         public float PortraitOffsetY;
+        /// <summary>JUH-132: portrait size in pixels at 100% scaling; 0 is the automatic 128x144.</summary>
+        public float PortraitWidthPx;
+        public float PortraitHeightPx;
 
         /// <summary>Shows the old debug text (topmost, fps, emotion, rotate/size/zoom) top-left. Off by default; the mood readout has its own switch.</summary>
         public bool ShowDebugInfo;
@@ -308,6 +311,8 @@ namespace AICompanion.Settings
                 PortraitDock = 0;
             PortraitOffsetX = CleanOffset(PortraitOffsetX);
             PortraitOffsetY = CleanOffset(PortraitOffsetY);
+            PortraitWidthPx = CleanBoxSize(PortraitWidthPx);
+            PortraitHeightPx = CleanBoxSize(PortraitHeightPx);
             if (float.IsNaN(SpokenGlowIntensity) || float.IsInfinity(SpokenGlowIntensity))
                 SpokenGlowIntensity = 0.6f;
             SpokenGlowIntensity = Math.Max(0f, Math.Min(1f, SpokenGlowIntensity));
@@ -734,6 +739,10 @@ namespace AICompanion.Settings
                 settings.PortraitOffsetX = (float)number;
             if (TryNumber(json, "portraitOffsetY", out number))
                 settings.PortraitOffsetY = (float)number;
+            if (TryNumber(json, "portraitWidthPx", out number))
+                settings.PortraitWidthPx = (float)number;
+            if (TryNumber(json, "portraitHeightPx", out number))
+                settings.PortraitHeightPx = (float)number;
             settings.Normalize();
             return settings;
         }
@@ -829,6 +838,8 @@ namespace AICompanion.Settings
             Number(sb, "portraitDock", source.PortraitDock, true);
             Number(sb, "portraitOffsetX", source.PortraitOffsetX, false);
             Number(sb, "portraitOffsetY", source.PortraitOffsetY, false);
+            Number(sb, "portraitWidthPx", source.PortraitWidthPx, false);
+            Number(sb, "portraitHeightPx", source.PortraitHeightPx, false);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;

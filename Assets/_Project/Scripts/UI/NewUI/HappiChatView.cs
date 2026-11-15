@@ -106,6 +106,11 @@ namespace AICompanion.NewUI
         bool _portraitDragPending;
         bool _portraitDragging;
         Vector2 _portraitDragOffset;
+        bool _portraitResizing;
+        ResizeEdges _portraitResizeEdges;
+        Rect _portraitResizeStart;
+        Vector2 _portraitResizePointerStart;
+        Vector2 _portraitResizeSize;
         int _placedSnap = ChatSnapSpots.Default;
         float _roomBoxHeight;
 
@@ -483,11 +488,70 @@ namespace AICompanion.NewUI
         {
             var shown = ExpressionPortraitPanel.ShownRect;
             var guiVisible = new Rect(_visibleArea.x, Screen.height - _visibleArea.yMax, _visibleArea.width, _visibleArea.height);
-            var left = PortraitDocking.DockRect(_boxCenter, _boxSize, PortraitDocking.LeftOfBox, gap, Screen.height);
-            var right = PortraitDocking.DockRect(_boxCenter, _boxSize, PortraitDocking.RightOfBox, gap, Screen.height);
             var pointerGui = new Vector2(pointer.x, Screen.height - pointer.y);
             var headGui = new Vector2(body.Head.x, Screen.height - body.Head.y);
-            var normal = new Vector2(PortraitPlacement.Width, PortraitPlacement.Height);
+            var savedWidth = settings != null ? settings.PortraitWidthPx : 0f;
+            var savedHeight = settings != null ? settings.PortraitHeightPx : 0f;
+            var normal = PortraitResize.Resolve(
+                savedWidth,
+                savedHeight,
+                new Vector2(PortraitPlacement.Width, PortraitPlacement.Height),
+                scale,
+                ExpressionPortraitPanel.NativeSize);
+
+            var left = PortraitDocking.DockRect(_boxCenter, _boxSize, PortraitDocking.LeftOfBox, gap, Screen.height);
+            var right = PortraitDocking.DockRect(_boxCenter, _boxSize, PortraitDocking.RightOfBox, gap, Screen.height);
+            left.size = normal;
+            right.size = normal;
+
+            if (!_portraitResizing && shown.width > 0f && Input.GetMouseButtonDown(0))
+            {
+                var edge = PortraitResize.EdgeAt(shown, pointerGui, scale);
+                if (edge != ResizeEdges.None)
+                {
+                    _portraitResizing = true;
+                    _portraitResizeEdges = edge;
+                    _portraitResizeStart = shown;
+                    _portraitResizePointerStart = pointerGui;
+                    _portraitResizeSize = shown.size;
+                    _portraitDragPending = false;
+                    _portraitDragging = false;
+                }
+            }
+
+            if (_portraitResizing)
+            {
+                if (LeftHeld())
+                {
+                    var min = new Vector2(PortraitResize.MinWidth * scale, PortraitResize.MinHeight * scale);
+                    var max = ExpressionPortraitPanel.NativeSize;
+                    var aspect = max.y > 0f ? max.x / max.y : 0f;
+                    var rect = PortraitResize.Apply(
+                        _portraitResizeStart,
+                        pointerGui - _portraitResizePointerStart,
+                        _portraitResizeEdges,
+                        min,
+                        max,
+                        guiVisible,
+                        aspect);
+                    _portraitResizeSize = rect.size;
+                    ExpressionPortraitPanel.NewUiTarget = rect;
+                    PlacePortraitHandle(rect);
+                    return;
+                }
+
+                _portraitResizing = false;
+                _portraitDragPending = false;
+                if (_settings != null)
+                {
+                    _settings.SaveLayoutSetting(s =>
+                    {
+                        s.PortraitWidthPx = PortraitResize.ToUnits(_portraitResizeSize.x, scale);
+                        s.PortraitHeightPx = PortraitResize.ToUnits(_portraitResizeSize.y, scale);
+                    });
+                }
+                settings = _settings != null ? _settings.CurrentSettings : settings;
+            }
 
             if (_portraitDragPending)
             {
@@ -495,9 +559,8 @@ namespace AICompanion.NewUI
                 if (shown.width > 0f)
                 {
                     _portraitDragging = true;
-                    // Keep the grab point at the same place on the picture, at its normal size.
-                    var grab = shown.height > 0f ? normal.y / shown.height : 1f;
-                    _portraitDragOffset = (shown.position - pointerGui) * grab;
+                    // Keep the grab point at the same place on the picture.
+                    _portraitDragOffset = shown.position - pointerGui;
                 }
             }
 
@@ -538,8 +601,19 @@ namespace AICompanion.NewUI
             {
                 target = new Rect(headGui + new Vector2(settings.PortraitOffsetX, settings.PortraitOffsetY) * scale, normal);
             }
+            else
+            {
+                target = PortraitPlacement.Beside(headGui, Screen.width, Screen.height,
+                    ExpressionPortraitPanel.NewUiAvoid, PortraitPlacement.DebugLabel, ExpressionPortraitPanel.NewUiPreferLeft);
+            }
 
-            ExpressionPortraitPanel.NewUiTarget = target.width > 0f ? PortraitDocking.Clamp(target, guiVisible) : new Rect(0f, 0f, 0f, 0f);
+            if (target.width > 0f)
+            {
+                target.size = normal;
+                target = PortraitDocking.Clamp(target, guiVisible);
+            }
+
+            ExpressionPortraitPanel.NewUiTarget = target.width > 0f ? target : new Rect(0f, 0f, 0f, 0f);
             PlacePortraitHandle(shown);
         }
 
@@ -578,6 +652,7 @@ namespace AICompanion.NewUI
             ExpressionPortraitPanel.NewUiTarget = new Rect(0f, 0f, 0f, 0f);
             _portraitDragging = false;
             _portraitDragPending = false;
+            _portraitResizing = false;
         }
 
         /// <summary>
@@ -1293,7 +1368,9 @@ namespace AICompanion.NewUI
                     text.gameObject.SetActive(true);
                 if (_transcript.Changed(i) || widthChanged || _historyHeights[i] < 0f)
                 {
-                    text.fontSize = _theme.FontSmall * _layoutScale;
+                    // JUH-132: the transcript used the old History tab's small font after a
+                    // reply finished, while the live reply was body size. Keep one size.
+                    text.fontSize = _theme.FontBody * _layoutScale;
                     text.text = HistoryEntry(_transcript.Entry(i));
                     _historyHeights[i] = Mathf.Max(8f, text.GetPreferredValues(text.text, width - 4f, 0f).y);
                 }
@@ -1430,8 +1507,13 @@ namespace AICompanion.NewUI
                 ResizeCursor.Show(_resizeEdges);
                 return;
             }
+            if (_portraitResizing)
+            {
+                ResizeCursor.Show(_portraitResizeEdges);
+                return;
+            }
 
-            if (_dragging)
+            if (_dragging || _portraitDragging)
                 return;
             for (var i = 0; i < _resizeHandles.Length; i++)
             {
@@ -1441,6 +1523,15 @@ namespace AICompanion.NewUI
                     ResizeCursor.Show(handle.Edges);
                     return;
                 }
+            }
+
+            var portrait = ExpressionPortraitPanel.ShownRect;
+            if (portrait.width > 0f)
+            {
+                var cursor = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y);
+                var edge = PortraitResize.EdgeAt(portrait, cursor, _layoutScale);
+                if (edge != ResizeEdges.None)
+                    ResizeCursor.Show(edge);
             }
         }
 

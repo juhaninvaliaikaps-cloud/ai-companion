@@ -77,6 +77,9 @@ namespace AICompanion.Settings
 
         /// <summary>Where the portrait is drawn now (window pixels from the top-left); empty while it is hidden.</summary>
         public static Rect ShownRect;
+
+        /// <summary>JUH-132: largest source image in the current portrait set, in pixels. The frame may not grow past this.</summary>
+        public static Vector2 NativeSize = new Vector2(PortraitPlacement.Width, PortraitPlacement.Height);
         string _heldExpression = string.Empty;
         float _quietFor;
         PortraitPreview _preview;
@@ -461,7 +464,28 @@ namespace AICompanion.Settings
             any |= ApplySlot(_back, ref _backPath, view.Back, view.BackAlpha);
             any |= ApplySlot(_mid, ref _midPath, view.Mid, view.MidAlpha);
             any |= ApplySlot(_front, ref _frontPath, view.Front, view.FrontAlpha);
+            if (any)
+                UpdateNativeSize();
             return any;
+        }
+
+        /// <summary>The unzoomed image dimensions, so the resizable frame never upscales a drawing.</summary>
+        void UpdateNativeSize()
+        {
+            var max = Vector2.zero;
+            foreach (var pair in _sprites)
+            {
+                var sprite = pair.Value;
+                if (sprite == null)
+                    continue;
+                var size = sprite.rect.size;
+                if (size.x > max.x)
+                    max.x = size.x;
+                if (size.y > max.y)
+                    max.y = size.y;
+            }
+            if (max.x > 0f && max.y > 0f)
+                NativeSize = max;
         }
 
         bool ApplySlot(Image image, ref string current, string path, float alpha)

@@ -953,6 +953,16 @@ namespace AICompanion.NewUI
 
             Section("Portrait");
             Note("Drag the 2D portrait to move it. Let go near the chat box's left or right side to dock it there; anywhere else it stays where you put it, following her.");
+            Note("Drag the portrait's edges or corners to resize it. Its largest size is the source image size, so it stays sharp.");
+            Button("Reset portrait size", () =>
+            {
+                _settings.SaveLayoutSetting(s =>
+                {
+                    s.PortraitWidthPx = 0f;
+                    s.PortraitHeightPx = 0f;
+                });
+                _settings.SetStatusMessage("The portrait is back to its automatic size.");
+            });
             Button("Reset portrait position", () =>
             {
                 _settings.SaveLayoutSetting(s =>
