@@ -62,8 +62,13 @@ namespace AICompanion.UI
         /// <summary>Called just before a user message is sent, with that send's private flag.</summary>
         void SessionBeforeSend(bool keepsLocal)
         {
-            if (_sessionUserMessages == 0 && _conversation != null)
-                _sessionStartLine = _conversation.Lines.Count;
+            if (_conversation != null)
+            {
+                // On startup the loaded transcript is still the current conversation, so the
+                // first send may include its recent lines. A real session end sets the start
+                // to the next line, keeping earlier sessions out of the raw prompt.
+                _conversation.HistoryStart = _sessionStartLine;
+            }
             NoteSessionPrivacy(keepsLocal);
         }
 
@@ -134,7 +139,9 @@ namespace AICompanion.UI
         void DropSession()
         {
             _sessionUserMessages = 0;
-            _sessionStartLine = 0;
+            _sessionStartLine = _conversation != null ? _conversation.Lines.Count : 0;
+            if (_conversation != null)
+                _conversation.HistoryStart = 0;
             _sessionPrivacy.Reset();
         }
 
