@@ -1064,6 +1064,18 @@ namespace AICompanion.NewUI
             if (state.UserSet)
                 Button("Use the reading", () => { _settings.UseInnocenceReading(); _rebuild = true; });
             Button(keeper.Reading ? "Read again (reading...)" : "Read again", () => { _settings.ReadInnocenceAgain(); _rebuild = true; });
+
+            // JUH-125: her 18+ secrets, read on the local model only. What is in them is for the Profile panel to reveal.
+            var secrets = _settings.IntimateSecrets;
+            if (secrets != null && secrets.IsLoaded)
+            {
+                Section("Her 18+ secrets");
+                Note("Kinks, sensitive areas and what she is shy to do, read from her description on the local model. You find them in intimate moments; Profile → Personality shows what you found.");
+                var status = secrets.StatusLine();
+                if (status.Length > 0)
+                    Note(status);
+                Button(secrets.Reading ? "Read her secrets again (reading...)" : "Read her secrets again", () => { _settings.ReadIntimateSecretsAgain(); _rebuild = true; });
+            }
         }
 
         /// <summary>A light-blue indeterminate bar while the model writes her character sheet.</summary>

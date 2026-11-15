@@ -18,6 +18,9 @@ namespace AICompanion.NewUI.Wheel
 
         /// <summary>JUH-123: her secrets, shown on the Personality tab. Null when the relationship is not loaded.</summary>
         public ProfileSecrets Secrets;
+
+        /// <summary>JUH-125: her 18+ secrets. Null while the 18+ gate is closed.</summary>
+        public ProfileIntimateSecrets IntimateSecrets;
         public ProfileWorld World;
         public string MemoriesSummary = string.Empty;
         public readonly List<string> Memories = new List<string>();
@@ -266,6 +269,8 @@ namespace AICompanion.NewUI.Wheel
                 Paragraph("Set it on Settings → Persona → Who she is.", true);
                 End(box);
             }
+
+            BuildIntimateSecrets(_data.IntimateSecrets);
         }
 
         /// <summary>
@@ -291,28 +296,53 @@ namespace AICompanion.NewUI.Wheel
             End(box);
         }
 
+        struct Chip
+        {
+            public string Text;
+            public bool Found;
+            public bool Newest;
+        }
+
+        readonly List<Chip> _chips = new List<Chip>(8);
+
         void SecretGroupChips(string title, ProfileSecrets s, SecretGroup group)
         {
-            var any = false;
+            _chips.Clear();
             for (var i = 0; i < s.Items.Count; i++)
             {
                 if (s.Items[i].Group == group)
-                    any = true;
+                    _chips.Add(new Chip { Text = s.Items[i].Text, Found = s.Items[i].Found, Newest = s.Items[i].Newest });
             }
 
-            if (!any)
+            Chips(title);
+        }
+
+        void IntimateGroupChips(string title, ProfileIntimateSecrets s, IntimateSecretGroup group)
+        {
+            _chips.Clear();
+            for (var i = 0; i < s.Items.Count; i++)
+            {
+                if (s.Items[i].Group == group)
+                    _chips.Add(new Chip { Text = s.Items[i].Text, Found = s.Items[i].Found, Newest = s.Items[i].Newest });
+            }
+
+            Chips(title);
+        }
+
+        /// <summary>A sub-heading and a flowing row of chips from <see cref="_chips"/>. Nothing when it is empty.</summary>
+        void Chips(string title)
+        {
+            if (_chips.Count == 0)
                 return;
             SubHeading(title);
             var size = _theme.FontSmall * _scale;
             var height = size * 1.9f;
             var padX = 10f * _scale;
             var x = 0f;
-            for (var i = 0; i < s.Items.Count; i++)
+            for (var i = 0; i < _chips.Count; i++)
             {
-                var item = s.Items[i];
-                if (item.Group != group)
-                    continue;
-                var text = HappiUiKit.Text(_content, "SecretText", HappiUiKit.Literal(item.Found ? item.Text : ProfileSecrets.Locked), size,
+                var item = _chips[i];
+                var text = HappiUiKit.Text(_content, "SecretText", HappiUiKit.Literal(item.Text), size,
                     item.Found ? _theme.Text : _theme.TextMuted, TextAlignmentOptions.Center, item.Newest);
                 text.overflowMode = TextOverflowModes.Ellipsis;
                 var width = Mathf.Min(TextWidth, text.GetPreferredValues(text.text, 0f, 0f).x + 2f * padX);
@@ -333,6 +363,30 @@ namespace AICompanion.NewUI.Wheel
             }
 
             _y += height + Gap;
+        }
+
+        /// <summary>
+        /// JUH-125: "Her 18+ secrets · 1 of 6 found", only while the gate is open: Kinks,
+        /// Sensitive areas, Shy to do, and how shy she is now.
+        /// </summary>
+        void BuildIntimateSecrets(ProfileIntimateSecrets s)
+        {
+            if (s == null)
+                return;
+            var box = Begin();
+            Heading(s.Total == 0 ? "Her 18+ secrets" : s.Title);
+            if (s.Status.Length > 0)
+                Paragraph(s.Status, true);
+            if (s.Total > 0)
+            {
+                Paragraph("Found during intimate moments. Doing one of her kinks or touching a sensitive area again always pleases her a little more.", true);
+                IntimateGroupChips("Kinks", s, IntimateSecretGroup.Kink);
+                IntimateGroupChips("Sensitive areas", s, IntimateSecretGroup.Sensitive);
+                IntimateGroupChips("Shy to do", s, IntimateSecretGroup.Shy);
+                Paragraph(s.ShyLine, true);
+            }
+
+            End(box);
         }
 
         /// <summary>The gold of a secret found (the same as its floating piece).</summary>

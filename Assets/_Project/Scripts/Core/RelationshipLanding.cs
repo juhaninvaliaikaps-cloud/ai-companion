@@ -174,6 +174,13 @@ namespace AICompanion.Core
         /// <summary>A landing whose cue intensity is at least this is a critical hit. No random crits.</summary>
         public const float CritIntensity = 0.85f;
 
+        /// <summary>
+        /// JUH-125: doing one of her kinks or touching a sensitive area again, after it was found,
+        /// multiplies the change by this (Jussi, 2026-11-15: "doing her kink should always be more
+        /// rewarding than not doing it"). On top of a crit from intensity, inside the same clamps.
+        /// </summary>
+        public const float FavouriteMultiplier = 1.25f;
+
         // Affection change at intensity 0.5, for a stranger (familiarity 0) and for someone
         // close (familiarity 100). Indexed by LandingEvent.
         static readonly float[] StrangerDelta = { 0f, 1f, 1f, 2f, -2f, -10f, -3f, 2f, -1f };
@@ -272,6 +279,15 @@ namespace AICompanion.Core
         /// <summary>As <see cref="Land(LandingEvent, float, float, float)"/>; <paramref name="secretHit"/> is the JUH-123 crit hook.</summary>
         public static RelationshipChange Land(LandingEvent landing, float intensity, float affection, float familiarity, bool secretHit)
         {
+            return Land(landing, intensity, affection, familiarity, secretHit, 1f);
+        }
+
+        /// <summary>
+        /// As above, with <paramref name="bonus"/> multiplying the affection change after any crit
+        /// (JUH-125, <see cref="FavouriteMultiplier"/>). A bonus below 1 or not a number counts as 1.
+        /// </summary>
+        public static RelationshipChange Land(LandingEvent landing, float intensity, float affection, float familiarity, bool secretHit, float bonus)
+        {
             affection = ClampAffection(affection);
             familiarity = ClampFamiliarity(familiarity);
             var index = (int)landing;
@@ -288,6 +304,8 @@ namespace AICompanion.Core
             var critical = IsCritical(landing, intensity, secretHit) && delta != 0f;
             if (critical)
                 delta *= CritMultiplier;
+            if (!float.IsNaN(bonus) && bonus > 1f)
+                delta *= bonus;
 
             var newAffection = ClampAffection(affection + delta);
             // Every exchange, kind or not, is time spent knowing each other.

@@ -40,6 +40,8 @@ namespace AICompanion.UI
             prompt = RelationshipNow.Append(prompt);
             // JUH-116: where she sits between Innocent and Perverted; empty while the 18+ gate is closed.
             prompt = InnocenceNow.Append(prompt);
+            // JUH-125: her 18+ secrets; empty while the gate is closed (the chat is local while it is open).
+            prompt = IntimateSecretsNow.Append(prompt);
             return WorldPromptNow.Append(prompt, chatMessage && ConversationIsEmpty());
         }
 

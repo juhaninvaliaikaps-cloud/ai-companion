@@ -229,6 +229,16 @@ namespace AICompanion.Core
             NewestKey = string.Empty;
         }
 
+        /// <summary>Replaces these finds with <paramref name="other"/>'s.</summary>
+        public void CopyFrom(SecretsState other)
+        {
+            Clear();
+            if (other == null)
+                return;
+            _found.AddRange(other._found);
+            NewestKey = other.NewestKey ?? string.Empty;
+        }
+
         /// <summary>How many of <paramref name="items"/> are found. A find whose phrase left the sheet does not count.</summary>
         public int FoundAmong(List<SecretItem> items)
         {
