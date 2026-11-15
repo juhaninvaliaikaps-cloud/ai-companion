@@ -114,6 +114,10 @@ namespace AICompanion.Memory
                 Model = request.Model,
                 Temperature = request.Temperature,
                 MaxTokens = request.MaxTokens,
+                TimeoutSeconds = request.TimeoutSeconds,
+                Image = request.Image,
+                BlockCloud = request.BlockCloud,
+                NoMemory = request.NoMemory,
             };
         }
 
