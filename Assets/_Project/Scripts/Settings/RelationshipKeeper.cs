@@ -118,19 +118,40 @@ namespace AICompanion.Settings
             // before lands like any other message. An id that is not one of hers is ignored.
             var hit = SecretHitKind.None;
             var secret = default(SecretItem);
+            // JUH-125: an 18+ secret (k, s or y), only while the gate is open.
+            var intimateHit = SecretHitKind.None;
+            var intimate = default(IntimateSecretItem);
+            var intimateKeeper = GetComponent<IntimateSecretsKeeper>();
             if (PisaraSwitches.Relationship && !string.IsNullOrEmpty(cue.Secret))
             {
-                var sheet = CurrentSheet();
-                hit = HerSecrets.Check(_secrets, HerSecrets.From(sheet != null ? sheet.landing : null), cue.Secret, out secret);
-                if (hit == SecretHitKind.None)
+                if (IntimateSecretsState.IsIntimateId(cue.Secret))
+                {
+                    if (intimateKeeper != null)
+                        intimateHit = intimateKeeper.Check(cue.Secret, out intimate);
+                }
+                else
+                {
+                    var sheet = CurrentSheet();
+                    hit = HerSecrets.Check(_secrets, HerSecrets.From(sheet != null ? sheet.landing : null), cue.Secret, out secret);
+                }
+
+                if (hit == SecretHitKind.None && intimateHit == SecretHitKind.None)
                     Debug.Log("Secrets: the reply named \"" + cue.Secret + "\", which is not one of hers; ignored");
             }
 
-            var first = hit == SecretHitKind.First;
-            var change = RelationshipNow.Land(cue, _state.Affection, _state.Familiarity, first);
-            if (!Apply(change, first ? secret.Text : null))
+            // The first find of any secret is a critical hit. After that, her kinks and sensitive
+            // areas always reward a little more (x1.25); everything else lands as usual.
+            var first = hit == SecretHitKind.First || intimateHit == SecretHitKind.First;
+            var bonus = intimateHit == SecretHitKind.Again && intimate.Group != IntimateSecretGroup.Shy ? RelationshipMath.FavouriteMultiplier : 1f;
+            var change = RelationshipNow.Land(cue, _state.Affection, _state.Familiarity, first, bonus);
+            var foundText = hit == SecretHitKind.First ? secret.Text : intimateHit == SecretHitKind.First ? intimate.Text : null;
+            if (!Apply(change, foundText))
                 return;
-            if (first && _secrets.Reveal(secret.Key))
+            if (intimateHit == SecretHitKind.First && intimateKeeper != null && intimateKeeper.Reveal(intimate))
+                Debug.Log("Intimate secrets: found " + intimate.Id + " for persona " + PersonaLogId() + " (" + intimateKeeper.FoundCount + " found)");
+            else if (intimateHit == SecretHitKind.Again)
+                Debug.Log("Intimate secrets: " + intimate.Id + " again" + (bonus > 1f ? ", x" + bonus.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : string.Empty));
+            if (first && hit == SecretHitKind.First && _secrets.Reveal(secret.Key))
             {
                 _secretsDirty = true;
                 SaveSecrets();

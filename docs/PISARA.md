@@ -431,6 +431,18 @@ Only while the 18+ gate is open. While it is closed nothing is read, nothing mov
 
 **Shown.** The wheel's Mood card adds `Innocence: 30 (innocent)` while the gate is open. Log lines start with `Innocence:`.
 
+## Her 18+ secrets (JUH-125, 18+ only)
+
+Three more groups of secrets, only while the 18+ gate is open (Jussi, 2026-11-15): **kinks** (a genre and the specific thing in it, ids k1..k3), **sensitive areas** (s1..s3) and what she is **shy to do** (y1..y3).
+
+- **How many**: 1 to 3 per group, picked once from the persona id and her description hash (`IntimateSecretCounts`), so a re-read of the same description asks for the same counts. Kinks and sensitive areas: 1/2/3 at 20/40/40%. Shy to do: 50/35/15%. Proposed odds, to be tuned.
+- **Read on the local model only** (`IntimateSecretsReader`): a separate request with `BlockCloud` and `NoMemory`, refused before anything is sent while the gate is closed or when the provider is not the local model or the private server. The Pisara model setting (JUH-126) never changes it. When the description says nothing, the model picks what fits her personality.
+- **Kept** by `IntimateSecretsKeeper`, per persona, encrypted, as `intimate-secrets-<persona>.json` (`IntimateSecretsStore`): the reading and which were found. It reads once per description, and again from Settings → Persona → Her 18+ secrets → Read her secrets again. A find whose text is in the new reading stays found. Start over hides them again; wipe and export include the file. Player.log gets counts and ids only, never the secrets.
+- **Prompt** (`IntimateSecretsPrompt`, through `IntimateSecretsNow`, after the innocence line): the three lists with ids, how she feels about the shy ones, and the instruction to set `secret="k1"` when an intimate moment clearly does one. `IntimateSecretsNow.Append` adds nothing while the gate is closed, whatever was published. While the gate is open the chat is local anyway.
+- **Shy to do warms slowly with innocence** (JUH-116 bands, no fixed point): very innocent, she shies away; innocent, reluctant; in between, hesitant but can be coaxed; experienced, curious; perverted, open to them.
+- **Rewards** (`RelationshipKeeper.OnReply`): the first find of any 18+ secret is a critical hit (×2). After that, one of her kinks or sensitive areas always multiplies the change by `RelationshipMath.FavouriteMultiplier` (1.25), on top of a crit from intensity: "doing her kink should always be more rewarding than not doing it". A shy-to-do found before lands as usual.
+- **Shown**: the gold "Secret found" piece, and Profile → Personality → **Her 18+ secrets · 1 of 6 found** (Kinks, Sensitive areas, Shy to do, "How shy she is now"), only while the gate is open.
+
 ## Guards
 
 - **Local only when it must be.** Every model call here follows `IntimateExpressions.KeepsLocal` and Private mode. A private persona never calls a cloud model.
