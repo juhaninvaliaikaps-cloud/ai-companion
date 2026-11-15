@@ -141,7 +141,7 @@ jobs:
           # Use the successful attempt's artifacts; if the first attempt crashed,
           # fall back to the retry's output.
           path: ${{ steps.tests.outputs.artifactsPath || steps.tests_retry.outputs.artifactsPath }}
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
   # Starts only after unity-tests finishes, so the two jobs never hold the
   # Personal seat at the same time. EditMode on the Linux editor defines

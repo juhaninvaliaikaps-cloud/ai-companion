@@ -53,6 +53,9 @@ namespace AICompanion.Settings
             get { return _reading; }
         }
 
+        /// <summary>Unscaled time when the current reading started; 0 when none has run.</summary>
+        public float ReadingStartedAt { get; private set; }
+
         /// <summary>The active persona's sheet. Null with the setup name (no persona), or before the first look.</summary>
         public CharacterSheet Sheet
         {
@@ -365,6 +368,7 @@ namespace AICompanion.Settings
             var cancel = new CancellationTokenSource();
             _cancel = cancel;
             _reading = true;
+            ReadingStartedAt = Time.unscaledTime;
             Revision++;
 
             PisaraReadResult result;
