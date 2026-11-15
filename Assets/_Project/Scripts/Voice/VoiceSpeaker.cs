@@ -124,10 +124,11 @@ namespace AICompanion.Voice
             return new SpeechOrigin
             {
                 ChatProviderId = chatSettings != null ? chatSettings.providerId : null,
-                Model = chatSettings != null && VoiceRoute.UsesCloudTts(PrivateMode(), chatSettings.providerId)
+                Model = chatSettings != null && VoiceRoute.UsesCloudTts(PrivateMode(), chatSettings.providerId, chatSettings.baseUrl)
                     ? chatSettings.model
                     : chatSettings != null ? chatSettings.localModel : null,
-                Private = PrivateMode()
+                Private = PrivateMode(),
+                BaseUrl = chatSettings != null ? chatSettings.baseUrl : string.Empty
             };
         }
 
@@ -175,6 +176,9 @@ namespace AICompanion.Voice
             var kokoro = _provider as KokoroTtsProvider;
             if (kokoro != null)
                 kokoro.Prewarm();
+            var chatterbox = _provider as ChatterboxTtsProvider;
+            if (chatterbox != null)
+                chatterbox.Prewarm();
         }
 
         ITtsProvider BuildProvider(float timeout)
@@ -209,6 +213,25 @@ namespace AICompanion.Voice
                     voiceSettings.kokoroVoice,
                     session,
                     timeout);
+            }
+
+            if (string.Equals(mode, ChatterboxTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+            {
+                var chatterboxTimeout = Mathf.Max(timeout, 180f);
+                var session = new ChatterboxProcessSession(
+                    voiceSettings.chatterboxPython,
+                    voiceSettings.chatterboxScript,
+                    voiceSettings.chatterboxVoices,
+                    voiceSettings.chatterboxVoice,
+                    voiceSettings.chatterboxDevice,
+                    chatterboxTimeout);
+                return new ChatterboxTtsProvider(
+                    voiceSettings.chatterboxPython,
+                    voiceSettings.chatterboxScript,
+                    voiceSettings.chatterboxVoices,
+                    voiceSettings.chatterboxVoice,
+                    session,
+                    chatterboxTimeout);
             }
 
             return new XaiTtsProvider(new EnvironmentApiKeySource(), new UnityTtsTransport(this), timeout);
@@ -374,7 +397,7 @@ namespace AICompanion.Voice
 
         static bool BlocksCloud(SpeechOrigin origin)
         {
-            return !VoiceRoute.UsesCloudTts(origin.Private, origin.ChatProviderId);
+            return !VoiceRoute.UsesCloudTts(origin.Private, origin.ChatProviderId, origin.BaseUrl);
         }
 
         async void RunSynthesis(TtsRequest request, int generation, int serial, CancellationToken token)

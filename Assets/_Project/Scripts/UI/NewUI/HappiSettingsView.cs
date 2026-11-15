@@ -702,9 +702,9 @@ namespace AICompanion.NewUI
 
         void BuildVoice()
         {
-            Note(VoiceRoute.UsesCloudTts(S.PrivateMode, S.ProviderId)
+            Note(VoiceRoute.UsesCloudTts(S.PrivateMode, S.ProviderId, S.BaseUrl)
                 ? "Voice follows chat. Grok replies use the cloud voice."
-                : "Voice follows chat. Local and private replies use Piper or Kokoro and are not sent to cloud TTS.");
+                : "Voice follows chat. Local and private replies use Piper, Kokoro or Chatterbox and are not sent to cloud TTS.");
             Toggle("Speak replies", S.TtsEnabled, v => Change(s => s.TtsEnabled = v));
             Toggle("Voice narration", S.VoiceNarration, v => Change(s => s.VoiceNarration = v));
             Note("Off: lines between *asterisks* are shown but not spoken.");
@@ -716,8 +716,10 @@ namespace AICompanion.NewUI
             Field("Cloud voice (Grok)", S.VoiceId, false, v => Change(s => s.VoiceId = v));
             var piper = string.Equals(S.TtsProvider, "piper", StringComparison.OrdinalIgnoreCase);
             var kokoro = string.Equals(S.TtsProvider, "kokoro", StringComparison.OrdinalIgnoreCase);
+            var chatterbox = string.Equals(S.TtsProvider, "chatterbox", StringComparison.OrdinalIgnoreCase);
             Toggle(piper ? "Local voice: Piper (selected)" : "Use Piper locally", piper, v => Change(s => s.TtsProvider = v ? "piper" : "xai"));
             Toggle(kokoro ? "Local voice: Kokoro (selected)" : "Use Kokoro locally", kokoro, v => Change(s => s.TtsProvider = v ? "kokoro" : "xai"));
+            Toggle(chatterbox ? "Local voice: Chatterbox (selected)" : "Use Chatterbox locally", chatterbox, v => Change(s => s.TtsProvider = v ? "chatterbox" : "xai"));
             Field("Piper exe", S.PiperExe, false, v => Change(s => s.PiperExe = v));
             Field("Piper voice model", S.PiperVoice, false, v => Change(s => s.PiperVoice = v));
             Field("Kokoro python", S.KokoroPython, false, v => Change(s => s.KokoroPython = v));
@@ -725,7 +727,12 @@ namespace AICompanion.NewUI
             Field("Kokoro model", S.KokoroModel, false, v => Change(s => s.KokoroModel = v));
             Field("Kokoro voices", S.KokoroVoices, false, v => Change(s => s.KokoroVoices = v));
             Field("Kokoro voice", S.KokoroVoice, false, v => Change(s => s.KokoroVoice = v));
-            Note("Piper and Kokoro speak offline with no API key. Kokoro sounds better; its first load takes about 15 seconds.");
+            Field("Chatterbox python", S.ChatterboxPython, false, v => Change(s => s.ChatterboxPython = v));
+            Field("Chatterbox script", S.ChatterboxScript, false, v => Change(s => s.ChatterboxScript = v));
+            Field("Chatterbox voices folder", S.ChatterboxVoices, false, v => Change(s => s.ChatterboxVoices = v));
+            Field("Chatterbox voice", S.ChatterboxVoice, false, v => Change(s => s.ChatterboxVoice = v));
+            Field("Chatterbox device (auto/cuda/cpu)", S.ChatterboxDevice, false, v => Change(s => s.ChatterboxDevice = v));
+            Note("Piper, Kokoro and Chatterbox speak offline with no API key. Chatterbox is slower but more expressive; it uses the GPU when device is cuda or auto.");
             Field("TTS language", S.TtsLanguage, false, v => Change(s => s.TtsLanguage = v));
 
             // Moved here from the persona editor (JUH-121).
@@ -737,6 +744,7 @@ namespace AICompanion.NewUI
                 Section("Voice for this persona");
                 Field("Piper voice id (local)", persona.PiperVoiceId, false, v => Save(id, p => p.PiperVoiceId = v));
                 Field("Kokoro voice id (local)", persona.KokoroVoiceId, false, v => Save(id, p => p.KokoroVoiceId = v));
+                Field("Chatterbox voice id (local)", persona.ChatterboxVoiceId, false, v => Save(id, p => p.ChatterboxVoiceId = v));
                 Field("Cloud voice id (Grok)", persona.CloudVoiceId, false, v => Save(id, p => p.CloudVoiceId = v));
                 Note("Empty keeps the voice engine's voice above.");
             }

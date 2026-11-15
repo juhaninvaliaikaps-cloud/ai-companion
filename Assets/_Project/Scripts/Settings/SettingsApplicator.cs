@@ -39,9 +39,10 @@ namespace AICompanion.Settings
                 {
                     // Privacy still forces a local voice for a local or private chat, but an
                     // explicitly chosen local voice (Piper or Kokoro) is respected as is.
-                    var route = VoiceRoute.ProviderFor(settings.PrivateMode, settings.ProviderId);
+                    var route = VoiceRoute.ProviderFor(settings.PrivateMode, settings.ProviderId, settings.BaseUrl);
                     if (string.Equals(settings.TtsProvider, PiperTtsProvider.Id, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(settings.TtsProvider, KokoroTtsProvider.Id, StringComparison.OrdinalIgnoreCase))
+                        string.Equals(settings.TtsProvider, KokoroTtsProvider.Id, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(settings.TtsProvider, ChatterboxTtsProvider.Id, StringComparison.OrdinalIgnoreCase))
                     {
                         route = settings.TtsProvider;
                     }
@@ -62,6 +63,11 @@ namespace AICompanion.Settings
                     voice.kokoroModel = settings.KokoroModel;
                     voice.kokoroVoices = settings.KokoroVoices;
                     voice.kokoroVoice = settings.KokoroVoice;
+                    voice.chatterboxPython = settings.ChatterboxPython;
+                    voice.chatterboxScript = settings.ChatterboxScript;
+                    voice.chatterboxVoices = settings.ChatterboxVoices;
+                    voice.chatterboxVoice = settings.ChatterboxVoice;
+                    voice.chatterboxDevice = settings.ChatterboxDevice;
                     voice.volume = settings.Volume;
                     speaker.RefreshProvider();
                 }
