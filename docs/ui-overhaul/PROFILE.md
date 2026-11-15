@@ -1,6 +1,6 @@
 # Profile panel (JUH-121)
 
-Her profile: how she feels about you, her personality, her world, and what she remembers about you. It opens from the wheel's **Mood** slice for now. Where it lives on the wheel is Jussi's decision, still open.
+Her profile: how she feels about you, her personality, her world, and what she remembers about you. It opens from the wheel's **Profile** slice (JUH-121, Jussi 2026-11-15).
 
 Mockup: https://claude.ai/artifact/3Za6cHCRA24ozNUnTz6ceD. Jussi picked Feelings **option A, gauges** (2026-11-15).
 

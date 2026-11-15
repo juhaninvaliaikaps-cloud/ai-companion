@@ -188,6 +188,8 @@ mode (Pause), Mute/Unmute, Hide (tray brings her back; new `CompanionTray.HideCo
 as the tray item); while paused the slice reads **Come back** and unpauses. Memories: list with
 two-step Forget. Settings: opens settings (old panel until PR E).
 
+**D5b. JUH-121 main wheel (Jussi, 2026-11-15), replacing D5's list.** Six slices, clockwise from the top: **Settings**, **Hide chat / Show chat**, **Profile**, **Watch my screen**, **Persona**, **Pause her / Resume her**. The chat and pause labels say what a click will do, and change with the state. Profile opens the Profile panel (docs/ui-overhaul/PROFILE.md). Removed: Do something (the Developer tab has the test buttons), Memories (now Profile → Memories), Leave me alone's submenu (Mute is F6, Hide is the tray), and Watch my screen → Screen settings (same as Settings).
+
 **D6. Closing.** Escape (the wheel focuses the window when it opens, so Esc reaches it), any
 click outside the wheel (global mouse state, like the overlay's own drag code), the centre
 button, or after an action. Esc steps back from a submenu or card first.

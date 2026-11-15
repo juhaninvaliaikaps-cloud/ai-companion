@@ -11,29 +11,38 @@ namespace AICompanion.Tests.EditMode
     public sealed class RadialWheelTests
     {
         [Test]
-        public void MainWheel_HasTheEightApprovedSlicesInFixedOrder()
+        public void MainWheel_HasTheSixJuh121SlicesInFixedOrder()
         {
             CollectionAssert.AreEqual(
-                new[] { "talk", "watch_screen", "mood", "persona", "do_something", "leave_me_alone", "memories", "settings" },
+                new[] { "settings", "talk", "profile", "watch_screen", "persona", "pause" },
                 MainWheel.Order);
             var labels = new List<string>();
             foreach (var id in MainWheel.Order)
-                labels.Add(MainWheel.Label(id, false));
+                labels.Add(MainWheel.Label(id, false, true));
             CollectionAssert.AreEqual(
-                new[] { "Talk", "Watch my screen", "Mood", "Persona", "Do something", "Leave me alone", "Memories", "Settings" },
+                new[] { "Settings", "Hide chat", "Profile", "Watch my screen", "Persona", "Pause her" },
                 labels);
-            Assert.AreEqual("Come back", MainWheel.Label(MainWheel.LeaveMeAlone, true));
         }
 
         [Test]
-        public void SliceZeroIsCentredOnTop_SettingsSitsTopLeftBeforeTalk()
+        public void MainWheel_LabelsSayWhatAClickWillDo()
         {
-            const int count = 8;
-            Assert.AreEqual(0, RadialMath.SliceAt(new Vector2(0f, 80f), count, 40f, 46f, 118f), "straight up is Talk");
-            Assert.AreEqual(1, RadialMath.SliceAt(new Vector2(57f, 57f), count, 40f, 46f, 118f), "up-right is Watch my screen");
-            Assert.AreEqual(2, RadialMath.SliceAt(new Vector2(80f, 0f), count, 40f, 46f, 118f), "right is Mood");
-            Assert.AreEqual(4, RadialMath.SliceAt(new Vector2(0f, -80f), count, 40f, 46f, 118f), "down is Do something");
-            Assert.AreEqual(7, RadialMath.SliceAt(new Vector2(-57f, 57f), count, 40f, 46f, 118f), "up-left is Settings");
+            Assert.AreEqual("Hide chat", MainWheel.Label(MainWheel.Talk, false, true));
+            Assert.AreEqual("Show chat", MainWheel.Label(MainWheel.Talk, false, false));
+            Assert.AreEqual("Pause her", MainWheel.Label(MainWheel.Pause, false, true));
+            Assert.AreEqual("Resume her", MainWheel.Label(MainWheel.Pause, true, true));
+        }
+
+        [Test]
+        public void SettingsIsCentredOnTop_TheRestGoClockwise()
+        {
+            const int count = 6;
+            Assert.AreEqual(0, RadialMath.SliceAt(new Vector2(0f, 80f), count, 40f, 46f, 118f), "straight up is Settings");
+            Assert.AreEqual(1, RadialMath.SliceAt(new Vector2(69f, 40f), count, 40f, 46f, 118f), "up-right is the chat slice");
+            Assert.AreEqual(2, RadialMath.SliceAt(new Vector2(69f, -40f), count, 40f, 46f, 118f), "down-right is Profile");
+            Assert.AreEqual(3, RadialMath.SliceAt(new Vector2(0f, -80f), count, 40f, 46f, 118f), "down is Watch my screen");
+            Assert.AreEqual(4, RadialMath.SliceAt(new Vector2(-69f, -40f), count, 40f, 46f, 118f), "down-left is Persona");
+            Assert.AreEqual(5, RadialMath.SliceAt(new Vector2(-69f, 40f), count, 40f, 46f, 118f), "up-left is the pause slice");
         }
 
         [Test]

@@ -26,7 +26,7 @@ The settings window is sorted by what you want to do. Jussi approved the layout 
 | Memories and Start over | Privacy | Persona |
 | The three Pisara switches | Overlay | Persona, Her life |
 | Show debug info, mood readout | Overlay | Developer |
-| Pause | Overlay | removed (the wheel's Leave me alone and the tray) |
+| Pause | Overlay | removed (the wheel's Pause her and the tray) |
 | Intimate expressions (18+) | Avatar | 18+ |
 | 2D video test buttons | Avatar | Developer |
 | Reply timeout | AI | Developer |
@@ -39,6 +39,6 @@ The settings window is sorted by what you want to do. Jussi approved the layout 
 
 Notes that only repeated "applies immediately", developer notes ("Asset Store, Mixamo, and Daz models stay out of this project", "Secrets live in the secret store, never settings.json", "Test connection does not write the key ... to the log"), and outdated ones ("New chat only.", "The 3D avatar stays loaded.").
 
-## Not in this change
+## The wheel
 
-The wheel (Settings at the top, the Profile slice and panel) waits for two of Jussi's decisions on JUH-121: Feelings option A or B, and which wheel items go.
+Settings at the top centre, then Hide or Show chat, Profile, Watch my screen, Persona, Pause or Resume her (#108). See DECISIONS.md D5b.
