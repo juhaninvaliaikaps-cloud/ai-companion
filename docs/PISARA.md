@@ -367,6 +367,19 @@ The Mood card on the wheel shows where she stands ("she likes you; you know each
 
 Without new threads her world runs dry: the two or three seeded ones turn out and nothing else ever happens to her. At session end the model may propose one new thread (`WorldThreads.Instruction`). It is stored with `origin = life`, as a long-term open thread, while fewer than three are open. It is about her, ordinary life, and nothing sexual; a private session's thread stays private.
 
+### Floating changes (JUH-122)
+
+While you chat, small pieces float up beside her head when a landing moves the relationship, like floating combat text: `+1.5 Compliment` with a pink heart, `-2.4 Brushed off` with a grey one, and `You know each other well now` when familiarity crosses into a new band. Each rises about 30 px and fades in about 1.5 s; older ones keep drifting up while new ones appear.
+
+- **Critical hits** (`RelationshipMath`): a real landing (not neutral) is a crit when the cue intensity is `CritIntensity` (0.85) or more. A crit multiplies the affection change by `CritMultiplier` (2), inside the same clamps. `RelationshipChange.Critical` says so, the log line says `(critical)`, and the Mood card reason starts with `Critical: `. No random crits. `Land(..., secretHit)` is the hook for the `secret=` hit of JUH-123; nothing passes it yet. Both numbers are proposed defaults for Jussi to confirm.
+- **On screen**: a crit pops big and gold with a punch from 1.6 down to 1 and a CRITICAL caption; a crit drop is big and grey.
+- **The rules** (`RelationshipFeedback`, plain C#): a normal piece needs an affection change of 0.5 or more; at most 2 normal pieces are on screen, and a new one pushes the oldest out early; crits always show and are not counted; familiarity shows only at a new band. The secret-found piece (a gold star) is a stub until JUH-123.
+- **The event**: `RelationshipKeeper.Apply` raises `RelationshipNow.Changed` with a `RelationshipNotice` (the change, its short landing name, whether familiarity reached a new band), only when the change was applied. A band reached through chat time shows with the next landing.
+- **The view** (`FloatingFeedbackView`, new UI only): one pool of six TMP pieces, beside her head (3D avatar or 2D video), on the side away from the expression portrait, or at the portrait when there is no head. No allocation per frame, no `Instantiate` per change.
+- **Off**: nothing shows while **Show relationship changes while chatting** (`showRelationshipFeedback`, on the Overlay tab next to the switches until JUH-121 moves it to the Chat tab) or **Relationship changes** is off.
+- **The landing reminder**: the local model wrote the cue tag but never `landed=`, so nothing landed. While relationship changes are on, the reminder on the newest user message (`LandingEvents.TurnReminder`) has `landed` in its example and lists the words.
+- **Checking it without typing**: `Happi.exe -allowmulti -newui -pisara-chat <file>` sends each line of the file through the real chat and saves two window screenshots after each reply, next to the file.
+
 ### Scenario runner
 
 `PisaraScenario` runs a fixed persona and a scripted conversation through the real `RelationshipMath` and mood state, without a model or a scene, and `Report()` prints the trajectory. `PisaraScenarioTests` checks the JUH-115 expectations and writes each trajectory to the test log:
