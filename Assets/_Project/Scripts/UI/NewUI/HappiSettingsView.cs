@@ -17,28 +17,32 @@ namespace AICompanion.NewUI
 {
     /// <summary>
     /// JUH-104 PR E: the app's settings view in the Happi theme. Every item of
-    /// docs/ui-overhaul/INVENTORY.md section 4 is here, on the same tabs as the old panel plus a
-    /// "Happi" tab for the app's own options. Every change goes through the PR B presenters
+    /// docs/ui-overhaul/INVENTORY.md section 4 is here. JUH-121 sorted the tabs by what you want
+    /// to do (Persona, AI, Voice, Look, Chat, Screen, Window, Data, 18+, Keys, and a hidden
+    /// Developer tab); docs/ui-overhaul/SETTINGS_LAYOUT.md lists what is where. Every change goes through the PR B presenters
     /// and the old panel as host, so settings are applied and saved exactly as before.
     /// 18+ items appear under the same conditions as today.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class HappiSettingsView : MonoBehaviour, IOverlayKeepAwake
     {
+        // JUH-121: tabs by what you want to do. Developer is shown only with "Show developer settings".
         enum Tab
         {
-            Happi,
-            Ai,
-            Avatar,
-            Voice,
-            Controls,
-            Overlay,
-            Privacy,
             Persona,
+            Ai,
+            Voice,
+            Look,
+            Chat,
             Screen,
+            Window,
+            Data,
+            Adult,
+            Keys,
+            Developer,
         }
 
-        static readonly string[] TabLabels = { "Happi", "AI", "Avatar", "Voice", "Controls", "Overlay", "Privacy", "Persona", "Screen" };
+        static readonly string[] TabLabels = { "Persona", "AI", "Voice", "Look", "Chat", "Screen", "Window", "Data", "18+", "Keys", "Developer" };
         const float PlaneDistance = 0.36f;
 
         SettingsPanel _settings;
@@ -57,7 +61,7 @@ namespace AICompanion.NewUI
         RectTransform _frameRoot;
         readonly List<TMP_InputField> _fields = new List<TMP_InputField>();
         readonly PrivacyConfirm _confirm = new PrivacyConfirm();
-        Tab _tab = Tab.Happi;
+        Tab _tab = Tab.Persona;
         bool _attached;
         bool _open;
         bool _rebuild;
@@ -298,17 +302,24 @@ namespace AICompanion.NewUI
             _close.Label.fontSize = _theme.FontBody * s;
             HappiUiKit.Place(_title.rectTransform, pad, pad, inner - row - gap, row);
             var y = pad + row + gap;
-            const int columns = 3;
+            const int columns = 4;
             var tabW = (inner - gap * (columns - 1)) / columns;
+            var shown = 0;
             for (var i = 0; i < _tabs.Count; i++)
             {
-                var col = i % columns;
-                var r = i / columns;
+                // JUH-121: the Developer tab only with "Show developer settings".
+                var visible = i != (int)Tab.Developer || (_settings != null && S != null && S.ShowDeveloperSettings);
+                _tabs[i].Rect.gameObject.SetActive(visible);
+                if (!visible)
+                    continue;
+                var col = shown % columns;
+                var r = shown / columns;
                 HappiUiKit.Place(_tabs[i].Rect, pad + col * (tabW + gap), y + r * (row + gap * 0.5f), tabW, row);
                 _tabs[i].Label.fontSize = _theme.FontSmall * s;
+                shown++;
             }
 
-            y += ((_tabs.Count + columns - 1) / columns) * (row + gap * 0.5f) + gap * 0.5f;
+            y += ((shown + columns - 1) / columns) * (row + gap * 0.5f) + gap * 0.5f;
             var statusH = 20f * s;
             HappiUiKit.Place((RectTransform)_scroll.transform, pad, y, inner, height - y - pad - statusH - gap);
             HappiUiKit.Place(_status.rectTransform, pad, height - pad - statusH, inner, statusH);
@@ -346,17 +357,24 @@ namespace AICompanion.NewUI
 
             try
             {
-                switch (_tab)
+                if (_tab == Tab.Developer && !S.ShowDeveloperSettings)
+                    _tab = Tab.Data;
+                if (!BuildPendingConfirm())
                 {
-                    case Tab.Ai: BuildAi(); break;
-                    case Tab.Avatar: BuildAvatar(); break;
-                    case Tab.Voice: BuildVoice(); break;
-                    case Tab.Controls: BuildControls(); break;
-                    case Tab.Overlay: BuildOverlay(); break;
-                    case Tab.Privacy: BuildPrivacy(); break;
-                    case Tab.Persona: BuildPersona(); break;
-                    case Tab.Screen: BuildScreen(); break;
-                    default: BuildHappi(); break;
+                    switch (_tab)
+                    {
+                        case Tab.Ai: BuildAi(); break;
+                        case Tab.Voice: BuildVoice(); break;
+                        case Tab.Look: BuildLook(); break;
+                        case Tab.Chat: BuildChat(); break;
+                        case Tab.Screen: BuildScreen(); break;
+                        case Tab.Window: BuildWindow(); break;
+                        case Tab.Data: BuildData(); break;
+                        case Tab.Adult: BuildAdult(); break;
+                        case Tab.Keys: BuildKeys(); break;
+                        case Tab.Developer: BuildDeveloper(); break;
+                        default: BuildPersona(); break;
+                    }
                 }
             }
             catch (Exception ex)
@@ -380,74 +398,168 @@ namespace AICompanion.NewUI
             _rebuild = true;
         }
 
-        void BuildHappi()
+        // ---- Persona: who she is, her life, her memories (JUH-121) ---------------------------
+
+        void BuildPersona()
         {
-            Section("Happi");
-            var chat = GetComponent<HappiChatView>();
-            if (chat != null && chat.Player != null)
+            var catalog = _settings.PersonaCatalogNow();
+            Note("Each persona keeps her own chat, memories, mood and relationship.");
+            var choices = _settings.Personas.Choices();
+            for (var i = 0; i < choices.Count; i++)
             {
-                var step = chat.Player.Mode == VisualNovel.VnMode.Step;
-                Toggle("Step through replies", step, v =>
-                {
-                    chat.Player.Mode = v ? VisualNovel.VnMode.Step : VisualNovel.VnMode.Auto;
-                    PlayerPrefs.SetInt(HappiChatView.ModePref, v ? 1 : 0);
-                    _rebuild = true;
-                });
-                Note("Step: Next, a click on the dialogue or Space shows one line at a time. Auto plays the whole reply.");
+                var choice = choices[i];
+                Choice(choice.Label, choice.Active, () => { _settings.Personas.Choose(choice.Id); _rebuild = true; });
             }
 
-            Toggle("Spoken text glow", S.SpokenGlow, v =>
-            {
-                _settings.SaveLayoutSetting(s => s.SpokenGlow = v);
-                _rebuild = true;
-            });
-            Note("The words light up warmly as she says them, then fade back. Narration glows only when Voice narration is on.");
-            if (S.SpokenGlow)
-                Slider(v => "Glow intensity: " + (v < 0.34f ? "subtle" : v < 0.67f ? "medium" : "strong"), S.SpokenGlowIntensity, 0f, 1f, false,
-                    v => _settings.SaveLayoutSetting(s => s.SpokenGlowIntensity = v));
+            Button("New persona", () => { _settings.NewPersona(); _rebuild = true; });
+            PersonaEntry current;
+            if (!ActivePersona(catalog, out current))
+                return;
 
-            Section("Chat box");
-            Note("Drag the chat box by its top bar to put it anywhere around her. While you drag, spots appear: 1 left of her head, 2 right of her head (the portrait moves to her left), 3 beside her on the left, 4 beside her on the right, 5 under her, so she stands on it (2D video avatar only). Let go near one to snap there. The box stays with her when she walks. By default it sits under her (2D) or beside her on the right (3D).");
-            Slider(v => "Chat box height: " + Mathf.RoundToInt(v * 100f) + "%", S.ChatBoxHeight, 0.6f, 2f, false,
-                v => Change(s => s.ChatBoxHeight = v));
-            Note("Taller shows more of the recent conversation. The newest line stays at the bottom and older lines leave the top. Drag the chat box to move it.");
-            Button("Reset chat position", () =>
-            {
-                var chat = GetComponent<HappiChatView>();
-                if (chat != null)
-                    chat.ResetPosition();
-                else
-                    _settings.SaveLayoutSetting(s =>
-                    {
-                        s.ChatBoxSnap = -1;
-                        s.ChatBoxOffsetX = 0f;
-                        s.ChatBoxOffsetY = 0f;
-                        s.ChatBoxX = -1f;
-                        s.ChatBoxY = -1f;
-                    });
-                _settings.SetStatusMessage("The chat box is back in its default place.");
-            });
+            var persona = current.Persona;
+            var id = persona.Id;
+            Section("Edit " + (string.IsNullOrEmpty(persona.DisplayName) ? id : persona.DisplayName));
+            if (current.BuiltIn)
+                Note(current.UserFile ? "Editing your saved copy." : "Editing saves a copy. The built-in file stays.");
+            Field("Display name", persona.DisplayName, false, v => Save(id, p => p.DisplayName = v));
+            Area("Personality", persona.Personality, 80f, PersonaDefinition.MaxPersonalityLength, v => Save(id, p => p.Personality = v));
+            Area("Speaking style", persona.SpeakingStyle, 54f, PersonaDefinition.MaxSpeakingStyleLength, v => Save(id, p => p.SpeakingStyle = v));
+            Field("Portrait folder", persona.PortraitFolder, false, v => Save(id, p => p.PortraitFolder = v));
+            Note("Empty uses the standard portraits folder. Her voice, model and 3D avatar are set on the Voice, AI and Look tabs.");
 
-            Section("Portrait");
-            Note("Drag the 2D portrait to move it. Let go near the chat box's left or right side to dock it there: it is sized so its top and bottom line up with the box. Let go anywhere else and it stays there, following her.");
-            Button("Reset portrait position", () =>
+            // JUH-118: what the model read from her description, then the temperament picker.
+            Section("Who she is");
+            var view = _settings.PisaraView();
+            Note(view.TemperamentLine);
+            Note(view.RelationshipLine);
+            Note(view.Status);
+            Button(view.Reading ? "Re-read (reading...)" : "Re-read", () => { _settings.RereadPersona(); _rebuild = true; });
+            if (view.Reading)
+                BuildReadingProgress(view.ReadingStartedAt);
+            BuildRelationshipCorrection();
+            BuildInnocence();
+            Note("Temperament: how quickly her moods build and fade. Auto takes it from her description.");
+            Choice("Auto", !view.Manual, () => { _settings.SetPersonaTemperamentAuto(id); _rebuild = true; });
+            for (var i = 0; i < PersonaTemperaments.Ids.Length; i++)
             {
-                _settings.SaveLayoutSetting(s =>
-                {
-                    s.PortraitDock = 0;
-                    s.PortraitOffsetX = 0f;
-                    s.PortraitOffsetY = 0f;
-                });
-                _settings.SetStatusMessage("The portrait is back beside her head.");
-            });
+                var preset = PersonaTemperaments.Get(PersonaTemperaments.Ids[i]);
+                var stored = PersonaTemperaments.Normalize(preset.Id);
+                Choice(preset.Name, view.Manual && Same(persona.Temperament, stored), () => { _settings.SetPersonaTemperament(id, stored); _rebuild = true; });
+            }
 
-            Section("Right-click wheel");
-            Note("Right-click her for the wheel: Talk, Watch my screen, Mood, Persona, Do something, Leave me alone, Memories, Settings. Shift+right-click still rotates her.");
+            // JUH-117: one switch per Pisara part. Off freezes that part; nothing is deleted.
+            Section("Her life");
+            Toggle("Relationship changes", S.PisaraRelationship, v => Change(s => s.PisaraRelationship = v));
+            Note("How your messages land changes how much she likes you and how well you know each other. Off freezes both.");
+            Toggle("Life while you are away", S.PisaraAwayEvents, v => Change(s => s.PisaraAwayEvents = v));
+            Note("Things she is waiting for turn out, well or badly, while you are gone. Off leaves them open.");
+            Toggle("Her own world", S.PisaraWorld, v => Change(s => s.PisaraWorld = v));
+            Note("Her backstory and recent days are added to her memories, and the first chat opens mid-scene. Off stops adding; existing memories stay.");
+
+            BuildMemories();
+
+            if (current.UserFile)
+            {
+                Section("Delete");
+                Button(current.BuiltIn ? "Delete saved copy" : "Delete persona", () => { _settings.DeletePersona(); _rebuild = true; }, true);
+            }
         }
+
+        /// <summary>The active persona's catalog entry. False, with a note, for the setup name or a missing file.</summary>
+        bool ActivePersona(PersonaCatalog catalog, out PersonaEntry current)
+        {
+            current = null;
+            var active = S.PersonaId ?? string.Empty;
+            if (active.Length == 0)
+            {
+                Note("No persona is picked: she uses the name from setup.");
+                return false;
+            }
+
+            current = catalog.FindEntry(active);
+            if (current == null || current.Persona == null)
+            {
+                Note("The selected persona file is missing.");
+                return false;
+            }
+
+            return true;
+        }
+
+        void BuildMemories()
+        {
+            var memories = _settings.Memories;
+            Section("Memories");
+            Note(memories.Summary);
+            Note("Stored on this PC under ProjectLeia. Memories made in private mode are never sent to a cloud model.");
+            // JUH-117: a fresh start with this persona; her persona and her own life stay.
+            Button(StartOverText.Button(_settings.StartOverName), () => { _confirm.Request(PrivacyConfirmKind.StartOver); _rebuild = true; }, true);
+            Note("Clears this persona's chat, what she remembers about you, her mood and your relationship. Her persona and her own life stay.");
+            if (memories.Count == 0)
+                return;
+            if (memories.Confirm.HasPending)
+            {
+                Note(memories.PendingPrompt());
+                Button(memories.Confirm.Pending == PrivacyConfirmKind.DeleteAllMemories ? "Confirm delete all" : "Confirm delete", () => { memories.ConfirmPending(); _rebuild = true; }, true);
+                Button("Cancel", () => { memories.Confirm.Cancel(); _rebuild = true; });
+                return;
+            }
+
+            var page = memories.Page();
+            for (var i = 0; i < page.Count; i++)
+            {
+                var memoryId = page[i].Id;
+                Button(page[i].Label, () => { memories.AskForget(memoryId); _rebuild = true; });
+            }
+
+            if (memories.Count > page.Count)
+                Note("Showing " + page.Count + " of " + memories.Count + ". Delete one to reveal more.");
+            Button("Delete all memories", () => { memories.AskForgetAll(); _rebuild = true; }, true);
+        }
+
+        /// <summary>A pending "are you sure" (start over, wipe, clear history) replaces the tab until it is answered.</summary>
+        bool BuildPendingConfirm()
+        {
+            if (_confirm.Pending == PrivacyConfirmKind.StartOver)
+            {
+                Note(PrivacyConfirm.StartOverPrompt(_settings.StartOverName));
+                Button("Confirm start over", () =>
+                {
+                    _confirm.Cancel();
+                    _settings.StartOverConfirmed();
+                    _rebuild = true;
+                }, true);
+                Button("Cancel", () => { _confirm.Cancel(); _rebuild = true; });
+                return true;
+            }
+
+            if (_confirm.Pending == PrivacyConfirmKind.WipeAll || _confirm.Pending == PrivacyConfirmKind.ClearHistory)
+            {
+                Note(PrivacyConfirm.Prompt(_confirm.Pending, 0, null));
+                var kind = _confirm.Pending;
+                Button(kind == PrivacyConfirmKind.WipeAll ? "Confirm wipe" : "Confirm clear", () =>
+                {
+                    _confirm.Cancel();
+                    if (kind == PrivacyConfirmKind.WipeAll)
+                        _settings.WipeAllConfirmed();
+                    else
+                        _settings.ClearChatHistoryConfirmed();
+                    _rebuild = true;
+                }, true);
+                Button("Cancel", () => { _confirm.Cancel(); _rebuild = true; });
+                return true;
+            }
+
+            return false;
+        }
+
+        // ---- AI: Private mode first, then where her replies come from -----------------------
 
         void BuildAi()
         {
-            Note("Text changes apply when you leave the field. Secrets live in the secret store, never settings.json.");
+            Section("Private mode");
+            Toggle("Private mode", S.PrivateMode, v => { Change(s => s.PrivateMode = v); _rebuild = true; });
+            Note("On: chat goes only to the local Ollama model or your own server, and cloud voice and the voice agent get nothing. Off by default.");
             Label("Active now: " + P.ActiveModelText);
 
             if (!S.PrivateMode)
@@ -456,38 +568,32 @@ namespace AICompanion.NewUI
                 var grok = S.ProviderId == ChatDefaults.GrokId;
                 Choice(ProviderLabel("Grok", grok, false), grok, () => { P.SetProvider(ChatDefaults.GrokId); _rebuild = true; });
                 Choice(ProviderLabel("Local Ollama", !grok, false), !grok, () => { P.SetProvider(ChatDefaults.LocalId); _rebuild = true; });
-                Note("Grok is the cloud provider. Local Ollama runs on this PC. Private mode on the Privacy tab replaces this choice with a private endpoint.");
+                Note("Grok is the cloud provider. Local Ollama runs on this PC.");
 
                 if (grok)
                 {
                     Section("Grok");
                     Field("Grok model", S.Model, false, v => Change(s => s.Model = v));
                     Field("Base URL", S.BaseUrl, false, v => Change(s => s.BaseUrl = v));
-                    Note("OpenAI-compatible endpoint for the cloud provider. Default is xAI; use DeepSeek, OpenRouter, Groq or another compatible API.");
+                    Note("Any OpenAI-compatible API works: xAI by default, or DeepSeek, OpenRouter, Groq.");
                     Section("Grok API key");
-                    Note(ApiKeyMask.Label(_settings.ApiKeySaved) + ". The key is stored in the secret store, never settings.json.");
+                    Note(ApiKeyMask.Label(_settings.ApiKeySaved) + ".");
                     var key = Field("Paste a new Grok API key", string.Empty, true, null);
                     Button("Save key", () => { _settings.SaveApiKey(key != null ? key.text : string.Empty); if (key != null) key.text = string.Empty; _rebuild = true; });
                     Button("Remove saved key", () => { _settings.RemoveApiKey(); _rebuild = true; });
                     if (_settings.ApiKeyFromEnvironment)
                         Note("XAI_API_KEY is set and overrides the saved key. Restart the app without that variable to use the saved key.");
                     Button(_settings.ConnectionTestRunning ? "Testing..." : "Test Grok connection", () => { _settings.TestConnectionNow(); _rebuild = true; });
-                    Note("Test connection does not write the key or the Authorization header to the log.");
                 }
                 else
                 {
-                    Section("Local Ollama");
-                    Field("Local model", S.LocalModel, false, v => Change(s => s.LocalModel = v));
-                    Field("Local address", S.LocalBaseUrl, false, v => Change(s => s.LocalBaseUrl = v));
-                    Note("Default local address is Ollama at http://127.0.0.1:11434/v1. Nothing leaves this PC.");
-                    Button(_settings.ConnectionTestRunning ? "Testing..." : "Test local connection", () => { _settings.TestConnectionNow(); _rebuild = true; });
-                    Note("Test connection calls the local /models endpoint. No key is sent.");
+                    BuildLocalOllama();
                 }
             }
             else
             {
                 Section("Private endpoint");
-                Note("Private mode is on. Chat and voice stay on this PC or on your own server. The normal Grok/Local choice is remembered for when Private mode is off.");
+                Note("Your normal provider choice is remembered for when Private mode is off.");
                 var custom = PrivateEndpointTypes.IsCustom(S.PrivateEndpointType);
                 Choice("Local Ollama", !custom, () =>
                 {
@@ -502,12 +608,7 @@ namespace AICompanion.NewUI
 
                 if (!custom)
                 {
-                    Section("Local Ollama");
-                    Field("Local model", S.LocalModel, false, v => Change(s => s.LocalModel = v));
-                    Field("Local address", S.LocalBaseUrl, false, v => Change(s => s.LocalBaseUrl = v));
-                    Note("Default local address is Ollama at http://127.0.0.1:11434/v1. Nothing leaves this PC.");
-                    Button(_settings.ConnectionTestRunning ? "Testing..." : "Test local connection", () => { _settings.TestConnectionNow(); _rebuild = true; });
-                    Note("Test connection calls the local /models endpoint. No key is sent.");
+                    BuildLocalOllama();
                 }
                 else
                 {
@@ -543,21 +644,31 @@ namespace AICompanion.NewUI
                     });
                     Button("Remove private key", () => { _settings.RemovePrivateEndpointKey(); _rebuild = true; });
                     Button(_settings.PrivateEndpointTestRunning ? "Testing..." : "Test custom connection", () => { _settings.TestPrivateEndpointConnection(); _rebuild = true; });
-                    Note("Test connection calls /models. The key stays in the request header and is never written to the log.");
                     Note("A self-hosted proxy that forwards to a commercial cloud API is not Private mode.");
                 }
             }
 
-            Section("Generation");
-            Field("Timeout seconds", S.TimeoutSeconds.ToString("0.###", CultureInfo.InvariantCulture), false, v =>
-            {
-                float parsed;
-                if (float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out parsed))
-                    Change(s => s.TimeoutSeconds = parsed);
-                else
-                    _rebuild = true;
-            });
-            Note("How long one reply may take before the request is cancelled.");
+            // Moved here from the persona editor (JUH-121): what overrides the choice above.
+            PersonaEntry current;
+            if (!ActivePersona(_settings.PersonaCatalogNow(), out current))
+                return;
+            var persona = current.Persona;
+            var id = persona.Id;
+            Section("Model for this persona");
+            Note("Overrides the choice above while " + (string.IsNullOrEmpty(persona.DisplayName) ? id : persona.DisplayName) + " is active.");
+            Choice("Grok", Same(persona.ProviderId, ChatDefaults.GrokId), () => Save(id, p => p.ProviderId = ChatDefaults.GrokId));
+            Choice("Local Ollama", Same(persona.ProviderId, ChatDefaults.LocalId), () => Save(id, p => p.ProviderId = ChatDefaults.LocalId));
+            Choice("Same as above", string.IsNullOrEmpty(persona.ProviderId), () => Save(id, p => p.ProviderId = string.Empty));
+            Field("Model name (empty: same as above)", persona.Model, false, v => Save(id, p => p.Model = v));
+        }
+
+        void BuildLocalOllama()
+        {
+            Section("Local Ollama");
+            Field("Local model", S.LocalModel, false, v => Change(s => s.LocalModel = v));
+            Field("Local address", S.LocalBaseUrl, false, v => Change(s => s.LocalBaseUrl = v));
+            Note("Default: Ollama at http://127.0.0.1:11434/v1. Nothing leaves this PC.");
+            Button(_settings.ConnectionTestRunning ? "Testing..." : "Test local connection", () => { _settings.TestConnectionNow(); _rebuild = true; });
         }
 
         static string ProviderLabel(string name, bool remembered, bool overridden)
@@ -567,32 +678,97 @@ namespace AICompanion.NewUI
             return overridden ? name + " (remembered)" : name + " (active)";
         }
 
-        void BuildAvatar()
+        // ---- Voice -------------------------------------------------------------------------
+
+        void BuildVoice()
+        {
+            Note(VoiceRoute.UsesCloudTts(S.PrivateMode, S.ProviderId)
+                ? "Voice follows chat. Grok replies use the cloud voice."
+                : "Voice follows chat. Local and private replies use Piper or Kokoro and are not sent to cloud TTS.");
+            Toggle("Speak replies", S.TtsEnabled, v => Change(s => s.TtsEnabled = v));
+            Toggle("Voice narration", S.VoiceNarration, v => Change(s => s.VoiceNarration = v));
+            Note("Off: lines between *asterisks* are shown but not spoken.");
+            Slider(v => "Volume " + Mathf.RoundToInt(v * 100f) + "%", S.Volume, 0f, 1f, false, v => P.Change(s => s.Volume = v));
+            Toggle("Muted", S.Muted, v => Change(s => s.Muted = v));
+            Note("The same switch as F6.");
+
+            Section("Voice engine");
+            Field("Cloud voice (Grok)", S.VoiceId, false, v => Change(s => s.VoiceId = v));
+            var piper = string.Equals(S.TtsProvider, "piper", StringComparison.OrdinalIgnoreCase);
+            var kokoro = string.Equals(S.TtsProvider, "kokoro", StringComparison.OrdinalIgnoreCase);
+            Toggle(piper ? "Local voice: Piper (selected)" : "Use Piper locally", piper, v => Change(s => s.TtsProvider = v ? "piper" : "xai"));
+            Toggle(kokoro ? "Local voice: Kokoro (selected)" : "Use Kokoro locally", kokoro, v => Change(s => s.TtsProvider = v ? "kokoro" : "xai"));
+            Field("Piper exe", S.PiperExe, false, v => Change(s => s.PiperExe = v));
+            Field("Piper voice model", S.PiperVoice, false, v => Change(s => s.PiperVoice = v));
+            Field("Kokoro python", S.KokoroPython, false, v => Change(s => s.KokoroPython = v));
+            Field("Kokoro script", S.KokoroScript, false, v => Change(s => s.KokoroScript = v));
+            Field("Kokoro model", S.KokoroModel, false, v => Change(s => s.KokoroModel = v));
+            Field("Kokoro voices", S.KokoroVoices, false, v => Change(s => s.KokoroVoices = v));
+            Field("Kokoro voice", S.KokoroVoice, false, v => Change(s => s.KokoroVoice = v));
+            Note("Piper and Kokoro speak offline with no API key. Kokoro sounds better; its first load takes about 15 seconds.");
+            Field("TTS language", S.TtsLanguage, false, v => Change(s => s.TtsLanguage = v));
+
+            // Moved here from the persona editor (JUH-121).
+            PersonaEntry current;
+            if (ActivePersona(_settings.PersonaCatalogNow(), out current))
+            {
+                var persona = current.Persona;
+                var id = persona.Id;
+                Section("Voice for this persona");
+                Field("Piper voice id (local)", persona.PiperVoiceId, false, v => Save(id, p => p.PiperVoiceId = v));
+                Field("Kokoro voice id (local)", persona.KokoroVoiceId, false, v => Save(id, p => p.KokoroVoiceId = v));
+                Field("Cloud voice id (Grok)", persona.CloudVoiceId, false, v => Save(id, p => p.CloudVoiceId = v));
+                Note("Empty keeps the voice engine's voice above.");
+            }
+
+            Section("Speech input");
+            Toggle("Push-to-talk", S.SttEnabled, v => Change(s => s.SttEnabled = v));
+            Field("Push-to-talk key", S.PushToTalkKey, false, v => Change(s => s.PushToTalkKey = v));
+            Note("Taken keys (F6, F7, F8, F10, F12, T, R, Esc) stay on V.");
+            Field("Whisper model", S.WhisperModel, false, v =>
+            {
+                Change(s => s.WhisperModel = v);
+                _settings.SetStatusMessage("The Whisper model applies on the next recording. The .bin file is not part of the app.");
+            });
+            Field("Speech language", S.SttLanguage, false, v => Change(s => s.SttLanguage = v));
+        }
+
+        // ---- Look: the avatar ---------------------------------------------------------------
+
+        void BuildLook()
         {
             Section("Avatar");
             var video = AvatarModeNames.IsVideo(S.AvatarMode);
             Choice("3D model", !video, () => { P.SetAvatarMode(AvatarModeNames.ThreeD); _rebuild = true; });
             Choice("2D video", video, () => { P.SetAvatarMode(AvatarModeNames.Video); _rebuild = true; });
             if (!video)
-                Note("2D video loops idle.mp4 or idle.webm from %APPDATA%\\ProjectLeia\\video-avatar. The 3D avatar stays loaded.");
+                Note("2D video loops idle.mp4 or idle.webm from %APPDATA%\\ProjectLeia\\video-avatar.");
             else
                 BuildVideo();
 
             Section("3D avatar");
-            Note("The source applies immediately. Asset Store, Mixamo, and Daz models stay out of this project.");
             Source("Auto", AvatarSourceNames.Auto);
             Source("Local prefab", AvatarSourceNames.Local);
             Source("VRM sample", AvatarSourceNames.Vrm);
             Source("FBX sample", AvatarSourceNames.Fbx);
             Toggle("Show expression portrait", S.ShowExpressionPortrait, v => Change(s => s.ShowExpressionPortrait = v));
-            Note("Images load from the persona folder, or %APPDATA%\\ProjectLeia\\portraits. Default is off.");
-            // Same condition as the classic Avatar tab: always listed, works only with Private mode and the adult folder.
-            Toggle("Intimate expressions (18+)", S.IntimateExpressions, v => Change(s => s.IntimateExpressions = v));
-            Note("Adult drawn expressions from %APPDATA%\\ProjectLeia\\portraits-adult. Works only in Private mode (local model). Off by default; they are not shown or offered to the model.");
+            Note("Images load from the persona folder, or %APPDATA%\\ProjectLeia\\portraits.");
             Button("Reset rotation", () => { _settings.ResetAvatarRotation(); _rebuild = true; });
-            Note("Reset faces the current avatar toward the camera. It applies immediately.");
             Toggle("Look at cursor", S.CursorLookAt, v => Change(s => s.CursorLookAt = v));
-            Note("Eyes and head follow the desktop cursor. They ease back when it is still or far away.");
+            Note("Eyes and head follow the desktop cursor, and ease back when it is still or far away.");
+
+            // Moved here from the persona editor (JUH-121).
+            PersonaEntry current;
+            if (!ActivePersona(_settings.PersonaCatalogNow(), out current))
+                return;
+            var persona = current.Persona;
+            var id = persona.Id;
+            Section("3D avatar for this persona");
+            Choice("Same as above", string.IsNullOrEmpty(persona.AvatarSource), () => Save(id, p => p.AvatarSource = string.Empty));
+            Choice("Auto", Same(persona.AvatarSource, AvatarSourceNames.Auto), () => Save(id, p => p.AvatarSource = AvatarSourceNames.Auto));
+            Choice("Local prefab", Same(persona.AvatarSource, AvatarSourceNames.Local), () => Save(id, p => p.AvatarSource = AvatarSourceNames.Local));
+            Choice("VRM sample", Same(persona.AvatarSource, AvatarSourceNames.Vrm), () => Save(id, p => p.AvatarSource = AvatarSourceNames.Vrm));
+            Choice("FBX sample", Same(persona.AvatarSource, AvatarSourceNames.Fbx), () => Save(id, p => p.AvatarSource = AvatarSourceNames.Fbx));
         }
 
         void BuildVideo()
@@ -601,7 +777,7 @@ namespace AICompanion.NewUI
             _videoStatus = Note(player != null ? player.StatusText : "The video avatar is not running.");
             Field("Video folder (empty uses the default)", S.VideoAvatarFolder, false, v => Change(s => s.VideoAvatarFolder = v));
             Button("Reload video", () => { var v = GetComponent<VideoAvatar>(); if (v != null) v.Reload(); _settings.SetStatusMessage("Looking for the clip again."); });
-            Note("Put idle.mp4 with idle.mask.mp4 in the folder. Optional: idle variations, walk and walk_stop clips with their masks, and video-avatar.json to list them. See docs/VIDEO_AVATAR.md. No clip's sound is ever played.");
+            Note("Put idle.mp4 with idle.mask.mp4 in the folder. Optional: idle variations, walk and walk_stop clips with their masks, and video-avatar.json to list them. See docs/VIDEO_AVATAR.md.");
             Slider(v => "Video size " + Mathf.RoundToInt(v * 100f) + "%", S.VideoAvatarSize, VideoAvatarLayout.MinSize, VideoAvatarLayout.MaxSize, false, v => P.Change(s => s.VideoAvatarSize = v));
             Slider(v => "Video left or right " + Mathf.RoundToInt(v * 100f) + "%", S.VideoAvatarOffsetX, -VideoAvatarLayout.MaxOffsetX, VideoAvatarLayout.MaxOffsetX, false, v => P.Change(s => s.VideoAvatarOffsetX = v));
             Slider(v => "Video up or down " + Mathf.RoundToInt(v * 100f) + "%", S.VideoAvatarOffsetY, -VideoAvatarLayout.MaxOffsetY, VideoAvatarLayout.MaxOffsetY, false, v => P.Change(s => s.VideoAvatarOffsetY = v));
@@ -611,7 +787,24 @@ namespace AICompanion.NewUI
                 s.VideoAvatarOffsetX = 0f;
                 s.VideoAvatarOffsetY = 0f;
             }));
-            Note("Size and position apply immediately. The window size is on the Overlay tab.");
+            Note("The window size is on the Window tab.");
+            Slider(v => v < 0.02f ? "Walk speed: from the walk clip" : "Walk speed " + v.ToString("0.00", CultureInfo.InvariantCulture) + " clip heights per second",
+                S.VideoAvatarWalkSpeed, 0f, 1f, false, v => P.Change(s => s.VideoAvatarWalkSpeed = v < 0.02f ? 0f : v));
+            Toggle("Play clip sounds", S.PlayClipSounds, v => Change(s => s.PlayClipSounds = v));
+            Slider(v => "Clip sound volume " + Mathf.RoundToInt(v * 100f) + "%", S.ClipSoundVolume, 0f, 1f, false, v => P.Change(s => s.ClipSoundVolume = v));
+            Note("Clip sounds are her own sounds in clips marked \"sound\": true in video-avatar.json. They follow Mute and stay silent while she speaks.");
+        }
+
+        /// <summary>The 2D video test buttons, on the Developer tab (JUH-121).</summary>
+        void BuildVideoTests()
+        {
+            Section("2D video tests");
+            if (!AvatarModeNames.IsVideo(S.AvatarMode))
+            {
+                Note("Switch the avatar to 2D video on the Look tab to test clips.");
+                return;
+            }
+
             var undressed = IntimateExpressions.Undressed;
             if (!undressed)
             {
@@ -642,11 +835,6 @@ namespace AICompanion.NewUI
                     Button("Test: dress", () => VideoReactionTest("dress"));
             }
 
-            Slider(v => v < 0.02f ? "Walk speed: from the walk clip" : "Walk speed " + v.ToString("0.00", CultureInfo.InvariantCulture) + " clip heights per second",
-                S.VideoAvatarWalkSpeed, 0f, 1f, false, v => P.Change(s => s.VideoAvatarWalkSpeed = v < 0.02f ? 0f : v));
-            Toggle("Play clip sounds", S.PlayClipSounds, v => Change(s => s.PlayClipSounds = v));
-            Slider(v => "Clip sound volume " + Mathf.RoundToInt(v * 100f) + "%", S.ClipSoundVolume, 0f, 1f, false, v => P.Change(s => s.ClipSoundVolume = v));
-            Note("Clip sounds are her own sounds in clips marked \"sound\": true in video-avatar.json. They follow the Mute button and stay silent while she speaks.");
             Note("With settings closed and the window focused, the arrow keys do the same: left and right walk, down stops, up returns to the front idle.");
         }
 
@@ -680,121 +868,95 @@ namespace AICompanion.NewUI
             Choice(label, S.AvatarSource == source, () => Change(s => s.AvatarSource = source));
         }
 
-        void BuildVoice()
+        // ---- Chat: the chat box and its history ----------------------------------------------
+
+        void BuildChat()
         {
-            Label("Active now: " + P.ActiveModelText);
-            Note(VoiceRoute.UsesCloudTts(S.PrivateMode, S.ProviderId)
-                ? "Voice follows chat. Grok replies use the cloud voice."
-                : "Voice follows chat. Local and private replies use Piper and are not sent to cloud TTS.");
-            Toggle("Speak replies", S.TtsEnabled, v => Change(s => s.TtsEnabled = v));
-            Toggle("Voice narration", S.VoiceNarration, v => Change(s => s.VoiceNarration = v));
-            Note("New chat only. Off: narration lines are shown but not voiced.");
-            Field("Cloud voice (Grok)", S.VoiceId, false, v => Change(s => s.VoiceId = v));
-            var piper = string.Equals(S.TtsProvider, "piper", StringComparison.OrdinalIgnoreCase);
-            var kokoro = string.Equals(S.TtsProvider, "kokoro", StringComparison.OrdinalIgnoreCase);
-            Toggle(piper ? "Local voice: Piper (selected)" : "Use Piper locally", piper, v => Change(s => s.TtsProvider = v ? "piper" : "xai"));
-            Toggle(kokoro ? "Local voice: Kokoro (selected)" : "Use Kokoro locally", kokoro, v => Change(s => s.TtsProvider = v ? "kokoro" : "xai"));
-            Field("Piper exe", S.PiperExe, false, v => Change(s => s.PiperExe = v));
-            Field("Piper voice model", S.PiperVoice, false, v => Change(s => s.PiperVoice = v));
-            Field("Kokoro python", S.KokoroPython, false, v => Change(s => s.KokoroPython = v));
-            Field("Kokoro script", S.KokoroScript, false, v => Change(s => s.KokoroScript = v));
-            Field("Kokoro model", S.KokoroModel, false, v => Change(s => s.KokoroModel = v));
-            Field("Kokoro voices", S.KokoroVoices, false, v => Change(s => s.KokoroVoices = v));
-            Field("Kokoro voice", S.KokoroVoice, false, v => Change(s => s.KokoroVoice = v));
-            Note("Piper and Kokoro speak offline with no API key. Kokoro sounds better; its first load takes about 15 seconds. A blank persona voice keeps these.");
-            Field("TTS language", S.TtsLanguage, false, v => Change(s => s.TtsLanguage = v));
-            Slider(v => "Volume " + Mathf.RoundToInt(v * 100f) + "%", S.Volume, 0f, 1f, false, v => P.Change(s => s.Volume = v));
-            Toggle("Muted", S.Muted, v => Change(s => s.Muted = v));
-            Note("Mute is the same switch as F6. It applies immediately.");
-            Toggle("Push-to-talk", S.SttEnabled, v => Change(s => s.SttEnabled = v));
-            Field("Push-to-talk key", S.PushToTalkKey, false, v => Change(s => s.PushToTalkKey = v));
-            Note("Taken keys (F6, F7, F8, F10, F12, T, R, Esc) stay on V. The new key applies immediately.");
-            Field("Whisper model", S.WhisperModel, false, v =>
+            Section("Replies");
+            var chat = GetComponent<HappiChatView>();
+            if (chat != null && chat.Player != null)
             {
-                Change(s => s.WhisperModel = v);
-                _settings.SetStatusMessage("The Whisper model applies on the next recording. The .bin file is not part of the app.");
+                var step = chat.Player.Mode == VisualNovel.VnMode.Step;
+                Toggle("Step through replies", step, v =>
+                {
+                    chat.Player.Mode = v ? VisualNovel.VnMode.Step : VisualNovel.VnMode.Auto;
+                    PlayerPrefs.SetInt(HappiChatView.ModePref, v ? 1 : 0);
+                    _rebuild = true;
+                });
+                Note("Step: Next, a click on the dialogue or Space shows one line at a time. Auto plays the whole reply.");
+            }
+
+            Toggle("Spoken text glow", S.SpokenGlow, v =>
+            {
+                _settings.SaveLayoutSetting(s => s.SpokenGlow = v);
+                _rebuild = true;
             });
-            Field("Speech language", S.SttLanguage, false, v => Change(s => s.SttLanguage = v));
-            Note("Local and private replies use Piper or Kokoro. Cloud TTS does not receive them.");
+            Note("The words light up warmly as she says them. Narration glows only when Voice narration is on.");
+            if (S.SpokenGlow)
+                Slider(v => "Glow intensity: " + (v < 0.34f ? "subtle" : v < 0.67f ? "medium" : "strong"), S.SpokenGlowIntensity, 0f, 1f, false,
+                    v => _settings.SaveLayoutSetting(s => s.SpokenGlowIntensity = v));
+
+            Section("Chat box");
+            Note("Drag the chat box by its top bar to put it anywhere around her. While you drag, spots appear: 1 left of her head, 2 right of her head (the portrait moves to her left), 3 beside her on the left, 4 beside her on the right, 5 under her, so she stands on it (2D video avatar only). Let go near one to snap there. The box stays with her when she walks.");
+            Slider(v => "Chat box height: " + Mathf.RoundToInt(v * 100f) + "%", S.ChatBoxHeight, 0.6f, 2f, false,
+                v => Change(s => s.ChatBoxHeight = v));
+            Button("Reset chat position", () =>
+            {
+                var view = GetComponent<HappiChatView>();
+                if (view != null)
+                    view.ResetPosition();
+                else
+                    _settings.SaveLayoutSetting(s =>
+                    {
+                        s.ChatBoxSnap = -1;
+                        s.ChatBoxOffsetX = 0f;
+                        s.ChatBoxOffsetY = 0f;
+                        s.ChatBoxX = -1f;
+                        s.ChatBoxY = -1f;
+                    });
+                _settings.SetStatusMessage("The chat box is back in its default place.");
+            });
+
+            Section("Portrait");
+            Note("Drag the 2D portrait to move it. Let go near the chat box's left or right side to dock it there; anywhere else it stays where you put it, following her.");
+            Button("Reset portrait position", () =>
+            {
+                _settings.SaveLayoutSetting(s =>
+                {
+                    s.PortraitDock = 0;
+                    s.PortraitOffsetX = 0f;
+                    s.PortraitOffsetY = 0f;
+                });
+                _settings.SetStatusMessage("The portrait is back beside her head.");
+            });
+
+            Section("Chat history");
+            Toggle("Save chat history", S.ChatHistory, v => { _settings.SetChatHistory(v); _rebuild = true; });
+            Note("Off keeps the transcript for this session only. On saves it on this PC under ProjectLeia.");
+            Button("Clear chat history", () => { _confirm.Request(PrivacyConfirmKind.ClearHistory); _rebuild = true; });
         }
 
-        void BuildControls()
-        {
-            Note(HotkeyCatalog.RebindNote);
-            var entries = HotkeyCatalog.Current(S.PushToTalkKey);
-            for (var i = 0; i < entries.Length; i++)
-                Label(entries[i].Keys + "   " + entries[i].Action);
-            Section("Keys");
-            Label("Right-click her   Radial wheel");
-            Label("Shift + right-click   Rotate mode");
-            Label("Space / click (Step mode)   Next chat line");
-        }
+        // ---- Window: the overlay window itself ---------------------------------------------
 
-        void BuildOverlay()
+        void BuildWindow()
         {
             Toggle("Always on top", S.AlwaysOnTop, v => Change(s => s.AlwaysOnTop = v));
-            Note("F8 still toggles this. It applies immediately and does not change transparency.");
+            Note("F8 toggles this too.");
             Slider(v => "Size " + Mathf.RoundToInt(v * 100f) + "%", S.Scale, OverlayWindowSize.MinScale, OverlayWindowSize.MaxScale, false, v => P.Change(s => s.Scale = v));
-            Note("Applies immediately. The Windows player resizes the transparent window.");
             Button("Click-through: " + SettingsPresenter.ClickThroughLabel(S.ClickThrough), () => { P.CycleClickThrough(); _rebuild = true; });
             Note(SettingsPresenter.ClickThroughHelp(S.ClickThrough));
             Slider(v => "Idle frame rate " + Mathf.RoundToInt(v), S.IdleFrameRate, 1f, OverlayFrameRate.Active, true, v => P.Change(s => s.IdleFrameRate = Mathf.RoundToInt(v)));
-            Note("Applies immediately, after the pointer has been outside the window for a few seconds.");
+            Note("Used a few seconds after the pointer leaves the window.");
             Toggle("Hide taskbar button", S.HideTaskbarButton, v => Change(s => s.HideTaskbarButton = v));
             Toggle("Start with Windows", S.StartWithWindows, v => Change(s => s.StartWithWindows = v));
-            Note("Saved now. The Windows player writes the Run key. It takes effect the next time you sign in.");
-            Toggle("Pause", S.Paused, v => Change(s => s.Paused = v));
-            Note("Pause matches the tray checkmark. Speech, push-to-talk, and animation cues stay off while it is on.");
-            Toggle("Show mood readout (debug)", S.ShowMoodDebug, v => Change(s => s.ShowMoodDebug = v));
-            Note("Her current mood and the three strongest moods, top left. Mood changes are also in Player.log.");
-            // JUH-117: one switch per Pisara leaf, for tuning. Off freezes that part; nothing is deleted.
-            Toggle("Relationship changes", S.PisaraRelationship, v => Change(s => s.PisaraRelationship = v));
-            Note("How your messages land changes how much she likes you and how well you know each other. Off freezes both.");
-            Toggle("Life while you are away", S.PisaraAwayEvents, v => Change(s => s.PisaraAwayEvents = v));
-            Note("Things she is waiting for turn out, well or badly, while you are gone. Off leaves them open.");
-            Toggle("Her own world", S.PisaraWorld, v => Change(s => s.PisaraWorld = v));
-            Note("Her backstory and recent days are added to her memories, and the first chat opens mid-scene. Off stops adding; existing memories stay.");
-            Toggle("Show debug info", S.ShowDebugInfo, v => Change(s => s.ShowDebugInfo = v));
-            Note("Debug text top-left: topmost, frame rate, emotion, key hints, rotate, size and zoom. Off by default. The hotkeys work either way.");
+            Note("Takes effect the next time you sign in.");
+            Note("Pause her from the wheel (Leave me alone) or the tray.");
         }
 
-        void BuildPrivacy()
+        // ---- Data: export, wipe, setup -----------------------------------------------------
+
+        void BuildData()
         {
-            if (_confirm.Pending == PrivacyConfirmKind.StartOver)
-            {
-                Note(PrivacyConfirm.StartOverPrompt(_settings.StartOverName));
-                Button("Confirm start over", () =>
-                {
-                    _confirm.Cancel();
-                    _settings.StartOverConfirmed();
-                    _rebuild = true;
-                }, true);
-                Button("Cancel", () => { _confirm.Cancel(); _rebuild = true; });
-                return;
-            }
-
-            if (_confirm.Pending == PrivacyConfirmKind.WipeAll || _confirm.Pending == PrivacyConfirmKind.ClearHistory)
-            {
-                Note(PrivacyConfirm.Prompt(_confirm.Pending, 0, null));
-                var kind = _confirm.Pending;
-                Button(kind == PrivacyConfirmKind.WipeAll ? "Confirm wipe" : "Confirm clear", () =>
-                {
-                    _confirm.Cancel();
-                    if (kind == PrivacyConfirmKind.WipeAll)
-                        _settings.WipeAllConfirmed();
-                    else
-                        _settings.ClearChatHistoryConfirmed();
-                    _rebuild = true;
-                }, true);
-                Button("Cancel", () => { _confirm.Cancel(); _rebuild = true; });
-                return;
-            }
-
-            Toggle("Save chat history", S.ChatHistory, v => { _settings.SetChatHistory(v); _rebuild = true; });
-            Note("Off keeps the transcript for this session only. On writes it under ProjectLeia, outside the repo.");
-            Toggle("Private mode", S.PrivateMode, v => Change(s => s.PrivateMode = v));
-            Note("Private mode sends chat only to the local Ollama model or your own custom server. Cloud TTS, the voice agent, and Uthana do not receive that content. The default is off.");
-            Button("Clear chat history", () => { _confirm.Request(PrivacyConfirmKind.ClearHistory); _rebuild = true; });
             Section("Export");
             Note("Export writes a decrypted copy, including chat, memories, and the API key if one is saved. Keep that folder private.");
             Field("Export folder", _exportFolder, false, v => _exportFolder = v ?? string.Empty);
@@ -809,122 +971,67 @@ namespace AICompanion.NewUI
             });
             Button("Export decrypted folder", () => _settings.ExportLocalData(_exportFolder, false));
             Button("Export decrypted zip", () => _settings.ExportLocalData(_exportFolder, true));
-            Button("Wipe all local data", () => { _confirm.Request(PrivacyConfirmKind.WipeAll); _rebuild = true; }, true);
+
+            Section("Start again");
             Button("Run setup again", () => { Close(); _settings.RequestSetupReplay(); });
             Note("Opens the first-run setup again. Skip on a step uses that step's default. Finish saves.");
-            BuildMemories();
+            Button("Wipe all local data", () => { _confirm.Request(PrivacyConfirmKind.WipeAll); _rebuild = true; }, true);
+
+            Section("Developer");
+            Toggle("Show developer settings", S.ShowDeveloperSettings, v => { Change(s => s.ShowDeveloperSettings = v); _layoutW = -1f; _rebuild = true; });
+            Note("Adds a Developer tab with test buttons and debug readouts.");
         }
 
-        void BuildMemories()
+        // ---- 18+: where the gate stands, and the switch -------------------------------------
+
+        void BuildAdult()
         {
-            var memories = _settings.Memories;
-            Section("Memories on this PC");
-            Note(memories.Summary);
-            Note("Stored under ProjectLeia, outside the repository. Memories made in private mode are never sent to a cloud model.");
-            // JUH-117: a fresh start with this persona; her persona and her own life stay.
-            Button(StartOverText.Button(_settings.StartOverName), () => { _confirm.Request(PrivacyConfirmKind.StartOver); _rebuild = true; }, true);
-            Note("Clears this persona's chat, what she remembers about you, her mood and your relationship. Her persona and her own life stay.");
-            if (memories.Count == 0)
-                return;
-            if (memories.Confirm.HasPending)
-            {
-                Note(memories.PendingPrompt());
-                Button(memories.Confirm.Pending == PrivacyConfirmKind.DeleteAllMemories ? "Confirm delete all" : "Confirm delete", () => { memories.ConfirmPending(); _rebuild = true; }, true);
-                Button("Cancel", () => { memories.Confirm.Cancel(); _rebuild = true; });
-                return;
-            }
-
-            var page = memories.Page();
-            for (var i = 0; i < page.Count; i++)
-            {
-                var id = page[i].Id;
-                Button(page[i].Label, () => { memories.AskForget(id); _rebuild = true; });
-            }
-
-            if (memories.Count > page.Count)
-                Note("Showing " + page.Count + " of " + memories.Count + ". Delete one to reveal more.");
-            Button("Delete all memories", () => { memories.AskForgetAll(); _rebuild = true; }, true);
+            Section("18+");
+            Label(IntimateExpressions.Active ? "18+ is on." : "18+ is off.");
+            Label((S.PrivateMode ? "Done: " : "Needed: ") + "Private mode (AI tab)");
+            Label((IntimateExpressions.FolderPresent ? "Done: " : "Needed: ") + "the adult portraits folder, %APPDATA%\\ProjectLeia\\portraits-adult");
+            Label((S.IntimateExpressions ? "Done: " : "Needed: ") + "the switch below");
+            // Same condition as before (JUH-104): always listed, works only with Private mode and the adult folder.
+            Toggle("Intimate expressions (18+)", S.IntimateExpressions, v => { Change(s => s.IntimateExpressions = v); _rebuild = true; });
+            Note("Adult drawn expressions from %APPDATA%\\ProjectLeia\\portraits-adult. Works only in Private mode (local model). Off by default; they are not shown or offered to the model.");
+            if (IntimateExpressions.Active)
+                Note("Her place between Innocent and Perverted is on the Persona tab, under Who she is.");
         }
 
-        void BuildPersona()
+        // ---- Keys --------------------------------------------------------------------------
+
+        void BuildKeys()
         {
-            var catalog = _settings.PersonaCatalogNow();
-            Note("Built-ins ship with the app. Edits save outside the repo.");
-            Label("Active now: " + P.ActiveModelText);
-            Note(VoiceRoute.UsesCloudTts(S.PrivateMode, S.ProviderId)
-                ? "Cloud voice is used while chat is Grok."
-                : "A local voice is used while chat is local or private: Piper, or Kokoro when you picked it. That audio stays on this PC.");
-            Note("Each persona keeps its own chat history, so switching characters starts a different conversation.");
-            var choices = _settings.Personas.Choices();
-            for (var i = 0; i < choices.Count; i++)
+            Note(HotkeyCatalog.RebindNote);
+            var entries = HotkeyCatalog.Current(S.PushToTalkKey);
+            for (var i = 0; i < entries.Length; i++)
+                Label(entries[i].Keys + "   " + entries[i].Action);
+            Section("Mouse");
+            Label("Right-click her   Radial wheel");
+            Label("Shift + right-click   Rotate mode");
+            Label("Space / click (Step mode)   Next chat line");
+        }
+
+        // ---- Developer (hidden unless "Show developer settings" is on) -----------------------
+
+        void BuildDeveloper()
+        {
+            Section("Readouts");
+            Toggle("Show debug info", S.ShowDebugInfo, v => Change(s => s.ShowDebugInfo = v));
+            Note("Top-left: topmost, frame rate, emotion, key hints, rotate, size and zoom. The hotkeys work either way.");
+            Toggle("Show mood readout", S.ShowMoodDebug, v => Change(s => s.ShowMoodDebug = v));
+            Note("Her current mood and the three strongest moods, top left. Mood changes are also in Player.log.");
+            Section("Generation");
+            Field("Timeout seconds", S.TimeoutSeconds.ToString("0.###", CultureInfo.InvariantCulture), false, v =>
             {
-                var choice = choices[i];
-                Choice(choice.Label, choice.Active, () => { _settings.Personas.Choose(choice.Id); _rebuild = true; });
-            }
-
-            Button("New persona", () => { _settings.NewPersona(); _rebuild = true; });
-            var active = S.PersonaId ?? string.Empty;
-            if (active.Length == 0)
-            {
-                Note("Pick a persona, or keep the name from setup. A blank voice, model, or avatar keeps the current one.");
-                return;
-            }
-
-            var current = catalog.FindEntry(active);
-            if (current == null || current.Persona == null)
-            {
-                Note("The selected persona file is missing. Voice and model stay as they are.");
-                return;
-            }
-
-            var persona = current.Persona;
-            var id = persona.Id;
-            Section("Edit " + (string.IsNullOrEmpty(persona.DisplayName) ? id : persona.DisplayName));
-            if (current.BuiltIn)
-                Note(current.UserFile ? "Editing your saved copy." : "Editing saves a copy. The built-in file stays.");
-            Note("Id " + id);
-            Field("Display name", persona.DisplayName, false, v => Save(id, p => p.DisplayName = v));
-            Area("Personality", persona.Personality, 80f, PersonaDefinition.MaxPersonalityLength, v => Save(id, p => p.Personality = v));
-            Area("Speaking style", persona.SpeakingStyle, 54f, PersonaDefinition.MaxSpeakingStyleLength, v => Save(id, p => p.SpeakingStyle = v));
-            Field("Piper voice id (local)", persona.PiperVoiceId, false, v => Save(id, p => p.PiperVoiceId = v));
-            Field("Kokoro voice id (local)", persona.KokoroVoiceId, false, v => Save(id, p => p.KokoroVoiceId = v));
-            Field("Cloud voice id (Grok)", persona.CloudVoiceId, false, v => Save(id, p => p.CloudVoiceId = v));
-            Note("Blank voice, model, or avatar keeps the current one.");
-            Choice("Grok", Same(persona.ProviderId, ChatDefaults.GrokId), () => Save(id, p => p.ProviderId = ChatDefaults.GrokId));
-            Choice("Local Ollama", Same(persona.ProviderId, ChatDefaults.LocalId), () => Save(id, p => p.ProviderId = ChatDefaults.LocalId));
-            Choice("Leave provider unchanged", string.IsNullOrEmpty(persona.ProviderId), () => Save(id, p => p.ProviderId = string.Empty));
-            Field("Model name", persona.Model, false, v => Save(id, p => p.Model = v));
-            Note("That name is the Grok model, or the local Ollama tag, for the provider above.");
-            Choice("Avatar auto", Same(persona.AvatarSource, AvatarSourceNames.Auto), () => Save(id, p => p.AvatarSource = AvatarSourceNames.Auto));
-            Choice("Avatar local", Same(persona.AvatarSource, AvatarSourceNames.Local), () => Save(id, p => p.AvatarSource = AvatarSourceNames.Local));
-            Choice("Avatar VRM", Same(persona.AvatarSource, AvatarSourceNames.Vrm), () => Save(id, p => p.AvatarSource = AvatarSourceNames.Vrm));
-            Choice("Avatar FBX", Same(persona.AvatarSource, AvatarSourceNames.Fbx), () => Save(id, p => p.AvatarSource = AvatarSourceNames.Fbx));
-            Choice("Leave avatar unchanged", string.IsNullOrEmpty(persona.AvatarSource), () => Save(id, p => p.AvatarSource = string.Empty));
-            Field("Portrait folder", persona.PortraitFolder, false, v => Save(id, p => p.PortraitFolder = v));
-            Note("A missing portrait folder uses the standard portraits folder.");
-
-            // JUH-118: what the model read from her description, then the temperament picker.
-            Section("Temperament");
-            var view = _settings.PisaraView();
-            Note("How quickly her moods build and fade. Auto reads it from her description; a pick overrides it.");
-            Note(view.TemperamentLine);
-            Note(view.RelationshipLine);
-            Note(view.Status);
-            Button(view.Reading ? "Re-read (reading...)" : "Re-read", () => { _settings.RereadPersona(); _rebuild = true; });
-            if (view.Reading)
-                BuildReadingProgress(view.ReadingStartedAt);
-            BuildRelationshipCorrection();
-            BuildInnocence();
-            Choice("Auto", !view.Manual, () => { _settings.SetPersonaTemperamentAuto(id); _rebuild = true; });
-            for (var i = 0; i < PersonaTemperaments.Ids.Length; i++)
-            {
-                var preset = PersonaTemperaments.Get(PersonaTemperaments.Ids[i]);
-                var stored = PersonaTemperaments.Normalize(preset.Id);
-                Choice(preset.Name, view.Manual && Same(persona.Temperament, stored), () => { _settings.SetPersonaTemperament(id, stored); _rebuild = true; });
-            }
-
-            if (current.UserFile)
-                Button(current.BuiltIn ? "Delete saved copy" : "Delete persona", () => { _settings.DeletePersona(); _rebuild = true; }, true);
+                float parsed;
+                if (float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out parsed))
+                    Change(s => s.TimeoutSeconds = parsed);
+                else
+                    _rebuild = true;
+            });
+            Note("How long one reply may take before the request is cancelled.");
+            BuildVideoTests();
         }
 
         bool _correctingRelationship;
