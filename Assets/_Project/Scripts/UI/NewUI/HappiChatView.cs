@@ -19,8 +19,9 @@ namespace AICompanion.NewUI
     /// overlay window. The old <see cref="ChatPanel"/> stays the chat engine; this view only
     /// draws and calls <see cref="ChatPresenter"/>. Each reply plays line by line: narration in
     /// italics, speech voiced, the current line highlighted, Auto or Step, Next / Skip / Show
-    /// all. "History" opens the full transcript (one text object per message, last 100
-    /// messages, 6000 characters each, as #64). Exists only while the new UI is on.
+    /// all. The conversation and the current line share one scrollable transcript (one text
+    /// object per message, last 100 messages, 6000 characters each, as #64). Exists only while
+    /// the new UI is on.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class HappiChatView : MonoBehaviour, IOverlayKeepAwake
