@@ -174,8 +174,8 @@ namespace AICompanion.Core
         public string createdAtUtc = string.Empty;
 
         /// <summary>
-        /// Set by code (JUH-126): true when this sheet was read by the cloud Pisara service.
-        /// Her seeded world uses this flag, not the current gate or private mode.
+        /// Set by code (JUH-126): true when this reading went to a cloud model, whether the
+        /// Pisara cloud service or the chat cloud model. Old sheets default to false.
         /// </summary>
         public bool readInCloud;
 

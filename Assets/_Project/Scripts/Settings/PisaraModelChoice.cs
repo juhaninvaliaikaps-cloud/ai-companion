@@ -98,6 +98,15 @@ namespace AICompanion.Settings
                 && a.Port == b.Port;
         }
 
+        /// <summary>
+        /// JUH-126: true when the reading went to a cloud model. The Pisara cloud always counts;
+        /// the chat path counts only when the read did not have to keep local.
+        /// </summary>
+        public static bool ReadInCloud(PisaraModelChoice choice, bool keepsLocal)
+        {
+            return choice.UseCloud || !keepsLocal;
+        }
+
         static PisaraModelChoice ChatPath(CompanionSettings settings, bool privateMode, bool gateOpen, string reason)
         {
             var keepsLocal = privateMode || gateOpen;

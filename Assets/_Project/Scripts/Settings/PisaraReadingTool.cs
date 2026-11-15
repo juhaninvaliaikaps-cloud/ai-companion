@@ -168,9 +168,10 @@ namespace AICompanion.Settings
                 var seconds = (DateTime.UtcNow - started).TotalSeconds;
                 if (result.FromModel)
                 {
-                    result.Sheet.readInCloud = pisaraChoice.UseCloud;
-                    result.Sheet.readBy = (string.IsNullOrWhiteSpace(pisaraChoice.Model) ? "the chat model" : pisaraChoice.Model)
-                        + (pisaraChoice.UseCloud ? " (cloud)" : " (chat)");
+                    result.Sheet.readInCloud = PisaraModelChoice.ReadInCloud(pisaraChoice, keepsLocal);
+                    var readModel = string.IsNullOrWhiteSpace(pisaraChoice.Model) ? "the chat model" : pisaraChoice.Model;
+                    var where = pisaraChoice.UseCloud ? "cloud" : keepsLocal ? "chat" : "chat, cloud";
+                    result.Sheet.readBy = readModel + " (" + where + ")";
                 }
 
                 var stem = Path.Combine(folder, persona.Id);

@@ -378,6 +378,7 @@ namespace AICompanion.Settings
 
             PisaraReadResult result;
             PisaraModelChoice choice = default(PisaraModelChoice);
+            var readKeepsLocal = true;
             try
             {
                 choice = Choice();
@@ -385,6 +386,7 @@ namespace AICompanion.Settings
                 var keepsLocal = choice.UseCloud
                     ? false
                     : IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+                readKeepsLocal = keepsLocal;
                 var intimateActive = choice.UseCloud ? false : IntimateExpressions.Active;
                 result = await PisaraReader.ReadAsync(
                     Provider(choice, keepsLocal),
@@ -417,8 +419,8 @@ namespace AICompanion.Settings
             _failure = result.Failure ?? string.Empty;
             if (result.Sheet != null && result.Sheet.source == CharacterSheet.SourceModel)
             {
-                result.Sheet.readInCloud = choice.UseCloud;
-                result.Sheet.readBy = ReadBy(choice);
+                result.Sheet.readInCloud = PisaraModelChoice.ReadInCloud(choice, readKeepsLocal);
+                result.Sheet.readBy = ReadBy(choice, readKeepsLocal);
             }
 
             // The user's relationship correction survives a new reading, even of an edited prompt.
@@ -469,10 +471,11 @@ namespace AICompanion.Settings
             return PisaraModelChoice.For(CurrentSettings(), privateMode, IntimateExpressions.Active, ownKey, grokKey);
         }
 
-        static string ReadBy(PisaraModelChoice choice)
+        static string ReadBy(PisaraModelChoice choice, bool keepsLocal)
         {
             var model = string.IsNullOrWhiteSpace(choice.Model) ? "the chat model" : choice.Model;
-            return model + (choice.UseCloud ? " (cloud)" : " (chat)");
+            var where = choice.UseCloud ? "cloud" : keepsLocal ? "chat" : "chat, cloud";
+            return model + " (" + where + ")";
         }
 
         string KeyFor(PisaraModelChoice choice)

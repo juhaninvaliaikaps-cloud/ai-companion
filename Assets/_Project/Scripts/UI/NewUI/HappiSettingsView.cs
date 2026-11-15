@@ -1040,6 +1040,7 @@ namespace AICompanion.NewUI
             if (_settings.PisaraApiKeyFromEnvironment)
                 Note("PISARA_API_KEY is set and overrides the saved Pisara key.");
             Note("If no Pisara key is set, the Grok key is used for Pisara readings.");
+            Note("Set the Pisara base URL too when this key is for another service.");
 
             Note(HotkeyCatalog.RebindNote);
             var entries = HotkeyCatalog.Current(S.PushToTalkKey);
