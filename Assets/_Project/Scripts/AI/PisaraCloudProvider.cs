@@ -17,6 +17,7 @@ namespace AICompanion.AI
         {
             var url = string.IsNullOrWhiteSpace(baseUrl) ? ChatDefaults.BaseUrl : baseUrl.Trim();
             var name = string.IsNullOrWhiteSpace(model) ? ChatDefaults.Model : model.Trim();
+            var deepSeek = IsDeepSeek(url);
             if (AnthropicChatProvider.IsAnthropic(url))
             {
                 return new AnthropicChatProvider(new AnthropicProviderConfig
@@ -41,8 +42,16 @@ namespace AICompanion.AI
                 TimeoutSeconds = () => PisaraReader.RequestTimeoutSeconds,
                 ApiKey = apiKey,
                 Secret = apiKey,
+                DisableThinking = deepSeek,
                 Transport = transport,
             });
+        }
+
+        static bool IsDeepSeek(string baseUrl)
+        {
+            Uri uri;
+            return Uri.TryCreate(baseUrl, UriKind.Absolute, out uri)
+                && uri.Host.IndexOf("deepseek.com", StringComparison.OrdinalIgnoreCase) >= 0;
         }
     }
 }
