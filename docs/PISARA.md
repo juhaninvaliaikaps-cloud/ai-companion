@@ -341,7 +341,7 @@ The reading is a guess, and the numbers are untuned, so the user can see and cor
 
 ### Correcting the relationship
 
-Settings → Persona → Temperament → **Correct the relationship**. The user picks the role, her word for it, affection and familiarity (in steps of 10), and whether they share a past. Every click applies at once:
+Settings → Persona → Who she is → **Correct the relationship**. The user picks the role, her word for it, affection and familiarity (in steps of 10), and whether they share a past. Every click applies at once:
 
 - `PisaraCorrections.SetRelationship` writes it into the sheet and sets `relationshipLocked`. The same limits as a reading apply: a stranger stays near 0 and never shares a past; each role keeps its least familiarity.
 - The current relationship is set to the corrected numbers (`RelationshipKeeper.SetByUser`), so it applies now, not only after a Start over.
@@ -352,7 +352,7 @@ The relationship line says "(your correction)" while the lock is on. Temperament
 
 ### Switches
 
-Settings → Overlay, under the mood readout, has one switch per part, all on by default (`pisaraRelationship`, `pisaraAwayEvents`, `pisaraWorld` in the settings file). Off freezes that part; nothing is deleted. `PisaraSwitches` holds the current values for code that has no settings at hand.
+Settings → Persona → Her life has one switch per part, all on by default (`pisaraRelationship`, `pisaraAwayEvents`, `pisaraWorld` in the settings file). Off freezes that part; nothing is deleted. `PisaraSwitches` holds the current values for code that has no settings at hand.
 
 | Switch | Off means |
 | --- | --- |
