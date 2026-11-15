@@ -39,6 +39,9 @@ namespace AICompanion.Settings
         int _generation;
         CancellationTokenSource _cancel;
         readonly HashSet<string> _tried = new HashSet<string>(StringComparer.Ordinal);
+        readonly PisaraApiKeySource _pisaraKeys = new PisaraApiKeySource();
+        bool _lastReadCloud;
+        string _lastReadBy = string.Empty;
 
         /// <summary>The prompt check is cheap, but there is no reason to do it sixty times a second.</summary>
         const float CheckSeconds = 0.25f;
@@ -107,10 +110,14 @@ namespace AICompanion.Settings
             get
             {
                 if (_reading)
-                    return "Reading her description with the model...";
+                    return _lastReadBy.Length > 0
+                        ? "Reading her description with " + _lastReadBy + "..."
+                        : "Reading her description with the model...";
                 if (_sheet != null && _sheet.source != CharacterSheet.SourceModel)
                     return PisaraReading.FallbackStatus;
                 var line = PisaraReading.SourceLine(_sheet);
+                if (_sheet != null && _sheet.source == CharacterSheet.SourceModel && _lastReadBy.Length > 0)
+                    line += " Read by " + _lastReadBy + ".";
                 if (_failure.Length == 0)
                     return line;
                 return _sheet != null && _sheet.source == CharacterSheet.SourceModel
@@ -199,7 +206,9 @@ namespace AICompanion.Settings
             {
                 var dropped = new List<string>();
                 var safe = WorldGuard.ForSeeding(sheet, dropped);
-                var added = safe == null ? 0 : WorldMemory.Seed(store, safe, DateTime.UtcNow, keepsLocal);
+                // JUH-126: a cloud reading's world is not private even when the gate was open.
+                var seedKeepsLocal = _lastReadCloud ? false : keepsLocal;
+                var added = safe == null ? 0 : WorldMemory.Seed(store, safe, DateTime.UtcNow, seedKeepsLocal);
                 Debug.Log("Pisara world: " + PersonaLogId(_personaId) + " seeded " + added + " memories"
                     + (dropped.Count == 0 ? string.Empty : " (" + dropped.Count + " left out: they mention the user without a shared past)"));
                 Revision++;
@@ -374,14 +383,22 @@ namespace AICompanion.Settings
             PisaraReadResult result;
             try
             {
+                var choice = Choice();
                 var privacy = GetComponent<IPrivacyMode>();
-                var keepsLocal = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+                var keepsLocal = choice.UseCloud
+                    ? false
+                    : IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+                var intimateActive = choice.UseCloud ? false : IntimateExpressions.Active;
+                _lastReadCloud = choice.UseCloud;
+                _lastReadBy = choice.UseCloud
+                    ? choice.Model + " (cloud)"
+                    : (string.IsNullOrWhiteSpace(choice.Model) ? "the chat model" : choice.Model + " (chat)");
                 result = await PisaraReader.ReadAsync(
-                    Provider(keepsLocal),
+                    Provider(choice, keepsLocal),
                     PersonaName(persona),
                     prompt,
                     keepsLocal,
-                    IntimateExpressions.Active,
+                    intimateActive,
                     PisaraKeywords.Temperament,
                     cancel.Token);
             }
@@ -443,12 +460,25 @@ namespace AICompanion.Settings
             }
         }
 
-        /// <summary>
-        /// The provider this persona's chat would use now, without the memory layer. Null when
-        /// it is unknown; the reader then falls back.
-        /// </summary>
-        IChatProvider Provider(bool keepsLocal)
+        /// <summary>What the chat path and the separate Pisara cloud setting say for this read.</summary>
+        PisaraModelChoice Choice()
         {
+            var privacy = GetComponent<IPrivacyMode>();
+            var privateMode = privacy != null && privacy.PrivateMode;
+            var keyReady = _pisaraKeys.TryGet(out _);
+            var ownKey = _pisaraKeys.TryGetOwn(out _);
+            return PisaraModelChoice.For(CurrentSettings(), privateMode, IntimateExpressions.Active, keyReady, ownKey);
+        }
+
+        /// <summary>
+        /// The provider this reading may use. A Pisara cloud choice gets its own provider; every
+        /// other choice keeps the persona's chat provider and the existing privacy rule.
+        /// </summary>
+        IChatProvider Provider(PisaraModelChoice choice, bool keepsLocal)
+        {
+            if (choice.UseCloud)
+                return PisaraCloudProvider.Create(choice.BaseUrl, choice.Model, _pisaraKeys, new UnityChatTransport(this));
+
             var chat = Chat();
             if (chat == null)
                 return null;
@@ -466,9 +496,12 @@ namespace AICompanion.Settings
         /// <summary>True when a fallback can be retried without violating the privacy rule.</summary>
         bool ProviderReady()
         {
+            var choice = Choice();
             var privacy = GetComponent<IPrivacyMode>();
-            var keepsLocal = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
-            var provider = Provider(keepsLocal);
+            var keepsLocal = choice.UseCloud
+                ? false
+                : IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+            var provider = Provider(choice, keepsLocal);
             return provider != null && provider.IsConfigured && PisaraReader.MayUse(provider, keepsLocal);
         }
 

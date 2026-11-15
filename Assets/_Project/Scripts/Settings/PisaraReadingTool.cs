@@ -14,14 +14,15 @@ namespace AICompanion.Settings
     /// <summary>
     /// A developer tool for tuning and checking the reading (JUH-118). Start the app with
     /// <c>-pisara-read &lt;folder&gt;</c>: every persona file (<c>*.json</c>, plain JSON as in
-    /// Resources/Personas) in that folder is read by the LOCAL model with the real request and
+    /// Resources/Personas) in that folder is read by the configured model with the real request and
     /// parser, and the result is written next to it as <c>&lt;id&gt;.sheet.json</c> (plain, so
     /// it can be pasted into a pull request) and <c>&lt;id&gt;.reply.txt</c> (the raw reply).
     /// The app then quits.
     /// <para>
-    /// It never calls a cloud model, never touches the user's personas or sheets, and the
-    /// normal keeper does not run. Optional: <c>-pisara-model &lt;tag&gt;</c> uses another local
-    /// model, <c>-pisara-prompt &lt;file&gt;</c> tries another system prompt without a rebuild.
+    /// When the Pisara cloud setting is on and Private mode is off, the sheet is read by that
+    /// service (JUH-126); otherwise the local model is used. The normal keeper does not run.
+    /// Optional: <c>-pisara-model &lt;tag&gt;</c> uses another local model,
+    /// <c>-pisara-prompt &lt;file&gt;</c> tries another system prompt without a rebuild.
     /// </para>
     /// </summary>
     public sealed class PisaraReadingTool : MonoBehaviour
@@ -104,8 +105,18 @@ namespace AICompanion.Settings
                 : settings != null && !string.IsNullOrWhiteSpace(settings.localModel) ? settings.localModel.Trim() : ChatDefaults.LocalModel;
             var system = !string.IsNullOrEmpty(promptFile) && File.Exists(promptFile) ? File.ReadAllText(promptFile) : null;
 
-            // The local provider only: this tool never sends anything to a cloud model.
-            var provider = new OpenAiCompatibleChatProvider(new OpenAiProviderConfig
+            var companion = GetComponent<SettingsPanel>() != null ? GetComponent<SettingsPanel>().CurrentSettings : null;
+            var keys = new PisaraApiKeySource();
+            var pisaraChoice = PisaraModelChoice.For(
+                companion,
+                companion != null && companion.PrivateMode,
+                IntimateExpressions.Active,
+                keys.TryGet(out _),
+                keys.TryGetOwn(out _));
+            var keepsLocal = !pisaraChoice.UseCloud;
+
+            // The local provider is still used for the world and session-memory checks.
+            var local = new OpenAiCompatibleChatProvider(new OpenAiProviderConfig
             {
                 ProviderId = ChatDefaults.LocalId,
                 DisplayName = "Local model",
@@ -116,8 +127,12 @@ namespace AICompanion.Settings
                 ApiKey = () => null,
                 Transport = new UnityChatTransport(this),
             });
+            var provider = pisaraChoice.UseCloud
+                ? PisaraCloudProvider.Create(pisaraChoice.BaseUrl, pisaraChoice.Model, keys, new UnityChatTransport(this))
+                : local;
 
-            Debug.Log("Pisara tool: local model " + tag + (system == null ? string.Empty : ", prompt from file"));
+            Debug.Log("Pisara tool: " + (pisaraChoice.UseCloud ? "cloud model " + pisaraChoice.Model : "local model " + tag)
+                + (system == null ? string.Empty : ", prompt from file"));
             var files = Directory.GetFiles(folder, "*.json");
             Array.Sort(files, StringComparer.OrdinalIgnoreCase);
             var read = 0;
@@ -139,7 +154,7 @@ namespace AICompanion.Settings
                     provider,
                     persona.DisplayName,
                     prompt,
-                    true,
+                    keepsLocal,
                     false,
                     PisaraKeywords.Temperament,
                     CancellationToken.None,
@@ -155,7 +170,7 @@ namespace AICompanion.Settings
                     + " in " + seconds.ToString("0") + " s");
                 Debug.Log("Pisara tool: " + persona.Id + " | " + choice.Line + " | " + PisaraReading.RelationshipLine(result.Sheet));
                 if (Has(Environment.GetCommandLineArgs(), WorldFlag) && result.FromModel)
-                    await World(provider, persona, prompt, result.Sheet, stem);
+                    await World(local, persona, prompt, result.Sheet, stem, !pisaraChoice.UseCloud);
                 read++;
             }
 
@@ -167,7 +182,7 @@ namespace AICompanion.Settings
         /// scene, an away event, and session memories. The replies come from the local model
         /// through the memory layer; the cue instructions are left out so the text reads plainly.
         /// </summary>
-        async System.Threading.Tasks.Task World(IChatProvider local, PersonaDefinition persona, string prompt, CharacterSheet sheet, string stem)
+        async System.Threading.Tasks.Task World(IChatProvider local, PersonaDefinition persona, string prompt, CharacterSheet sheet, string stem, bool seedKeepsLocal)
         {
             var text = new StringBuilder();
             var memoryPath = stem + ".memory.json";
@@ -178,7 +193,7 @@ namespace AICompanion.Settings
 
             var dropped = new List<string>();
             var safe = WorldGuard.ForSeeding(sheet, dropped);
-            var added = WorldMemory.Seed(store, safe, now, true);
+            var added = WorldMemory.Seed(store, safe, now, seedKeepsLocal);
             text.Append("== Seeded memories (").Append(added).Append(") ==\n");
             var entries = store.Entries;
             for (var i = 0; i < entries.Count; i++)

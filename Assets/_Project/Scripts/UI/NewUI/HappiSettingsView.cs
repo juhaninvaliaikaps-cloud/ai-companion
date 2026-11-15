@@ -228,6 +228,8 @@ namespace AICompanion.NewUI
                 + "|" + IntimateExpressions.Undressed
                 + "|" + s.PrivateEndpointType + "|" + s.PrivateBaseUrl + "|" + s.PrivateModel
                 + "|" + _settings.PrivateApiKeySaved + "|" + _settings.PrivateEndpointTestRunning
+                + "|" + s.PisaraCloud + "|" + s.PisaraCloudBaseUrl + "|" + s.PisaraCloudModel
+                + "|" + _settings.PisaraApiKeySaved + "|" + _settings.PisaraApiKeyFromEnvironment
                 + "|" + (look != null ? look.Revision : 0) + "|" + _settings.ConnectionTestRunning + "|" + s.ShowMoodDebug + "|" + s.VoiceNarration
                 + "|" + _settings.PisaraRevision;
         }
@@ -561,6 +563,24 @@ namespace AICompanion.NewUI
             Toggle("Private mode", S.PrivateMode, v => { Change(s => s.PrivateMode = v); _rebuild = true; });
             Note("On: chat goes only to the local Ollama model or your own server, and cloud voice and the voice agent get nothing. Off by default.");
             Label("Active now: " + P.ActiveModelText);
+
+            // JUH-126: the reading can use its own cloud service; chat is unchanged.
+            Section("Pisara model");
+            Toggle("Use a cloud model for Pisara readings", S.PisaraCloud, v =>
+            {
+                Change(s => s.PisaraCloud = v);
+                _rebuild = true;
+            });
+            Note("For reading her description into a character sheet only. Chat, session memories and memory capture keep their own model.");
+            if (S.PisaraCloud)
+            {
+                Field("Pisara base URL", S.PisaraCloudBaseUrl, false, v => Change(s => s.PisaraCloudBaseUrl = v));
+                Field("Pisara model", S.PisaraCloudModel, false, v => Change(s => s.PisaraCloudModel = v));
+                Note("Empty uses the Grok chat base URL and model. The Pisara key is on the Keys tab.");
+                Note("Her description goes to this cloud service for the reading. That includes the normal world and seeded memories. The request is built with 18+ off; innocence, 18+ secrets and everything else 18+ stay on the local model.");
+                if (S.PrivateMode)
+                    Note("Private mode is on, so Pisara readings stay on the local model.");
+            }
 
             if (!S.PrivateMode)
             {
@@ -1006,6 +1026,21 @@ namespace AICompanion.NewUI
 
         void BuildKeys()
         {
+            Section("Pisara API key");
+            Note(ApiKeyMask.Label(_settings.PisaraApiKeySaved) + ".");
+            var pisaraKey = Field("Paste a new Pisara API key", string.Empty, true, null);
+            Button("Save Pisara key", () =>
+            {
+                _settings.SavePisaraApiKey(pisaraKey != null ? pisaraKey.text : string.Empty);
+                if (pisaraKey != null)
+                    pisaraKey.text = string.Empty;
+                _rebuild = true;
+            });
+            Button("Remove Pisara key", () => { _settings.RemovePisaraApiKey(); _rebuild = true; });
+            if (_settings.PisaraApiKeyFromEnvironment)
+                Note("PISARA_API_KEY is set and overrides the saved Pisara key.");
+            Note("If no Pisara key is set, the Grok key is used for Pisara readings.");
+
             Note(HotkeyCatalog.RebindNote);
             var entries = HotkeyCatalog.Current(S.PushToTalkKey);
             for (var i = 0; i < entries.Length; i++)

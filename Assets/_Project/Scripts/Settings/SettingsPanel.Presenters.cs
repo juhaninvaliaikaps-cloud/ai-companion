@@ -186,6 +186,58 @@ namespace AICompanion.Settings
 
         public bool ApiKeyFromEnvironment => EnvOverrides();
 
+        /// <summary>True when a Pisara-specific key is saved in its own encrypted file.</summary>
+        public bool PisaraApiKeySaved
+        {
+            get
+            {
+                string key;
+                return AICompanion.AI.PisaraApiKeyStore.TryLoad(out key) && !string.IsNullOrWhiteSpace(key);
+            }
+        }
+
+        public bool PisaraApiKeyFromEnvironment
+        {
+            get
+            {
+                string key;
+                return AICompanion.AI.PisaraApiKeyStore.TryEnvironment(out key);
+            }
+        }
+
+        public void SavePisaraApiKey(string key)
+        {
+            var trimmed = (key ?? string.Empty).Trim();
+            if (trimmed.Length == 0)
+            {
+                SetStatus("Enter a Pisara API key to save. A saved key stays masked.");
+                return;
+            }
+
+            try
+            {
+                AICompanion.AI.PisaraApiKeyStore.Save(trimmed);
+                SetStatus("Pisara API key saved in the encrypted local store.");
+            }
+            catch (System.Exception)
+            {
+                SetStatus("Could not save the Pisara API key.");
+            }
+        }
+
+        public void RemovePisaraApiKey()
+        {
+            try
+            {
+                AICompanion.AI.PisaraApiKeyStore.Delete();
+                SetStatus("Pisara API key removed.");
+            }
+            catch (System.Exception)
+            {
+                SetStatus("The Pisara API key could not be removed.");
+            }
+        }
+
         public bool ConnectionTestRunning => _probeBusy;
 
         /// <summary>Same as "Test connection" on the AI tab (the key and header are never logged).</summary>
