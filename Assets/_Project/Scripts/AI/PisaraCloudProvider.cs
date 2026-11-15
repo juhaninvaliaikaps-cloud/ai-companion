@@ -11,7 +11,7 @@ namespace AICompanion.AI
         public static IChatProvider Create(
             string baseUrl,
             string model,
-            IApiKeySource keys,
+            Func<string> apiKey,
             IChatTransport transport,
             string displayName = "Pisara cloud")
         {
@@ -25,7 +25,7 @@ namespace AICompanion.AI
                     DisplayName = displayName,
                     BaseUrl = () => url,
                     Model = () => name,
-                    ApiKey = () => ReadKey(keys),
+                    ApiKey = apiKey,
                     TimeoutSeconds = () => PisaraReader.RequestTimeoutSeconds,
                     Transport = transport,
                 });
@@ -39,16 +39,10 @@ namespace AICompanion.AI
                 BaseUrl = () => url,
                 Model = () => name,
                 TimeoutSeconds = () => PisaraReader.RequestTimeoutSeconds,
-                ApiKey = () => ReadKey(keys),
-                Secret = () => ReadKey(keys),
+                ApiKey = apiKey,
+                Secret = apiKey,
                 Transport = transport,
             });
-        }
-
-        static string ReadKey(IApiKeySource keys)
-        {
-            string key;
-            return keys != null && keys.TryGet(out key) ? key : null;
         }
     }
 }

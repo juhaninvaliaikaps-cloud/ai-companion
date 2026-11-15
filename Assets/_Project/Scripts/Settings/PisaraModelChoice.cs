@@ -1,3 +1,4 @@
+using System;
 using AICompanion.AI;
 
 namespace AICompanion.Settings
@@ -48,29 +49,53 @@ namespace AICompanion.Settings
             CompanionSettings settings,
             bool privateMode,
             bool gateOpen,
-            bool keyReady,
-            bool usesOwnKey = false)
+            bool ownKeyReady,
+            bool grokKeyReady)
         {
             settings = settings ?? CompanionSettings.CreateDefault();
             if (!settings.PisaraCloud)
                 return ChatPath(settings, privateMode, gateOpen, "Pisara cloud is off");
 
-            if (privateMode)
-                return ChatPath(settings, true, gateOpen, "Private mode keeps Pisara readings local");
-
-            if (!keyReady)
-                return ChatPath(settings, false, gateOpen, "No Pisara API key or Grok API key is set");
-
+            var baseConfigured = !string.IsNullOrWhiteSpace(settings.PisaraCloudBaseUrl);
             var baseUrl = First(settings.PisaraCloudBaseUrl, settings.BaseUrl);
-            var model = First(settings.PisaraCloudModel, settings.Model);
+            var sameHost = !baseConfigured || SameHost(baseUrl, settings.BaseUrl);
+
+            var configuredModel = settings.PisaraCloudModel;
+            if (string.IsNullOrWhiteSpace(configuredModel) && !sameHost)
+                return ChatPath(settings, privateMode, gateOpen, "Set a Pisara model for this service");
+            var model = First(configuredModel, settings.Model);
+
+            PisaraKeySource keySource;
+            if (ownKeyReady)
+                keySource = PisaraKeySource.Pisara;
+            else if (sameHost && grokKeyReady)
+                keySource = PisaraKeySource.Grok;
+            else if (sameHost)
+                return ChatPath(settings, privateMode, gateOpen, "No Pisara API key or Grok API key is set");
+            else
+                return ChatPath(settings, privateMode, gateOpen, "Set a Pisara API key for this service");
+
+            // JUH-126: private mode does not keep this one reading local. The gate only opens
+            // while private mode is on, so the cloud must still be reachable here. The request
+            // is always built gate-closed, and every other private-mode path stays local.
             return new PisaraModelChoice(
                 true,
                 CloudProviderId,
                 baseUrl,
                 model,
                 true,
-                usesOwnKey ? PisaraKeySource.Pisara : PisaraKeySource.Grok,
+                keySource,
                 "Pisara reading uses the cloud service");
+        }
+
+        static bool SameHost(string first, string second)
+        {
+            Uri a;
+            Uri b;
+            if (!Uri.TryCreate(first, UriKind.Absolute, out a) || !Uri.TryCreate(second, UriKind.Absolute, out b))
+                return false;
+            return string.Equals(a.Host, b.Host, System.StringComparison.OrdinalIgnoreCase)
+                && a.Port == b.Port;
         }
 
         static PisaraModelChoice ChatPath(CompanionSettings settings, bool privateMode, bool gateOpen, string reason)

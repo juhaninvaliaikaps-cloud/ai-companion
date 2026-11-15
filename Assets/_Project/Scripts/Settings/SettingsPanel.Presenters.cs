@@ -12,6 +12,7 @@ namespace AICompanion.Settings
     public sealed partial class SettingsPanel : ISettingsHost, IPersonaHost
     {
         SettingsPresenter _settingsPresenter;
+        bool? _pisaraKeySaved;
         PersonaPresenter _personaPresenter;
         ScreenLookPresenter _screenPresenter;
         MemoryPresenter _memoryPresenter;
@@ -191,8 +192,13 @@ namespace AICompanion.Settings
         {
             get
             {
-                string key;
-                return AICompanion.AI.PisaraApiKeyStore.TryLoad(out key) && !string.IsNullOrWhiteSpace(key);
+                if (!_pisaraKeySaved.HasValue)
+                {
+                    string key;
+                    _pisaraKeySaved = AICompanion.AI.PisaraApiKeyStore.TryLoad(out key) && !string.IsNullOrWhiteSpace(key);
+                }
+
+                return _pisaraKeySaved.Value;
             }
         }
 
@@ -217,6 +223,7 @@ namespace AICompanion.Settings
             try
             {
                 AICompanion.AI.PisaraApiKeyStore.Save(trimmed);
+                _pisaraKeySaved = true;
                 SetStatus("Pisara API key saved in the encrypted local store.");
             }
             catch (System.Exception)
@@ -230,6 +237,7 @@ namespace AICompanion.Settings
             try
             {
                 AICompanion.AI.PisaraApiKeyStore.Delete();
+                _pisaraKeySaved = false;
                 SetStatus("Pisara API key removed.");
             }
             catch (System.Exception)

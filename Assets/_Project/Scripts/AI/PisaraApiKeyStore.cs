@@ -6,8 +6,8 @@ namespace AICompanion.AI
 {
     /// <summary>
     /// JUH-126: the optional API key for the separate Pisara reading service. It is stored in
-    /// its own encrypted file, never in settings.json. PISARA_API_KEY overrides the file; when
-    /// neither is set the Grok key is used by <see cref="PisaraApiKeySource"/>.
+    /// its own encrypted file, never in settings.json. PISARA_API_KEY overrides the file; the
+    /// chooser decides when the Grok key may be used as a fallback instead.
     /// </summary>
     public static class PisaraApiKeyStore
     {
@@ -82,10 +82,10 @@ namespace AICompanion.AI
     }
 
     /// <summary>
-    /// Resolves the Pisara key: PISARA_API_KEY, then pisara-api-key.json, then the Grok key.
-    /// The constructor parameters exist so the tests can use a temporary file and environment.
+    /// Resolves the two possible Pisara keys separately. The chooser decides whether the Grok
+    /// key may be used for this host; the provider only ever receives the chosen key.
     /// </summary>
-    public sealed class PisaraApiKeySource : IApiKeySource
+    public sealed class PisaraApiKeySource
     {
         readonly Func<string, string> _readEnvironment;
         readonly Func<string> _path;
@@ -117,10 +117,9 @@ namespace AICompanion.AI
             return PisaraApiKeyStore.TryRead(path, _protector, out key);
         }
 
-        public bool TryGet(out string key)
+        public bool TryGetGrok(out string key)
         {
-            if (TryGetOwn(out key))
-                return true;
+            key = null;
             return _grok != null && _grok.TryGet(out key) && !string.IsNullOrWhiteSpace(key);
         }
 

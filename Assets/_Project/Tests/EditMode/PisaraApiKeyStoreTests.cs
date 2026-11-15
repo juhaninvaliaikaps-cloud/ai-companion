@@ -49,12 +49,10 @@ namespace AICompanion.Tests.EditMode
 
             Assert.IsTrue(source.TryGetOwn(out var own));
             Assert.AreEqual("env-pisara", own);
-            Assert.IsTrue(source.TryGet(out var key));
-            Assert.AreEqual("env-pisara", key);
         }
 
         [Test]
-        public void Source_ReadsItsOwnFileBeforeFallingBackToGrok()
+        public void Source_ReadsItsOwnFile()
         {
             PisaraApiKeyStore.Save(_path, "file-pisara", new PlainSecretProtector());
             var source = new PisaraApiKeySource(
@@ -63,12 +61,12 @@ namespace AICompanion.Tests.EditMode
                 new PlainSecretProtector(),
                 new FixedSource("grok-key"));
 
-            Assert.IsTrue(source.TryGet(out var key));
+            Assert.IsTrue(source.TryGetOwn(out var key));
             Assert.AreEqual("file-pisara", key);
         }
 
         [Test]
-        public void Source_FallsBackToTheGrokKey()
+        public void Source_ExposesTheGrokKeySeparately()
         {
             var source = new PisaraApiKeySource(
                 _ => null,
@@ -77,7 +75,7 @@ namespace AICompanion.Tests.EditMode
                 new FixedSource("grok-key"));
 
             Assert.IsFalse(source.TryGetOwn(out _));
-            Assert.IsTrue(source.TryGet(out var key));
+            Assert.IsTrue(source.TryGetGrok(out var key));
             Assert.AreEqual("grok-key", key);
         }
 
@@ -90,7 +88,9 @@ namespace AICompanion.Tests.EditMode
                 new PlainSecretProtector(),
                 new FixedSource(null));
 
-            Assert.IsFalse(source.TryGet(out var key));
+            Assert.IsFalse(source.TryGetOwn(out var key));
+            Assert.IsNull(key);
+            Assert.IsFalse(source.TryGetGrok(out key));
             Assert.IsNull(key);
         }
 

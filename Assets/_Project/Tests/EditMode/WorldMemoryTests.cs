@@ -103,6 +103,19 @@ namespace AICompanion.Tests.EditMode
         // ---- seeding -------------------------------------------------------------------------
 
         [Test]
+        public void SeedKeepsLocal_FollowsTheSheetNotTheLastRead()
+        {
+            var local = Sheet();
+            local.readInCloud = false;
+            var cloud = Sheet("prompt two");
+            cloud.readInCloud = true;
+
+            Assert.IsTrue(WorldMemory.SeedKeepsLocal(local), "a locally read sheet stays private");
+            Assert.IsFalse(WorldMemory.SeedKeepsLocal(cloud), "a cloud-read sheet is not private");
+            Assert.IsTrue(WorldMemory.SeedKeepsLocal(null));
+        }
+
+        [Test]
         public void Seed_WritesBackstoryTheLastWeekAndThreads_Once()
         {
             var store = MemoryStore.Load(_path);

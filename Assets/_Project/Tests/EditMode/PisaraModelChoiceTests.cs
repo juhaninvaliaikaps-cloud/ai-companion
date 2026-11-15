@@ -23,7 +23,7 @@ namespace AICompanion.Tests.EditMode
         [Test]
         public void Off_UsesTheChatPath()
         {
-            var choice = PisaraModelChoice.For(ChatSettings(), false, false, true);
+            var choice = PisaraModelChoice.For(ChatSettings(), false, false, true, true);
 
             Assert.IsFalse(choice.UseCloud);
             Assert.AreEqual(ChatDefaults.GrokId, choice.ProviderId);
@@ -40,7 +40,7 @@ namespace AICompanion.Tests.EditMode
             settings.PisaraCloudBaseUrl = "https://api.anthropic.com/v1/";
             settings.PisaraCloudModel = "claude-opus-5-5";
 
-            var closed = PisaraModelChoice.For(settings, false, false, true, true);
+            var closed = PisaraModelChoice.For(settings, false, false, true, false);
             Assert.IsTrue(closed.UseCloud);
             Assert.AreEqual(PisaraModelChoice.CloudProviderId, closed.ProviderId);
             Assert.AreEqual("https://api.anthropic.com/v1/", closed.BaseUrl);
@@ -48,23 +48,23 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(closed.GateClosed);
             Assert.AreEqual(PisaraKeySource.Pisara, closed.KeySource);
 
-            var open = PisaraModelChoice.For(settings, false, true, true, true);
+            var open = PisaraModelChoice.For(settings, false, true, true, false);
             Assert.IsTrue(open.UseCloud);
             Assert.IsTrue(open.GateClosed, "the cloud request is always built gate-closed");
         }
 
         [Test]
-        public void On_Private_StaysLocal()
+        public void On_Private_UsesCloudWithTheGateClosed()
         {
             var settings = ChatSettings();
             settings.PisaraCloud = true;
+            settings.PisaraCloudBaseUrl = "https://api.anthropic.com/v1/";
             settings.PisaraCloudModel = "claude-opus-5-5";
 
-            var choice = PisaraModelChoice.For(settings, true, true, true, true);
-
-            Assert.IsFalse(choice.UseCloud);
-            Assert.AreEqual(ChatDefaults.LocalId, choice.ProviderId);
-            StringAssert.Contains("Private mode", choice.Reason);
+            var choice = PisaraModelChoice.For(settings, true, true, true, false);
+            Assert.IsTrue(choice.UseCloud);
+            Assert.IsTrue(choice.GateClosed);
+            Assert.AreEqual(PisaraKeySource.Pisara, choice.KeySource);
         }
 
         [Test]
@@ -88,11 +88,54 @@ namespace AICompanion.Tests.EditMode
             settings.PisaraCloudBaseUrl = string.Empty;
             settings.PisaraCloudModel = string.Empty;
 
-            var choice = PisaraModelChoice.For(settings, false, false, true);
+            var choice = PisaraModelChoice.For(settings, false, false, false, true);
 
             Assert.AreEqual(settings.BaseUrl, choice.BaseUrl);
             Assert.AreEqual(settings.Model, choice.Model);
             Assert.AreEqual(PisaraKeySource.Grok, choice.KeySource);
+        }
+
+        [Test]
+        public void AnthropicUrl_WithOnlyTheGrokKey_DoesNotCallTheCloud()
+        {
+            var settings = ChatSettings();
+            settings.PisaraCloud = true;
+            settings.PisaraCloudBaseUrl = "https://api.anthropic.com/v1/";
+            settings.PisaraCloudModel = "claude-opus-5-5";
+
+            var choice = PisaraModelChoice.For(settings, false, false, false, true);
+
+            Assert.IsFalse(choice.UseCloud, "the Grok key must not be sent to Anthropic");
+            Assert.AreEqual(PisaraKeySource.None, choice.KeySource);
+            Assert.AreEqual("Set a Pisara API key for this service", choice.Reason);
+        }
+
+        [Test]
+        public void GrokHost_WithOnlyTheGrokKey_UsesTheCloud()
+        {
+            var settings = ChatSettings();
+            settings.PisaraCloud = true;
+            settings.PisaraCloudBaseUrl = settings.BaseUrl;
+            settings.PisaraCloudModel = "grok-pisara-test";
+
+            var choice = PisaraModelChoice.For(settings, false, false, false, true);
+
+            Assert.IsTrue(choice.UseCloud);
+            Assert.AreEqual(PisaraKeySource.Grok, choice.KeySource);
+        }
+
+        [Test]
+        public void NonGrokUrl_WithAnEmptyModel_AsksForAModel()
+        {
+            var settings = ChatSettings();
+            settings.PisaraCloud = true;
+            settings.PisaraCloudBaseUrl = "https://api.anthropic.com/v1/";
+            settings.PisaraCloudModel = string.Empty;
+
+            var choice = PisaraModelChoice.For(settings, false, false, true, false);
+
+            Assert.IsFalse(choice.UseCloud);
+            Assert.AreEqual("Set a Pisara model for this service", choice.Reason);
         }
 
         [Test]
@@ -101,7 +144,7 @@ namespace AICompanion.Tests.EditMode
             var settings = ChatSettings();
             settings.PisaraCloud = true;
             settings.PisaraCloudModel = "claude-opus-5-5";
-            var choice = PisaraModelChoice.For(settings, false, true, true, true);
+            var choice = PisaraModelChoice.For(settings, false, true, true, false);
             Assert.IsTrue(choice.UseCloud);
 
             var cloud = new FakeProvider(ChatDefaults.GrokId);

@@ -40,8 +40,6 @@ namespace AICompanion.Settings
         CancellationTokenSource _cancel;
         readonly HashSet<string> _tried = new HashSet<string>(StringComparer.Ordinal);
         readonly PisaraApiKeySource _pisaraKeys = new PisaraApiKeySource();
-        bool _lastReadCloud;
-        string _lastReadBy = string.Empty;
 
         /// <summary>The prompt check is cheap, but there is no reason to do it sixty times a second.</summary>
         const float CheckSeconds = 0.25f;
@@ -110,14 +108,12 @@ namespace AICompanion.Settings
             get
             {
                 if (_reading)
-                    return _lastReadBy.Length > 0
-                        ? "Reading her description with " + _lastReadBy + "..."
-                        : "Reading her description with the model...";
+                    return "Reading her description...";
                 if (_sheet != null && _sheet.source != CharacterSheet.SourceModel)
                     return PisaraReading.FallbackStatus;
                 var line = PisaraReading.SourceLine(_sheet);
-                if (_sheet != null && _sheet.source == CharacterSheet.SourceModel && _lastReadBy.Length > 0)
-                    line += " Read by " + _lastReadBy + ".";
+                if (_sheet != null && _sheet.source == CharacterSheet.SourceModel && !string.IsNullOrWhiteSpace(_sheet.readBy))
+                    line = "Read by " + _sheet.readBy + ".";
                 if (_failure.Length == 0)
                     return line;
                 return _sheet != null && _sheet.source == CharacterSheet.SourceModel
@@ -206,8 +202,8 @@ namespace AICompanion.Settings
             {
                 var dropped = new List<string>();
                 var safe = WorldGuard.ForSeeding(sheet, dropped);
-                // JUH-126: a cloud reading's world is not private even when the gate was open.
-                var seedKeepsLocal = _lastReadCloud ? false : keepsLocal;
+                // JUH-126: the sheet itself says whether it was read locally or in the cloud.
+                var seedKeepsLocal = WorldMemory.SeedKeepsLocal(sheet);
                 var added = safe == null ? 0 : WorldMemory.Seed(store, safe, DateTime.UtcNow, seedKeepsLocal);
                 Debug.Log("Pisara world: " + PersonaLogId(_personaId) + " seeded " + added + " memories"
                     + (dropped.Count == 0 ? string.Empty : " (" + dropped.Count + " left out: they mention the user without a shared past)"));
@@ -381,18 +377,15 @@ namespace AICompanion.Settings
             Revision++;
 
             PisaraReadResult result;
+            PisaraModelChoice choice = default(PisaraModelChoice);
             try
             {
-                var choice = Choice();
+                choice = Choice();
                 var privacy = GetComponent<IPrivacyMode>();
                 var keepsLocal = choice.UseCloud
                     ? false
                     : IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
                 var intimateActive = choice.UseCloud ? false : IntimateExpressions.Active;
-                _lastReadCloud = choice.UseCloud;
-                _lastReadBy = choice.UseCloud
-                    ? choice.Model + " (cloud)"
-                    : (string.IsNullOrWhiteSpace(choice.Model) ? "the chat model" : choice.Model + " (chat)");
                 result = await PisaraReader.ReadAsync(
                     Provider(choice, keepsLocal),
                     PersonaName(persona),
@@ -422,6 +415,12 @@ namespace AICompanion.Settings
             _cancel = null;
             cancel.Dispose();
             _failure = result.Failure ?? string.Empty;
+            if (result.Sheet != null && result.Sheet.source == CharacterSheet.SourceModel)
+            {
+                result.Sheet.readInCloud = choice.UseCloud;
+                result.Sheet.readBy = ReadBy(choice);
+            }
+
             // The user's relationship correction survives a new reading, even of an edited prompt.
             PisaraCorrections.CarryOver(CharacterSheetStore.Load(path), result.Sheet);
             // A failed Re-read keeps the sheet the model wrote earlier for this prompt.
@@ -465,9 +464,25 @@ namespace AICompanion.Settings
         {
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = privacy != null && privacy.PrivateMode;
-            var keyReady = _pisaraKeys.TryGet(out _);
             var ownKey = _pisaraKeys.TryGetOwn(out _);
-            return PisaraModelChoice.For(CurrentSettings(), privateMode, IntimateExpressions.Active, keyReady, ownKey);
+            var grokKey = _pisaraKeys.TryGetGrok(out _);
+            return PisaraModelChoice.For(CurrentSettings(), privateMode, IntimateExpressions.Active, ownKey, grokKey);
+        }
+
+        static string ReadBy(PisaraModelChoice choice)
+        {
+            var model = string.IsNullOrWhiteSpace(choice.Model) ? "the chat model" : choice.Model;
+            return model + (choice.UseCloud ? " (cloud)" : " (chat)");
+        }
+
+        string KeyFor(PisaraModelChoice choice)
+        {
+            string key;
+            if (choice.KeySource == PisaraKeySource.Pisara && _pisaraKeys.TryGetOwn(out key))
+                return key;
+            if (choice.KeySource == PisaraKeySource.Grok && _pisaraKeys.TryGetGrok(out key))
+                return key;
+            return null;
         }
 
         /// <summary>
@@ -477,7 +492,7 @@ namespace AICompanion.Settings
         IChatProvider Provider(PisaraModelChoice choice, bool keepsLocal)
         {
             if (choice.UseCloud)
-                return PisaraCloudProvider.Create(choice.BaseUrl, choice.Model, _pisaraKeys, new UnityChatTransport(this));
+                return PisaraCloudProvider.Create(choice.BaseUrl, choice.Model, () => KeyFor(choice), new UnityChatTransport(this));
 
             var chat = Chat();
             if (chat == null)

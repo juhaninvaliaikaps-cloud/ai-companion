@@ -107,12 +107,14 @@ namespace AICompanion.Settings
 
             var companion = GetComponent<SettingsPanel>() != null ? GetComponent<SettingsPanel>().CurrentSettings : null;
             var keys = new PisaraApiKeySource();
+            var ownKey = keys.TryGetOwn(out var ownValue) ? ownValue : null;
+            var grokKey = keys.TryGetGrok(out var grokValue) ? grokValue : null;
             var pisaraChoice = PisaraModelChoice.For(
                 companion,
                 companion != null && companion.PrivateMode,
                 IntimateExpressions.Active,
-                keys.TryGet(out _),
-                keys.TryGetOwn(out _));
+                ownKey != null,
+                grokKey != null);
             var keepsLocal = !pisaraChoice.UseCloud;
 
             // The local provider is still used for the world and session-memory checks.
@@ -128,7 +130,10 @@ namespace AICompanion.Settings
                 Transport = new UnityChatTransport(this),
             });
             var provider = pisaraChoice.UseCloud
-                ? PisaraCloudProvider.Create(pisaraChoice.BaseUrl, pisaraChoice.Model, keys, new UnityChatTransport(this))
+                ? PisaraCloudProvider.Create(pisaraChoice.BaseUrl, pisaraChoice.Model,
+                    () => pisaraChoice.KeySource == PisaraKeySource.Pisara ? ownKey
+                        : pisaraChoice.KeySource == PisaraKeySource.Grok ? grokKey : null,
+                    new UnityChatTransport(this))
                 : local;
 
             Debug.Log("Pisara tool: " + (pisaraChoice.UseCloud ? "cloud model " + pisaraChoice.Model : "local model " + tag)
@@ -161,6 +166,13 @@ namespace AICompanion.Settings
                     600f,
                     system);
                 var seconds = (DateTime.UtcNow - started).TotalSeconds;
+                if (result.FromModel)
+                {
+                    result.Sheet.readInCloud = pisaraChoice.UseCloud;
+                    result.Sheet.readBy = (string.IsNullOrWhiteSpace(pisaraChoice.Model) ? "the chat model" : pisaraChoice.Model)
+                        + (pisaraChoice.UseCloud ? " (cloud)" : " (chat)");
+                }
+
                 var stem = Path.Combine(folder, persona.Id);
                 File.WriteAllText(stem + ".sheet.json", result.Sheet.ToJson(), new UTF8Encoding(false));
                 File.WriteAllText(stem + ".reply.txt", result.RawReply ?? string.Empty, new UTF8Encoding(false));
@@ -170,7 +182,7 @@ namespace AICompanion.Settings
                     + " in " + seconds.ToString("0") + " s");
                 Debug.Log("Pisara tool: " + persona.Id + " | " + choice.Line + " | " + PisaraReading.RelationshipLine(result.Sheet));
                 if (Has(Environment.GetCommandLineArgs(), WorldFlag) && result.FromModel)
-                    await World(local, persona, prompt, result.Sheet, stem, !pisaraChoice.UseCloud);
+                    await World(local, persona, prompt, result.Sheet, stem, WorldMemory.SeedKeepsLocal(result.Sheet));
                 read++;
             }
 

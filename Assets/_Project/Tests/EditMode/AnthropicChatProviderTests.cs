@@ -86,9 +86,9 @@ namespace AICompanion.Tests.EditMode
         public void Factory_SelectsAnthropicOnlyForAnthropicHosts()
         {
             var anthropic = PisaraCloudProvider.Create(
-                "https://api.anthropic.com/v1/", "claude-opus-5-5", new FixedSource("key"), new RecordingTransport("{}"));
+                "https://api.anthropic.com/v1/", "claude-opus-5-5", () => "key", new RecordingTransport("{}"));
             var openai = PisaraCloudProvider.Create(
-                "https://api.x.ai/v1", "grok-4.7", new FixedSource("key"), new RecordingTransport("{}"));
+                "https://api.x.ai/v1", "grok-4.7", () => "key", new RecordingTransport("{}"));
 
             Assert.IsInstanceOf<AnthropicChatProvider>(anthropic);
             Assert.IsInstanceOf<OpenAiCompatibleChatProvider>(openai);
