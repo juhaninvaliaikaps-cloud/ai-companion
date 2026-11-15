@@ -43,21 +43,6 @@ namespace AICompanion.NewUI
     }
 
     /// <summary>
-    /// JUH-127: catches the mouse wheel over the chat box. Scroll events over the box's children
-    /// bubble up to it; the history list's own <c>ScrollRect</c> catches its own first.
-    /// </summary>
-    public sealed class ChatWheelCatcher : MonoBehaviour, IScrollHandler
-    {
-        public Action<PointerEventData> Scrolled;
-
-        public void OnScroll(PointerEventData eventData)
-        {
-            if (eventData != null && Scrolled != null)
-                Scrolled(eventData);
-        }
-    }
-
-    /// <summary>
     /// JUH-127: the Windows resize cursors (↔ ↕ ⤡ ⤢) while the pointer is over a chat box edge
     /// or corner, or while resizing. Unity sets its own cursor again on every mouse move, so
     /// <see cref="Show"/> is called each frame while it is needed. Only in the Windows player;

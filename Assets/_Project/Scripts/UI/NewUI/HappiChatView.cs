@@ -44,11 +44,9 @@ namespace AICompanion.NewUI
         RectTransform _box;
         TextMeshProUGUI _name;
         TextMeshProUGUI _badge;
-        TextMeshProUGUI _userLine;
         TextMeshProUGUI _dialogue;
         TextMeshProUGUI _note;
         Image _dialogueHit;
-        HappiButton _history;
         HappiButton _mute;
         HappiButton _look;
         HappiButton _close;
@@ -67,7 +65,6 @@ namespace AICompanion.NewUI
         RectTransform _historyContent;
 
         bool _attached;
-        bool _historyOpen;
         bool _focusClaimed;
         bool _wasVisible;
         bool _micHeld;
@@ -76,21 +73,16 @@ namespace AICompanion.NewUI
         int _shownCurrent = -2;
         int _shownRevealed = -1;
         bool _shownFinished;
-        string _shownLastAssistant;
-        readonly List<string> _finishedReplies = new List<string>();
-        readonly List<int> _finishedVisible = new List<int>();
-        string _finishedJoined = string.Empty;
-        int _finishedVisibleChars;
         int _appendedSerial = -1;
         int _shownLineCount = -1;
-        const int MaxFinishedReplies = 12;
         float _layoutWidth = -1f;
         float _layoutHeight = -1f;
         float _layoutScale = -1f;
         float _layoutChatHeight = -1f;
-        bool _layoutHistory;
         bool _layoutKeyRow;
         float _historyWidth = -1f;
+        bool _liveDirty;
+        readonly List<ChatLine> _historyLines = new List<ChatLine>();
         string _shownBadge;
         bool _keySaved;
         float _keyCheckAt = -1f;
@@ -127,10 +119,8 @@ namespace AICompanion.NewUI
         float _roomBoxWidth;
         float _layoutBoxWidth = -1f;
         float _layoutBoxHeight = -1f;
-        bool _historyByWheel;
-        bool _historyWasAtBottom = true;
-        float _pendingWheel;
-        PointerEventData _wheelEvent;
+        bool _middleScrolling;
+        float _middleLastY;
         HappiButton[] _controlRow;
         HappiButton[] _fontButtons;
         static readonly float[] ControlWeights = { 0.9f, 1f, 0.8f, 1.1f, 1.9f };
@@ -268,6 +258,7 @@ namespace AICompanion.NewUI
                 _dragging = false;
                 _resizing = false;
                 _resizePending = ResizeEdges.None;
+                _middleScrolling = false;
                 ClearPortraitHooks();
                 ReleaseFocus();
                 if (_micHeld)
@@ -292,12 +283,9 @@ namespace AICompanion.NewUI
             RefreshControls();
             RefreshDialogue();
             ApplyGlow(settings);
-            if (_historyOpen)
-                RefreshHistory();
-            ApplyPendingWheel();
+            RefreshHistory();
+            MiddleScroll();
             ShowResizeCursor();
-            PollWheelClose();
-            _historyWasAtBottom = !_historyOpen || HistoryAtBottom();
             SyncFocus();
         }
 
@@ -828,7 +816,6 @@ namespace AICompanion.NewUI
             _name = HappiUiKit.Text(_box, "Name", "Leia", _theme.FontTitle, _theme.Text, TextAlignmentOptions.MidlineLeft, true);
             _name.textWrappingMode = TextWrappingModes.NoWrap;
             _badge = HappiUiKit.Text(_box, "Badge", string.Empty, _theme.FontSmall, _theme.BadgeCloud, TextAlignmentOptions.MidlineLeft, false);
-            _history = HappiUiKit.Button(_box, "History", "History", _theme.FontSmall, ToggleHistory);
             _mute = HappiUiKit.Button(_box, "Mute", ChatPresenter.MuteOffLabel, _theme.FontSmall, () => _chat.Presenter.ToggleMute());
             _look = HappiUiKit.Button(_box, "Look", ChatPresenter.LookLabelIdle, _theme.FontSmall, OnLook);
             _close = HappiUiKit.Button(_box, "Close", "Ã—", _theme.FontBody, () => _chat.ShowChat(false));
@@ -850,12 +837,8 @@ namespace AICompanion.NewUI
             _historyContent.pivot = new Vector2(0.5f, 1f);
             _historyContent.sizeDelta = new Vector2(0f, 8f);
             _historyScroll.content = _historyContent;
-            _historyRoot.gameObject.SetActive(false);
 
-            _userLine = HappiUiKit.Text(_box, "UserLine", string.Empty, _theme.FontSmall, _theme.TextMuted, TextAlignmentOptions.TopLeft, false);
-            _userLine.textWrappingMode = TextWrappingModes.NoWrap;
-
-            _dialogueHit = HappiUiKit.Panel(_box, "Dialogue", _theme.PanelInset, true);
+            _dialogueHit = HappiUiKit.Panel(_historyContent, "Dialogue", _theme.PanelInset, true);
             _dialogueHit.gameObject.AddComponent<RectMask2D>();
             var dialogueButton = _dialogueHit.gameObject.AddComponent<Button>();
             dialogueButton.transition = Selectable.Transition.None;
@@ -889,10 +872,7 @@ namespace AICompanion.NewUI
             _saveKey = HappiUiKit.Button(_box, "SaveKey", "Save", _theme.FontSmall, SaveKey);
 
             _controlRow = new[] { _mode, _next, _skip, _showAll, _narration };
-            _fontButtons = new[] { _history, _mute, _look, _mode, _next, _skip, _showAll, _narration, _mic, _send, _saveKey };
-
-            // JUH-127: the wheel anywhere over the box (its children's scroll events bubble up here).
-            _box.gameObject.AddComponent<ChatWheelCatcher>().Scrolled = e => OnWheel(e);
+            _fontButtons = new[] { _mute, _look, _mode, _next, _skip, _showAll, _narration, _mic, _send, _saveKey };
 
             // JUH-127: the edges and corners, last so they sit above everything in the box.
             var edges = new[]
@@ -932,7 +912,7 @@ namespace AICompanion.NewUI
                 _keySaved = SetupWizardGate.HasSavedApiKey();
             }
 
-            var keyRow = _historyOpen || !_keySaved;
+            var keyRow = !_keySaved;
             var settings = _settings != null ? _settings.CurrentSettings : null;
             var chatHeight = settings != null ? Mathf.Clamp(settings.ChatBoxHeight, 0.6f, 2f) : 1f;
             // Her own height (the window without the room for the box): the box size must not depend
@@ -947,7 +927,7 @@ namespace AICompanion.NewUI
             var targetHeight = _resizing ? _resizeSize.y : savedHeight;
             if (Mathf.Approximately(_layoutWidth, Screen.width) && Mathf.Approximately(_layoutHeight, Screen.height)
                 && Mathf.Approximately(_layoutScale, scale) && Mathf.Approximately(_layoutChatHeight, chatHeight)
-                && _layoutHistory == _historyOpen && _layoutKeyRow == keyRow
+                && _layoutKeyRow == keyRow
                 && Mathf.Approximately(_layoutBoxWidth, targetWidth) && Mathf.Approximately(_layoutBoxHeight, targetHeight))
                 return;
 
@@ -955,7 +935,6 @@ namespace AICompanion.NewUI
             _layoutHeight = Screen.height;
             _layoutScale = scale;
             _layoutChatHeight = chatHeight;
-            _layoutHistory = _historyOpen;
             _layoutKeyRow = keyRow;
             _layoutBoxWidth = targetWidth;
             _layoutBoxHeight = targetHeight;
@@ -991,10 +970,10 @@ namespace AICompanion.NewUI
                 }
                 else
                 {
-                    height = _historyOpen ? Mathf.Max(minHeight, bodyHeight * 0.82f) : collapsed;
+                    height = collapsed;
                     if (keyRow)
                         height += row + gap;
-                    // The room under her (spot 5) follows the closed box: opening History does not lift her.
+                    // The room under her (spot 5) follows the closed box.
                     _roomBoxHeight = collapsed + (!_keySaved ? row + gap : 0f);
                 }
 
@@ -1019,7 +998,6 @@ namespace AICompanion.NewUI
             var closeW = row;
             var lookW = 112f * s;
             var muteW = 58f * s;
-            var historyW = 62f * s;
             var right = pad + inner;
             HappiUiKit.Place(_close.Rect, right - closeW, y, closeW, row);
             right -= closeW + gap;
@@ -1027,8 +1005,6 @@ namespace AICompanion.NewUI
             right -= lookW + gap;
             HappiUiKit.Place(_mute.Rect, right - muteW, y, muteW, row);
             right -= muteW + gap;
-            HappiUiKit.Place(_history.Rect, right - historyW, y, historyW, row);
-            right -= historyW + gap;
             var nameW = Mathf.Max(40f, right - pad);
             HappiUiKit.Place(_name.rectTransform, pad, y, nameW, row);
             HappiUiKit.Place(_dragHandle.Rect, 0f, 0f, width, pad + row + gap * 0.5f);
@@ -1077,19 +1053,11 @@ namespace AICompanion.NewUI
             HappiUiKit.Place(_note.rectTransform, pad, bottom - noteH, inner, noteH);
             bottom -= noteH + gap * 0.5f;
 
-            if (_historyOpen)
-            {
-                var historyH = Mathf.Max(40f * s, (bottom - y) * 0.55f);
-                HappiUiKit.Place(_historyRoot, pad, y, inner, historyH);
-                y += historyH + gap;
-            }
-
-            _historyRoot.gameObject.SetActive(_historyOpen);
-
-            var userH = 16f * s;
-            HappiUiKit.Place(_userLine.rectTransform, pad, y, inner, userH);
-            y += userH + gap * 0.5f;
-            HappiUiKit.Place(_dialogueHit.rectTransform, pad, y, inner, Mathf.Max(24f * s, bottom - y));
+            // JUH-127: one scrollable conversation window. There is no separate History area
+            // or History button any more.
+            var historyH = Mathf.Max(40f * s, bottom - y);
+            HappiUiKit.Place(_historyRoot, pad, y, inner, historyH);
+            _historyRoot.gameObject.SetActive(true);
             _historyWidth = -1f;
             PlaceResizeHandles(width, height, s);
         }
@@ -1122,7 +1090,6 @@ namespace AICompanion.NewUI
         {
             _name.fontSize = _theme.FontTitle * s;
             _badge.fontSize = _theme.FontSmall * s * 0.9f;
-            _userLine.fontSize = _theme.FontSmall * s;
             _dialogue.fontSize = _theme.FontBody * s;
             _note.fontSize = _theme.FontSmall * s;
             var buttons = _fontButtons;
@@ -1203,13 +1170,12 @@ namespace AICompanion.NewUI
             var current = _player.Current;
             var revealed = _player.Revealed;
             var finished = _player.Finished;
-            var lastAssistant = _chat.LastAssistantText;
             var lineCount = _chat.TranscriptLines.Count;
             if (revision < _shownRevision || (_shownLineCount >= 0 && lineCount < _shownLineCount))
                 ClearFinishedReplies();
             _shownLineCount = lineCount;
             if (revision == _shownRevision && serial == _shownSerial && current == _shownCurrent && revealed == _shownRevealed
-                && finished == _shownFinished && ReferenceEquals(lastAssistant, _shownLastAssistant) && !_sink.Streaming)
+                && finished == _shownFinished && !_sink.Streaming)
                 return;
 
             _shownRevision = revision;
@@ -1217,103 +1183,52 @@ namespace AICompanion.NewUI
             _shownCurrent = current;
             _shownRevealed = revealed;
             _shownFinished = finished;
-            _shownLastAssistant = lastAssistant;
 
             if (finished)
                 AppendFinishedReply(serial);
 
             var lines = _chat.TranscriptLines;
-            string user = string.Empty;
             string note = string.Empty;
             for (var i = lines.Count - 1; i >= 0; i--)
             {
                 var line = lines[i];
                 if (line == null)
                     continue;
-                if (line.Kind == ChatLineKind.System && note.Length == 0 && user.Length == 0)
+                if (line.Kind == ChatLineKind.System && note.Length == 0)
                     note = line.Text;
                 if (line.Kind == ChatLineKind.User)
-                {
-                    user = line.Text;
                     break;
-                }
             }
 
-            _userLine.text = user.Length > 0 ? "You: " + HappiUiKit.Literal(Shorten(user, 160)) : string.Empty;
             _note.text = HappiUiKit.Literal(Shorten(note, 220));
 
-            var previous = _finishedJoined;
             string text;
             if (_player.Segments.Count > 0 && _appendedSerial != serial)
             {
                 text = VnRender.Dialogue(_player.Segments, _player.Revealed, _player.Finished ? -1 : _player.Current, _theme);
-                _glowLineStart = _finishedVisibleChars + (previous.Length > 0 ? 1 : 0)
-                    + VnRender.LineStart(_player.Segments, _player.Current);
-            }
-            else if (previous.Length > 0)
-            {
-                text = previous;
-                _glowLineStart = 0;
+                _glowLineStart = VnRender.LineStart(_player.Segments, _player.Current);
             }
             else if (_sink.Streaming)
                 text = "<i>...</i>";
-            else if (!string.IsNullOrEmpty(lastAssistant))
-                text = HappiUiKit.Literal(Shorten(lastAssistant, ChatTranscriptView.MaxShownCharacters));
-            else
+            else if (lines.Count == 0)
                 text = "<i>" + HappiUiKit.Literal("Say hi to " + CompanionName() + ".") + "</i>";
-
-            if (previous.Length > 0 && !string.IsNullOrEmpty(text) && !string.Equals(text, previous, StringComparison.Ordinal))
-                text = previous + "\n" + text;
+            else
+                text = string.Empty;
 
             if (_dialogue.text != text)
                 _dialogue.text = text;
+            if (_dialogueHit != null)
+                _dialogueHit.gameObject.SetActive(!string.IsNullOrEmpty(text));
+            _liveDirty = true;
         }
 
         void AppendFinishedReply(int serial)
         {
-            if (_appendedSerial == serial || _player.Segments.Count == 0)
-            {
-                _appendedSerial = serial;
-                return;
-            }
-
-            var rendered = VnRender.Dialogue(_player.Segments, _player.Segments.Count, -1, _theme);
-            if (!string.IsNullOrEmpty(rendered))
-            {
-                if (_finishedReplies.Count > 0)
-                    _finishedVisibleChars++;
-                var visible = 0;
-                for (var i = 0; i < _player.Segments.Count; i++)
-                {
-                    visible += _player.Segments[i].Text.Length;
-                    if (i > 0)
-                        visible++;
-                }
-
-                _finishedReplies.Add(rendered);
-                _finishedVisible.Add(visible);
-                _finishedVisibleChars += visible;
-                while (_finishedReplies.Count > MaxFinishedReplies)
-                {
-                    _finishedVisibleChars -= _finishedVisible[0];
-                    _finishedReplies.RemoveAt(0);
-                    _finishedVisible.RemoveAt(0);
-                    if (_finishedReplies.Count > 0)
-                        _finishedVisibleChars--;
-                }
-
-                _finishedJoined = string.Join("\n", _finishedReplies);
-            }
-
             _appendedSerial = serial;
         }
 
         void ClearFinishedReplies()
         {
-            _finishedReplies.Clear();
-            _finishedVisible.Clear();
-            _finishedJoined = string.Empty;
-            _finishedVisibleChars = 0;
             _appendedSerial = -1;
             _glowLineStart = 0;
         }
@@ -1324,12 +1239,27 @@ namespace AICompanion.NewUI
             var width = _historyContent.rect.width;
             if (width < 8f)
                 return;
+
+            // The live, still-revealing reply is drawn as the last entry, so it is not
+            // also duplicated from the transcript list.
+            _historyLines.Clear();
+            var live = _dialogueHit != null && _dialogueHit.gameObject.activeSelf;
+            var skipLast = live && lines.Count > 0 && lines[lines.Count - 1].Kind == ChatLineKind.Assistant;
+            for (var i = 0; i < lines.Count; i++)
+            {
+                if (skipLast && i == lines.Count - 1)
+                    continue;
+                _historyLines.Add(lines[i]);
+            }
+
             var widthChanged = Mathf.Abs(width - _historyWidth) > 0.5f;
-            if (!_transcript.Update(lines) && !widthChanged && _historyTexts.Count >= _transcript.Count)
+            if (!_transcript.Update(_historyLines) && !widthChanged && !_liveDirty
+                && _historyTexts.Count >= _transcript.Count)
                 return;
 
             var atBottom = _historyScroll.verticalNormalizedPosition <= 0.01f;
             _historyWidth = width;
+            _liveDirty = false;
             var count = _transcript.Count;
             while (_historyTexts.Count < count)
             {
@@ -1373,9 +1303,58 @@ namespace AICompanion.NewUI
                 y += _historyHeights[i] + 6f;
             }
 
+            if (_dialogueHit != null && _dialogueHit.gameObject.activeSelf)
+            {
+                var liveRect = _dialogueHit.rectTransform;
+                liveRect.anchorMin = new Vector2(0f, 1f);
+                liveRect.anchorMax = new Vector2(0f, 1f);
+                liveRect.pivot = new Vector2(0f, 1f);
+                var liveHeight = Mathf.Max(24f * _layoutScale,
+                    _dialogue.GetPreferredValues(_dialogue.text, width - 16f, 0f).y + 12f * _layoutScale);
+                liveRect.anchoredPosition = new Vector2(2f, -y);
+                liveRect.sizeDelta = new Vector2(width - 4f, liveHeight);
+                y += liveHeight + 6f;
+            }
+
             _historyContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(8f, y));
             if (atBottom || widthChanged)
                 _historyScroll.verticalNormalizedPosition = 0f;
+        }
+
+        /// <summary>
+        /// JUH-127: middle-mouse drag scrolls the one conversation window. The wheel still
+        /// scrolls normally through the ScrollRect.
+        /// </summary>
+        void MiddleScroll()
+        {
+            if (_historyRoot == null || _historyContent == null || _historyScroll == null)
+                return;
+
+            var over = RectTransformUtility.RectangleContainsScreenPoint(_historyRoot, Input.mousePosition, null);
+            if (Input.GetMouseButtonDown(2) && over)
+            {
+                _middleScrolling = true;
+                _middleLastY = Input.mousePosition.y;
+            }
+
+            if (!_middleScrolling)
+                return;
+            if (!Input.GetMouseButton(2))
+            {
+                _middleScrolling = false;
+                return;
+            }
+
+            var viewport = _historyScroll.viewport;
+            var scrollable = _historyContent.rect.height - (viewport != null ? viewport.rect.height : 0f);
+            if (scrollable > 1f)
+            {
+                var dy = Input.mousePosition.y - _middleLastY;
+                _historyScroll.verticalNormalizedPosition = Mathf.Clamp01(
+                    _historyScroll.verticalNormalizedPosition + dy / scrollable);
+            }
+
+            _middleLastY = Input.mousePosition.y;
         }
 
         string HistoryEntry(string entry)
@@ -1440,97 +1419,6 @@ namespace AICompanion.NewUI
                 return;
             var settings = _settings.CurrentSettings;
             _settings.Presenter.SetVoiceNarration(settings == null || !settings.VoiceNarration);
-        }
-
-        void ToggleHistory()
-        {
-            _historyOpen = !_historyOpen;
-            _historyByWheel = false;
-            _history.Text = _historyOpen ? "Hide" : "History";
-            _historyWidth = -1f;
-        }
-
-        // ---- The mouse wheel (JUH-127) -----------------------------------------------------
-
-        /// <summary>
-        /// The wheel over the box: up opens the history at the newest message and scrolls back;
-        /// down past the newest closes it again when the wheel opened it (<see cref="ChatWheel"/>).
-        /// <paramref name="overHistory"/> is true when the history list's own ScrollRect already scrolled.
-        /// </summary>
-        void OnWheel(PointerEventData e)
-        {
-            if (_canvasObject == null || !_canvasObject.activeSelf)
-                return;
-            switch (ChatWheel.Decide(_historyOpen, _historyByWheel, _historyWasAtBottom, e.scrollDelta.y))
-            {
-                case ChatWheelAction.Open:
-                    _historyOpen = true;
-                    _historyByWheel = true;
-                    _history.Text = "Hide";
-                    _historyWidth = -1f;
-                    // Applied once the list is laid out at the newest message (next frame).
-                    _pendingWheel += e.scrollDelta.y;
-                    break;
-                case ChatWheelAction.Scroll:
-                    _historyScroll.OnScroll(e);
-                    break;
-                case ChatWheelAction.Close:
-                    CloseHistoryByWheel();
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// The history list's own ScrollRect consumes wheel events before the box sees them.
-        /// Watch the raw wheel while the pointer is over the box so a wheel-down at the
-        /// newest message can still close a wheel-opened history.
-        /// </summary>
-        void PollWheelClose()
-        {
-            if (!_historyOpen || !_historyByWheel || Input.mouseScrollDelta.y >= -0.01f)
-                return;
-            if (_box == null || !RectTransformUtility.RectangleContainsScreenPoint(_box, Input.mousePosition, null))
-                return;
-            if (HistoryAtBottom())
-                CloseHistoryByWheel();
-        }
-
-        void CloseHistoryByWheel()
-        {
-            _historyOpen = false;
-            _historyByWheel = false;
-            _history.Text = "History";
-            _historyWidth = -1f;
-            _pendingWheel = 0f;
-        }
-
-        /// <summary>The wheel step that opened the history, applied once the list is filled. One event object, reused.</summary>
-        void ApplyPendingWheel()
-        {
-            if (Mathf.Abs(_pendingWheel) < 0.01f)
-                return;
-            if (!_historyOpen)
-            {
-                _pendingWheel = 0f;
-                return;
-            }
-
-            if (_historyWidth <= 0f || EventSystem.current == null)
-                return;
-            if (_wheelEvent == null)
-                _wheelEvent = new PointerEventData(EventSystem.current);
-            _wheelEvent.scrollDelta = new Vector2(0f, _pendingWheel);
-            _pendingWheel = 0f;
-            _historyScroll.OnScroll(_wheelEvent);
-        }
-
-        /// <summary>At the newest message, or the whole history fits without scrolling.</summary>
-        bool HistoryAtBottom()
-        {
-            var viewport = _historyScroll.viewport;
-            if (viewport != null && _historyContent.rect.height <= viewport.rect.height + 1f)
-                return true;
-            return ChatWheel.AtBottom(_historyScroll.verticalNormalizedPosition);
         }
 
         /// <summary>The Windows resize cursor while over an edge or corner, or while resizing.</summary>

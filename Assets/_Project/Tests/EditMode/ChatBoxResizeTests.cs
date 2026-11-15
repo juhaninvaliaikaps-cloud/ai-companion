@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace AICompanion.Tests.EditMode
 {
-    /// <summary>JUH-127: the chat box resized by its edges and corners, and the mouse wheel over it.</summary>
+    /// <summary>JUH-127: the chat box resized by its edges and corners.</summary>
     public sealed class ChatBoxResizeTests
     {
         static readonly Rect Start = new Rect(100f, 100f, 300f, 200f); // x 100..400, y 100..300
@@ -108,34 +108,6 @@ namespace AICompanion.Tests.EditMode
 
             var junk = CompanionSettingsJson.Parse("{\n  \"version\": 1,\n  \"chatBoxWidthPx\": -5\n}\n", SettingsLegacyPrefs.None);
             Assert.AreEqual(0f, junk.ChatBoxWidthPx);
-        }
-
-        // ---- The wheel ------------------------------------------------------------------------
-
-        [Test]
-        public void WheelUp_OpensTheHistory_WheelDownAloneDoesNothing()
-        {
-            Assert.AreEqual(ChatWheelAction.Open, ChatWheel.Decide(false, false, true, 1f));
-            Assert.AreEqual(ChatWheelAction.None, ChatWheel.Decide(false, false, true, -1f));
-            Assert.AreEqual(ChatWheelAction.None, ChatWheel.Decide(false, false, true, 0f));
-            Assert.AreEqual(ChatWheelAction.None, ChatWheel.Decide(false, false, true, float.NaN));
-        }
-
-        [Test]
-        public void WheelDownPastTheNewest_ClosesIt_OnlyWhenTheWheelOpenedIt()
-        {
-            Assert.AreEqual(ChatWheelAction.Close, ChatWheel.Decide(true, true, true, -1f));
-            Assert.AreEqual(ChatWheelAction.Scroll, ChatWheel.Decide(true, true, false, -1f), "not at the newest yet: keep scrolling");
-            Assert.AreEqual(ChatWheelAction.Scroll, ChatWheel.Decide(true, false, true, -1f), "the History button keeps it open");
-            Assert.AreEqual(ChatWheelAction.Scroll, ChatWheel.Decide(true, true, true, 1f), "up scrolls back");
-        }
-
-        [Test]
-        public void AtBottom_WithinTheSlack()
-        {
-            Assert.IsTrue(ChatWheel.AtBottom(0f));
-            Assert.IsTrue(ChatWheel.AtBottom(0.005f));
-            Assert.IsFalse(ChatWheel.AtBottom(0.2f));
         }
 
         // ---- The cursor ------------------------------------------------------------------------

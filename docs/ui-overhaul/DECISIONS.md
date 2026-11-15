@@ -102,9 +102,8 @@ strongest moods. The intimate mood is never named unless the 18+ gate is open.
 **C1. Visual-novel box at the bottom.** The overlay window is small (about 430×650 at 100%)
 and she stands in the middle, so the old side panel ends up about 100 px wide. The new chat
 is a dialogue box along the bottom of the window, the usual visual-novel layout. It covers
-her legs while open; F10, × and the tray close it as before. **History** expands the box to
-show the whole transcript. The API-key row is shown while no key is saved, and always in
-History, so C-08 stays reachable.
+her legs while open; F10, × and the tray close it as before. The transcript and the live
+reply share one scrollable window. The API-key row is shown while no key is saved.
 
 **C2. ChatPanel stays the chat engine.** With the new UI on, ChatPanel still sends, routes
 (private mode, #63's custom endpoint once merged), captures memory and handles screen looks.
@@ -355,9 +354,9 @@ right of the box; 3 free), `portraitOffsetX`, `portraitOffsetY`. Settings → Ha
 portrait position" goes back to automatic. While the chat box is hidden, the portrait goes back to
 the automatic place beside her head (docking needs the box). With the new UI off nothing changes.
 
-## Chat box resize and wheel (JUH-127, Jussi 2026-11-15)
+## Chat box resize and one chat window (JUH-127, Jussi 2026-11-15)
 
-**G1. Resized like a window.** Any edge or corner of the chat box can be dragged (8 invisible handles, `ChatResizeHandle`, 6 px edges and 14 px corners at 100%). The Windows resize cursor shows over them (`ResizeCursor`, player only). The size is saved in pixels at 100% scaling (`chatBoxWidthPx`, `chatBoxHeightPx`; 0 is the automatic size) and is the same for all personas. Limits: 260 × 160 px at 100% (every row fits, more with the API key row), at most the visible area. The edges not dragged stay put (`ChatBoxResize.Apply`); on release the snap spot or free offset is picked again like after a header drag. While resizing, the room the overlay window keeps beside and under her stays as it was, and follows the new size after release. With a chosen size, opening History shares the box instead of making it taller. Settings → Chat: the Chat box height slider is replaced by **Reset chat box size** (an old height factor still sets the automatic height).
+**G1. Resized like a window.** Any edge or corner of the chat box can be dragged (8 invisible handles, `ChatResizeHandle`, 6 px edges and 14 px corners at 100%). The Windows resize cursor shows over them (`ResizeCursor`, player only). The size is saved in pixels at 100% scaling (`chatBoxWidthPx`, `chatBoxHeightPx`; 0 is the automatic size) and is the same for all personas. Limits: 260 × 160 px at 100% (every row fits, more with the API key row), at most the visible area. The edges not dragged stay put (`ChatBoxResize.Apply`); on release the snap spot or free offset is picked again like after a header drag. While resizing, the room the overlay window keeps beside and under her stays as it was, and follows the new size after release. With a chosen size, the one conversation window keeps that size. Settings → Chat: the Chat box height slider is replaced by **Reset chat box size** (an old height factor still sets the automatic height).
 
-**G2. The wheel scrolls the chat, like a normal chat** (Jussi: "Just like normal chatbox works"). Wheel up anywhere over the box opens the history at the newest message and scrolls back; wheel down scrolls forward, and past the newest message it closes the history again when the wheel opened it (`ChatWheel.Decide`). History opened with the button stays open until the button closes it. The wheel over her body still zooms; over the box it does not.
+**G2. One scrollable conversation window** (Jussi: "Remove the history thing all together... one window that is scrollable up and down"). There is no History button and no separate history panel: the transcript and the live reply share one `ScrollRect`. Hold the middle mouse button and drag over the window to scroll back and forward; the normal wheel also scrolls it. The wheel over her body still zooms; over the box it does not.
 
