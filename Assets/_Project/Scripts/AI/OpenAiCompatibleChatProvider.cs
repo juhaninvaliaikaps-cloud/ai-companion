@@ -16,6 +16,8 @@ namespace AICompanion.AI
         public Func<float> TimeoutSeconds;
         public IChatTransport Transport;
         public bool RequiresKey;
+        /// <summary>DeepSeek's V4 thinking models can spend the whole budget on reasoning and return an empty answer.</summary>
+        public bool DisableThinking;
 
         /// <summary>A non-empty value is shown as the chat error instead of calling the server.</summary>
         public Func<string> ConfigurationError;
@@ -94,7 +96,7 @@ namespace AICompanion.AI
             var http = new ChatHttpRequest
             {
                 Url = ChatEndpoints.CompletionsUrl(_config.BaseUrl != null ? _config.BaseUrl() : null),
-                Body = ChatCompletionJson.Build(model, request.Temperature, request.MaxTokens, request.SystemPrompt, request.Messages),
+                Body = ChatCompletionJson.Build(model, request.Temperature, request.MaxTokens, request.SystemPrompt, request.Messages, _config.DisableThinking),
                 TimeoutSeconds = ReadTimeout(request),
                 FollowRedirects = !string.Equals(ProviderId, ChatDefaults.CustomId, StringComparison.OrdinalIgnoreCase)
             };
