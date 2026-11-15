@@ -313,6 +313,23 @@ namespace AICompanion.Settings
             _rebuild = true;
         }
 
+        /// <summary>JUH-125: the active persona's 18+ secrets keeper, or null.</summary>
+        public IntimateSecretsKeeper IntimateSecrets
+        {
+            get { return GetComponent<IntimateSecretsKeeper>(); }
+        }
+
+        /// <summary>JUH-125: read her 18+ secrets again with the local model. Found ones whose text stays keep found.</summary>
+        public void ReadIntimateSecretsAgain()
+        {
+            var keeper = GetComponent<IntimateSecretsKeeper>();
+            if (keeper == null || !AICompanion.Core.IntimateExpressions.Active)
+                return;
+            keeper.ReadAgain();
+            SetStatus("Reading her 18+ secrets with the local model.");
+            _rebuild = true;
+        }
+
         /// <summary>JUH-116: read her innocence again with the local model.</summary>
         public void ReadInnocenceAgain()
         {
@@ -358,7 +375,8 @@ namespace AICompanion.Settings
             {
                 var keeper = GetComponent<PisaraReadingKeeper>();
                 var innocence = GetComponent<InnocenceKeeper>();
-                return (keeper != null ? keeper.Revision : 0) + (innocence != null ? innocence.Revision : 0);
+                var intimate = GetComponent<IntimateSecretsKeeper>();
+                return (keeper != null ? keeper.Revision : 0) + (innocence != null ? innocence.Revision : 0) + (intimate != null ? intimate.Revision : 0);
             }
         }
 

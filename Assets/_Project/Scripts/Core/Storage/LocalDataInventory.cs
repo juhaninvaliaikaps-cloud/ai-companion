@@ -38,6 +38,7 @@ namespace AICompanion.Core
                 || IsRelationshipName(rel)
                 || IsInnocenceName(rel)
                 || IsHerSecretsName(rel)
+                || IsIntimateSecretsName(rel)
                 || IsSheetName(rel);
         }
 
@@ -113,6 +114,15 @@ namespace AICompanion.Core
             if (name == "her-secrets.json")
                 return true;
             return name.StartsWith("her-secrets-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
+        }
+
+        /// <summary>Her 18+ secrets per persona (JUH-125): intimate-secrets.json and intimate-secrets-&lt;persona&gt;.json.</summary>
+        public static bool IsIntimateSecretsName(string fileName)
+        {
+            var name = Normalize(fileName);
+            if (name == "intimate-secrets.json")
+                return true;
+            return name.StartsWith("intimate-secrets-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
         }
 
         /// <summary>Her character sheet per persona (JUH-117): sheet.json and sheet-&lt;persona&gt;.json.</summary>

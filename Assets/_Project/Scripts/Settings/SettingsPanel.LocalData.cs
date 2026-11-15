@@ -91,6 +91,9 @@ namespace AICompanion.Settings
             var innocence = GetComponent<InnocenceKeeper>();
             if (innocence != null)
                 innocence.Forget();
+            var intimateSecrets = GetComponent<IntimateSecretsKeeper>();
+            if (intimateSecrets != null)
+                intimateSecrets.Forget();
 
             MemoryRuntime.Discard();
             _settings = CompanionSettings.CreateDefault();
