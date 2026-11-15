@@ -377,6 +377,7 @@ namespace AICompanion.NewUI.Wheel
         {
             var settings = _settings != null ? _settings.CurrentSettings : null;
             var paused = settings != null && settings.Paused;
+            var chatVisible = _chat != null && _chat.ChatVisible;
             var personaId = settings != null ? settings.PersonaId : string.Empty;
             var definition = new WheelDefinition { CenterLabel = HappiNames.Companion(_settings), CenterHint = "right-click" };
             for (var i = 0; i < MainWheel.Order.Count; i++)
@@ -386,10 +387,10 @@ namespace AICompanion.NewUI.Wheel
                 definition.Slices.Add(new WheelSlice
                 {
                     Id = id,
-                    Label = MainWheel.Label(id, paused),
+                    Label = MainWheel.Label(id, paused, chatVisible),
                     Enabled = gate.Enabled,
                     DisabledReason = gate.Reason,
-                    OnChoose = MainAction(id, paused)
+                    OnChoose = MainAction(id, paused, chatVisible)
                 });
             }
 
@@ -397,29 +398,26 @@ namespace AICompanion.NewUI.Wheel
             return definition;
         }
 
-        Action MainAction(string id, bool paused)
+        /// <summary>
+        /// JUH-121: each slice does exactly what its label says. The chat and pause slices
+        /// toggle in one click; the wheel is rebuilt on every open, so their labels stay current.
+        /// </summary>
+        Action MainAction(string id, bool paused, bool chatVisible)
         {
             switch (id)
             {
-                case MainWheel.Talk:
-                    return () => Do(() => { if (_chat != null) _chat.ShowChat(true); });
-                case MainWheel.WatchScreen:
-                    return () => Push(BuildScreen);
-                case MainWheel.Mood:
-                    // JUH-121: the Profile panel, from the Mood slice until Jussi settles the wheel.
-                    return ShowProfile;
-                case MainWheel.Persona:
-                    return () => Push(BuildPersona);
-                case MainWheel.DoSomething:
-                    return () => Push(() => BuildDoSomething(0));
-                case MainWheel.LeaveMeAlone:
-                    if (paused)
-                        return () => Do(() => _settings.Presenter.SetPaused(false));
-                    return () => Push(BuildLeaveMeAlone);
-                case MainWheel.Memories:
-                    return ShowMemories;
                 case MainWheel.Settings:
                     return () => Do(OpenSettings);
+                case MainWheel.Talk:
+                    return () => Do(() => { if (_chat != null) _chat.ShowChat(!chatVisible); });
+                case MainWheel.Profile:
+                    return ShowProfile;
+                case MainWheel.WatchScreen:
+                    return () => Push(BuildScreen);
+                case MainWheel.Persona:
+                    return () => Push(BuildPersona);
+                case MainWheel.Pause:
+                    return () => Do(() => _settings.Presenter.SetPaused(!paused));
                 default:
                     return null;
             }
@@ -458,7 +456,6 @@ namespace AICompanion.NewUI.Wheel
                 }
             });
             definition.Slices.Add(new WheelSlice { Id = "screen_monitor", Label = "Pick a monitor", OnChoose = ShowMonitors });
-            definition.Slices.Add(new WheelSlice { Id = "screen_settings", Label = "Screen settings", OnChoose = () => Do(OpenSettings) });
             return definition;
         }
 
@@ -559,126 +556,6 @@ namespace AICompanion.NewUI.Wheel
             if (string.IsNullOrEmpty(label))
                 return string.Empty;
             return label.Replace(" (active)", string.Empty).Replace(" (saved)", string.Empty);
-        }
-
-        WheelDefinition BuildDoSomething(int page)
-        {
-            var definition = Sub("Do");
-            var video = GetComponent<VideoAvatar>();
-            var playing = video != null && video.State == VideoAvatarState.Playing;
-            var choices = VideoAvatarPresenter.DoSomething(playing, AvatarReactionCatalog.Names);
-            var perPage = MaxSlicesPerWheel - 1;
-            var start = page * perPage;
-            var end = Mathf.Min(choices.Count, start + (choices.Count - start > MaxSlicesPerWheel ? perPage : MaxSlicesPerWheel));
-            for (var i = start; i < end; i++)
-            {
-                var choice = choices[i];
-                definition.Slices.Add(new WheelSlice { Id = "do_" + i, Label = choice.Label, OnChoose = () => Perform(choice) });
-            }
-
-            if (end < choices.Count)
-            {
-                var next = page + 1;
-                definition.Slices.Add(new WheelSlice { Id = "do_more", Label = "More…", OnChoose = () => Push(() => BuildDoSomething(next)) });
-            }
-
-            return definition;
-        }
-
-        void Perform(DoSomethingChoice choice)
-        {
-            var video = GetComponent<VideoAvatar>();
-            switch (choice.Kind)
-            {
-                case DoSomethingKind.Reaction:
-                    if (video == null || video.State != VideoAvatarState.Playing)
-                    {
-                        Note("Do something", VideoAvatarPresenter.NotPlaying);
-                        return;
-                    }
-
-                    var status = VideoAvatarPresenter.ReactionStatus(video.RequestReaction(choice.Name), choice.Name, VideoAvatarDirector.PendingSeconds);
-                    if (status.Length > 0)
-                        Note("Do something", status);
-                    else
-                        Close();
-                    return;
-                case DoSomethingKind.Walk:
-                    Do(() => { if (video != null) video.TestWalk(choice.Value); });
-                    return;
-                case DoSomethingKind.Stop:
-                    Do(() => { if (video != null) video.TestStop(); });
-                    return;
-                case DoSomethingKind.Front:
-                    Do(() => { if (video != null) video.TestFront(); });
-                    return;
-                default:
-                    Do(() =>
-                    {
-                        var animator = GetComponent<IAvatarAnimator>();
-                        if (animator != null)
-                            animator.SetEmotion(choice.Emotion, choice.Value);
-                    });
-                    return;
-            }
-        }
-
-        WheelDefinition BuildLeaveMeAlone()
-        {
-            var settings = _settings.CurrentSettings;
-            var muted = settings != null && settings.Muted;
-            var definition = Sub("Quiet");
-            definition.Slices.Add(new WheelSlice
-            {
-                Id = "quiet_pause",
-                Label = "Focus mode",
-                OnChoose = () => Do(() => _settings.Presenter.SetPaused(true))
-            });
-            definition.Slices.Add(new WheelSlice
-            {
-                Id = "quiet_mute",
-                Label = muted ? "Unmute her" : "Mute her",
-                OnChoose = () => Do(() => _settings.Presenter.SetMuted(!muted))
-            });
-            definition.Slices.Add(new WheelSlice
-            {
-                Id = "quiet_hide",
-                Label = "Hide her",
-                OnChoose = () => Do(() =>
-                {
-                    var tray = GetComponent<CompanionTray>();
-                    if (tray != null)
-                        tray.HideCompanion();
-                })
-            });
-            return definition;
-        }
-
-        void ShowMemories()
-        {
-            var memories = _settings.Memories;
-            if (memories.Confirm.HasPending)
-            {
-                ShowCard("Forget?", memories.PendingPrompt(), new[]
-                {
-                    new CardButton("Forget", () => { memories.ConfirmPending(); ShowMemories(); }, true),
-                    new CardButton("Keep", () => { memories.Confirm.Cancel(); ShowMemories(); }),
-                });
-                return;
-            }
-
-            var page = memories.Page(6);
-            var buttons = new List<CardButton>();
-            for (var i = 0; i < page.Count; i++)
-            {
-                var id = page[i].Id;
-                buttons.Add(new CardButton("Forget: " + page[i].Label, () => { memories.AskForget(id); ShowMemories(); }));
-            }
-
-            if (memories.Count > page.Count)
-                buttons.Add(new CardButton("All memories (Settings)", () => Do(OpenSettings)));
-            buttons.Add(new CardButton("Back", Back));
-            ShowCard("What she remembers", memories.Summary, buttons);
         }
     }
 
