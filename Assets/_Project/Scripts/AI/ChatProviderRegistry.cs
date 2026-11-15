@@ -76,17 +76,34 @@ namespace AICompanion.AI
                 },
                 Transport = transport
             })));
-            registry.Register(Wrap(decorator, new OpenAiCompatibleChatProvider(new OpenAiProviderConfig
-            {
-                ProviderId = ChatDefaults.LocalId,
-                DisplayName = "Local model",
-                RequiresKey = false,
-                BaseUrl = () => Value(settings != null ? settings.localBaseUrl : null, ChatDefaults.LocalBaseUrl),
-                Model = () => Value(settings != null ? settings.localModel : null, ChatDefaults.LocalModel),
-                TimeoutSeconds = () => settings != null ? settings.timeoutSeconds : ChatDefaults.TimeoutSeconds,
-                ApiKey = () => null,
-                Transport = transport
-            })));
+            Func<string> localBase = () => Value(settings != null ? settings.localBaseUrl : null, ChatDefaults.LocalBaseUrl);
+            Func<string> localModel = () => Value(settings != null ? settings.localModel : null, ChatDefaults.LocalModel);
+            Func<float> localTimeout = () => settings != null ? settings.timeoutSeconds : ChatDefaults.TimeoutSeconds;
+            // Ollama's OpenAI endpoint ignores num_ctx and reloads at 4096. Native chat keeps
+            // the configured context, so the persona and recent scene are not truncated.
+            IChatProvider localProvider = IsOllama(localBase())
+                ? (IChatProvider)new OllamaChatProvider(new OllamaProviderConfig
+                {
+                    ProviderId = ChatDefaults.LocalId,
+                    DisplayName = "Local model",
+                    BaseUrl = localBase,
+                    Model = localModel,
+                    TimeoutSeconds = localTimeout,
+                    Transport = transport,
+                    ContextTokens = 8192,
+                })
+                : new OpenAiCompatibleChatProvider(new OpenAiProviderConfig
+                {
+                    ProviderId = ChatDefaults.LocalId,
+                    DisplayName = "Local model",
+                    RequiresKey = false,
+                    BaseUrl = localBase,
+                    Model = localModel,
+                    TimeoutSeconds = localTimeout,
+                    ApiKey = () => null,
+                    Transport = transport
+                });
+            registry.Register(Wrap(decorator, localProvider));
             registry.Register(Wrap(decorator, new OpenAiCompatibleChatProvider(new OpenAiProviderConfig
             {
                 ProviderId = ChatDefaults.CustomId,
@@ -120,6 +137,17 @@ namespace AICompanion.AI
             if (string.IsNullOrWhiteSpace(configured))
                 return fallback;
             return configured.Trim();
+        }
+
+        static bool IsOllama(string baseUrl)
+        {
+            Uri uri;
+            if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out uri))
+                return false;
+            var loopback = string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(uri.Host, "127.0.0.1", StringComparison.Ordinal)
+                || string.Equals(uri.Host, "::1", StringComparison.Ordinal);
+            return loopback && uri.Port == 11434;
         }
     }
 }

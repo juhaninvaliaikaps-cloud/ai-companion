@@ -62,6 +62,31 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void HistoryStart_KeepsEarlierSessionsOutOfTheRequest()
+        {
+            var conversation = new ChatConversation();
+            Finish(conversation, "old question", "old reply");
+            conversation.HistoryStart = conversation.Lines.Count;
+
+            Assert.IsTrue(conversation.TryBeginSend("new question", "persona", 0.7f, 32, out var request));
+
+            Assert.AreEqual(1, request.Messages.Count);
+            Assert.AreEqual("new question", request.Messages[0].Content);
+            Assert.IsFalse(TranscriptOf(request).Contains("old reply"));
+        }
+
+        [Test]
+        public void ClearTranscript_ResetsTheSessionStart()
+        {
+            var conversation = new ChatConversation();
+            Finish(conversation, "old", "reply");
+            conversation.HistoryStart = 3;
+            conversation.ClearTranscript();
+
+            Assert.AreEqual(0, conversation.HistoryStart);
+        }
+
+        [Test]
         public void Complete_SealsDeltasAndKeepsTheFullSessionWhileRequestsTrim()
         {
             var conversation = new ChatConversation(2, 4000);

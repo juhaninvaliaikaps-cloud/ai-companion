@@ -40,7 +40,7 @@ namespace AICompanion.AI
             return maxTokens;
         }
 
-        public static string Build(string model, float temperature, int maxTokens, string systemPrompt, IReadOnlyList<ChatMessage> messages)
+        public static string Build(string model, float temperature, int maxTokens, string systemPrompt, IReadOnlyList<ChatMessage> messages, bool disableThinking = false)
         {
             var sb = new StringBuilder(256);
             sb.Append("{\"model\":");
@@ -52,6 +52,8 @@ namespace AICompanion.AI
             sb.Append(tokens.ToString(CultureInfo.InvariantCulture));
             sb.Append(",\"max_completion_tokens\":");
             sb.Append(tokens.ToString(CultureInfo.InvariantCulture));
+            if (disableThinking)
+                sb.Append(",\"thinking\":{\"type\":\"disabled\"}");
             sb.Append(",\"messages\":[");
 
             var first = true;
