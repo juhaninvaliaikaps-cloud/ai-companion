@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using AICompanion.Core;
+using AICompanion.Memory;
 using AICompanion.Overlay;
 using AICompanion.Settings;
 using AICompanion.Settings.Presenters;
@@ -33,6 +34,7 @@ namespace AICompanion.NewUI.Wheel
         Canvas _canvas;
         RadialWheelView _wheel;
         WheelCard _card;
+        ProfilePanel _profile;
         readonly Stack<Func<WheelDefinition>> _back = new Stack<Func<WheelDefinition>>();
         Func<WheelDefinition> _currentBuilder;
         bool _attached;
@@ -61,6 +63,11 @@ namespace AICompanion.NewUI.Wheel
             _head = new HeadLocator(gameObject);
             _canvasObject = HappiUiKit.CreateCanvas(transform, "HappiWheelCanvas", 70, out _canvas);
             _card = new WheelCard(_canvasObject.transform, _theme);
+            _profile = new ProfilePanel(_canvasObject.transform, _theme)
+            {
+                OnClose = Back,
+                OpenSettings = () => Do(() => { if (OpenSettings != null) OpenSettings(); }),
+            };
             if (OpenSettings == null)
                 OpenSettings = () => { if (_settings != null) _settings.Open(); };
             AvatarContextMenu.Handler = OnRightClickOnHer;
@@ -129,7 +136,7 @@ namespace AICompanion.NewUI.Wheel
             var pointer = Pointer();
             Place();
             if (_wheel != null)
-                _wheel.Tick(_card.Visible ? (Vector2?)null : pointer, Time.unscaledDeltaTime);
+                _wheel.Tick(PanelVisible ? (Vector2?)null : pointer, Time.unscaledDeltaTime);
 
             if (Input.GetKeyDown(KeyCode.Escape))
             {
@@ -158,7 +165,7 @@ namespace AICompanion.NewUI.Wheel
             {
                 var pressed = _pressed;
                 _pressed = NoPress;
-                if (_wheel != null && !_card.Visible && pointer.HasValue && _wheel.HitTest(pointer.Value) == pressed)
+                if (_wheel != null && !PanelVisible && pointer.HasValue && _wheel.HitTest(pointer.Value) == pressed)
                     Activate(pressed);
                 return;
             }
@@ -166,8 +173,8 @@ namespace AICompanion.NewUI.Wheel
             if (!leftDown && !rightDown)
                 return;
 
-            var onCard = _card.Visible && pointer.HasValue && _card.Contains(pointer.Value);
-            var onWheel = !_card.Visible && _wheel != null && pointer.HasValue && _wheel.Contains(pointer.Value);
+            var onCard = PanelVisible && pointer.HasValue && (_card.Contains(pointer.Value) || _profile.Contains(pointer.Value));
+            var onWheel = !PanelVisible && _wheel != null && pointer.HasValue && _wheel.Contains(pointer.Value);
             if (onCard)
                 return;
             if (!onWheel)
@@ -218,9 +225,13 @@ namespace AICompanion.NewUI.Wheel
 
         // ---- Showing ---------------------------------------------------------------------
 
+        /// <summary>A card or the Profile panel is up instead of the wheel.</summary>
+        bool PanelVisible => (_card != null && _card.Visible) || (_profile != null && _profile.Visible);
+
         void Show(Func<WheelDefinition> build)
         {
             _card.Hide();
+            _profile.Hide();
             _noteUntil = -1f;
             if (_wheel != null)
                 _wheel.Destroy();
@@ -240,6 +251,14 @@ namespace AICompanion.NewUI.Wheel
 
         void Back()
         {
+            if (_profile.Visible)
+            {
+                _profile.Hide();
+                if (_wheel != null)
+                    _wheel.Root.gameObject.SetActive(true);
+                return;
+            }
+
             if (_card.Visible)
             {
                 _card.Hide();
@@ -266,6 +285,8 @@ namespace AICompanion.NewUI.Wheel
             _noteUntil = -1f;
             if (_card != null)
                 _card.Hide();
+            if (_profile != null)
+                _profile.Hide();
             if (_wheel != null)
                 _wheel.Destroy();
             _wheel = null;
@@ -385,7 +406,8 @@ namespace AICompanion.NewUI.Wheel
                 case MainWheel.WatchScreen:
                     return () => Push(BuildScreen);
                 case MainWheel.Mood:
-                    return ShowMood;
+                    // JUH-121: the Profile panel, from the Mood slice until Jussi settles the wheel.
+                    return ShowProfile;
                 case MainWheel.Persona:
                     return () => Push(BuildPersona);
                 case MainWheel.DoSomething:
@@ -461,26 +483,52 @@ namespace AICompanion.NewUI.Wheel
             ShowCard("Pick a monitor", note, buttons);
         }
 
-        void ShowMood()
+        void ShowProfile()
         {
-            var keeper = GetComponent<CompanionMoodKeeper>();
-            var top3 = keeper != null && keeper.State != null ? keeper.State.DescribeTop3() : string.Empty;
-            var text = MoodPresenter.Describe(CompanionMoodNow.Shown, CompanionMoodNow.Strength, top3, IntimateExpressions.Active, DateTime.Now.Hour + DateTime.Now.Minute / 60f);
-            // JUH-117: where she stands with the user, and why it last moved.
+            _noteUntil = -1f;
+            _card.Hide();
+            if (_wheel != null)
+                _wheel.Root.gameObject.SetActive(false);
+            var center = _wheel != null ? _wheel.Center : _clickPoint;
+            _profile.Show(BuildProfileData, center, Mathf.Max(1f, _scale), new Vector2(Screen.width, Screen.height));
+            Debug.Log("Wheel: opened the Profile panel");
+        }
+
+        /// <summary>Gathers the Profile panel's data from the keepers. Runs when the panel or a tab opens, never per frame.</summary>
+        ProfileData BuildProfileData()
+        {
+            var data = new ProfileData { Name = HappiNames.Companion(_settings) };
+            var reading = GetComponent<PisaraReadingKeeper>();
+            var sheet = reading != null ? reading.Sheet : null;
+            data.RoleLine = sheet != null ? ProfileHeader.RoleLine(sheet.relationship) : string.Empty;
+
+            var moods = new CompanionMood[3];
+            var strengths = new float[3];
+            var mood = GetComponent<CompanionMoodKeeper>();
+            if (mood != null && mood.State != null)
+                mood.State.Top3(moods, strengths);
             var relationship = GetComponent<RelationshipKeeper>();
-            if (relationship != null && relationship.IsLoaded)
-                text += "\n\n" + RelationshipCard.Describe(relationship.State.Affection, relationship.State.Familiarity, relationship.History, PisaraSwitches.Relationship);
-            // JUH-116: only while the 18+ gate is open.
+            var loaded = relationship != null && relationship.IsLoaded;
+            data.Feelings = ProfileFeelings.Build(
+                loaded ? relationship.State.Affection : 0f,
+                loaded ? relationship.State.Familiarity : 0f,
+                CompanionMoodNow.Shown, moods, strengths,
+                loaded ? relationship.History : null,
+                PisaraSwitches.Relationship);
+
             var innocence = GetComponent<InnocenceKeeper>();
-            if (IntimateExpressions.Active && innocence != null && innocence.IsLoaded)
-                text += "\n" + innocence.State.Readout() + ".";
-            var settings = _settings != null ? _settings.CurrentSettings : null;
-            var debug = settings != null && settings.ShowMoodDebug;
-            ShowCard("Mood", text, new[]
-            {
-                new CardButton(debug ? "Hide mood readout" : "Show mood readout", () => { _settings.Presenter.SetShowMoodDebug(!debug); ShowMood(); }),
-                new CardButton("Back", Back),
-            });
+            var gate = IntimateExpressions.Active && innocence != null && innocence.IsLoaded;
+            var temperamentLine = _settings != null ? _settings.PisaraView().TemperamentLine : string.Empty;
+            data.Personality = ProfilePersonality.Build(sheet, temperamentLine, gate, gate ? innocence.State.Current : InnocenceMath.Default);
+
+            var store = MemoryRuntime.Store;
+            var entries = store != null ? store.Entries : null;
+            data.World = ProfileWorld.Build(entries, sheet, DateTime.UtcNow);
+            int total;
+            data.Memories.AddRange(ProfileMemories.AboutYou(entries, ProfileMemories.MaxShown, out total));
+            data.MemoryCount = total;
+            data.MemoriesSummary = ProfileMemories.Summary(total);
+            return data;
         }
 
         WheelDefinition BuildPersona()
