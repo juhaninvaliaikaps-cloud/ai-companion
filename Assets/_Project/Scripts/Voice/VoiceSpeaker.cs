@@ -108,7 +108,13 @@ namespace AICompanion.Voice
             var timeout = voiceSettings != null && voiceSettings.timeoutSeconds > 0f
                 ? voiceSettings.timeoutSeconds
                 : 20f;
+            var previous = _provider;
             _provider = BuildProvider(timeout);
+            // Rebuilding the provider used to leave the old Chatterbox Python process
+            // running; every settings apply orphaned another model-loaded server.
+            var disposable = previous as System.IDisposable;
+            if (disposable != null && !ReferenceEquals(previous, _provider))
+                disposable.Dispose();
             PrewarmProvider();
         }
 
