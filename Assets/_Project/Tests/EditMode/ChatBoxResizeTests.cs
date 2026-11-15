@@ -9,7 +9,7 @@ namespace AICompanion.Tests.EditMode
     public sealed class ChatBoxResizeTests
     {
         static readonly Rect Start = new Rect(100f, 100f, 300f, 200f); // x 100..400, y 100..300
-        static readonly Vector2 Min = new Vector2(260f, 190f);
+        static readonly Vector2 Min = new Vector2(260f, 160f);
         static readonly Rect ScreenArea = new Rect(0f, 0f, 1920f, 1080f);
 
         // ---- Resizing ------------------------------------------------------------------------

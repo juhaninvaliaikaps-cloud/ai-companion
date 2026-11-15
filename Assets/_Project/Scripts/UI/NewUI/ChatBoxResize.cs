@@ -28,7 +28,7 @@ namespace AICompanion.NewUI
     {
         /// <summary>The smallest box at 100% scaling: every row still fits (header, reply, controls, input).</summary>
         public const float MinWidth = 260f;
-        public const float MinHeight = 190f;
+        public const float MinHeight = 160f;
 
         /// <summary>The handles: edges this thick, corners this big, at 100% scaling.</summary>
         public const float EdgeThickness = 6f;
