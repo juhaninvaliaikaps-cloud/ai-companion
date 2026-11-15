@@ -20,11 +20,14 @@ namespace AICompanion.Core
         /// <summary>The familiarity band after the change (<see cref="RelationshipCard.KnowingBand"/>).</summary>
         public int Band;
 
+        /// <summary>The secret this message found for the first time (JUH-123); empty for none.</summary>
+        public string SecretFound;
+
         /// <summary>
         /// The notice for a change. <paramref name="announcedBand"/> is the band shown last; a new
         /// band counts only upwards (familiarity never drops).
         /// </summary>
-        public static RelationshipNotice From(RelationshipChange change, int announcedBand)
+        public static RelationshipNotice From(RelationshipChange change, int announcedBand, string secretFound = null)
         {
             var band = RelationshipCard.KnowingBand(change.Familiarity);
             return new RelationshipNotice
@@ -33,6 +36,7 @@ namespace AICompanion.Core
                 LandingName = RelationshipHistory.ShortName(change.Landing),
                 NewBand = band > announcedBand,
                 Band = band,
+                SecretFound = string.IsNullOrWhiteSpace(secretFound) ? string.Empty : secretFound.Trim(),
             };
         }
     }
@@ -55,7 +59,7 @@ namespace AICompanion.Core
         /// <summary>No icon, light blue: "You know each other well now".</summary>
         Familiarity = 4,
 
-        /// <summary>A gold star: a secret found. A stub until JUH-123 lands.</summary>
+        /// <summary>A gold star: a secret found (JUH-123).</summary>
         Secret = 5,
     }
 
@@ -186,6 +190,10 @@ namespace AICompanion.Core
                 added++;
             }
 
+            // JUH-123: a secret found comes with the affection piece, after it.
+            if (AddSecret(notice.SecretFound, now, true))
+                added++;
+
             if (notice.NewBand && notice.Band > 0)
             {
                 Push(new FeedbackPiece
@@ -203,8 +211,8 @@ namespace AICompanion.Core
         }
 
         /// <summary>
-        /// The secret-found piece (a stub until JUH-123 lands: nothing calls it yet). It counts as
-        /// a normal piece.
+        /// The secret-found piece (JUH-123), "Secret found: being trusted". It counts as a normal
+        /// piece. <see cref="Add"/> adds it for a notice that found one.
         /// </summary>
         public bool AddSecret(string what, float now, bool enabled)
         {

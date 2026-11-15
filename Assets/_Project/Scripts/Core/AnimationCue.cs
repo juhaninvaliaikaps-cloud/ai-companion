@@ -30,10 +30,17 @@ namespace AICompanion.Core
         /// </summary>
         public LandingEvent Landed { get; }
 
+        /// <summary>
+        /// The id of the secret the user's message hit (JUH-123), from <c>secret="t2"</c>.
+        /// Sanitized by <see cref="HerSecrets.SanitizeId"/>; empty when the tag named none.
+        /// </summary>
+        public string Secret { get; }
+
         public AnimationCue(Emotion emotion, float intensity, string gesture, float direction = 0f, string emotionField = null, string reaction = null,
-            LandingEvent landed = LandingEvent.Neutral)
+            LandingEvent landed = LandingEvent.Neutral, string secret = null)
         {
             Landed = landed;
+            Secret = HerSecrets.SanitizeId(secret);
             Emotion = emotion;
             Intensity = ClampIntensity(intensity);
             Gesture = gesture ?? string.Empty;

@@ -15,6 +15,9 @@ namespace AICompanion.NewUI.Wheel
         public string RoleLine = string.Empty;
         public ProfileFeelings Feelings;
         public ProfilePersonality Personality;
+
+        /// <summary>JUH-123: her secrets, shown on the Personality tab. Null when the relationship is not loaded.</summary>
+        public ProfileSecrets Secrets;
         public ProfileWorld World;
         public string MemoriesSummary = string.Empty;
         public readonly List<string> Memories = new List<string>();
@@ -252,6 +255,8 @@ namespace AICompanion.NewUI.Wheel
                 Paragraph(p.Reason, !p.HasReading);
             End(box);
 
+            BuildSecrets(_data.Secrets);
+
             if (p.ShowInnocence)
             {
                 box = Begin();
@@ -262,6 +267,76 @@ namespace AICompanion.NewUI.Wheel
                 End(box);
             }
         }
+
+        /// <summary>
+        /// JUH-123: "Her secrets · 3 of 8 found", two groups of chips. A found one shows its
+        /// text, one not found yet is a locked chip, and the newest find has a gold outline.
+        /// </summary>
+        void BuildSecrets(ProfileSecrets s)
+        {
+            if (s == null)
+                return;
+            var box = Begin();
+            Heading(s.Total == 0 ? "Her secrets" : s.Title);
+            if (s.Total == 0)
+            {
+                Paragraph("Her description has not been read yet, so she has no secrets to find.", true);
+                End(box);
+                return;
+            }
+
+            Paragraph("Find out what she likes and dislikes by talking with her.", true);
+            SecretGroupChips("What stings her", s, SecretGroup.Stings);
+            SecretGroupChips("What wins her over", s, SecretGroup.WinsHerOver);
+            End(box);
+        }
+
+        void SecretGroupChips(string title, ProfileSecrets s, SecretGroup group)
+        {
+            var any = false;
+            for (var i = 0; i < s.Items.Count; i++)
+            {
+                if (s.Items[i].Group == group)
+                    any = true;
+            }
+
+            if (!any)
+                return;
+            SubHeading(title);
+            var size = _theme.FontSmall * _scale;
+            var height = size * 1.9f;
+            var padX = 10f * _scale;
+            var x = 0f;
+            for (var i = 0; i < s.Items.Count; i++)
+            {
+                var item = s.Items[i];
+                if (item.Group != group)
+                    continue;
+                var text = HappiUiKit.Text(_content, "SecretText", HappiUiKit.Literal(item.Found ? item.Text : ProfileSecrets.Locked), size,
+                    item.Found ? _theme.Text : _theme.TextMuted, TextAlignmentOptions.Center, item.Newest);
+                text.overflowMode = TextOverflowModes.Ellipsis;
+                var width = Mathf.Min(TextWidth, text.GetPreferredValues(text.text, 0f, 0f).x + 2f * padX);
+                if (x > 0f && x + width > TextWidth)
+                {
+                    x = 0f;
+                    _y += height + Gap * 0.5f;
+                }
+
+                var border = HappiUiKit.Panel(_content, "Secret", item.Newest ? SecretGold : (item.Found ? _theme.Border : _theme.Gap), false);
+                HappiUiKit.Place(border.rectTransform, Pad + x, _y, width, height);
+                var thick = (item.Newest ? 2f : 1f) * _scale;
+                var fill = HappiUiKit.Panel(_content, "SecretFill", item.Found ? _theme.Button : _theme.PanelInset, false);
+                HappiUiKit.Place(fill.rectTransform, Pad + x + thick, _y + thick, width - 2f * thick, height - 2f * thick);
+                text.transform.SetAsLastSibling();
+                HappiUiKit.Place(text.rectTransform, Pad + x, _y, width, height);
+                x += width + Gap * 0.5f;
+            }
+
+            _y += height + Gap;
+        }
+
+        /// <summary>The gold of a secret found (the same as its floating piece).</summary>
+        static readonly Color SecretGold = HappiTheme.Hex("#FFD166");
 
         void BuildWorld()
         {

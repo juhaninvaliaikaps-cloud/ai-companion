@@ -219,7 +219,9 @@ Affection does not drift back by itself. What was earned stays.
 
 `RelationshipPrompt.Line(sheet.relationship, sheet.landing, affection, familiarity)`, one line after the mood line:
 
-`Your relationship with the user: stepsister (family); you like them; you know each other very well. Touchy about: being called childish. Warms to: being trusted with a secret.`
+`Your relationship with the user: stepsister (family); you like them; you know each other very well. Touchy about: (t1) being called childish. Warms to: (w1) being trusted with a secret.`
+
+The ids in brackets are her secrets (JUH-123, see "Her secrets" below). All of them are listed, up to five per list.
 
 | Affection | Phrase |
 | --- | --- |
@@ -372,14 +374,25 @@ Without new threads her world runs dry: the two or three seeded ones turn out an
 
 While you chat, small pieces float up beside her head when a landing moves the relationship, like floating combat text: `+1.5 Compliment` with a pink heart, `-2.4 Brushed off` with a grey one, and `You know each other well now` when familiarity crosses into a new band. Each rises about 30 px and fades in about 1.5 s; older ones keep drifting up while new ones appear.
 
-- **Critical hits** (`RelationshipMath`): a real landing (not neutral) is a crit when the cue intensity is `CritIntensity` (0.85) or more. A crit multiplies the affection change by `CritMultiplier` (2), inside the same clamps. `RelationshipChange.Critical` says so, the log line says `(critical)`, and the Mood card reason starts with `Critical: `. No random crits. `Land(..., secretHit)` is the hook for the `secret=` hit of JUH-123; nothing passes it yet. Both numbers are proposed defaults for Jussi to confirm.
+- **Critical hits** (`RelationshipMath`): a real landing (not neutral) is a crit when the cue intensity is `CritIntensity` (0.85) or more. A crit multiplies the affection change by `CritMultiplier` (2), inside the same clamps. `RelationshipChange.Critical` says so, the log line says `(critical)`, and the Mood card reason starts with `Critical: `. No random crits. `Land(..., secretHit)` takes the first find of a secret (JUH-123, below). Both numbers are proposed defaults for Jussi to confirm.
 - **On screen**: a crit pops big and gold with a punch from 1.6 down to 1 and a CRITICAL caption; a crit drop is big and grey.
-- **The rules** (`RelationshipFeedback`, plain C#): a normal piece needs an affection change of 0.5 or more; at most 2 normal pieces are on screen, and a new one pushes the oldest out early; crits always show and are not counted; familiarity shows only at a new band. The secret-found piece (a gold star) is a stub until JUH-123.
+- **The rules** (`RelationshipFeedback`, plain C#): a normal piece needs an affection change of 0.5 or more; at most 2 normal pieces are on screen, and a new one pushes the oldest out early; crits always show and are not counted; familiarity shows only at a new band. The secret-found piece (a gold star) comes with the affection piece when a message finds a secret (JUH-123).
 - **The event**: `RelationshipKeeper.Apply` raises `RelationshipNow.Changed` with a `RelationshipNotice` (the change, its short landing name, whether familiarity reached a new band), only when the change was applied. A band reached through chat time shows with the next landing.
 - **The view** (`FloatingFeedbackView`, new UI only): one pool of six TMP pieces, beside her head (3D avatar or 2D video), on the side away from the expression portrait, or at the portrait when there is no head. No allocation per frame, no `Instantiate` per change.
 - **Off**: nothing shows while **Show relationship changes while chatting** (`showRelationshipFeedback`, Settings → Chat → Replies) or **Relationship changes** is off.
 - **The landing reminder**: the local model wrote the cue tag but never `landed=`, so nothing landed. While relationship changes are on, the reminder on the newest user message (`LandingEvents.TurnReminder`) has `landed` in its example and lists the words.
 - **Checking it without typing**: `Happi.exe -allowmulti -newui -pisara-chat <file>` sends each line of the file through the real chat and saves two window screenshots after each reply, next to the file.
+
+### Her secrets (JUH-123)
+
+A game element: the user finds out what she likes and dislikes by talking with her. Her secrets are the landing phrases in her sheet, up to 5 "What stings her" (`landing.touchy`, ids t1..t5) and up to 5 "What wins her over" (`landing.winsHerOver`, ids w1..w5), in sheet order (`HerSecrets.From`).
+
+- **The model judges, code keeps the state.** The prompt line lists each phrase with its id. While "Relationship changes" is on, the cue instruction (`HerSecrets.Instruction`) asks for `secret="t2"` when the user's message clearly hit one, and for her to react in that reply as if they found out something she had not told them. The cue parser reads it into `AnimationCue.Secret`; the tag is hidden from the chat like the other attributes.
+- **First find, critical hit; later, ordinary** (Jussi, 2026-11-15). `RelationshipKeeper.OnReply` checks the id (`HerSecrets.Check`). The first find passes `firstSecretHit` to `RelationshipNow.Land`, so the change is a critical hit (×2, `RelationshipMath.CritMultiplier`; a neutral landing still moves nothing). A secret found before lands like any other message. An id that is not one of hers is ignored and logged.
+- **Shown.** A gold "Secret found: …" piece floats up with the affection piece (`RelationshipNotice.SecretFound`, `FeedbackKind.Secret`). Profile → Personality shows "Her secrets · 3 of 8 found": found ones with their text, the rest as locked "Not found yet" chips, the newest find with a gold outline (`ProfileSecrets`).
+- **Saved** per persona, encrypted, as `her-secrets.json` / `her-secrets-<persona>.json` (`SecretsStore`), by a stable hash of the phrase (`HerSecrets.Key`), so a re-read that keeps the phrase keeps it found. A find whose phrase left the sheet no longer counts. Wipe and export include the file (`LocalDataInventory.IsHerSecretsName`); Start over hides them again. The name is not `secrets.json`, which is the API keys.
+- **Privacy.** Nothing new is sent: the phrases were already in the prompt.
+- The 18+ secrets (kinks, sensitive areas, shy to do) are JUH-125.
 
 ### Scenario runner
 

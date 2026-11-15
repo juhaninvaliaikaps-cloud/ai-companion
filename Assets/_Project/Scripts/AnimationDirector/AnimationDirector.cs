@@ -83,7 +83,11 @@ namespace AICompanion.AnimationDirector
                 text.Append(AnimationCueParser.Instruction);
                 // JUH-118 section 4: how the user's message landed, for the relationship.
                 if (PisaraSwitches.Relationship)
+                {
                     text.Append(' ').Append(LandingEvents.Instruction);
+                    // JUH-123: name the secret a message hit, and react to it being found.
+                    text.Append(' ').Append(HerSecrets.Instruction);
+                }
                 text.Append('\n')
                     .Append(EmotionNames.CatalogLine);
                 if (IntimateExpressions.Active)

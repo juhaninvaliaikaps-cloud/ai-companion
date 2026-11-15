@@ -37,6 +37,7 @@ namespace AICompanion.Core
                 || IsMoodName(rel)
                 || IsRelationshipName(rel)
                 || IsInnocenceName(rel)
+                || IsHerSecretsName(rel)
                 || IsSheetName(rel);
         }
 
@@ -100,6 +101,18 @@ namespace AICompanion.Core
             if (name == "innocence.json")
                 return true;
             return name.StartsWith("innocence-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Her secrets found per persona (JUH-123): her-secrets.json and her-secrets-&lt;persona&gt;.json.
+        /// Not secrets.json, which is the API keys (<see cref="IsSecretFile"/>).
+        /// </summary>
+        public static bool IsHerSecretsName(string fileName)
+        {
+            var name = Normalize(fileName);
+            if (name == "her-secrets.json")
+                return true;
+            return name.StartsWith("her-secrets-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
         }
 
         /// <summary>Her character sheet per persona (JUH-117): sheet.json and sheet-&lt;persona&gt;.json.</summary>

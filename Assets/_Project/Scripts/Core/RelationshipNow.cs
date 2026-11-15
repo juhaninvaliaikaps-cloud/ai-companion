@@ -70,12 +70,13 @@ namespace AICompanion.Core
 
         /// <summary>
         /// One reply landed (pure, for the keeper and tests): the cue's <c>landed</c> word and
-        /// intensity against the current numbers.
+        /// intensity against the current numbers. <paramref name="firstSecretHit"/> is true when the
+        /// cue's <c>secret=</c> found one of her secrets for the first time (JUH-123): a critical hit.
+        /// A secret found before lands like any other message (Jussi, 2026-11-15).
         /// </summary>
-        public static RelationshipChange Land(AnimationCue cue, float affection, float familiarity)
+        public static RelationshipChange Land(AnimationCue cue, float affection, float familiarity, bool firstSecretHit = false)
         {
-            // JUH-123 will pass the cue's secret= hit here as the crit hook.
-            return RelationshipMath.Land(cue.Landed, cue.Intensity, affection, familiarity, false);
+            return RelationshipMath.Land(cue.Landed, cue.Intensity, affection, familiarity, firstSecretHit);
         }
     }
 }
