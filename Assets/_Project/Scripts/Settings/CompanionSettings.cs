@@ -164,9 +164,11 @@ namespace AICompanion.Settings
         /// <summary>JUH-122: floating pieces near her when the relationship moves. On by default.</summary>
         public bool ShowRelationshipFeedback = true;
 
-        /// <summary>JUH-104: the new Happi UI (radial wheel, new chat and settings). Off by default; -newui turns it on for one launch.</summary>
         /// <summary>JUH-108: speak narration lines too in the new chat. Off by default, so narration is shown but not voiced.</summary>
         public bool VoiceNarration;
+
+        /// <summary>JUH-121: show the Developer tab in settings (test buttons, debug readouts). Off by default.</summary>
+        public bool ShowDeveloperSettings;
 
         /// <summary>JUH-104: where the new chat box sits, as its centre in 0..1 of the overlay window. -1 = default (bottom centre).</summary>
         public float ChatBoxX = -1f;
@@ -665,6 +667,8 @@ namespace AICompanion.Settings
                 settings.ShowRelationshipFeedback = flag;
             if (TryBool(json, "voiceNarration", out flag))
                 settings.VoiceNarration = flag;
+            if (TryBool(json, "showDeveloperSettings", out flag))
+                settings.ShowDeveloperSettings = flag;
             if (TryNumber(json, "chatBoxX", out number))
                 settings.ChatBoxX = (float)number;
             if (TryNumber(json, "chatBoxY", out number))
@@ -766,6 +770,7 @@ namespace AICompanion.Settings
             Bool(sb, "pisaraWorld", source.PisaraWorld);
             Bool(sb, "showRelationshipFeedback", source.ShowRelationshipFeedback);
             Bool(sb, "voiceNarration", source.VoiceNarration);
+            Bool(sb, "showDeveloperSettings", source.ShowDeveloperSettings);
             Number(sb, "chatBoxX", source.ChatBoxX, false);
             Number(sb, "chatBoxY", source.ChatBoxY, false);
             Bool(sb, "showDebugInfo", source.ShowDebugInfo);

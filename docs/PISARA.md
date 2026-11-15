@@ -36,8 +36,9 @@ One chat turn is a drop. It falls through leaves in a fixed order, and each leaf
 | Start over with a persona (chat, memories, mood, relationship) | **Built**, EditMode tests; not run in a player | Claude, DeepSeek |
 | Wiring her world: seeding, first scene, away line, session memories, new threads | **Built** (JUH-118 sections 2 and 3, #91), EditMode tests | Claude Code |
 | Wiring the relationship: landing per reply, familiarity from time, start values, prompt line, Mood card reasons | **Built** (JUH-118 section 4, #91), EditMode tests | Claude Code |
+| Innocent to Perverted (18+ only): local reading, slider, drift, prompt line, moods | **Built** (JUH-116), EditMode tests; not run in a player | Claude |
 
-The spec PR changed nothing in how she behaves. Since JUH-118 section 1 the sheet is read and its temperament is used (see "The reading as built"). The relationship, landing and world parts of the sheet are read, cached and shown, but nothing acts on them yet.
+Every part of the sheet is used: the temperament since JUH-118 section 1, and the relationship, landing and world since #91.
 
 ## The character sheet
 
@@ -107,7 +108,7 @@ A manual temperament pick in persona settings always wins over the sheet. Built-
 
 The prompt that is hashed and sent is the persona text the chat uses (personality plus speaking style, without the cue instructions). A new edit while a reading is running cancels it and starts again. Nothing runs per frame: the keeper compares two strings that are normally the same objects.
 
-**Which model.** The one this persona's chat would use, chosen by `PrivateChatRouting.ProviderId` with `IntimateExpressions.KeepsLocal(privateMode)`, exactly like a chat message. With Private mode on or the intimate gate open that is the local model or the user's own private server, and `PisaraReader.MayUse` refuses any other provider before anything is sent (test: `Private_NeverCallsACloudModel`). A persona whose provider is set to the local model is read by the local model. The request does not pass through the memory layer, so remembered facts about the user are not sent with it. `IntimateBoundaries` is appended to the system prompt.
+**Which model.** The one this persona's chat would use, chosen by `PrivateChatRouting.ProviderId` with `IntimateExpressions.KeepsLocal(privateMode)`, exactly like a chat message. With Private mode on or the intimate gate open that is the local model or the user's own private server, and `PisaraReader.MayUse` refuses any other provider before anything is sent (test: `Private_NeverCallsACloudModel`). A persona whose provider is set to the local model is read by the local model. The request does not pass through the memory layer, so remembered facts about the user are not sent with it. The closed-gate rule is appended when the gate is closed; an open gate adds no consent rule.
 
 **Fallback.** No model, a refused provider, a timeout (180 s), an error, a reply without a usable object, or an empty object all give a neutral sheet (`source = default`). The keyword scorer (JUH-119) is not on main yet: `PisaraKeywords.Temperament` is the one place to plug it in, and then the fallback becomes `source = keywords`. The fallback is saved too, so the app does not ask again on every frame or every switch. A cached fallback is used on later launches as-is: **Re-read** is the only thing that retries the model, so every launch does not cost another local-model call. A fallback never replaces a sheet the model already wrote for the same prompt (`PisaraReading.Keep`): a Re-read while the model is unreachable keeps the earlier reading and says so.
 
@@ -228,7 +229,7 @@ Affection does not drift back by itself. What was earned stays.
 | 20 to 60 | you like them |
 | 60 and above | you adore them |
 
-At -20 and below the line adds that this is love-hate between two people who choose to be here, never fear. Negative affection never closes Intimate and never makes her unwilling: `IntimateBoundaries` stays in every prompt.
+At -20 and below the line adds that this is love-hate between two people who choose to be here, never fear. Negative affection never closes Intimate and never makes her unwilling: only the 18+ gate, Private mode and the adult folder control access.
 
 ### Wiring (JUH-118 section 4)
 
@@ -315,7 +316,7 @@ Memory is one file per persona (`memory-<persona>.json`), so her world is seeded
 3. **The first scene.** `WorldGuard.FirstScene(sheet)` is `WorldMemory.FirstScene`, except that without a shared past a "right now" that already has the user in it is not used. The chat adds the line to the persona prompt only for a typed or spoken message sent into a conversation with no user or companion lines, so it is in exactly one request: the first message of a new persona, and again after Start over. A persona that already has a chat history gets no first scene.
 4. **Arriving** (app start and persona switch): `WorldMemory.Fade`, then `WorldMemory.ResolveThread`. The time away is counted from the persona's mood file (`CompanionMoodStore.SavedAtUtc`), which is saved once a minute while she is active and on quit. The roll is `UnityEngine.Random.value`. `includePrivate` is true only when this session's chat stays on the local model or the private server. When something happened: its `PromptLine` is added to every request until one reply has finished, its mood nudges go through `CompanionMoodTable.Scaled` (`CompanionMoodKeeper.TryApplyPushes`), and the log says `Away: <persona> = <text>`. A new persona (no mood file yet) has no away event, and the arrival runs before seeding, so a thread never resolves in the moment it is created.
 5. **Memories in the prompt.** `MemoryChatProvider.Enrich` uses `MemoryPrompt.Build(entries, nowUtc)` and calls `WorldMemory.MarkRecalled` with the same entries. The fact-extraction request reads the same memories but does not count as a recall, and a request with `ChatRequest.NoMemory` gets no memory block at all.
-6. **Session memories.** A session is the messages since the last pause. It ends on a persona switch (asked before the switch, so the old persona's model, privacy and store are used), after ten minutes without a message, or on quit. `SessionMemories` then asks the model once for one to three lines and stores each with `WorldMemory.AddShortTerm`. Sessions with fewer than four user messages are skipped. On quit the model gets four seconds; after that the app quits without the memories (a local 12B model usually needs longer, so quit memories mostly come from cloud models; the ten-minute pause covers the rest). Same model rule as the reading: with Private mode on or the intimate gate open only the local model or the private server is asked (`PisaraReader.MayUse`), and the memories are stored as private. The rule is sticky for the session (`SessionPrivacy`): every send notes its private flag, so a session that was private at any point stays local and private at its end, even when Private mode was turned off before the session ended. `IntimateBoundaries` is in the prompt. Log: `Session memories: N stored after <why>` (never the text).
+6. **Session memories.** A session is the messages since the last pause. It ends on a persona switch (asked before the switch, so the old persona's model, privacy and store are used), after ten minutes without a message, or on quit. `SessionMemories` then asks the model once for one to three lines and stores each with `WorldMemory.AddShortTerm`. Sessions with fewer than four user messages are skipped. On quit the model gets four seconds; after that the app quits without the memories (a local 12B model usually needs longer, so quit memories mostly come from cloud models; the ten-minute pause covers the rest). Same model rule as the reading: with Private mode on or the intimate gate open only the local model or the private server is asked (`PisaraReader.MayUse`), and the memories are stored as private. The rule is sticky for the session (`SessionPrivacy`): every send notes its private flag, so a session that was private at any point stays local and private at its end, even when Private mode was turned off before the session ended. The closed-gate rule is in the prompt when the gate is closed. Log: `Session memories: N stored after <why>` (never the text).
 7. **Start over.** The keeper implements `ICompanionStartOver`: right after the memories are deleted it seeds her world again from the cached sheet and drops a pending away line. The chat is empty again, so the first scene opens the next conversation.
 8. **The memory viewer** (old and new settings) labels seeded entries `(her life)` and away entries `(while you were away)`. They can be forgotten like any other memory.
 9. **New threads.** The session-end request also carries `WorldThreads.Instruction` (only for a persona, and only while **Her own world** and **Life while you are away** are on). A `newThread` object in the reply is stored with `WorldThreads.Add` (at most 3 open threads, with the session's private flag); its JSON is never stored as a memory line. Log: `Session memories: N stored after <why>, new thread: yes|no`.
@@ -340,7 +341,7 @@ The reading is a guess, and the numbers are untuned, so the user can see and cor
 
 ### Correcting the relationship
 
-Settings → Persona → Temperament → **Correct the relationship**. The user picks the role, her word for it, affection and familiarity (in steps of 10), and whether they share a past. Every click applies at once:
+Settings → Persona → Who she is → **Correct the relationship**. The user picks the role, her word for it, affection and familiarity (in steps of 10), and whether they share a past. Every click applies at once:
 
 - `PisaraCorrections.SetRelationship` writes it into the sheet and sets `relationshipLocked`. The same limits as a reading apply: a stranger stays near 0 and never shares a past; each role keeps its least familiarity.
 - The current relationship is set to the corrected numbers (`RelationshipKeeper.SetByUser`), so it applies now, not only after a Start over.
@@ -351,7 +352,7 @@ The relationship line says "(your correction)" while the lock is on. Temperament
 
 ### Switches
 
-Settings → Overlay, under the mood readout, has one switch per part, all on by default (`pisaraRelationship`, `pisaraAwayEvents`, `pisaraWorld` in the settings file). Off freezes that part; nothing is deleted. `PisaraSwitches` holds the current values for code that has no settings at hand.
+Settings → Persona → Her life has one switch per part, all on by default (`pisaraRelationship`, `pisaraAwayEvents`, `pisaraWorld` in the settings file). Off freezes that part; nothing is deleted. `PisaraSwitches` holds the current values for code that has no settings at hand.
 
 | Switch | Off means |
 | --- | --- |
@@ -376,7 +377,7 @@ While you chat, small pieces float up beside her head when a landing moves the r
 - **The rules** (`RelationshipFeedback`, plain C#): a normal piece needs an affection change of 0.5 or more; at most 2 normal pieces are on screen, and a new one pushes the oldest out early; crits always show and are not counted; familiarity shows only at a new band. The secret-found piece (a gold star) is a stub until JUH-123.
 - **The event**: `RelationshipKeeper.Apply` raises `RelationshipNow.Changed` with a `RelationshipNotice` (the change, its short landing name, whether familiarity reached a new band), only when the change was applied. A band reached through chat time shows with the next landing.
 - **The view** (`FloatingFeedbackView`, new UI only): one pool of six TMP pieces, beside her head (3D avatar or 2D video), on the side away from the expression portrait, or at the portrait when there is no head. No allocation per frame, no `Instantiate` per change.
-- **Off**: nothing shows while **Show relationship changes while chatting** (`showRelationshipFeedback`, on the Overlay tab next to the switches until JUH-121 moves it to the Chat tab) or **Relationship changes** is off.
+- **Off**: nothing shows while **Show relationship changes while chatting** (`showRelationshipFeedback`, Settings → Chat → Replies) or **Relationship changes** is off.
 - **The landing reminder**: the local model wrote the cue tag but never `landed=`, so nothing landed. While relationship changes are on, the reminder on the newest user message (`LandingEvents.TurnReminder`) has `landed` in its example and lists the words.
 - **Checking it without typing**: `Happi.exe -allowmulti -newui -pisara-chat <file>` sends each line of the file through the real chat and saves two window screenshots after each reply, next to the file.
 
@@ -394,10 +395,33 @@ While you chat, small pieces float up beside her head when a landing moves the r
 
 Change a number in `RelationshipMath`, run the tests, and read the log to see what moved.
 
+## Innocent to Perverted (JUH-116, 18+ only)
+
+Where she sits between **Innocent (0)** and **Perverted (100)**. It reflects her sexual experience as well as her boldness. The design decisions are Jussi's (2026-11-14, on the JUH-116 issue).
+
+Only while the 18+ gate is open. While it is closed nothing is read, nothing moves, the slider is hidden and the prompt line is empty.
+
+**Start.** `InnocenceReader` reads her persona once on the local model or the user's private server, never a cloud model (`PisaraReader.MayUse` with keepsLocal; test `Read_NeverRunsWithTheGateClosed_OrOnACloudModel`). It judges what fits her most likely from her age, personality, relationships and anything the description says about her experience. A shy 18-year-old who has never dated sits near 10; a confident 26-year-old bully near 70. It is a separate request from the character sheet, because the sheet may be read by a cloud model. The reply is `{"innocence": 0-100, "reason": "..."}`. A changed prompt is read again; a failed reading is tried once more on the next launch.
+
+**Slider.** Settings, Persona, under the relationship correction: "Innocent to Perverted (18+)". Moving it sets where she is and her baseline, and a new reading no longer changes it. **Use the reading** goes back to the reading; **Read again** asks the model again.
+
+**Drift, both ways** (`InnocenceMath`):
+- Each intimate moment moves her toward experienced. An intimate moment is a finished reply whose cue is an intimate expression, or an adult video reaction (`strip` or a naked clip). The step is 2 points at intensity 0.5 when she is fully innocent, scaled 0.5x to 1.5x by intensity and by how much room is left above her.
+- Without intimate moments, what she gained above her baseline fades: nothing for 2 days, then half every 14 days. It never goes below the baseline, and is computed from her value at the last moment, so it does not compound.
+- A new reading keeps what she gained on top of the new baseline (`Rebase`).
+
+**What it changes:**
+- **The prompt line** (`InnocencePrompt`), after the relationship line: her experience, how often she makes the first move, and how comfortable she is undressed. While she is naked (`IntimateExpressions.Undressed`) it says how she feels about being naked instead. Five bands: very innocent, innocent, in between, experienced, perverted. She has no way to message first, so "the first move" means how forward she is within her replies.
+- **Her mood.** After an intimate moment the innocent side gets Flustered (and a little Anxious at the very innocent end), and the experienced side Happy and Affectionate. Being undressed pushes the same way, more strongly on the innocent side. The pushes are small (0.05 to 0.25), like the relationship ones. Intimate itself is never pushed from here.
+
+**Storage.** `innocence-<persona>.json`, encrypted, next to the relationship file, in wipe and export (`LocalDataInventory.IsInnocenceName`). **Start over** puts her back at her baseline and keeps the reading and the slider setting. A full wipe deletes the file.
+
+**Shown.** The wheel's Mood card adds `Innocence: 30 (innocent)` while the gate is open. Log lines start with `Innocence:`.
+
 ## Guards
 
 - **Local only when it must be.** Every model call here follows `IntimateExpressions.KeepsLocal` and Private mode. A private persona never calls a cloud model.
-- **Consent.** `IntimateBoundaries` stays in every prompt. The reading prompt also asks for a non-sexual world in which nobody is forced or distressed.
+- **Consent.** The app adds no consent rule when the 18+ gate is open. `IntimateBoundaries` only carries the closed-gate rule. The reading prompt still asks for a non-sexual world in which nobody is forced or distressed.
 - **Intimate** is never a baseline, a bias or a blend target, and nothing here changes an 18+ gate.
 - **Shared history.** Seeded content may mention the user only when `sharedHistory` is true, and that is only true when the persona prompt says so.
 - **Compatibility.** New files and new keys with defaults only. Nothing existing is renamed or removed.

@@ -85,6 +85,39 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Enrich_KeepsEveryRequestFieldItDoesNotChange()
+        {
+            _store.AddFact("Likes coffee", privateMode: false);
+            var provider = new MemoryChatProvider(new FakeProvider(ChatDefaults.GrokId), _store);
+            var image = new ChatImageAttachment
+            {
+                JpegBytes = new byte[] { 1, 2, 3 },
+                Width = 64,
+                Height = 32,
+                Generation = 7,
+            };
+            var request = Request("coffee?", "prompt");
+            request.Model = "grok-test";
+            request.Temperature = 0.25f;
+            request.MaxTokens = 123;
+            request.TimeoutSeconds = 37f;
+            request.BlockCloud = true;
+            request.NoMemory = false;
+            request.Image = image;
+
+            var enriched = provider.Enrich(request);
+
+            Assert.AreSame(request.Messages, enriched.Messages);
+            Assert.AreSame(image, enriched.Image);
+            Assert.AreEqual("grok-test", enriched.Model);
+            Assert.AreEqual(0.25f, enriched.Temperature);
+            Assert.AreEqual(123, enriched.MaxTokens);
+            Assert.AreEqual(37f, enriched.TimeoutSeconds);
+            Assert.IsTrue(enriched.BlockCloud);
+            Assert.IsFalse(enriched.NoMemory);
+        }
+
+        [Test]
         public void Enrich_WithoutMatch_ReturnsTheSameRequest()
         {
             var provider = new MemoryChatProvider(new FakeProvider(ChatDefaults.GrokId), _store);

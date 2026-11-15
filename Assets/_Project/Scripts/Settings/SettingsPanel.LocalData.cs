@@ -88,6 +88,9 @@ namespace AICompanion.Settings
             var relationship = GetComponent<RelationshipKeeper>();
             if (relationship != null)
                 relationship.Forget();
+            var innocence = GetComponent<InnocenceKeeper>();
+            if (innocence != null)
+                innocence.Forget();
 
             MemoryRuntime.Discard();
             _settings = CompanionSettings.CreateDefault();

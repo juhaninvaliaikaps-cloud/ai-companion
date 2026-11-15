@@ -24,14 +24,14 @@ are shared and unchanged. Section 9 lists what is new.
 | ID | Panel | Implemented by | Opens with | New UI |
 | --- | --- | --- | --- | --- |
 | P-01 | Transparent overlay window (borderless, layered, topmost, click-through) | `Overlay/OverlayWindow.cs` `StartCompanion`, `Update`, `EnsureChrome`, `ApplySizedWindow` | always | unchanged (shared) |
-| P-02 | Debug text top-left (topmost, fps, emotion, debug hint, rotate/size/zoom) | `Overlay/OverlayWindow.cs` `OnGUI`, `RefreshEmotionLabel`, `RefreshRotateLabel`, `AccumulateFps` | only with Settings → Overlay → "Show debug info" (S-OV-10, off by default since the follow-up) | same switch in both UIs |
+| P-02 | Debug text top-left (topmost, fps, emotion, debug hint, rotate/size/zoom) | `Overlay/OverlayWindow.cs` `OnGUI`, `RefreshEmotionLabel`, `RefreshRotateLabel`, `AccumulateFps` | only with Settings → Developer → "Show debug info" (S-OV-10, off by default since the follow-up) | same switch in both UIs |
 | P-03 | Chat panel beside the avatar | `UI/ChatPanel.cs` `BuildUi`, `RefreshPlacement`, `SetVisible` | F10, double-click on her, tray "Open chat" | new chat view (PR C) |
 | P-04 | Model badge (active provider/model, green local, amber cloud) | `UI/ChatPanel.cs` `RefreshModelBadge` | always while chat canvas exists | new chat view header (PR C) |
 | P-05 | Settings panel with 8 tabs | `Settings/SettingsPanel.cs` `BuildChrome`, `RebuildBody`, `Open`, `Close`, `Place` | F12, tray "Settings" | new settings view (PR E) |
 | P-06 | First-run setup wizard (5 steps) | `Settings/SetupWizard.cs` `Show`, `Hide`, `BuildChrome`, `RebuildBody`; flow in `Settings/SetupWizardLogic.cs` | first launch without settings/key, `--setup`, Settings → Privacy → "Run setup again" | old wizard (PR E if time) |
 | P-07 | Expression portrait panel | `Settings/ExpressionPortraitPanel.cs` `EnsureUi`, `Refresh`, `Place`, `Apply` | Settings → Avatar → "Show expression portrait" | unchanged (shared) |
 | P-08 | Screen-look exact-frame viewer | `Settings/SettingsPanel.Screen.cs` `BuildExactFrame`, `OpenExactFrame`, `CloseExactFrame` | Settings → Screen → "Inspect exact frame" | old panel (linked from new settings) |
-| P-09 | Mood readout | `Settings/CompanionMoodKeeper.cs` `OnGUI` | Settings → Overlay → "Show mood readout (debug)"; top-left, below the debug text when that is shown | unchanged (shared) |
+| P-09 | Mood readout | `Settings/CompanionMoodKeeper.cs` `OnGUI` | Settings → Developer → "Show mood readout"; top-left, below the debug text when that is shown | unchanged (shared) |
 | P-10 | System tray icon and menu | `Overlay/CompanionTray.cs`, `Overlay/WindowsTrayHost.cs`, `Overlay/TrayMenuState.cs` `Build` | right-click tray icon | unchanged (shared) |
 | P-11 | 2D video avatar | `Settings/VideoAvatar/VideoAvatar.cs` | Settings → Avatar → "Avatar: 2D video" | unchanged (shared) |
 
@@ -277,7 +277,7 @@ Footer: Back, Skip, Next/Done, step label "Step n of 5 · Title" (`RefreshFooter
 | --- | --- | --- |
 | G-01 | Intimate content only when `IntimateExpressions.Active` (enabled + Private mode + adult folder present) | `Core/IntimateExpressions.cs` `Configure`, `Allows` |
 | G-02 | Intimate/private content never goes to cloud chat or cloud TTS | `IntimateExpressions.KeepsLocal`, `Voice/OutboundPrivacy.cs`, `Voice/VoiceRoute.cs` |
-| G-03 | Consent rule in every prompt; closed gate forbids intimate scenes | `Core/IntimateBoundaries.cs` (#65) |
+| G-03 | Closed gate forbids intimate scenes; open gate adds no consent rule | `Core/IntimateBoundaries.cs` (#65) |
 | G-04 | Adult portraits load only from `%APPDATA%\ProjectLeia\portraits-adult` | `Settings/Portraits/PortraitLibrary.cs`, `SettingsApplicator` (`PortraitFolders.Adult`) |
 | G-05 | Private mode: screen image never sent to cloud | `Settings/ScreenLookController.cs`, `ChatPanel.SubmitObservation` |
 | G-06 | Clip sounds never play over her TTS | `Settings/VideoAvatar/VideoClipPlayer.cs` |

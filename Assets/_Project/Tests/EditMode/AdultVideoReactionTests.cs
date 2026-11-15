@@ -18,6 +18,13 @@ namespace AICompanion.Tests.EditMode
 
         static readonly string[] Files = { "idle.mp4", "strip.mp4", "naked_idle.mp4", "happy.mp4" };
 
+        const string NakedManifest =
+            "{\"clips\":[" +
+            "{\"name\":\"idle\",\"role\":\"idle\",\"color\":\"idle.mp4\"}," +
+            "{\"name\":\"strip\",\"role\":\"reaction\",\"color\":\"strip.mp4\",\"adult\":true,\"after\":\"naked_idle\"}," +
+            "{\"name\":\"naked_idle\",\"role\":\"reaction\",\"color\":\"naked_idle.mp4\",\"playback\":\"loop\",\"hold\":-1,\"adult\":true}" +
+            "]}";
+
         [TearDown]
         public void TearDown()
         {
@@ -122,6 +129,47 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(-1, director.Queued);
             Assert.AreEqual(-1, director.PendingReaction);
             Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+        }
+
+        [Test]
+        public void GateCloseFromNakedPose_ReturnsToClothedIdle()
+        {
+            IntimateExpressions.Configure(true, true, true);
+            var set = VideoAvatarManifest.Resolve(NakedManifest, Files);
+            var director = new VideoAvatarDirector(set, 1);
+
+            director.Request("strip", true);
+            director.OnBoundary(true);
+            director.OnEnded();
+
+            Assert.AreEqual(VideoAvatarAct.Pose, director.Act);
+            Assert.AreEqual("naked_idle", set.Clips[director.Clip].Name);
+
+            director.ReturnToClothedIdle();
+
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual("idle", set.Clips[director.Clip].Name);
+            Assert.AreEqual(-1, director.Queued);
+            Assert.AreEqual(-1, director.PendingReaction);
+        }
+
+        [Test]
+        public void GateCloseFromAdultReaction_ReturnsToClothedIdle()
+        {
+            IntimateExpressions.Configure(true, true, true);
+            var set = VideoAvatarManifest.Resolve(NakedManifest, Files);
+            var director = new VideoAvatarDirector(set, 1);
+
+            director.Request("strip", true);
+            director.OnBoundary(true);
+
+            Assert.AreEqual(VideoAvatarAct.Reaction, director.Act);
+            Assert.AreEqual("strip", set.Clips[director.Clip].Name);
+
+            director.ReturnToClothedIdle();
+
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual("idle", set.Clips[director.Clip].Name);
         }
     }
 }

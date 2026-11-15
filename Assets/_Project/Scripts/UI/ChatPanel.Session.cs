@@ -38,6 +38,8 @@ namespace AICompanion.UI
             var prompt = CompanionMoodPrompt.AppendCurrent(settings != null ? settings.systemPrompt : string.Empty);
             // JUH-118 section 4: who she is to the user now, right after the mood line.
             prompt = RelationshipNow.Append(prompt);
+            // JUH-116: where she sits between Innocent and Perverted; empty while the 18+ gate is closed.
+            prompt = InnocenceNow.Append(prompt);
             return WorldPromptNow.Append(prompt, chatMessage && ConversationIsEmpty());
         }
 

@@ -127,6 +127,9 @@ namespace AICompanion.Settings
                 gameObject.AddComponent<CompanionMoodKeeper>();
             if (GetComponent<RelationshipKeeper>() == null)
                 gameObject.AddComponent<RelationshipKeeper>();
+            // JUH-116: Innocent–Perverted, adult mode only; idle while the 18+ gate is closed.
+            if (GetComponent<InnocenceKeeper>() == null)
+                gameObject.AddComponent<InnocenceKeeper>();
 
             // JUH-118: the reading tool (-pisara-read) runs alone; otherwise the keeper reads the active persona.
             if (PisaraReadingTool.Requested(Environment.GetCommandLineArgs()))

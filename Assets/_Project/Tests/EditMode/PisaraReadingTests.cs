@@ -77,13 +77,13 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void Request_CarriesTheSheetPromptTheConsentRuleAndThePersonaAsData()
+        public void Request_CarriesTheSheetPromptAndTheClosedGateRule()
         {
             var provider = new FakeProvider();
             Read(provider, false);
             StringAssert.StartsWith(CharacterSheetPrompt.System, provider.Last.SystemPrompt);
-            StringAssert.Contains(IntimateBoundaries.ConsentRule, provider.Last.SystemPrompt, "IntimateBoundaries stays in every prompt");
             StringAssert.Contains(IntimateBoundaries.GateClosedRule, provider.Last.SystemPrompt);
+            StringAssert.DoesNotContain("mutual and willing", provider.Last.SystemPrompt);
             Assert.AreEqual(1, provider.Last.Messages.Count);
             Assert.AreEqual(ChatRole.User, provider.Last.Messages[0].Role);
             StringAssert.Contains(Prompt, provider.Last.Messages[0].Content);
@@ -301,12 +301,19 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void CachedFallback_DoesNotNeedAnotherModelCallUntilReread()
+        public void CachedFallback_IsRetriedOnceWhenAProviderIsReady()
         {
             var fallback = PisaraReading.Fallback(Prompt, null, DateTime.UtcNow);
-            Assert.IsFalse(PisaraReading.NeedsModel(fallback, false), "a cached fallback is reused");
-            Assert.IsTrue(PisaraReading.NeedsModel(fallback, true), "Re-read still forces a call");
-            Assert.IsTrue(PisaraReading.NeedsModel(null, false), "the first reading calls the model");
+            var model = PisaraReading.Finish(CharacterSheet.Parse(GoodReply), Prompt, CharacterSheet.SourceModel, DateTime.UtcNow);
+            Assert.IsTrue(PisaraReading.IsFallback(fallback));
+            Assert.IsFalse(PisaraReading.IsFallback(model));
+            Assert.AreEqual("Her description could not be read. Press Re-read.", PisaraReading.FallbackStatus);
+            Assert.IsTrue(PisaraReading.ShouldRetryFallback(fallback, false, true, false), "the first fallback retry runs");
+            Assert.IsFalse(PisaraReading.ShouldRetryFallback(fallback, false, true, true), "only once per launch");
+            Assert.IsFalse(PisaraReading.ShouldRetryFallback(fallback, false, false, false), "no provider, no call");
+            Assert.IsFalse(PisaraReading.ShouldRetryFallback(model, false, true, false), "a model sheet is never re-read automatically");
+            Assert.IsTrue(PisaraReading.ShouldRetryFallback(model, true, true, true), "Re-read forces the call");
+            Assert.IsTrue(PisaraReading.ShouldRetryFallback(null, false, false, false), "the first reading still tries");
         }
 
         [Test]

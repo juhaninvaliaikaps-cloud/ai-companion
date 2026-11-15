@@ -14,8 +14,8 @@ namespace AICompanion.Tests.EditMode
         static readonly Dictionary<string, string> Elsewhere = new Dictionary<string, string>
         {
             { "Version", "file format number, not a user setting" },
-            { "CompanionName", "setup wizard (Privacy > Run setup again)" },
-            { "Relationship", "setup wizard (Privacy > Run setup again)" },
+            { "CompanionName", "setup wizard (Data > Run setup again)" },
+            { "Relationship", "setup wizard (Data > Run setup again)" },
             { "ScreenMonitorDevice", "set by picking a display on the Screen tab (ScreenLookPresenter.SelectMonitor)" },
         };
 
@@ -43,11 +43,32 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void EveryOldTabHasANewTab()
+        public void TheTabsAreTheJuh121Layout()
         {
             var source = ViewSource();
-            foreach (var tab in new[] { "\"AI\"", "\"Avatar\"", "\"Voice\"", "\"Controls\"", "\"Overlay\"", "\"Privacy\"", "\"Persona\"", "\"Screen\"" })
-                StringAssert.Contains(tab, source);
+            StringAssert.Contains("{ \"Persona\", \"AI\", \"Voice\", \"Look\", \"Chat\", \"Screen\", \"Window\", \"Data\", \"18+\", \"Keys\", \"Developer\" }", source);
+        }
+
+        [Test]
+        public void DeveloperControlsAreOnlyOnTheDeveloperTab()
+        {
+            var source = ViewSource();
+            var developer = source.IndexOf("void BuildDeveloper()", System.StringComparison.Ordinal);
+            Assert.Greater(developer, 0);
+            foreach (var call in new[] { "BuildVideoTests();", "S.ShowDebugInfo", "S.ShowMoodDebug", "S.TimeoutSeconds" })
+            {
+                var at = source.IndexOf(call, System.StringComparison.Ordinal);
+                Assert.Greater(at, developer, call + " belongs on the Developer tab");
+            }
+        }
+
+        [Test]
+        public void ShowDeveloperSettings_DefaultsOff_AndRoundTrips()
+        {
+            var fresh = CompanionSettings.CreateDefault();
+            Assert.IsFalse(fresh.ShowDeveloperSettings);
+            fresh.ShowDeveloperSettings = true;
+            Assert.IsTrue(CompanionSettingsJson.Parse(CompanionSettingsJson.Write(fresh), SettingsLegacyPrefs.None).ShowDeveloperSettings);
         }
 
         [Test]
