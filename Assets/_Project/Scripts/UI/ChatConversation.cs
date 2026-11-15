@@ -79,6 +79,13 @@ namespace AICompanion.UI
         public bool IsBusy { get; private set; }
         public int Revision { get; private set; }
 
+        /// <summary>
+        /// JUH-130: first line sent in requests. Chat sets this to the current session's
+        /// start so earlier sessions stay in the transcript and memories, not in the raw
+        /// prompt where they compete with the scene happening now. 0 sends everything.
+        /// </summary>
+        public int HistoryStart { get; set; }
+
         /// <summary>Increments on each accepted send so a late chunk cannot join the next reply.</summary>
         public int Generation { get; private set; }
 
@@ -211,7 +218,8 @@ namespace AICompanion.UI
         public ChatRequest BuildRequest(string systemPrompt, float temperature, int maxTokens)
         {
             var messages = new List<ChatMessage>();
-            for (var i = 0; i < _lines.Count; i++)
+            var first = Math.Max(0, HistoryStart);
+            for (var i = first; i < _lines.Count; i++)
             {
                 var line = _lines[i];
                 if (line.Kind == ChatLineKind.System || string.IsNullOrEmpty(line.Text))
@@ -249,6 +257,7 @@ namespace AICompanion.UI
         public void ClearTranscript()
         {
             _lines.Clear();
+            HistoryStart = 0;
             IsBusy = false;
             Generation++;
             Touch();

@@ -124,6 +124,7 @@ namespace AICompanion.UI
                 return;
             _conversation.ClearTranscript();
             ChatHistoryCodec.ReadInto(json, _conversation);
+            _sessionStartLine = 0;
             RefreshTranscript(true);
         }
 
