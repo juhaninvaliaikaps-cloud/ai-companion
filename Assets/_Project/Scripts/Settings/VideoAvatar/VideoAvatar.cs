@@ -27,7 +27,7 @@ namespace AICompanion.Settings
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(215)]
-    public sealed class VideoAvatar : MonoBehaviour, IOverlayKeepAwake, IAvatarReactions
+    public sealed class VideoAvatar : MonoBehaviour, IOverlayKeepAwake, IAvatarReactions, IAvatarInteractionTarget
     {
         const string ShaderResource = "VideoAvatar";
         const float RetrySeconds = 2f;
@@ -157,6 +157,48 @@ namespace AICompanion.Settings
         public bool PlayReaction(string name)
         {
             return RequestReaction(name) != AvatarReactionResult.Refused;
+        }
+
+        /// <summary>
+        /// JUH-101 interaction menu visual. A folder with a matching reaction clip uses it;
+        /// otherwise the closest loaded reaction is the fallback. Holding is represented by
+        /// the closest reaction until a dedicated hold clip is authored.
+        /// </summary>
+        public bool TryPlayInteraction(string interactionId)
+        {
+            if (_state != VideoAvatarState.Playing)
+                return false;
+
+            var id = interactionId == null ? string.Empty : interactionId.Trim().ToLowerInvariant();
+            if (TryReaction(id))
+                return true;
+
+            switch (id)
+            {
+                case "pat_head":
+                case "stroke_hair":
+                    return TryReaction("happy");
+                case "cup_cheek":
+                    return TryReaction("flustered");
+                case "touch_face":
+                    return TryReaction("embarrassed");
+                case "kiss":
+                    return TryReaction("flustered");
+                case "hold_hand":
+                case "let_go":
+                    return TryReaction("happy");
+                case "touch_shoulder":
+                    return TryReaction("concerned");
+                default:
+                    return false;
+            }
+        }
+
+        bool TryReaction(string name)
+        {
+            if (_state != VideoAvatarState.Playing || _director == null || string.IsNullOrEmpty(name))
+                return false;
+            return _director.Request(name, true) != AvatarReactionResult.Refused;
         }
 
         /// <summary>

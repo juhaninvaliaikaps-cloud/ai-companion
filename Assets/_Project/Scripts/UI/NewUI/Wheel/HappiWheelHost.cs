@@ -35,6 +35,7 @@ namespace AICompanion.NewUI.Wheel
         RadialWheelView _wheel;
         WheelCard _card;
         ProfilePanel _profile;
+        AvatarInteractions _interactions;
         readonly Stack<Func<WheelDefinition>> _back = new Stack<Func<WheelDefinition>>();
         Func<WheelDefinition> _currentBuilder;
         bool _attached;
@@ -70,6 +71,9 @@ namespace AICompanion.NewUI.Wheel
             };
             if (OpenSettings == null)
                 OpenSettings = () => { if (_settings != null) _settings.Open(); };
+            _interactions = GetComponent<AvatarInteractions>();
+            if (_interactions == null)
+                _interactions = gameObject.AddComponent<AvatarInteractions>();
             AvatarContextMenu.Handler = OnRightClickOnHer;
             _attached = true;
             Debug.Log("New UI: radial wheel on (right-click her; Shift+right-click rotates)");
@@ -416,6 +420,8 @@ namespace AICompanion.NewUI.Wheel
                     return () => Push(BuildScreen);
                 case MainWheel.Persona:
                     return () => Push(BuildPersona);
+                case MainWheel.Interactions:
+                    return () => Push(BuildInteractions);
                 case MainWheel.Pause:
                     return () => Do(() => _settings.Presenter.SetPaused(!paused));
                 default:
@@ -551,6 +557,35 @@ namespace AICompanion.NewUI.Wheel
 
             if (choices.Count > room)
                 definition.Slices.Add(new WheelSlice { Id = "persona_more", Label = "More…", OnChoose = () => Do(OpenSettings) });
+            return definition;
+        }
+
+        /// <summary>
+        /// JUH-101: one flat menu of touch actions. The hold/let-go pair is stateful; every
+        /// other item is a one-shot reaction that also sends its event line to the model.
+        /// </summary>
+        WheelDefinition BuildInteractions()
+        {
+            var definition = Sub("Interactions");
+            var items = AvatarInteractionCatalog.All;
+            for (var i = 0; i < items.Count; i++)
+            {
+                var item = items[i];
+                var available = _interactions != null && _interactions.CanRun(item.Id);
+                definition.Slices.Add(new WheelSlice
+                {
+                    Id = item.Id,
+                    Label = item.Label,
+                    Enabled = available,
+                    DisabledReason = item.Release ? "You are not holding her hand." : "She cannot do that right now.",
+                    OnChoose = () => Do(() =>
+                    {
+                        if (_interactions != null)
+                            _interactions.Run(item.Id);
+                    })
+                });
+            }
+
             return definition;
         }
 

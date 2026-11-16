@@ -1,0 +1,130 @@
+using System.Collections.Generic;
+using AICompanion.AnimationDirector;
+using AICompanion.Core;
+using UnityEngine;
+
+namespace AICompanion.UI
+{
+    /// <summary>
+    /// JUH-101: the 2D interaction menu's actions. Each action plays the avatar's reaction
+    /// when one exists, changes the expression, and queues the event line for the model.
+    /// There are no body zones or 3D touch dependencies here.
+    /// </summary>
+    [DisallowMultipleComponent]
+    public sealed class AvatarInteractions : MonoBehaviour
+    {
+        readonly Queue<string> _signals = new Queue<string>(4);
+        ChatPanel _chat;
+        AnimationDirector.AnimationDirector _director;
+        IAvatarInteractionTarget _target;
+        bool _resolved;
+        bool _holding;
+
+        public bool IsHolding
+        {
+            get { return _holding; }
+        }
+
+        void Awake()
+        {
+            Resolve();
+        }
+
+        void Resolve()
+        {
+            if (_chat == null)
+                _chat = GetComponent<ChatPanel>();
+            if (_chat == null)
+                _chat = FindFirstObjectByType<ChatPanel>();
+            if (_director == null)
+                _director = GetComponent<AnimationDirector.AnimationDirector>();
+            if (_director == null)
+                _director = FindFirstObjectByType<AnimationDirector.AnimationDirector>();
+            if (_target == null)
+            {
+                var behaviours = GetComponents<MonoBehaviour>();
+                for (var i = 0; i < behaviours.Length; i++)
+                {
+                    var candidate = behaviours[i] as IAvatarInteractionTarget;
+                    if (candidate != null)
+                    {
+                        _target = candidate;
+                        break;
+                    }
+                }
+
+                if (_target == null)
+                {
+                    var all = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+                    for (var i = 0; i < all.Length; i++)
+                    {
+                        var candidate = all[i] as IAvatarInteractionTarget;
+                        if (candidate != null)
+                        {
+                            _target = candidate;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            _resolved = true;
+        }
+
+        void Update()
+        {
+            if (_signals.Count == 0)
+                return;
+            if (!_resolved)
+                Resolve();
+            if (_chat == null || _chat.TranscriptBusy)
+                return;
+
+            var next = _signals.Peek();
+            if (_chat.SubmitUserText(next))
+                _signals.Dequeue();
+        }
+
+        public bool CanRun(string id)
+        {
+            var item = AvatarInteractionCatalog.Find(id);
+            if (item == null)
+                return false;
+            return _holding ? item.Release : !item.Release;
+        }
+
+        public bool Run(string id)
+        {
+            if (!_resolved || _chat == null || _target == null)
+            {
+                _resolved = false;
+                Resolve();
+            }
+            var item = AvatarInteractionCatalog.Find(id);
+            if (item == null || !CanRun(id))
+                return false;
+
+            if (item.Hold)
+                _holding = true;
+            else if (item.Release)
+                _holding = false;
+
+            if (_director != null)
+            {
+                _director.Play(new AnimationCue(
+                    item.Emotion,
+                    item.Intensity,
+                    string.Empty,
+                    0f,
+                    item.Expression));
+            }
+
+            if (_target != null)
+                _target.TryPlayInteraction(item.Id);
+
+            if (!string.IsNullOrEmpty(item.Signal))
+                _signals.Enqueue(item.Signal);
+            return true;
+        }
+    }
+}

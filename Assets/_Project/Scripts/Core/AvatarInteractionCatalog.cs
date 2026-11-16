@@ -1,0 +1,150 @@
+using System;
+using System.Collections.Generic;
+
+namespace AICompanion.Core
+{
+    /// <summary>
+    /// One 2D touch interaction: what the menu says, what the avatar shows, and the event the
+    /// model receives. Kept free of Unity so the menu and the cue text can be tested.
+    /// </summary>
+    public sealed class AvatarInteractionDefinition
+    {
+        public string Id = string.Empty;
+        public string Label = string.Empty;
+        public string Expression = string.Empty;
+        public string Clip = string.Empty;
+        public Emotion Emotion = Emotion.Happy;
+        public float Intensity = 0.6f;
+        public string Signal = string.Empty;
+        public bool Hold;
+        public bool Release;
+    }
+
+    /// <summary>
+    /// The fixed 2D interaction list. These are menu actions, not body hit zones: the avatar
+    /// decides whether a matching clip exists and falls back to a portrait expression.
+    /// </summary>
+    public static class AvatarInteractionCatalog
+    {
+        public const string PatHead = "pat_head";
+        public const string StrokeHair = "stroke_hair";
+        public const string CupCheek = "cup_cheek";
+        public const string TouchFace = "touch_face";
+        public const string Kiss = "kiss";
+        public const string HoldHand = "hold_hand";
+        public const string LetGo = "let_go";
+        public const string TouchShoulder = "touch_shoulder";
+
+        public static readonly IReadOnlyList<AvatarInteractionDefinition> All = new[]
+        {
+            new AvatarInteractionDefinition
+            {
+                Id = PatHead,
+                Label = "Pat head",
+                Expression = "happy",
+                Clip = "happy",
+                Emotion = Emotion.Happy,
+                Intensity = 0.6f,
+                Signal = "*Someone gently pats your head.*",
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = StrokeHair,
+                Label = "Stroke hair",
+                Expression = "smile",
+                Clip = "happy",
+                Emotion = Emotion.Happy,
+                Intensity = 0.45f,
+                Signal = "*Someone strokes your hair.*",
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = CupCheek,
+                Label = "Cup cheek",
+                Expression = "flustered",
+                Clip = "flustered",
+                Emotion = Emotion.Flustered,
+                Intensity = 0.7f,
+                Signal = "*Someone cups your cheek.*",
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = TouchFace,
+                Label = "Touch face",
+                Expression = "embarrassed",
+                Clip = "embarrassed",
+                Emotion = Emotion.Embarrassed,
+                Intensity = 0.6f,
+                Signal = "*Someone touches your face.*",
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = Kiss,
+                Label = "Kiss lips",
+                Expression = "kiss",
+                Clip = "kiss",
+                Emotion = Emotion.Happy,
+                Intensity = 0.8f,
+                Signal = "*Someone kisses you.*",
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = HoldHand,
+                Label = "Hold hand",
+                Expression = "shy",
+                Clip = "hold_hand",
+                Emotion = Emotion.Shy,
+                Intensity = 0.6f,
+                Signal = "*Someone takes your hand and holds it.*",
+                Hold = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = LetGo,
+                Label = "Let go",
+                Expression = "smile",
+                Clip = "happy",
+                Emotion = Emotion.Happy,
+                Intensity = 0.45f,
+                Signal = "*Someone lets go of your hand.*",
+                Release = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = TouchShoulder,
+                Label = "Touch shoulder",
+                Expression = "concerned",
+                Clip = "concerned",
+                Emotion = Emotion.Concerned,
+                Intensity = 0.4f,
+                Signal = "*Someone touches your shoulder.*",
+            },
+        };
+
+        public static AvatarInteractionDefinition Find(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                return null;
+            var token = id.Trim().ToLowerInvariant();
+            for (var i = 0; i < All.Count; i++)
+            {
+                if (string.Equals(All[i].Id, token, StringComparison.Ordinal))
+                    return All[i];
+            }
+
+            return null;
+        }
+
+        public static bool IsHold(string id)
+        {
+            var item = Find(id);
+            return item != null && item.Hold;
+        }
+
+        public static bool IsRelease(string id)
+        {
+            var item = Find(id);
+            return item != null && item.Release;
+        }
+    }
+}
