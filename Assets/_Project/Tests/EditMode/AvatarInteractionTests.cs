@@ -7,9 +7,9 @@ namespace AICompanion.Tests.EditMode
     public sealed class AvatarInteractionTests
     {
         [Test]
-        public void Catalog_HasAllTwelveActions()
+        public void Catalog_HasAllThirteenActions()
         {
-            Assert.AreEqual(12, AvatarInteractionCatalog.All.Count);
+            Assert.AreEqual(13, AvatarInteractionCatalog.All.Count);
             Assert.IsNotNull(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.PatHead));
             Assert.IsNotNull(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.StrokeHair));
             Assert.IsNotNull(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.CupCheek));
@@ -48,6 +48,7 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchButt).Adult);
             Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchButt).BackOnly);
             Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.FingerMouth).Adult);
+            Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchThigh).Adult);
         }
     }
 }
