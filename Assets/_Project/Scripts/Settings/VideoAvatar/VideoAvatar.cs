@@ -839,35 +839,40 @@ namespace AICompanion.Settings
                 x = 1f - x;
 
             // Lips: a small centred target inside the face.
-            if (x >= 0.43f && x <= 0.57f && y >= 0.82f && y <= 0.90f)
+            if (x >= 0.40f && x <= 0.60f && y >= 0.80f && y <= 0.92f)
             {
                 part = BodyPart.Lips;
+                Debug.Log("Touch zone: lips x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
                 return true;
             }
 
             // Face/cheeks, then the head and hair.
-            if (x >= 0.30f && x <= 0.70f && y >= 0.76f && y <= 0.94f)
+            if (x >= 0.34f && x <= 0.66f && y >= 0.78f && y <= 0.94f)
             {
                 part = BodyPart.Face;
+                Debug.Log("Touch zone: face x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
                 return true;
             }
 
             // Hands are broad left/right side regions; shoulders sit above them.
-            if (y >= 0.33f && y <= 0.66f && (x <= 0.27f || x >= 0.73f))
+            if (y >= 0.30f && y <= 0.62f && (x <= 0.36f || x >= 0.64f))
             {
                 part = BodyPart.Hands;
+                Debug.Log("Touch zone: hands x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
                 return true;
             }
 
-            if (y >= 0.60f && y <= 0.72f && x >= 0.16f && x <= 0.84f)
+            if (y >= 0.58f && y <= 0.74f && x >= 0.18f && x <= 0.82f)
             {
                 part = BodyPart.Shoulder;
+                Debug.Log("Touch zone: shoulder x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
                 return true;
             }
 
-            if (x >= 0.20f && x <= 0.80f && y >= 0.70f)
+            if (x >= 0.18f && x <= 0.82f && y >= 0.70f)
             {
                 part = BodyPart.Head;
+                Debug.Log("Touch zone: head x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
                 return true;
             }
 
