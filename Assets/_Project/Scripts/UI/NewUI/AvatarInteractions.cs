@@ -20,6 +20,22 @@ namespace AICompanion.UI
         IAvatarInteractionTarget _target;
         bool _resolved;
         bool _holding;
+        string _heldExpression;
+        float _heldUntil;
+
+        void LateUpdate()
+        {
+            if (string.IsNullOrEmpty(_heldExpression) || Time.unscaledTime >= _heldUntil)
+                return;
+            if (!_resolved || _hint == null)
+                Resolve();
+            if (_hint != null)
+            {
+                // ExpressionHold clears a non-speaking portrait almost immediately. Keep the
+                // explicit touch expression alive for the interaction's short beat.
+                _hint.ExpressionName = _heldExpression;
+            }
+        }
 
         public bool IsHolding
         {
@@ -147,6 +163,9 @@ namespace AICompanion.UI
             // interaction, so keep its portrait expression at least for this frame.
             if (_hint != null)
                 _hint.ExpressionName = item.Expression;
+
+            _heldExpression = item.Expression;
+            _heldUntil = Time.unscaledTime + (item.Id == AvatarInteractionCatalog.FingerMouth ? 2.8f : 2.2f);
 
             Debug.Log("Interaction: " + item.Id + " expression=" + item.Expression
                 + " director=" + (_director != null) + " hint=" + (_hint != null) + " target=" + (_target != null));
