@@ -189,6 +189,8 @@ namespace AICompanion.Settings
                     return TryReaction("happy");
                 case "touch_shoulder":
                     return TryReaction("concerned");
+                case "touch_breast":
+                    return TryReaction("flustered");
                 default:
                     return false;
             }
@@ -860,6 +862,13 @@ namespace AICompanion.Settings
             {
                 part = BodyPart.Hands;
                 Debug.Log("Touch zone: hands x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
+                return true;
+            }
+
+            if (y >= 0.56f && y <= 0.70f && x >= 0.30f && x <= 0.70f && IntimateExpressions.Active)
+            {
+                part = BodyPart.Chest;
+                Debug.Log("Touch zone: chest x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
                 return true;
             }
 

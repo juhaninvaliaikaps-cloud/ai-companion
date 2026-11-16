@@ -12,6 +12,7 @@ namespace AICompanion.Core
         Cheeks = 4,
         Face = 5,
         Shoulder = 6,
+        Chest = 7,
     }
 
     /// <summary>

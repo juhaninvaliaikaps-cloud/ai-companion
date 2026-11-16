@@ -11,16 +11,16 @@ namespace AICompanion.Tests.EditMode
     public sealed class RadialWheelTests
     {
         [Test]
-        public void MainWheel_HasTheSevenInteractionSlicesInFixedOrder()
+        public void MainWheel_HasTheEightInteractionSlicesInFixedOrder()
         {
             CollectionAssert.AreEqual(
-                new[] { "settings", "talk", "profile", "watch_screen", "persona", "interactions", "pause" },
+                new[] { "settings", "talk", "profile", "watch_screen", "persona", "interactions", "intimate", "pause" },
                 MainWheel.Order);
             var labels = new List<string>();
             foreach (var id in MainWheel.Order)
                 labels.Add(MainWheel.Label(id, false, true));
             CollectionAssert.AreEqual(
-                new[] { "Settings", "Hide chat", "Profile", "Watch my screen", "Persona", "Interactions", "Pause her" },
+                new[] { "Settings", "Hide chat", "Profile", "Watch my screen", "Persona", "Interactions", "18+", "Pause her" },
                 labels);
         }
 

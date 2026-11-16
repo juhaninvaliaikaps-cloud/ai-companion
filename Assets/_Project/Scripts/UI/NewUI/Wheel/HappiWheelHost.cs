@@ -422,6 +422,7 @@ namespace AICompanion.NewUI.Wheel
                     Label = MainWheel.Label(id, paused, chatVisible),
                     Enabled = gate.Enabled,
                     DisabledReason = gate.Reason,
+                    RequiresIntimateGate = id == MainWheel.Intimate,
                     OnChoose = MainAction(id, paused, chatVisible)
                 });
             }
@@ -450,6 +451,8 @@ namespace AICompanion.NewUI.Wheel
                     return () => Push(BuildPersona);
                 case MainWheel.Interactions:
                     return () => Push(BuildInteractions);
+                case MainWheel.Intimate:
+                    return () => Push(BuildIntimate);
                 case MainWheel.Pause:
                     return () => Do(() => _settings.Presenter.SetPaused(!paused));
                 default:
@@ -599,6 +602,8 @@ namespace AICompanion.NewUI.Wheel
             for (var i = 0; i < items.Count; i++)
             {
                 var item = items[i];
+                if (item.Adult)
+                    continue;
                 var available = _interactions != null && _interactions.CanRun(item.Id);
                 definition.Slices.Add(new WheelSlice
                 {
@@ -606,6 +611,31 @@ namespace AICompanion.NewUI.Wheel
                     Label = item.Label,
                     Enabled = available,
                     DisabledReason = item.Release ? "You are not holding her hand." : "She cannot do that right now.",
+                    OnChoose = () => Do(() =>
+                    {
+                        if (_interactions != null)
+                            _interactions.Run(item.Id);
+                    })
+                });
+            }
+
+            return definition;
+        }
+
+        /// <summary>The 18+ wheel. It only exists while the intimate gate is open.</summary>
+        WheelDefinition BuildIntimate()
+        {
+            var definition = Sub("18+");
+            var item = AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchBreast);
+            if (item != null)
+            {
+                definition.Slices.Add(new WheelSlice
+                {
+                    Id = item.Id,
+                    Label = item.Label,
+                    Enabled = _interactions != null && _interactions.CanRun(item.Id),
+                    DisabledReason = "Turn on Private mode and the adult portrait set first.",
+                    RequiresIntimateGate = true,
                     OnChoose = () => Do(() =>
                     {
                         if (_interactions != null)
@@ -631,6 +661,8 @@ namespace AICompanion.NewUI.Wheel
                     return PartWheel("Face", AvatarInteractionCatalog.CupCheek, AvatarInteractionCatalog.TouchFace);
                 case BodyPart.Shoulder:
                     return PartWheel("Shoulder", AvatarInteractionCatalog.TouchShoulder);
+                case BodyPart.Chest:
+                    return PartWheel("18+", AvatarInteractionCatalog.TouchBreast);
                 default:
                     return Sub("Touch");
             }

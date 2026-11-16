@@ -18,6 +18,8 @@ namespace AICompanion.Core
         public string Signal = string.Empty;
         public bool Hold;
         public bool Release;
+        /// <summary>Requires the 18+ gate (Private mode and the adult portrait set).</summary>
+        public bool Adult;
     }
 
     /// <summary>
@@ -34,6 +36,7 @@ namespace AICompanion.Core
         public const string HoldHand = "hold_hand";
         public const string LetGo = "let_go";
         public const string TouchShoulder = "touch_shoulder";
+        public const string TouchBreast = "touch_breast";
 
         public static readonly IReadOnlyList<AvatarInteractionDefinition> All = new[]
         {
@@ -118,6 +121,17 @@ namespace AICompanion.Core
                 Emotion = Emotion.Concerned,
                 Intensity = 0.4f,
                 Signal = "*Someone touches your shoulder.*",
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = TouchBreast,
+                Label = "Touch breast",
+                Expression = "flustered",
+                Clip = "touch_breast",
+                Emotion = Emotion.Flustered,
+                Intensity = 0.7f,
+                Signal = "*Someone cups your breast.*",
+                Adult = true,
             },
         };
 

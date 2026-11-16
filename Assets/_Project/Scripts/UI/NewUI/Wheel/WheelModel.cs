@@ -67,6 +67,7 @@ namespace AICompanion.NewUI.Wheel
         public const string WatchScreen = "watch_screen";
         public const string Persona = "persona";
         public const string Interactions = "interactions";
+        public const string Intimate = "intimate";
         public const string Pause = "pause";
 
         /// <summary>No longer on the wheel (JUH-121); kept for the mood gate rule and its tests.</summary>
@@ -74,7 +75,7 @@ namespace AICompanion.NewUI.Wheel
 
         public static readonly IReadOnlyList<string> Order = new[]
         {
-            Settings, Talk, Profile, WatchScreen, Persona, Interactions, Pause,
+            Settings, Talk, Profile, WatchScreen, Persona, Interactions, Intimate, Pause,
         };
 
         /// <summary>The slice's label. <paramref name="chatVisible"/> and <paramref name="paused"/> say what clicking will do.</summary>
@@ -94,6 +95,8 @@ namespace AICompanion.NewUI.Wheel
                     return "Persona";
                 case Interactions:
                     return "Interactions";
+                case Intimate:
+                    return "18+";
                 case Pause:
                     return paused ? "Resume her" : "Pause her";
                 default:

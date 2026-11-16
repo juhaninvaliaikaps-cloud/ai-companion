@@ -90,6 +90,8 @@ namespace AICompanion.UI
             var item = AvatarInteractionCatalog.Find(id);
             if (item == null)
                 return false;
+            if (item.Adult && !IntimateExpressions.Active)
+                return false;
             return _holding ? item.Release : !item.Release;
         }
 
