@@ -251,8 +251,9 @@ namespace AICompanion.Overlay
                 _turntable = GetComponent<IAvatarTurntable>();
 
             bool toggle = AvatarRotateMode.ShouldToggle(rightDown, onSilhouette, overUi);
-            // JUH-104: with the new UI on, right-click on her opens the radial wheel instead
-            // (Shift+right-click still rotates). Without a handler this is always false.
+            // JUH-104/JUH-101: with the new UI on, right-click opens the wheel or a body touch
+            // menu. Rotate mode is no longer used with the 2D portrait. Without a handler this
+            // is always false.
             if (toggle && !_rotating && AvatarContextMenu.TryOpen(unityScreen))
                 toggle = false;
             _rotating = AvatarRotateMode.Next(_rotating, toggle, Input.GetKeyDown(KeyCode.Escape));

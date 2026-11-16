@@ -301,7 +301,7 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(Contains(notes, "Happi"));
             Assert.IsFalse(Contains(notes, "Catgirl"));
             Assert.IsTrue(Contains(notes, "Drag"));
-            Assert.IsTrue(Contains(notes, "rotate"));
+            Assert.IsTrue(Contains(notes, "right-click"));
             var hotkeys = SetupWizardFlow.TourHotkeys("F11");
             Assert.IsTrue(HasKey(hotkeys, "F6"));
             Assert.IsTrue(HasKey(hotkeys, "F7"));

@@ -27,7 +27,7 @@ namespace AICompanion.Settings
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(215)]
-    public sealed class VideoAvatar : MonoBehaviour, IOverlayKeepAwake, IAvatarReactions, IAvatarInteractionTarget
+    public sealed class VideoAvatar : MonoBehaviour, IOverlayKeepAwake, IAvatarReactions, IAvatarInteractionTarget, IBodyHitZones
     {
         const string ShaderResource = "VideoAvatar";
         const float RetrySeconds = 2f;
@@ -817,6 +817,61 @@ namespace AICompanion.Settings
         {
             head = _portraitHead;
             return _portraitHeadKnown && _state == VideoAvatarState.Playing;
+        }
+
+        /// <summary>
+        /// JUH-101: right-click body hit zones. Coordinates are normalised inside the visible
+        /// video rectangle, with lips and face above the head so a kiss click wins. The zones
+        /// are deliberately generous for hands and shoulders; a hand can move between clips.
+        /// </summary>
+        public bool TryHit(Vector2 unityScreen, out BodyPart part, out Vector2 anchor)
+        {
+            part = BodyPart.None;
+            anchor = unityScreen;
+            if (_state != VideoAvatarState.Playing || _bodyRect.width <= 0f || _bodyRect.height <= 0f)
+                return false;
+
+            var x = (unityScreen.x - _bodyRect.x) / _bodyRect.width;
+            var y = (unityScreen.y - _bodyRect.y) / _bodyRect.height;
+            if (x < 0f || x > 1f || y < 0f || y > 1f)
+                return false;
+            if (_shownMirrored)
+                x = 1f - x;
+
+            // Lips: a small centred target inside the face.
+            if (x >= 0.43f && x <= 0.57f && y >= 0.82f && y <= 0.90f)
+            {
+                part = BodyPart.Lips;
+                return true;
+            }
+
+            // Face/cheeks, then the head and hair.
+            if (x >= 0.30f && x <= 0.70f && y >= 0.76f && y <= 0.94f)
+            {
+                part = BodyPart.Face;
+                return true;
+            }
+
+            // Hands are broad left/right side regions; shoulders sit above them.
+            if (y >= 0.33f && y <= 0.66f && (x <= 0.27f || x >= 0.73f))
+            {
+                part = BodyPart.Hands;
+                return true;
+            }
+
+            if (y >= 0.60f && y <= 0.72f && x >= 0.16f && x <= 0.84f)
+            {
+                part = BodyPart.Shoulder;
+                return true;
+            }
+
+            if (x >= 0.20f && x <= 0.80f && y >= 0.70f)
+            {
+                part = BodyPart.Head;
+                return true;
+            }
+
+            return false;
         }
 
         void Place(CompanionSettings settings)

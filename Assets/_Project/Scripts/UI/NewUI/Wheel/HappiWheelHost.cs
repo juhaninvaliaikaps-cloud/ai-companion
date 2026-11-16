@@ -76,7 +76,7 @@ namespace AICompanion.NewUI.Wheel
                 _interactions = gameObject.AddComponent<AvatarInteractions>();
             AvatarContextMenu.Handler = OnRightClickOnHer;
             _attached = true;
-            Debug.Log("New UI: radial wheel on (right-click her; Shift+right-click rotates)");
+            Debug.Log("New UI: radial wheel on (right-click head, Shift+right-click anywhere; body zones are quick touch)");
         }
 
         public void Detach()
@@ -101,34 +101,62 @@ namespace AICompanion.NewUI.Wheel
         /// <summary>Called by the overlay for a right-click on a visible pixel of her.</summary>
         bool OnRightClickOnHer(Vector2 unityScreen)
         {
-            if (!_attached || ModifierKeys.ShiftHeld())
+            if (!_attached)
                 return false;
 
-            _clickPoint = unityScreen;
-            _back.Clear();
-            Vector2 anchor;
-            var part = BodyPartWheels.Resolve(unityScreen, out anchor);
-            if (part != null)
+            // Shift is the fallback full wheel; it used to be rotate mode, which the 2D
+            // portrait does not need.
+            if (ModifierKeys.ShiftHeld())
             {
-                _partWheel = true;
-                _partAnchor = anchor;
-                Show(() => part);
-            }
-            else
-            {
-                _partWheel = false;
-                Show(BuildMain);
+                OpenAt(unityScreen, false, BuildMain);
+                return true;
             }
 
+            EnsureHitZones();
+            var zones = BodyPartWheels.HitZones;
+            BodyPart part;
+            Vector2 anchor;
+            if (zones == null || !zones.TryHit(unityScreen, out part, out anchor))
+                return false;
+
+            if (part == BodyPart.Head)
+                OpenAt(unityScreen, false, BuildMain);
+            else
+                OpenAt(anchor, true, () => BuildPartWheel(part));
+            return true;
+        }
+
+        void OpenAt(Vector2 click, bool partWheel, Func<WheelDefinition> build)
+        {
+            _clickPoint = click;
+            _back.Clear();
+            _partWheel = partWheel;
+            _partAnchor = click;
+            Show(build);
             _open = true;
             _leftWas = true;
             _rightWas = true;
             _pressed = NoPress;
-            Debug.Log("Wheel: opened " + (_partWheel ? "body-part wheel" : "main wheel"));
+            Debug.Log("Wheel: opened " + (partWheel ? "body-part wheel" : "main wheel"));
             var typing = GetComponent<ITypingFocus>();
             if (typing != null)
                 typing.FocusForTyping();
-            return true;
+        }
+
+        void EnsureHitZones()
+        {
+            if (BodyPartWheels.HitZones != null)
+                return;
+            var behaviours = GetComponents<MonoBehaviour>();
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                var zones = behaviours[i] as IBodyHitZones;
+                if (zones != null)
+                {
+                    BodyPartWheels.HitZones = zones;
+                    return;
+                }
+            }
         }
 
         void Update()
@@ -383,7 +411,7 @@ namespace AICompanion.NewUI.Wheel
             var paused = settings != null && settings.Paused;
             var chatVisible = _chat != null && _chat.ChatVisible;
             var personaId = settings != null ? settings.PersonaId : string.Empty;
-            var definition = new WheelDefinition { CenterLabel = HappiNames.Companion(_settings), CenterHint = "right-click" };
+            var definition = new WheelDefinition { CenterLabel = HappiNames.Companion(_settings), CenterHint = "head / Shift+right-click" };
             for (var i = 0; i < MainWheel.Order.Count; i++)
             {
                 var id = MainWheel.Order[i];
@@ -571,6 +599,51 @@ namespace AICompanion.NewUI.Wheel
             for (var i = 0; i < items.Count; i++)
             {
                 var item = items[i];
+                var available = _interactions != null && _interactions.CanRun(item.Id);
+                definition.Slices.Add(new WheelSlice
+                {
+                    Id = item.Id,
+                    Label = item.Label,
+                    Enabled = available,
+                    DisabledReason = item.Release ? "You are not holding her hand." : "She cannot do that right now.",
+                    OnChoose = () => Do(() =>
+                    {
+                        if (_interactions != null)
+                            _interactions.Run(item.Id);
+                    })
+                });
+            }
+
+            return definition;
+        }
+
+        /// <summary>The local wheel for a body zone. The head uses the full wheel instead.</summary>
+        WheelDefinition BuildPartWheel(BodyPart part)
+        {
+            switch (part)
+            {
+                case BodyPart.Hands:
+                    return PartWheel("Hands", AvatarInteractionCatalog.HoldHand, AvatarInteractionCatalog.LetGo);
+                case BodyPart.Lips:
+                    return PartWheel("Lips", AvatarInteractionCatalog.Kiss);
+                case BodyPart.Face:
+                case BodyPart.Cheeks:
+                    return PartWheel("Face", AvatarInteractionCatalog.CupCheek, AvatarInteractionCatalog.TouchFace);
+                case BodyPart.Shoulder:
+                    return PartWheel("Shoulder", AvatarInteractionCatalog.TouchShoulder);
+                default:
+                    return Sub("Touch");
+            }
+        }
+
+        WheelDefinition PartWheel(string title, params string[] ids)
+        {
+            var definition = Sub(title);
+            for (var i = 0; i < ids.Length; i++)
+            {
+                var item = AvatarInteractionCatalog.Find(ids[i]);
+                if (item == null)
+                    continue;
                 var available = _interactions != null && _interactions.CanRun(item.Id);
                 definition.Slices.Add(new WheelSlice
                 {

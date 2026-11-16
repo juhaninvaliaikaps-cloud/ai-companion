@@ -327,7 +327,7 @@ namespace AICompanion.Settings
             return new[]
             {
                 "The tray icon shows and hides " + AppName.Display + ". Right-click it for chat, settings, pause, and quit.",
-                "Drag a visible pixel to move the window. Right-click a visible pixel to turn rotate mode on. R resets that rotation. Esc leaves rotate mode.",
+                "Drag a visible pixel to move the window. Right-click her head for the interaction menu, or Shift+right-click her for the same menu. Right-click a hand, lips or face for a quick touch.",
                 "These keys match Settings, Controls. " + HotkeyCatalog.RebindNote
             };
         }
