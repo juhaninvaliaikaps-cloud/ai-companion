@@ -626,15 +626,26 @@ namespace AICompanion.NewUI.Wheel
         WheelDefinition BuildIntimate()
         {
             var definition = Sub("18+");
-            var item = AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchBreast);
-            if (item != null)
+            var ids = new[]
             {
+                AvatarInteractionCatalog.TouchBreast,
+                AvatarInteractionCatalog.TouchVagina,
+                AvatarInteractionCatalog.TouchButt,
+                AvatarInteractionCatalog.FingerMouth,
+            };
+            for (var i = 0; i < ids.Length; i++)
+            {
+                var item = AvatarInteractionCatalog.Find(ids[i]);
+                if (item == null)
+                    continue;
+                var backOnly = item.Id == AvatarInteractionCatalog.TouchButt;
+                var canRun = _interactions != null && _interactions.CanRun(item.Id);
                 definition.Slices.Add(new WheelSlice
                 {
                     Id = item.Id,
                     Label = item.Label,
-                    Enabled = _interactions != null && _interactions.CanRun(item.Id),
-                    DisabledReason = "Turn on Private mode and the adult portrait set first.",
+                    Enabled = canRun,
+                    DisabledReason = backOnly ? "Turn her around first." : "Turn on Private mode and the adult portrait set first.",
                     RequiresIntimateGate = true,
                     OnChoose = () => Do(() =>
                     {
@@ -655,7 +666,7 @@ namespace AICompanion.NewUI.Wheel
                 case BodyPart.Hands:
                     return PartWheel("Hands", AvatarInteractionCatalog.HoldHand, AvatarInteractionCatalog.LetGo);
                 case BodyPart.Lips:
-                    return PartWheel("Lips", AvatarInteractionCatalog.Kiss);
+                    return PartWheel("Lips", AvatarInteractionCatalog.Kiss, AvatarInteractionCatalog.FingerMouth);
                 case BodyPart.Face:
                 case BodyPart.Cheeks:
                     return PartWheel("Face", AvatarInteractionCatalog.CupCheek, AvatarInteractionCatalog.TouchFace);
@@ -663,6 +674,10 @@ namespace AICompanion.NewUI.Wheel
                     return PartWheel("Shoulder", AvatarInteractionCatalog.TouchShoulder);
                 case BodyPart.Chest:
                     return PartWheel("18+", AvatarInteractionCatalog.TouchBreast);
+                case BodyPart.Crotch:
+                    return PartWheel("18+", AvatarInteractionCatalog.TouchVagina);
+                case BodyPart.Butt:
+                    return PartWheel("18+", AvatarInteractionCatalog.TouchButt);
                 default:
                     return Sub("Touch");
             }

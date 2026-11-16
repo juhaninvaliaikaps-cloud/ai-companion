@@ -7,6 +7,9 @@ namespace AICompanion.Core
     /// </summary>
     public interface IAvatarInteractionTarget
     {
+        /// <summary>True while the avatar is showing its back view.</summary>
+        bool IsBackView { get; }
+
         /// <summary>Plays the interaction's visual reaction, if it has one. False when not available.</summary>
         bool TryPlayInteraction(string interactionId);
     }

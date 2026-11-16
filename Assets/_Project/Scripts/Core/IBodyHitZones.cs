@@ -13,6 +13,8 @@ namespace AICompanion.Core
         Face = 5,
         Shoulder = 6,
         Chest = 7,
+        Crotch = 8,
+        Butt = 9,
     }
 
     /// <summary>

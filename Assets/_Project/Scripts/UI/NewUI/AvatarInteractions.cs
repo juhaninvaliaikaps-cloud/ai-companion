@@ -92,6 +92,8 @@ namespace AICompanion.UI
                 return false;
             if (item.Adult && !IntimateExpressions.Active)
                 return false;
+            if (item.BackOnly && (_target == null || !_target.IsBackView))
+                return false;
             return _holding ? item.Release : !item.Release;
         }
 

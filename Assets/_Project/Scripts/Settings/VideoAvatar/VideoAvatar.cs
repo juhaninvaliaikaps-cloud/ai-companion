@@ -108,6 +108,28 @@ namespace AICompanion.Settings
             get { return _director != null ? _director.Act : VideoAvatarAct.Idle; }
         }
 
+        /// <summary>The clip currently on screen, empty before the first clip.</summary>
+        public string CurrentClipName
+        {
+            get
+            {
+                if (_set == null || _shown < 0 || _set.Clips == null || _shown >= _set.Clips.Count)
+                    return string.Empty;
+                return _set.Clips[_shown].Name ?? string.Empty;
+            }
+        }
+
+        /// <summary>True while the back-view idle or the turn-around clip is showing.</summary>
+        public bool IsBackView
+        {
+            get
+            {
+                var name = CurrentClipName;
+                return name.IndexOf("back", StringComparison.OrdinalIgnoreCase) >= 0
+                    || name.IndexOf("turn_around", StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+        }
+
         /// <summary>
         /// Clip changes need the full frame rate. The default idle does not, so the overlay
         /// may drop to its idle rate while she only stands.
@@ -190,6 +212,12 @@ namespace AICompanion.Settings
                 case "touch_shoulder":
                     return TryReaction("concerned");
                 case "touch_breast":
+                    return TryReaction("flustered");
+                case "touch_vagina":
+                    return TryReaction("flustered");
+                case "touch_butt":
+                    return TryReaction("embarrassed");
+                case "finger_mouth":
                     return TryReaction("flustered");
                 default:
                     return false;
@@ -865,10 +893,26 @@ namespace AICompanion.Settings
                 return true;
             }
 
-            if (y >= 0.56f && y <= 0.70f && x >= 0.30f && x <= 0.70f && IntimateExpressions.Active)
+            if (y >= 0.56f && y <= 0.70f && x >= 0.30f && x <= 0.70f && IntimateExpressions.Active && !IsBackView)
             {
                 part = BodyPart.Chest;
                 Debug.Log("Touch zone: chest x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
+                return true;
+            }
+
+            if (IntimateExpressions.Active && IsBackView
+                && y >= 0.28f && y <= 0.60f && x >= 0.32f && x <= 0.68f)
+            {
+                part = BodyPart.Butt;
+                Debug.Log("Touch zone: butt x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
+                return true;
+            }
+
+            if (IntimateExpressions.Active && !IsBackView
+                && y >= 0.24f && y <= 0.48f && x >= 0.34f && x <= 0.66f)
+            {
+                part = BodyPart.Crotch;
+                Debug.Log("Touch zone: crotch x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
                 return true;
             }
 

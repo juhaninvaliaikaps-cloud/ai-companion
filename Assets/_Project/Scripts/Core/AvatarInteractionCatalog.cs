@@ -20,6 +20,8 @@ namespace AICompanion.Core
         public bool Release;
         /// <summary>Requires the 18+ gate (Private mode and the adult portrait set).</summary>
         public bool Adult;
+        /// <summary>Only offered while the back-view clip is showing.</summary>
+        public bool BackOnly;
     }
 
     /// <summary>
@@ -37,6 +39,9 @@ namespace AICompanion.Core
         public const string LetGo = "let_go";
         public const string TouchShoulder = "touch_shoulder";
         public const string TouchBreast = "touch_breast";
+        public const string TouchVagina = "touch_vagina";
+        public const string TouchButt = "touch_butt";
+        public const string FingerMouth = "finger_mouth";
 
         public static readonly IReadOnlyList<AvatarInteractionDefinition> All = new[]
         {
@@ -131,6 +136,40 @@ namespace AICompanion.Core
                 Emotion = Emotion.Flustered,
                 Intensity = 0.7f,
                 Signal = "*Someone cups your breast.*",
+                Adult = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = TouchVagina,
+                Label = "Touch vagina",
+                Expression = "flustered",
+                Clip = "touch_vagina",
+                Emotion = Emotion.Flustered,
+                Intensity = 0.8f,
+                Signal = "*Someone touches your vagina.*",
+                Adult = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = TouchButt,
+                Label = "Touch butt",
+                Expression = "embarrassed",
+                Clip = "touch_butt",
+                Emotion = Emotion.Embarrassed,
+                Intensity = 0.7f,
+                Signal = "*Someone touches your butt.*",
+                Adult = true,
+                BackOnly = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = FingerMouth,
+                Label = "Finger in mouth",
+                Expression = "flustered",
+                Clip = "finger_mouth",
+                Emotion = Emotion.Flustered,
+                Intensity = 0.7f,
+                Signal = "*Someone slides a finger into your mouth.*",
                 Adult = true,
             },
         };
