@@ -838,17 +838,17 @@ namespace AICompanion.Settings
             if (_shownMirrored)
                 x = 1f - x;
 
-            // Lips: the mouth sits low on the drawn face; keep this generous enough that a
-            // click on the lips is not swallowed by the face zone.
-            if (x >= 0.38f && x <= 0.62f && y >= 0.76f && y <= 0.90f)
+            // Lips: only the small mouth area. The rest of the head must keep the full wheel.
+            if (x >= 0.45f && x <= 0.55f && y >= 0.78f && y <= 0.85f)
             {
                 part = BodyPart.Lips;
                 Debug.Log("Touch zone: lips x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
                 return true;
             }
 
-            // Face/cheeks, then the head and hair.
-            if (x >= 0.34f && x <= 0.66f && y >= 0.78f && y <= 0.94f)
+            // The cheeks are the side-of-face shortcut. The centre of the face, forehead and
+            // hair stay with the head so the full interaction wheel remains reachable.
+            if (y >= 0.78f && y <= 0.92f && ((x >= 0.30f && x <= 0.43f) || (x >= 0.57f && x <= 0.70f)))
             {
                 part = BodyPart.Face;
                 Debug.Log("Touch zone: face x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
