@@ -165,7 +165,7 @@ namespace AICompanion.Core
             {
                 Id = FingerMouth,
                 Label = "Finger in mouth",
-                Expression = "flustered",
+                Expression = "finger_suck",
                 Clip = "finger_mouth",
                 Emotion = Emotion.Flustered,
                 Intensity = 0.7f,

@@ -16,6 +16,7 @@ namespace AICompanion.UI
         readonly Queue<string> _signals = new Queue<string>(4);
         ChatPanel _chat;
         AnimationDirector.AnimationDirector _director;
+        IExpressionHint _hint;
         IAvatarInteractionTarget _target;
         bool _resolved;
         bool _holding;
@@ -40,6 +41,19 @@ namespace AICompanion.UI
                 _director = GetComponent<AnimationDirector.AnimationDirector>();
             if (_director == null)
                 _director = FindFirstObjectByType<AnimationDirector.AnimationDirector>();
+            if (_hint == null)
+            {
+                var allHints = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+                for (var i = 0; i < allHints.Length; i++)
+                {
+                    var candidate = allHints[i] as IExpressionHint;
+                    if (candidate != null)
+                    {
+                        _hint = candidate;
+                        break;
+                    }
+                }
+            }
             if (_target == null)
             {
                 var behaviours = GetComponents<MonoBehaviour>();
@@ -99,7 +113,7 @@ namespace AICompanion.UI
 
         public bool Run(string id)
         {
-            if (!_resolved || _chat == null || _target == null)
+            if (!_resolved || _chat == null || _target == null || (_director == null && _hint == null))
             {
                 _resolved = false;
                 Resolve();
@@ -122,6 +136,20 @@ namespace AICompanion.UI
                     0f,
                     item.Expression));
             }
+            else if (_hint != null)
+            {
+                // The portrait is driven by ExpressionName; without a director this keeps the
+                // 2D face working even if the avatar scene is still starting.
+                _hint.ExpressionName = item.Expression;
+            }
+
+            // The director may shade the cue by mood. A touch/kiss is an explicit local
+            // interaction, so keep its portrait expression at least for this frame.
+            if (_hint != null)
+                _hint.ExpressionName = item.Expression;
+
+            Debug.Log("Interaction: " + item.Id + " expression=" + item.Expression
+                + " director=" + (_director != null) + " hint=" + (_hint != null) + " target=" + (_target != null));
 
             if (_target != null)
                 _target.TryPlayInteraction(item.Id);
