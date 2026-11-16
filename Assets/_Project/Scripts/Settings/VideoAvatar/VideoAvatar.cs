@@ -838,8 +838,9 @@ namespace AICompanion.Settings
             if (_shownMirrored)
                 x = 1f - x;
 
-            // Lips: a small centred target inside the face.
-            if (x >= 0.40f && x <= 0.60f && y >= 0.80f && y <= 0.92f)
+            // Lips: the mouth sits low on the drawn face; keep this generous enough that a
+            // click on the lips is not swallowed by the face zone.
+            if (x >= 0.38f && x <= 0.62f && y >= 0.76f && y <= 0.90f)
             {
                 part = BodyPart.Lips;
                 Debug.Log("Touch zone: lips x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
@@ -855,7 +856,7 @@ namespace AICompanion.Settings
             }
 
             // Hands are broad left/right side regions; shoulders sit above them.
-            if (y >= 0.30f && y <= 0.62f && (x <= 0.36f || x >= 0.64f))
+            if (y >= 0.30f && y <= 0.62f && (x <= 0.40f || x >= 0.60f))
             {
                 part = BodyPart.Hands;
                 Debug.Log("Touch zone: hands x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
