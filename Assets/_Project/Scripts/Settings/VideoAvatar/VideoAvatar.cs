@@ -219,8 +219,6 @@ namespace AICompanion.Settings
                     return TryReaction("embarrassed");
                 case "finger_mouth":
                     return TryReaction("flustered");
-                case "touch_thigh":
-                    return TryReaction("flustered");
                 default:
                     return false;
             }
@@ -870,35 +868,35 @@ namespace AICompanion.Settings
             if (_shownMirrored)
                 x = 1f - x;
 
-            // Lips: the magenta mouth target.
-            if (x >= 0.44f && x <= 0.56f && y >= 0.84f && y <= 0.92f)
+            // Lips: only the small mouth area. The rest of the head must keep the full wheel.
+            if (x >= 0.45f && x <= 0.55f && y >= 0.78f && y <= 0.85f)
             {
                 part = BodyPart.Lips;
                 Debug.Log("Touch zone: lips x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
                 return true;
             }
 
-            // Breasts: the red central chest target.
-            if (IntimateExpressions.Active && y >= 0.72f && y <= 0.84f && x >= 0.34f && x <= 0.66f)
+            // The cheeks are the side-of-face shortcut. The centre of the face, forehead and
+            // hair stay with the head so the full interaction wheel remains reachable.
+            if (y >= 0.78f && y <= 0.92f && ((x >= 0.30f && x <= 0.43f) || (x >= 0.57f && x <= 0.70f)))
             {
-                part = BodyPart.Chest;
-                Debug.Log("Touch zone: breasts x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
+                part = BodyPart.Face;
+                Debug.Log("Touch zone: face x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
                 return true;
             }
 
-            // Arm/shoulder: the black oval on either side.
-            if (y >= 0.68f && y <= 0.82f && (x <= 0.30f || x >= 0.70f))
-            {
-                part = BodyPart.Shoulder;
-                Debug.Log("Touch zone: shoulder x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
-                return true;
-            }
-
-            // Hands: the cyan side targets.
-            if (y >= 0.42f && y <= 0.58f && (x <= 0.30f || x >= 0.70f))
+            // Hands are broad left/right side regions; shoulders sit above them.
+            if (y >= 0.30f && y <= 0.62f && (x <= 0.40f || x >= 0.60f))
             {
                 part = BodyPart.Hands;
                 Debug.Log("Touch zone: hands x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
+                return true;
+            }
+
+            if (y >= 0.56f && y <= 0.70f && x >= 0.30f && x <= 0.70f && IntimateExpressions.Active && !IsBackView)
+            {
+                part = BodyPart.Chest;
+                Debug.Log("Touch zone: chest x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
                 return true;
             }
 
@@ -910,21 +908,18 @@ namespace AICompanion.Settings
                 return true;
             }
 
-            // Vagina: the purple crotch target.
             if (IntimateExpressions.Active && !IsBackView
-                && y >= 0.50f && y <= 0.60f && x >= 0.42f && x <= 0.58f)
+                && y >= 0.42f && y <= 0.56f && x >= 0.38f && x <= 0.62f)
             {
                 part = BodyPart.Crotch;
                 Debug.Log("Touch zone: crotch x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
                 return true;
             }
 
-            // Thighs: the pink lower targets, below the crotch.
-            if (IntimateExpressions.Active && y >= 0.22f && y <= 0.48f
-                && ((x >= 0.28f && x <= 0.44f) || (x >= 0.56f && x <= 0.72f)))
+            if (y >= 0.58f && y <= 0.74f && x >= 0.18f && x <= 0.82f)
             {
-                part = BodyPart.Thighs;
-                Debug.Log("Touch zone: thighs x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
+                part = BodyPart.Shoulder;
+                Debug.Log("Touch zone: shoulder x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
                 return true;
             }
 

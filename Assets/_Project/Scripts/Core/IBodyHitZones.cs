@@ -15,7 +15,6 @@ namespace AICompanion.Core
         Chest = 7,
         Crotch = 8,
         Butt = 9,
-        Thighs = 10,
     }
 
     /// <summary>

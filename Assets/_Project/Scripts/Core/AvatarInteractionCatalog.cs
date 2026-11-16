@@ -42,7 +42,6 @@ namespace AICompanion.Core
         public const string TouchVagina = "touch_vagina";
         public const string TouchButt = "touch_butt";
         public const string FingerMouth = "finger_mouth";
-        public const string TouchThigh = "touch_thigh";
 
         public static readonly IReadOnlyList<AvatarInteractionDefinition> All = new[]
         {
@@ -171,17 +170,6 @@ namespace AICompanion.Core
                 Emotion = Emotion.Flustered,
                 Intensity = 0.7f,
                 Signal = "*Someone slides a finger into your mouth.*",
-                Adult = true,
-            },
-            new AvatarInteractionDefinition
-            {
-                Id = TouchThigh,
-                Label = "Touch thigh",
-                Expression = "flustered",
-                Clip = "touch_thigh",
-                Emotion = Emotion.Flustered,
-                Intensity = 0.6f,
-                Signal = "*Someone touches your thigh.*",
                 Adult = true,
             },
         };

@@ -632,7 +632,6 @@ namespace AICompanion.NewUI.Wheel
                 AvatarInteractionCatalog.TouchVagina,
                 AvatarInteractionCatalog.TouchButt,
                 AvatarInteractionCatalog.FingerMouth,
-                AvatarInteractionCatalog.TouchThigh,
             };
             for (var i = 0; i < ids.Length; i++)
             {
@@ -679,8 +678,6 @@ namespace AICompanion.NewUI.Wheel
                     return PartWheel("18+", AvatarInteractionCatalog.TouchVagina);
                 case BodyPart.Butt:
                     return PartWheel("18+", AvatarInteractionCatalog.TouchButt);
-                case BodyPart.Thighs:
-                    return PartWheel("18+", AvatarInteractionCatalog.TouchThigh);
                 default:
                     return Sub("Touch");
             }
