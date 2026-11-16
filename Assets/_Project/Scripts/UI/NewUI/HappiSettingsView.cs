@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using AICompanion.AI;
 using AICompanion.Core;
 using AICompanion.Overlay;
@@ -65,6 +66,7 @@ namespace AICompanion.NewUI
         bool _attached;
         bool _open;
         bool _rebuild;
+        string _openDropdown;
         bool _building;
         bool _focusClaimed;
         bool _framePreview;
@@ -253,6 +255,7 @@ namespace AICompanion.NewUI
                 _tabs.Add(HappiUiKit.Button(_panel, "Tab " + TabLabels[i], TabLabels[i], _theme.FontSmall, () =>
                 {
                     _tab = (Tab)index;
+                    _openDropdown = null;
                     _confirm.Cancel();
                     _framePreview = false;
                     _rebuild = true;
@@ -721,16 +724,16 @@ namespace AICompanion.NewUI
             Toggle(kokoro ? "Local voice: Kokoro (selected)" : "Use Kokoro locally", kokoro, v => Change(s => s.TtsProvider = v ? "kokoro" : "xai"));
             Toggle(chatterbox ? "Local voice: Chatterbox (selected)" : "Use Chatterbox locally", chatterbox, v => Change(s => s.TtsProvider = v ? "chatterbox" : "xai"));
             Field("Piper exe", S.PiperExe, false, v => Change(s => s.PiperExe = v));
-            Field("Piper voice model", S.PiperVoice, false, v => Change(s => s.PiperVoice = v));
+            Dropdown("Piper voice model", S.PiperVoice, PiperVoiceOptions(), FileLabel, v => Change(s => s.PiperVoice = v));
             Field("Kokoro python", S.KokoroPython, false, v => Change(s => s.KokoroPython = v));
             Field("Kokoro script", S.KokoroScript, false, v => Change(s => s.KokoroScript = v));
             Field("Kokoro model", S.KokoroModel, false, v => Change(s => s.KokoroModel = v));
             Field("Kokoro voices", S.KokoroVoices, false, v => Change(s => s.KokoroVoices = v));
-            Field("Kokoro voice", S.KokoroVoice, false, v => Change(s => s.KokoroVoice = v));
+            Dropdown("Kokoro voice", S.KokoroVoice, KokoroVoiceOptions(), v => v, v => Change(s => s.KokoroVoice = v));
             Field("Chatterbox python", S.ChatterboxPython, false, v => Change(s => s.ChatterboxPython = v));
             Field("Chatterbox script", S.ChatterboxScript, false, v => Change(s => s.ChatterboxScript = v));
             Field("Chatterbox voices folder", S.ChatterboxVoices, false, v => Change(s => s.ChatterboxVoices = v));
-            Field("Chatterbox voice", S.ChatterboxVoice, false, v => Change(s => s.ChatterboxVoice = v));
+            Dropdown("Chatterbox voice", S.ChatterboxVoice, ChatterboxVoiceOptions(false), v => v, v => Change(s => s.ChatterboxVoice = v));
             Field("Chatterbox device (auto/cuda/cpu)", S.ChatterboxDevice, false, v => Change(s => s.ChatterboxDevice = v));
             Note("Piper, Kokoro and Chatterbox speak offline with no API key. Chatterbox is slower but more expressive; it uses the GPU when device is cuda or auto.");
             Field("TTS language", S.TtsLanguage, false, v => Change(s => s.TtsLanguage = v));
@@ -744,7 +747,9 @@ namespace AICompanion.NewUI
                 Section("Voice for this persona");
                 Field("Piper voice id (local)", persona.PiperVoiceId, false, v => Save(id, p => p.PiperVoiceId = v));
                 Field("Kokoro voice id (local)", persona.KokoroVoiceId, false, v => Save(id, p => p.KokoroVoiceId = v));
-                Field("Chatterbox voice id (local)", persona.ChatterboxVoiceId, false, v => Save(id, p => p.ChatterboxVoiceId = v));
+                Dropdown("Chatterbox voice id (local)", persona.ChatterboxVoiceId, ChatterboxVoiceOptions(true),
+                    v => string.IsNullOrEmpty(v) ? "(same as above)" : v,
+                    v => Save(id, p => p.ChatterboxVoiceId = v));
                 Field("Cloud voice id (Grok)", persona.CloudVoiceId, false, v => Save(id, p => p.CloudVoiceId = v));
                 Note("Empty keeps the voice engine's voice above.");
             }
@@ -1479,6 +1484,111 @@ namespace AICompanion.NewUI
         static string StripMarks(string label)
         {
             return (label ?? string.Empty).Replace(" (selected)", string.Empty);
+        }
+
+        /// <summary>
+        /// A compact dropdown: a button with the current choice, then an inline list of the
+        /// options while it is open. Voices come from the folders the user already configured.
+        /// </summary>
+        void Dropdown(string caption, string value, IReadOnlyList<string> options, Func<string, string> optionLabel, Action<string> changed)
+        {
+            var shown = string.IsNullOrWhiteSpace(value) ? "(not set)" : optionLabel(value);
+            var button = Button(caption + ": " + shown + "  v", () =>
+            {
+                _openDropdown = string.Equals(_openDropdown, caption, StringComparison.Ordinal) ? null : caption;
+                _rebuild = true;
+            });
+            if (!string.Equals(_openDropdown, caption, StringComparison.Ordinal))
+                return;
+
+            if (options == null || options.Count == 0)
+            {
+                Note("No voices were found in the configured folder.");
+                return;
+            }
+
+            for (var i = 0; i < options.Count; i++)
+            {
+                var option = options[i];
+                var label = optionLabel(option);
+                Choice(label, string.Equals(option, value, StringComparison.OrdinalIgnoreCase), () =>
+                {
+                    _openDropdown = null;
+                    if (changed != null)
+                        changed(option);
+                    _rebuild = true;
+                });
+            }
+        }
+
+        List<string> PiperVoiceOptions()
+        {
+            var options = new List<string>();
+            var path = !string.IsNullOrWhiteSpace(S.PiperVoice) ? S.PiperVoice : S.PiperExe;
+            var folder = string.IsNullOrWhiteSpace(path) ? string.Empty : Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder))
+            {
+                var files = Directory.GetFiles(folder, "*.onnx");
+                for (var i = 0; i < files.Length; i++)
+                    options.Add(files[i]);
+            }
+
+            options.Sort(StringComparer.OrdinalIgnoreCase);
+            AddCurrent(options, S.PiperVoice);
+            return options;
+        }
+
+        List<string> KokoroVoiceOptions()
+        {
+            var options = new List<string>
+            {
+                "af_heart", "af_bella", "af_nicole", "af_sky",
+                "bf_emma", "bf_isabella", "bm_george", "bm_lewis",
+                "am_adam", "am_michael", "am_puck", "am_santa",
+                "hm_omega", "hm_psi", "jf_alpha", "jm_kumo",
+            };
+            AddCurrent(options, S.KokoroVoice);
+            return options;
+        }
+
+        List<string> ChatterboxVoiceOptions(bool includeEmpty)
+        {
+            var options = new List<string>();
+            if (includeEmpty)
+                options.Add(string.Empty);
+            var root = S.ChatterboxVoices;
+            if (!string.IsNullOrWhiteSpace(root) && Directory.Exists(root))
+            {
+                var folders = Directory.GetDirectories(root);
+                for (var i = 0; i < folders.Length; i++)
+                {
+                    var name = Path.GetFileName(folders[i]);
+                    if (File.Exists(Path.Combine(folders[i], "reference.wav")))
+                        options.Add(name);
+                }
+            }
+
+            options.Sort(StringComparer.OrdinalIgnoreCase);
+            AddCurrent(options, S.ChatterboxVoice);
+            return options;
+        }
+
+        static void AddCurrent(List<string> options, string current)
+        {
+            if (string.IsNullOrWhiteSpace(current))
+                return;
+            for (var i = 0; i < options.Count; i++)
+            {
+                if (string.Equals(options[i], current, StringComparison.OrdinalIgnoreCase))
+                    return;
+            }
+
+            options.Add(current);
+        }
+
+        static string FileLabel(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? "(none)" : Path.GetFileName(value);
         }
 
         /// <summary>A labelled on/off switch.</summary>
