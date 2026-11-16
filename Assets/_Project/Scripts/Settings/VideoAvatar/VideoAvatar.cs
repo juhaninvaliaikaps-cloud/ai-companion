@@ -909,7 +909,7 @@ namespace AICompanion.Settings
             }
 
             if (IntimateExpressions.Active && !IsBackView
-                && y >= 0.24f && y <= 0.48f && x >= 0.34f && x <= 0.66f)
+                && y >= 0.42f && y <= 0.56f && x >= 0.38f && x <= 0.62f)
             {
                 part = BodyPart.Crotch;
                 Debug.Log("Touch zone: crotch x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
