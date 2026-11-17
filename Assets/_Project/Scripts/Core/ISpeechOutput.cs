@@ -9,6 +9,9 @@ namespace AICompanion.Core
         public string ChatProviderId;
         public string Model;
         public bool Private;
+
+        /// <summary>The cloud chat base URL, so voice can tell an xAI endpoint from a non-xAI one.</summary>
+        public string BaseUrl;
     }
 
     /// <summary>

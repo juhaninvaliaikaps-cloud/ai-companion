@@ -124,10 +124,11 @@ namespace AICompanion.Voice
             return new SpeechOrigin
             {
                 ChatProviderId = chatSettings != null ? chatSettings.providerId : null,
-                Model = chatSettings != null && VoiceRoute.UsesCloudTts(PrivateMode(), chatSettings.providerId)
+                Model = chatSettings != null && VoiceRoute.UsesCloudTts(PrivateMode(), chatSettings.providerId, chatSettings.baseUrl)
                     ? chatSettings.model
                     : chatSettings != null ? chatSettings.localModel : null,
-                Private = PrivateMode()
+                Private = PrivateMode(),
+                BaseUrl = chatSettings != null ? chatSettings.baseUrl : string.Empty
             };
         }
 
@@ -374,7 +375,7 @@ namespace AICompanion.Voice
 
         static bool BlocksCloud(SpeechOrigin origin)
         {
-            return !VoiceRoute.UsesCloudTts(origin.Private, origin.ChatProviderId);
+            return !VoiceRoute.UsesCloudTts(origin.Private, origin.ChatProviderId, origin.BaseUrl);
         }
 
         async void RunSynthesis(TtsRequest request, int generation, int serial, CancellationToken token)
