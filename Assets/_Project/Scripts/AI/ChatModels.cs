@@ -80,6 +80,12 @@ namespace AICompanion.AI
         public bool SingleTurn;
         public bool Ephemeral;
         public bool BlockCloud;
+
+        /// <summary>This turn and its reply stay out of a later cloud request.</summary>
+        public bool LocalOnly;
+
+        /// <summary>Leave earlier local-only turns out of this request. Cloud chat sets this.</summary>
+        public bool OmitLocalOnly;
     }
 
     public enum ChatErrorKind
