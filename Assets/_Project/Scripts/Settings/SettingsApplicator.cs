@@ -39,7 +39,9 @@ namespace AICompanion.Settings
                 {
                     // Privacy still forces a local voice for a local or private chat, but an
                     // explicitly chosen local voice (Piper or Kokoro) is respected as is.
-                    var route = VoiceRoute.ProviderFor(settings.PrivateMode, settings.ProviderId);
+                    // The chat base URL is required: omitting it is treated as xAI, so a
+                    // DeepSeek, OpenRouter, or Groq setup would be written back to xAI TTS.
+                    var route = VoiceRoute.ProviderFor(settings.PrivateMode, settings.ProviderId, settings.BaseUrl);
                     if (string.Equals(settings.TtsProvider, PiperTtsProvider.Id, StringComparison.OrdinalIgnoreCase) ||
                         string.Equals(settings.TtsProvider, KokoroTtsProvider.Id, StringComparison.OrdinalIgnoreCase))
                     {
