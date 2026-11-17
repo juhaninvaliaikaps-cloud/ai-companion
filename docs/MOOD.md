@@ -131,9 +131,22 @@ A mood starts on its floor as soon as the temperament is set (load, switch, or p
 
 **Intimate** is never a baseline or a bias. A temperament's Intimate gain is used only while `IntimateExpressions.Active`. No preset touches Intimate.
 
-**Where it is stored.** The persona file stores the preset id (`"temperament": "tsundere"`), never numbers. Custom persona files are encrypted as before.
+**Where it is stored.** A named preset is still the preset id (`"temperament": "tsundere"`). A custom profile stores nine sliders in `temperamentAxes` (0 to 100, middle 50): Warmth, Volatility, Assertiveness, Playfulness, Openness, Energy, Directness, Confidence, Curiosity. Files written before the sliders have no `temperamentAxes`; they load the preset's point and the same mood numbers as before. Custom persona files stay encrypted.
 
-**Auto (JUH-118).** A user persona without a hand-picked preset takes its temperament from the character sheet the model reads from her description: one preset, or a blend of two (`Mood temperament: <persona> = blend`). A pick in persona settings overrides it, and built-in personas keep their preset. See [PISARA.md](PISARA.md).
+**Sliders (JUH-136 phase 1).** The six presets are named points on the sliders. Tsundere is high warmth and low directness. Picking a preset, or moving the sliders onto a preset's point, keeps that preset's authored gains, half-lives, baseline and rest bias. Any other point is generated:
+
+- Warmth raises affection and happiness, and lowers annoyance a little.
+- Volatility raises how fast annoyance, anxiety, sadness and fluster build, and how long they take to fade. The fade scale stops at 1.5, and a rest bias stops at 0.1, which is below the line where a mood stays on screen. The high end sulks or snaps, then recovers.
+- Assertiveness raises annoyance and lowers fluster and anxiety.
+- Playfulness and Energy raise happiness. Energy does not change animation.
+- Openness raises affection, sadness and fluster a little. It does not change how much she talks.
+- Directness, when it is low, hides affection and raises fluster and annoyance.
+- Confidence, when it is low, raises anxiety and fluster.
+- Curiosity is saved and shown. It does not change a mood in this phase.
+
+Intimate is still never a baseline, a bias, or a generated gain. Settings → Persona keeps Auto and the preset picks, and adds the nine sliders. Moving a slider is a manual profile and overrides Auto. There is no Sensuality, Attachment or Forgiveness slider, and no prompt or speaking-style change yet.
+
+**Auto (JUH-118, sliders in JUH-136).** A user persona without a hand-picked preset or custom sliders takes its temperament from the character sheet. A reading that sets the nine sliders (any of them off 50) uses those. Otherwise it is still one preset, or a blend of two (`Mood temperament: <persona> = blend`), and the sliders show that preset's point or the mix. A pick or a slider overrides it, and built-in personas keep their preset. See [PISARA.md](PISARA.md).
 - The built-ins: Leia (`friend`) is Cheerful; Rowan (`calm`) and Avery (`coach`) are Calm.
 - The setup name, a custom persona and an unknown id get Balanced.
 - In Settings → Persona, the **Temperament** buttons pick a preset. Picking one for a built-in saves a copy, like any other edit.

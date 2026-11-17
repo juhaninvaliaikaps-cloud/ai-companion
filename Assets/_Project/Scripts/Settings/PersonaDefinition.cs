@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Text;
 using AICompanion.AI;
+using AICompanion.Core;
 
 namespace AICompanion.Settings
 {
@@ -35,15 +36,21 @@ namespace AICompanion.Settings
 
         /// <summary>
         /// Temperament preset id (JUH-103 phase 3), such as "tsundere". Blank is the default
-        /// (balanced) temperament. See <see cref="AICompanion.Core.PersonaTemperaments"/>.
+        /// (balanced) temperament when <see cref="Axes"/> is null. See <see cref="PersonaTemperaments"/>.
         /// </summary>
         public string Temperament = string.Empty;
 
         /// <summary>
-        /// "auto" (the character sheet decides, JUH-118), "manual" (the preset above), or blank for
-        /// files from before this key: see <see cref="AICompanion.Core.TemperamentModes.IsManual"/>.
+        /// "auto" (the character sheet decides, JUH-118), "manual" (the preset or the sliders), or
+        /// blank for files from before this key: see <see cref="TemperamentModes.IsManual"/>.
         /// </summary>
         public string TemperamentMode = string.Empty;
+
+        /// <summary>
+        /// Nine sliders for a custom profile (JUH-136). Null on a preset and on files written
+        /// before the sliders existed: those load the preset's point.
+        /// </summary>
+        public TemperamentAxes Axes;
 
         public static PersonaDefinition CreateStarter(string id)
         {
@@ -74,8 +81,34 @@ namespace AICompanion.Settings
                 AvatarSource = AvatarSource,
                 PortraitFolder = PortraitFolder,
                 Temperament = Temperament,
-                TemperamentMode = TemperamentMode
+                TemperamentMode = TemperamentMode,
+                Axes = Axes == null ? null : Axes.Clone()
             };
+        }
+
+        /// <summary>
+        /// Saves a custom profile, or the named preset when the sliders land on one. Landing on a
+        /// preset clears the numbers so the file stays a preset id.
+        /// </summary>
+        public void SetAxes(TemperamentAxes axes)
+        {
+            if (axes == null)
+            {
+                Axes = null;
+                return;
+            }
+
+            var copy = axes.Clone();
+            var match = TemperamentAxes.MatchingPresetId(copy);
+            if (match != null)
+            {
+                Temperament = PersonaTemperaments.Normalize(match);
+                Axes = null;
+                return;
+            }
+
+            Temperament = string.Empty;
+            Axes = copy;
         }
 
         public bool Normalize()
@@ -95,8 +128,10 @@ namespace AICompanion.Settings
             string avatar;
             AvatarSource = PersonaAvatars.TryNormalize(AvatarSource, out avatar) ? avatar : string.Empty;
             PortraitFolder = CleanPath(PortraitFolder);
-            Temperament = AICompanion.Core.PersonaTemperaments.Normalize(Temperament);
-            TemperamentMode = AICompanion.Core.TemperamentModes.Normalize(TemperamentMode);
+            Temperament = PersonaTemperaments.Normalize(Temperament);
+            TemperamentMode = TemperamentModes.Normalize(TemperamentMode);
+            if (Axes != null)
+                Axes.Clamp();
             return Id.Length > 0;
         }
 
@@ -318,6 +353,9 @@ namespace AICompanion.Settings
                 persona.Temperament = text;
             if (TryString(json, "temperamentMode", out text))
                 persona.TemperamentMode = text;
+            TemperamentAxes axes;
+            if (TryAxes(json, out axes))
+                persona.Axes = axes;
 
             if (!persona.Normalize())
                 return null;
@@ -344,6 +382,8 @@ namespace AICompanion.Settings
             String(sb, "portraitFolder", source.PortraitFolder);
             String(sb, "temperament", source.Temperament);
             String(sb, "temperamentMode", source.TemperamentMode);
+            if (source.Axes != null)
+                Axes(sb, source.Axes);
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;
@@ -370,6 +410,114 @@ namespace AICompanion.Settings
             sb.Append("\": ");
             sb.Append(value.ToString(CultureInfo.InvariantCulture));
             sb.Append(",\n");
+        }
+
+        static void Axes(StringBuilder sb, TemperamentAxes axes)
+        {
+            sb.Append("  \"temperamentAxes\": {");
+            Axis(sb, "warmth", axes.Value(TemperamentAxes.Warmth), true);
+            Axis(sb, "volatility", axes.Value(TemperamentAxes.Volatility), false);
+            Axis(sb, "assertiveness", axes.Value(TemperamentAxes.Assertiveness), false);
+            Axis(sb, "playfulness", axes.Value(TemperamentAxes.Playfulness), false);
+            Axis(sb, "openness", axes.Value(TemperamentAxes.Openness), false);
+            Axis(sb, "energy", axes.Value(TemperamentAxes.Energy), false);
+            Axis(sb, "directness", axes.Value(TemperamentAxes.Directness), false);
+            Axis(sb, "confidence", axes.Value(TemperamentAxes.Confidence), false);
+            Axis(sb, "curiosity", axes.Value(TemperamentAxes.Curiosity), false);
+            sb.Append(" }\n");
+        }
+
+        static void Axis(StringBuilder sb, string name, int value, bool first)
+        {
+            if (!first)
+                sb.Append(',');
+            sb.Append(" \"");
+            sb.Append(name);
+            sb.Append("\": ");
+            sb.Append(value.ToString(CultureInfo.InvariantCulture));
+        }
+
+        static bool TryAxes(string json, out TemperamentAxes axes)
+        {
+            axes = null;
+            if (string.IsNullOrEmpty(json))
+                return false;
+            var key = "\"temperamentAxes\"";
+            var i = 0;
+            while (i < json.Length)
+            {
+                var at = json.IndexOf(key, i, StringComparison.Ordinal);
+                if (at < 0)
+                    return false;
+                if (at > 0)
+                {
+                    var prev = json[at - 1];
+                    if (char.IsLetterOrDigit(prev) || prev == '_')
+                    {
+                        i = at + key.Length;
+                        continue;
+                    }
+                }
+
+                var cursor = Skip(json, at + key.Length);
+                if (cursor >= json.Length || json[cursor] != ':')
+                {
+                    i = at + key.Length;
+                    continue;
+                }
+
+                cursor = Skip(json, cursor + 1);
+                if (cursor >= json.Length || json[cursor] != '{')
+                    return false;
+                var end = json.IndexOf('}', cursor);
+                if (end < 0)
+                    return false;
+                var body = json.Substring(cursor, end - cursor + 1);
+                var parsed = TemperamentAxes.Neutral();
+                parsed.Set(TemperamentAxes.Warmth, AxisNumber(body, "warmth"));
+                parsed.Set(TemperamentAxes.Volatility, AxisNumber(body, "volatility"));
+                parsed.Set(TemperamentAxes.Assertiveness, AxisNumber(body, "assertiveness"));
+                parsed.Set(TemperamentAxes.Playfulness, AxisNumber(body, "playfulness"));
+                parsed.Set(TemperamentAxes.Openness, AxisNumber(body, "openness"));
+                parsed.Set(TemperamentAxes.Energy, AxisNumber(body, "energy"));
+                parsed.Set(TemperamentAxes.Directness, AxisNumber(body, "directness"));
+                parsed.Set(TemperamentAxes.Confidence, AxisNumber(body, "confidence"));
+                parsed.Set(TemperamentAxes.Curiosity, AxisNumber(body, "curiosity"));
+                axes = parsed;
+                return true;
+            }
+
+            return false;
+        }
+
+        static float AxisNumber(string body, string name)
+        {
+            var key = "\"" + name + "\"";
+            var at = body.IndexOf(key, StringComparison.Ordinal);
+            if (at < 0)
+                return TemperamentAxes.Middle;
+            var cursor = Skip(body, at + key.Length);
+            if (cursor >= body.Length || body[cursor] != ':')
+                return TemperamentAxes.Middle;
+            cursor = Skip(body, cursor + 1);
+            var end = cursor;
+            if (end < body.Length && (body[end] == '-' || body[end] == '+'))
+                end++;
+            var dot = false;
+            while (end < body.Length && (char.IsDigit(body[end]) || (body[end] == '.' && !dot)))
+            {
+                if (body[end] == '.')
+                    dot = true;
+                end++;
+            }
+
+            if (end == cursor)
+                return TemperamentAxes.Middle;
+            double number;
+            if (!double.TryParse(body.Substring(cursor, end - cursor), NumberStyles.Float, CultureInfo.InvariantCulture, out number)
+                || double.IsNaN(number))
+                return TemperamentAxes.Middle;
+            return (float)number;
         }
 
         static bool TryString(string json, string field, out string value)

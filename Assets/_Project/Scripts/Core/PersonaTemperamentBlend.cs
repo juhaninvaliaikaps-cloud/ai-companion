@@ -8,6 +8,9 @@ namespace AICompanion.Core
         /// <summary>A shared preset, or a new blended temperament. Never null.</summary>
         public PersonaTemperament Temperament;
 
+        /// <summary>Where this reading sits on the nine sliders. Never null.</summary>
+        public TemperamentAxes Axes;
+
         /// <summary>True when two presets were mixed.</summary>
         public bool IsBlend;
 
@@ -69,6 +72,7 @@ namespace AICompanion.Core
                 return new TemperamentReading
                 {
                     Temperament = PersonaTemperament.Default,
+                    Axes = TemperamentAxes.Neutral(),
                     Summary = PersonaTemperament.Default.Name,
                 };
             }
@@ -79,6 +83,7 @@ namespace AICompanion.Core
                 return new TemperamentReading
                 {
                     Temperament = lead,
+                    Axes = TemperamentAxes.ForPreset(lead.Id),
                     Summary = lead.Name + " " + Percent(firstWeight) + "%",
                 };
             }
@@ -90,6 +95,7 @@ namespace AICompanion.Core
             return new TemperamentReading
             {
                 Temperament = Mix(lead, other, share, summary),
+                Axes = TemperamentAxes.Mix(TemperamentAxes.ForPreset(lead.Id), TemperamentAxes.ForPreset(other.Id), share),
                 IsBlend = true,
                 Summary = summary,
             };

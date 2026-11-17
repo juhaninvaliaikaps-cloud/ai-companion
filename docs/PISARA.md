@@ -118,14 +118,16 @@ The prompt that is hashed and sent is the persona text the chat uses (personalit
 
 **One consistency rule in code.** The same models sometimes rate familiarity at 60 or more and still answer `sharedHistory: false`. When the role is not `stranger` and familiarity is 50 or more, `sharedHistory` is set to true (`PisaraReading.ApplySharedHistory`). It is never set for a stranger and never cleared.
 
-**Temperament: Auto or a pick.** The persona file has a new optional key `temperamentMode`: `auto`, `manual`, or missing. Missing means: a built-in persona keeps its hand-picked preset; a user persona that names a preset keeps it (it was picked by hand); a user persona without a preset is automatic. Picking a preset in settings writes `manual`; **Auto** writes `auto` and keeps the preset in the file. Until the reading is back an automatic persona is balanced. The setup name (no persona) stays balanced.
+**Temperament: Auto, a preset, or nine sliders.** The persona file has an optional key `temperamentMode`: `auto`, `manual`, or missing. Missing means: a built-in persona keeps its hand-picked preset; a user persona that names a preset keeps it (it was picked by hand); a user persona without a preset is automatic. Picking a preset in settings writes `manual` and clears any custom sliders; **Auto** writes `auto` and keeps the preset in the file. A custom profile (JUH-136) writes `manual` and `temperamentAxes` (nine numbers, 0 to 100). Old files have no `temperamentAxes` and load the preset's point. Until the reading is back an automatic persona is balanced. The setup name (no persona) stays balanced.
+
+The character sheet may also carry `temperament.axes` with `axesSet: true`. When any slider is off 50, that profile is what Auto runs, and the five preset weights stay for the profile radar. All 50s, or a sheet from before the sliders, still uses the preset weights and the blend. A manual preset or manual sliders always win.
 
 **Persona settings** (old and new settings window) show, for the active persona:
 
 - `Temperament: Auto (Shy 60%, Cheerful 40%): <reason>`, or `Temperament: Tsundere (your pick)`, or `Temperament: Cheerful (built-in)`;
 - `Relationship: stepsister (family), affection 25, familiarity 70, shared past: <reason>`;
 - where the sheet came from (`Read by the model on <date>`, or that the model did not answer and why), and from JUH-126 the model that read her, stored in the sheet (`readBy`, for example `Read by claude-opus-5-5 (cloud)`), so it survives a restart;
-- **Re-read**, **Auto** and the presets.
+- **Re-read**, **Auto**, the presets, and the nine temperament sliders (JUH-136).
 
 **Log.** `Pisara reading: <persona> = <temperament>; <role>, affection N, familiarity N; world N facts, N week entries, N threads; source <model|keywords|default>`, with the reason in brackets when the model was not used. The log is plain text, so it never contains the backstory.
 
@@ -155,7 +157,7 @@ The prompt that is hashed and sent is the persona text the chat uses (personalit
 | One preset leads, and the second is under 0.2 or under half of it | That preset, unchanged |
 | The second is close | The two mixed by weight |
 
-A mix averages gains and half-lives by share. It keeps the leader's baseline only when the leader has at least 60 %, and scales the rest bias by share. Intimate is never touched, and every number passes the same clamps as the presets.
+A mix averages gains and half-lives by share. It keeps the leader's baseline only when the leader has at least 60 %, and scales the rest bias by share. Intimate is never touched, and every number passes the same clamps as the presets. When `axesSet` is true and any slider is off 50, Auto uses those sliders instead of this blend (`TemperamentMood`). The sliders for a blend with no axes are the mix of the two presets' points, for the settings UI only.
 
 ## Relationship
 
