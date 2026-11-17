@@ -27,7 +27,7 @@ namespace AICompanion.Settings
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(215)]
-    public sealed class VideoAvatar : MonoBehaviour, IOverlayKeepAwake, IAvatarReactions
+    public sealed class VideoAvatar : MonoBehaviour, IOverlayKeepAwake, IAvatarReactions, IAvatarInteractionTarget, IBodyHitZones
     {
         const string ShaderResource = "VideoAvatar";
         const float RetrySeconds = 2f;
@@ -108,6 +108,28 @@ namespace AICompanion.Settings
             get { return _director != null ? _director.Act : VideoAvatarAct.Idle; }
         }
 
+        /// <summary>The clip currently on screen, empty before the first clip.</summary>
+        public string CurrentClipName
+        {
+            get
+            {
+                if (_set == null || _shown < 0 || _set.Clips == null || _shown >= _set.Clips.Count)
+                    return string.Empty;
+                return _set.Clips[_shown].Name ?? string.Empty;
+            }
+        }
+
+        /// <summary>True while the back-view idle or the turn-around clip is showing.</summary>
+        public bool IsBackView
+        {
+            get
+            {
+                var name = CurrentClipName;
+                return name.IndexOf("back", StringComparison.OrdinalIgnoreCase) >= 0
+                    || name.IndexOf("turn_around", StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+        }
+
         /// <summary>
         /// Clip changes need the full frame rate. The default idle does not, so the overlay
         /// may drop to its idle rate while she only stands.
@@ -157,6 +179,56 @@ namespace AICompanion.Settings
         public bool PlayReaction(string name)
         {
             return RequestReaction(name) != AvatarReactionResult.Refused;
+        }
+
+        /// <summary>
+        /// JUH-101 interaction menu visual. A folder with a matching reaction clip uses it;
+        /// otherwise the closest loaded reaction is the fallback. Holding is represented by
+        /// the closest reaction until a dedicated hold clip is authored.
+        /// </summary>
+        public bool TryPlayInteraction(string interactionId)
+        {
+            if (_state != VideoAvatarState.Playing)
+                return false;
+
+            var id = interactionId == null ? string.Empty : interactionId.Trim().ToLowerInvariant();
+            if (TryReaction(id))
+                return true;
+
+            switch (id)
+            {
+                case "pat_head":
+                case "stroke_hair":
+                    return TryReaction("happy");
+                case "cup_cheek":
+                    return TryReaction("flustered");
+                case "touch_face":
+                    return TryReaction("embarrassed");
+                case "kiss":
+                    return TryReaction("flustered");
+                case "hold_hand":
+                case "let_go":
+                    return TryReaction("happy");
+                case "touch_shoulder":
+                    return TryReaction("concerned");
+                case "touch_breast":
+                    return TryReaction("flustered");
+                case "touch_vagina":
+                    return TryReaction("flustered");
+                case "touch_butt":
+                    return TryReaction("embarrassed");
+                case "finger_mouth":
+                    return TryReaction("flustered");
+                default:
+                    return false;
+            }
+        }
+
+        bool TryReaction(string name)
+        {
+            if (_state != VideoAvatarState.Playing || _director == null || string.IsNullOrEmpty(name))
+                return false;
+            return _director.Request(name, true) != AvatarReactionResult.Refused;
         }
 
         /// <summary>
@@ -777,6 +849,33 @@ namespace AICompanion.Settings
             return _portraitHeadKnown && _state == VideoAvatarState.Playing;
         }
 
+        /// <summary>
+        /// JUH-101: right-click body hit zones. Coordinates are normalised inside the visible
+        /// video rectangle, with lips and face above the head so a kiss click wins. The zones
+        /// are deliberately generous for hands and shoulders; a hand can move between clips.
+        /// Chest, crotch, butt and shoulder are tested before that hands band, which overlaps them.
+        /// </summary>
+        public bool TryHit(Vector2 unityScreen, out BodyPart part, out Vector2 anchor)
+        {
+            part = BodyPart.None;
+            anchor = unityScreen;
+            if (_state != VideoAvatarState.Playing || _bodyRect.width <= 0f || _bodyRect.height <= 0f)
+                return false;
+
+            var x = (unityScreen.x - _bodyRect.x) / _bodyRect.width;
+            var y = (unityScreen.y - _bodyRect.y) / _bodyRect.height;
+            if (x < 0f || x > 1f || y < 0f || y > 1f)
+                return false;
+            if (_shownMirrored)
+                x = 1f - x;
+
+            if (!PortraitHitZones.TryResolve(x, y, IntimateExpressions.Active, IsBackView, out part))
+                return false;
+
+            Debug.Log("Touch zone: " + part.ToString().ToLowerInvariant() + " x=" + x.ToString("0.00") + " y=" + y.ToString("0.00"));
+            return true;
+        }
+
         void Place(CompanionSettings settings)
         {
             if (_shown < 0 || _imageRect == null || _players[_shown] == null)
@@ -1133,6 +1232,74 @@ namespace AICompanion.Settings
             if (_presence != null && _gaitSet)
                 _presence.ClearGait();
             _gaitSet = false;
+        }
+    }
+
+    /// <summary>
+    /// Normalised hit zones inside the 2D portrait rectangle. x and y are 0..1 and already
+    /// un-mirrored. The broad hands band overlaps chest, crotch, butt and shoulder, so those
+    /// are resolved first.
+    /// </summary>
+    public static class PortraitHitZones
+    {
+        public static bool TryResolve(float x, float y, bool intimate, bool backView, out BodyPart part)
+        {
+            part = BodyPart.None;
+
+            // Lips: only the small mouth area. The rest of the head must keep the full wheel.
+            if (x >= 0.45f && x <= 0.55f && y >= 0.78f && y <= 0.85f)
+            {
+                part = BodyPart.Lips;
+                return true;
+            }
+
+            // The cheeks are the side-of-face shortcut. The centre of the face, forehead and
+            // hair stay with the head so the full interaction wheel remains reachable.
+            if (y >= 0.78f && y <= 0.92f && ((x >= 0.30f && x <= 0.43f) || (x >= 0.57f && x <= 0.70f)))
+            {
+                part = BodyPart.Face;
+                return true;
+            }
+
+            if (intimate && !backView && y >= 0.56f && y <= 0.70f && x >= 0.30f && x <= 0.70f)
+            {
+                part = BodyPart.Chest;
+                return true;
+            }
+
+            if (intimate && backView && y >= 0.28f && y <= 0.60f && x >= 0.32f && x <= 0.68f)
+            {
+                part = BodyPart.Butt;
+                return true;
+            }
+
+            if (intimate && !backView && y >= 0.42f && y <= 0.56f && x >= 0.38f && x <= 0.62f)
+            {
+                part = BodyPart.Crotch;
+                return true;
+            }
+
+            // Shoulders sit above the hands. Their band overlaps the top of the hands region.
+            if (y >= 0.58f && y <= 0.74f && x >= 0.18f && x <= 0.82f)
+            {
+                part = BodyPart.Shoulder;
+                return true;
+            }
+
+            // Hands are broad left/right side regions below the shoulders.
+            if (y >= 0.30f && y <= 0.62f && (x <= 0.40f || x >= 0.60f))
+            {
+                part = BodyPart.Hands;
+                return true;
+            }
+
+            if (x >= 0.18f && x <= 0.82f && y >= 0.70f)
+            {
+                part = BodyPart.Head;
+                return true;
+            }
+
+            return false;
         }
     }
 }

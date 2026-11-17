@@ -1080,7 +1080,9 @@ namespace AICompanion.NewUI
                 Label(entries[i].Keys + "   " + entries[i].Action);
             Section("Mouse");
             Label("Right-click her   Radial wheel");
-            Label("Shift + right-click   Rotate mode");
+            Label("Right-click head   Menu");
+            Label("Shift + right-click her   Menu");
+            Label("Right-click hand, lips or face   Quick touch");
             Label("Space / click (Step mode)   Next chat line");
         }
 

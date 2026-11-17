@@ -35,6 +35,7 @@ namespace AICompanion.NewUI.Wheel
         RadialWheelView _wheel;
         WheelCard _card;
         ProfilePanel _profile;
+        AvatarInteractions _interactions;
         readonly Stack<Func<WheelDefinition>> _back = new Stack<Func<WheelDefinition>>();
         Func<WheelDefinition> _currentBuilder;
         bool _attached;
@@ -70,9 +71,12 @@ namespace AICompanion.NewUI.Wheel
             };
             if (OpenSettings == null)
                 OpenSettings = () => { if (_settings != null) _settings.Open(); };
+            _interactions = GetComponent<AvatarInteractions>();
+            if (_interactions == null)
+                _interactions = gameObject.AddComponent<AvatarInteractions>();
             AvatarContextMenu.Handler = OnRightClickOnHer;
             _attached = true;
-            Debug.Log("New UI: radial wheel on (right-click her; Shift+right-click rotates)");
+            Debug.Log("New UI: radial wheel on (right-click head, Shift+right-click anywhere; body zones are quick touch)");
         }
 
         public void Detach()
@@ -97,34 +101,82 @@ namespace AICompanion.NewUI.Wheel
         /// <summary>Called by the overlay for a right-click on a visible pixel of her.</summary>
         bool OnRightClickOnHer(Vector2 unityScreen)
         {
-            if (!_attached || ModifierKeys.ShiftHeld())
+            if (!_attached)
                 return false;
 
-            _clickPoint = unityScreen;
-            _back.Clear();
-            Vector2 anchor;
-            var part = BodyPartWheels.Resolve(unityScreen, out anchor);
-            if (part != null)
+            // Shift is the fallback full wheel; it used to be rotate mode, which the 2D
+            // portrait does not need.
+            if (ModifierKeys.ShiftHeld())
             {
-                _partWheel = true;
-                _partAnchor = anchor;
-                Show(() => part);
-            }
-            else
-            {
-                _partWheel = false;
-                Show(BuildMain);
+                OpenAt(unityScreen, false, BuildMain);
+                return true;
             }
 
+            EnsureHitZones();
+            var zones = BodyPartWheels.HitZones;
+            BodyPart part;
+            Vector2 anchor;
+            if (zones != null && zones.TryHit(unityScreen, out part, out anchor))
+            {
+                if (part == BodyPart.Head)
+                    OpenAt(unityScreen, false, BuildMain);
+                else
+                    OpenAt(anchor, true, () => BuildPartWheel(part));
+                return true;
+            }
+
+            // A miss on the playing portrait must not fall through to rotate mode.
+            // While the portrait is not playing, the 3D model still uses rotate.
+            return ConsumeMissedPortraitClick(IsPortraitPlaying());
+        }
+
+        /// <summary>
+        /// A right-click on the playing 2D portrait is consumed even when it misses a zone,
+        /// so rotate mode cannot take the next left-drag. While the portrait is not playing,
+        /// a miss is left for rotate on the 3D model.
+        /// </summary>
+        public static bool ConsumeMissedPortraitClick(bool portraitPlaying)
+        {
+            return portraitPlaying;
+        }
+
+        bool IsPortraitPlaying()
+        {
+            var video = GetComponent<VideoAvatar>();
+            return video != null && video.State == VideoAvatarState.Playing;
+        }
+
+        void OpenAt(Vector2 click, bool partWheel, Func<WheelDefinition> build)
+        {
+            _clickPoint = click;
+            _back.Clear();
+            _partWheel = partWheel;
+            _partAnchor = click;
+            Show(build);
             _open = true;
             _leftWas = true;
             _rightWas = true;
             _pressed = NoPress;
-            Debug.Log("Wheel: opened " + (_partWheel ? "body-part wheel" : "main wheel"));
+            Debug.Log("Wheel: opened " + (partWheel ? "body-part wheel" : "main wheel"));
             var typing = GetComponent<ITypingFocus>();
             if (typing != null)
                 typing.FocusForTyping();
-            return true;
+        }
+
+        void EnsureHitZones()
+        {
+            if (BodyPartWheels.HitZones != null)
+                return;
+            var behaviours = GetComponents<MonoBehaviour>();
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                var zones = behaviours[i] as IBodyHitZones;
+                if (zones != null)
+                {
+                    BodyPartWheels.HitZones = zones;
+                    return;
+                }
+            }
         }
 
         void Update()
@@ -379,7 +431,7 @@ namespace AICompanion.NewUI.Wheel
             var paused = settings != null && settings.Paused;
             var chatVisible = _chat != null && _chat.ChatVisible;
             var personaId = settings != null ? settings.PersonaId : string.Empty;
-            var definition = new WheelDefinition { CenterLabel = HappiNames.Companion(_settings), CenterHint = "right-click" };
+            var definition = new WheelDefinition { CenterLabel = HappiNames.Companion(_settings), CenterHint = "head / Shift+right-click" };
             for (var i = 0; i < MainWheel.Order.Count; i++)
             {
                 var id = MainWheel.Order[i];
@@ -390,6 +442,7 @@ namespace AICompanion.NewUI.Wheel
                     Label = MainWheel.Label(id, paused, chatVisible),
                     Enabled = gate.Enabled,
                     DisabledReason = gate.Reason,
+                    RequiresIntimateGate = id == MainWheel.Intimate,
                     OnChoose = MainAction(id, paused, chatVisible)
                 });
             }
@@ -416,6 +469,10 @@ namespace AICompanion.NewUI.Wheel
                     return () => Push(BuildScreen);
                 case MainWheel.Persona:
                     return () => Push(BuildPersona);
+                case MainWheel.Interactions:
+                    return () => Push(BuildInteractions);
+                case MainWheel.Intimate:
+                    return () => Push(BuildIntimate);
                 case MainWheel.Pause:
                     return () => Do(() => _settings.Presenter.SetPaused(!paused));
                 default:
@@ -552,6 +609,135 @@ namespace AICompanion.NewUI.Wheel
             if (choices.Count > room)
                 definition.Slices.Add(new WheelSlice { Id = "persona_more", Label = "More…", OnChoose = () => Do(OpenSettings) });
             return definition;
+        }
+
+        /// <summary>
+        /// JUH-101: one flat menu of touch actions. The hold/let-go pair is stateful; every
+        /// other item is a one-shot reaction that also sends its event line to the model.
+        /// </summary>
+        WheelDefinition BuildInteractions()
+        {
+            var definition = Sub("Interactions");
+            var items = AvatarInteractionCatalog.All;
+            for (var i = 0; i < items.Count; i++)
+            {
+                var item = items[i];
+                if (item.Adult)
+                    continue;
+                var available = _interactions != null && _interactions.CanRun(item.Id);
+                definition.Slices.Add(new WheelSlice
+                {
+                    Id = item.Id,
+                    Label = item.Label,
+                    Enabled = available,
+                    DisabledReason = item.Release ? "You are not holding her hand." : "She cannot do that right now.",
+                    OnChoose = () => Do(() =>
+                    {
+                        if (_interactions != null)
+                            _interactions.Run(item.Id);
+                    })
+                });
+            }
+
+            return definition;
+        }
+
+        /// <summary>The 18+ wheel. It only exists while the intimate gate is open.</summary>
+        WheelDefinition BuildIntimate()
+        {
+            var definition = Sub("18+");
+            var ids = new[]
+            {
+                AvatarInteractionCatalog.TouchBreast,
+                AvatarInteractionCatalog.TouchVagina,
+                AvatarInteractionCatalog.TouchButt,
+                AvatarInteractionCatalog.FingerMouth,
+            };
+            for (var i = 0; i < ids.Length; i++)
+            {
+                var item = AvatarInteractionCatalog.Find(ids[i]);
+                if (item == null)
+                    continue;
+                var backOnly = item.Id == AvatarInteractionCatalog.TouchButt;
+                var canRun = _interactions != null && _interactions.CanRun(item.Id);
+                definition.Slices.Add(new WheelSlice
+                {
+                    Id = item.Id,
+                    Label = item.Label,
+                    Enabled = canRun,
+                    DisabledReason = backOnly ? "Turn her around first." : "Turn on Private mode and the adult portrait set first.",
+                    RequiresIntimateGate = true,
+                    OnChoose = () => Do(() =>
+                    {
+                        if (_interactions != null)
+                            _interactions.Run(item.Id);
+                    })
+                });
+            }
+
+            return definition;
+        }
+
+        /// <summary>The local wheel for a body zone. The head uses the full wheel instead.</summary>
+        WheelDefinition BuildPartWheel(BodyPart part)
+        {
+            switch (part)
+            {
+                case BodyPart.Hands:
+                    return PartWheel("Hands", AvatarInteractionCatalog.HoldHand, AvatarInteractionCatalog.LetGo);
+                case BodyPart.Lips:
+                    return PartWheel("Lips", AvatarInteractionCatalog.Kiss, AvatarInteractionCatalog.FingerMouth);
+                case BodyPart.Face:
+                case BodyPart.Cheeks:
+                    return PartWheel("Face", AvatarInteractionCatalog.CupCheek, AvatarInteractionCatalog.TouchFace);
+                case BodyPart.Shoulder:
+                    return PartWheel("Shoulder", AvatarInteractionCatalog.TouchShoulder);
+                case BodyPart.Chest:
+                    return PartWheel("18+", AvatarInteractionCatalog.TouchBreast);
+                case BodyPart.Crotch:
+                    return PartWheel("18+", AvatarInteractionCatalog.TouchVagina);
+                case BodyPart.Butt:
+                    return PartWheel("18+", AvatarInteractionCatalog.TouchButt);
+                default:
+                    return Sub("Touch");
+            }
+        }
+
+        WheelDefinition PartWheel(string title, params string[] ids)
+        {
+            var definition = Sub(title);
+            for (var i = 0; i < ids.Length; i++)
+            {
+                var item = AvatarInteractionCatalog.Find(ids[i]);
+                if (item == null)
+                    continue;
+                var available = _interactions != null && _interactions.CanRun(item.Id);
+                var slice = PartSlice(item, available);
+                slice.OnChoose = () => Do(() =>
+                {
+                    if (_interactions != null)
+                        _interactions.Run(item.Id);
+                });
+                definition.Slices.Add(slice);
+            }
+
+            return definition;
+        }
+
+        /// <summary>
+        /// One quick-touch slice. Adult actions take the same 18+ gate as the main wheel,
+        /// so they are omitted while that gate is closed instead of shown greyed out.
+        /// </summary>
+        public static WheelSlice PartSlice(AvatarInteractionDefinition item, bool available)
+        {
+            return new WheelSlice
+            {
+                Id = item.Id,
+                Label = item.Label,
+                Enabled = available,
+                DisabledReason = item.Release ? "You are not holding her hand." : "She cannot do that right now.",
+                RequiresIntimateGate = item.Adult,
+            };
         }
 
         static string StripActive(string label)
