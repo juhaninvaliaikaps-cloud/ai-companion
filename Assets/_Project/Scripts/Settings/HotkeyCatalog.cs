@@ -33,9 +33,10 @@ namespace AICompanion.Settings
                 new HotkeyEntry(ptt + " hold", "Push to talk"),
                 new HotkeyEntry("1-5", "Emotion"),
                 new HotkeyEntry("T", "Toggle talk"),
-                new HotkeyEntry("Right-click", "Rotate mode, on a visible pixel"),
-                new HotkeyEntry("R", "Reset rotation while rotate mode is on"),
-                new HotkeyEntry("Esc", "Leave rotate mode and stop speech"),
+                new HotkeyEntry("Right-click head", "Interaction menu"),
+                new HotkeyEntry("Shift + right-click", "Menu anywhere on her"),
+                new HotkeyEntry("Right-click hand/lips/face", "Quick touch"),
+                new HotkeyEntry("Esc", "Close the menu and stop speech"),
                 new HotkeyEntry("Scroll", "Zoom toward the cursor"),
                 new HotkeyEntry("Ctrl + scroll", "Scale the avatar")
             };

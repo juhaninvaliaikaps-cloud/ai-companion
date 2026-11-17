@@ -34,6 +34,8 @@ namespace AICompanion.UI
                     JsonText.AppendString(sb, RoleName(line.Kind));
                     sb.Append(",\"text\":");
                     JsonText.AppendString(sb, line.Text);
+                    if (line.LocalOnly)
+                        sb.Append(",\"local\":true");
                     sb.Append('}');
                     written++;
                 }
@@ -64,7 +66,10 @@ namespace AICompanion.UI
                 if (!JsonText.TryReadStringField(json.Substring(textAt), "text", out var text))
                     return;
 
-                if (conversation.ImportLine(ParseRole(role), text))
+                var nextRole = json.IndexOf("\"role\"", textAt + 6, StringComparison.Ordinal);
+                var end = nextRole < 0 ? json.Length : nextRole;
+                var localOnly = json.IndexOf("\"local\":true", textAt, end - textAt, StringComparison.Ordinal) >= 0;
+                if (conversation.ImportLine(ParseRole(role), text, localOnly))
                     count++;
                 i = textAt + 6;
             }

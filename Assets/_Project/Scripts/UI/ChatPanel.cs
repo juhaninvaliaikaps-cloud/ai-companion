@@ -125,6 +125,9 @@ namespace AICompanion.UI
             _conversation.ClearTranscript();
             ChatHistoryCodec.ReadInto(json, _conversation);
             _sessionStartLine = 0;
+            // The saved adult lines are part of this session. A later session-end request stays local.
+            if (SessionLineFilter.AnyLocalOnly(_conversation.Lines, 0))
+                NoteSessionPrivacy(true);
             RefreshTranscript(true);
         }
 
@@ -290,7 +293,22 @@ namespace AICompanion.UI
                 StartCompanion();
             if (!_visible)
                 SetVisible(true, false);
-            return TrySend(text);
+            return TrySend(text, false, false);
+        }
+
+        /// <summary>
+        /// An interaction event line. It is not the user's speech, so it does not move the
+        /// user-mood face. An adult line is sent on the local provider.
+        /// </summary>
+        public bool SubmitInteractionLine(string text, bool adult)
+        {
+            if (!_alive)
+                return false;
+            if (!_started)
+                StartCompanion();
+            if (!_visible)
+                SetVisible(true, false);
+            return TrySend(text, true, adult);
         }
 
         public void CancelActiveReply()
@@ -501,6 +519,11 @@ namespace AICompanion.UI
 
         bool TrySend(string text)
         {
+            return TrySend(text, false, false);
+        }
+
+        bool TrySend(string text, bool interactionLine, bool adultLine)
+        {
             if (_conversation == null || _conversation.IsBusy || string.IsNullOrWhiteSpace(text))
                 return false;
             var look = GetComponent<IScreenLook>();
@@ -509,6 +532,9 @@ namespace AICompanion.UI
 
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+            // Adult interaction text stays on the local model even if the privacy flag is stale.
+            if (adultLine)
+                privateMode = true;
             var providerId = settings != null
                 ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
                 : (privateMode ? ChatDefaults.LocalId : string.Empty);
@@ -544,17 +570,31 @@ namespace AICompanion.UI
 
             // JUH-21: read the user's mood on this machine. The face reacts now, before
             // the reply, and the model gets one hint line. The reply cue replaces the face.
-            var mood = UserMoodDetector.Detect(text);
-            Debug.Log(mood.ToLogString());
-            prompt = UserMoodPrompt.Append(prompt, mood);
-            // The face reaction is shaded by her mood before the user's mood moves it.
-            if (director != null && UserMoodReaction.TryGetCue(mood, out var moodCue))
-                director.Play(moodCue);
-            CompanionMoodInputs.ReportUserMood(mood);
+            // An interaction event is not the user's speech, so it must not take that path.
+            if (InteractionSignalDelivery.ScoreAsUserMood(interactionLine))
+            {
+                var mood = UserMoodDetector.Detect(text);
+                Debug.Log(mood.ToLogString());
+                prompt = UserMoodPrompt.Append(prompt, mood);
+                // The face reaction is shaded by her mood before the user's mood moves it.
+                if (director != null && UserMoodReaction.TryGetCue(mood, out var moodCue))
+                    director.Play(moodCue);
+                CompanionMoodInputs.ReportUserMood(mood);
+            }
 
             var temperature = settings.temperature;
             var maxTokens = settings.maxTokens;
-            Dispatch(provider, text, prompt, temperature, maxTokens, _cancel.Token, null, true);
+            ChatTurnOptions options = null;
+            if (adultLine || !privateMode)
+            {
+                options = new ChatTurnOptions
+                {
+                    LocalOnly = adultLine,
+                    OmitLocalOnly = !privateMode
+                };
+            }
+
+            Dispatch(provider, text, prompt, temperature, maxTokens, _cancel.Token, options, true, privateMode);
             return true;
         }
 
@@ -620,7 +660,7 @@ namespace AICompanion.UI
             RefreshTranscript(true);
         }
 
-        async void Dispatch(IChatProvider provider, string text, string prompt, float temperature, int maxTokens, CancellationToken token, ChatTurnOptions options, bool remember)
+        async void Dispatch(IChatProvider provider, string text, string prompt, float temperature, int maxTokens, CancellationToken token, ChatTurnOptions options, bool remember, bool keepsLocal = false)
         {
             var result = await _exchange.Run(provider, text, prompt, temperature, maxTokens, token, options);
             if (options != null && options.Image != null)
@@ -634,7 +674,7 @@ namespace AICompanion.UI
                 if (remember)
                 {
                     SessionReplyFinished();
-                    CaptureMemory(provider, text, result.Text);
+                    CaptureMemory(provider, text, result.Text, keepsLocal);
                 }
                 if (remember && ScreenLookCue.Requests(result.Text))
                 {
@@ -724,20 +764,19 @@ namespace AICompanion.UI
 
         /// <summary>
         /// Asks the provider for durable facts after a reply, and stores them with the
-        /// private flag of the current session. Very short messages are skipped because
-        /// they never carry a durable fact and every capture is a second request.
+        /// private flag of the send. Very short messages are skipped because they never
+        /// carry a durable fact and every capture is a second request. The flag is the
+        /// one from the send, so a gate that closes while the reply is in flight still
+        /// stores an adult line as private.
         /// </summary>
-        async void CaptureMemory(IChatProvider provider, string userText, string assistantText)
+        async void CaptureMemory(IChatProvider provider, string userText, string assistantText, bool keepsLocal)
         {
             if (provider == null || string.IsNullOrEmpty(userText) || WordCount(userText) < 3)
                 return;
 
-            var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
-
             try
             {
-                await MemoryCapture.CaptureAsync(provider, userText, assistantText, privateMode, MemoryRuntime.Store);
+                await MemoryCapture.CaptureAsync(provider, userText, assistantText, keepsLocal, MemoryRuntime.Store);
             }
             catch (Exception e)
             {

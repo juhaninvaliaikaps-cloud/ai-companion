@@ -66,6 +66,8 @@ namespace AICompanion.NewUI.Wheel
         public const string Profile = "profile";
         public const string WatchScreen = "watch_screen";
         public const string Persona = "persona";
+        public const string Interactions = "interactions";
+        public const string Intimate = "intimate";
         public const string Pause = "pause";
 
         /// <summary>No longer on the wheel (JUH-121); kept for the mood gate rule and its tests.</summary>
@@ -73,7 +75,7 @@ namespace AICompanion.NewUI.Wheel
 
         public static readonly IReadOnlyList<string> Order = new[]
         {
-            Settings, Talk, Profile, WatchScreen, Persona, Pause,
+            Settings, Talk, Profile, WatchScreen, Persona, Interactions, Intimate, Pause,
         };
 
         /// <summary>The slice's label. <paramref name="chatVisible"/> and <paramref name="paused"/> say what clicking will do.</summary>
@@ -91,6 +93,10 @@ namespace AICompanion.NewUI.Wheel
                     return "Watch my screen";
                 case Persona:
                     return "Persona";
+                case Interactions:
+                    return "Interactions";
+                case Intimate:
+                    return "18+";
                 case Pause:
                     return paused ? "Resume her" : "Pause her";
                 default:
@@ -152,35 +158,16 @@ namespace AICompanion.NewUI.Wheel
         }
     }
 
-    /// <summary>Body parts a context wheel can belong to (JUH-101 hit zones).</summary>
-    public enum BodyPart
-    {
-        None = 0,
-        Lips = 1,
-        Head = 2,
-        Hands = 3,
-        Cheeks = 4,
-    }
-
-    /// <summary>JUH-101 hook: which body part is under a screen point, and where to anchor its wheel.</summary>
-    public interface IBodyHitZones
-    {
-        /// <param name="unityScreen">The right-click, in Unity screen pixels (origin bottom-left).</param>
-        /// <param name="anchor">The point on her the connector line starts from, in Unity screen pixels.</param>
-        bool TryHit(Vector2 unityScreen, out BodyPart part, out Vector2 anchor);
-    }
-
     /// <summary>
-    /// Body-part wheels. Nothing is registered yet: JUH-101 supplies <see cref="HitZones"/> and
-    /// registers slice sets. Planned sets (not built now): lips (kiss / touch / say something),
-    /// head (pat / stroke hair), hands (hold hand / high five / pull along), cheeks (poke / pinch).
-    /// Adult options must set <see cref="WheelSlice.RequiresIntimateGate"/> and stay local.
+    /// Body-part wheels. JUH-101 supplies <see cref="HitZones"/> and registers slice sets.
+    /// The 2D avatar implements <see cref="IBodyHitZones"/> in Core, so this assembly does not
+    /// depend on the avatar assembly.
     /// </summary>
     public static class BodyPartWheels
     {
         static readonly Dictionary<BodyPart, Func<WheelDefinition>> Sets = new Dictionary<BodyPart, Func<WheelDefinition>>();
 
-        /// <summary>Set by JUH-101. While null, right-click always opens the main wheel.</summary>
+        /// <summary>Set by JUH-101. While null, no body wheel is available.</summary>
         public static IBodyHitZones HitZones;
 
         public static void Register(BodyPart part, Func<WheelDefinition> build)
