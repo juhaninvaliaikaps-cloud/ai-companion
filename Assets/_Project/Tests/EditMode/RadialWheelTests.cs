@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using AICompanion.Core;
 using AICompanion.NewUI.Wheel;
+using AICompanion.Overlay;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -225,6 +226,40 @@ namespace AICompanion.Tests.EditMode
             {
                 AvatarContextMenu.Handler = before;
             }
+        }
+
+        [Test]
+        public void LipsWheel_HidesFingerInMouthWhileThe18PlusGateIsClosed()
+        {
+            var slices = new List<WheelSlice>
+            {
+                HappiWheelHost.PartSlice(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.Kiss), true),
+                HappiWheelHost.PartSlice(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.FingerMouth), false),
+            };
+
+            var closed = WheelDefinition.Visible(slices, false);
+            Assert.AreEqual(1, closed.Count);
+            Assert.AreEqual(AvatarInteractionCatalog.Kiss, closed[0].Id);
+
+            var open = WheelDefinition.Visible(slices, true);
+            Assert.AreEqual(2, open.Count);
+            Assert.AreEqual(AvatarInteractionCatalog.FingerMouth, open[1].Id);
+            Assert.IsTrue(open[1].RequiresIntimateGate);
+            Assert.IsFalse(open[1].Enabled);
+        }
+
+        [Test]
+        public void MissedPortraitClick_DoesNotTurnRotateOn()
+        {
+            Assert.IsTrue(HappiWheelHost.ConsumeMissedPortraitClick(true));
+            Assert.IsFalse(HappiWheelHost.ConsumeMissedPortraitClick(false), "the 3D model still rotates");
+
+            var toggle = AvatarRotateMode.ShouldToggle(true, true, false);
+            if (toggle && HappiWheelHost.ConsumeMissedPortraitClick(true))
+                toggle = false;
+            Assert.IsFalse(AvatarRotateMode.Next(false, toggle, false));
+
+            Assert.IsTrue(AvatarRotateMode.Next(false, AvatarRotateMode.ShouldToggle(true, true, false), false));
         }
     }
 }

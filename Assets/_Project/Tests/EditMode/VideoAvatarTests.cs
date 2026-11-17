@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using AICompanion.Core;
 using AICompanion.Settings;
 using NUnit.Framework;
 using UnityEditor;
@@ -379,6 +380,29 @@ namespace AICompanion.Tests.EditMode
             Assert.IsFalse(ShaderUtil.ShaderHasError(shader), "The VideoAvatar shader has a compile error.");
             foreach (var property in new[] { "_MainTex", "_MaskTex", "_ColorRect", "_MaskRect", "_MaskSource", "_MaskDecode", "_MaskLow", "_MaskHigh" })
                 Assert.GreaterOrEqual(shader.FindPropertyIndex(property), 0, property);
+        }
+
+        [Test]
+        public void HitZones_PreferChestCrotchButtAndShoulderOverTheHandsBand()
+        {
+            BodyPart part;
+            Assert.IsTrue(PortraitHitZones.TryResolve(0.35f, 0.60f, true, false, out part));
+            Assert.AreEqual(BodyPart.Chest, part, "the side of the chest overlaps the hands band");
+            Assert.IsTrue(PortraitHitZones.TryResolve(0.39f, 0.50f, true, false, out part));
+            Assert.AreEqual(BodyPart.Crotch, part);
+            Assert.IsTrue(PortraitHitZones.TryResolve(0.35f, 0.45f, true, true, out part));
+            Assert.AreEqual(BodyPart.Butt, part);
+            Assert.IsTrue(PortraitHitZones.TryResolve(0.25f, 0.60f, false, false, out part));
+            Assert.AreEqual(BodyPart.Shoulder, part, "shoulders sit above the hands");
+
+            Assert.IsTrue(PortraitHitZones.TryResolve(0.35f, 0.60f, false, false, out part));
+            Assert.AreEqual(BodyPart.Shoulder, part, "18+ off: that chest overlap is the shoulder, not the hands");
+            Assert.IsTrue(PortraitHitZones.TryResolve(0.15f, 0.45f, false, false, out part));
+            Assert.AreEqual(BodyPart.Hands, part);
+            Assert.IsTrue(PortraitHitZones.TryResolve(0.50f, 0.80f, false, false, out part));
+            Assert.AreEqual(BodyPart.Lips, part);
+            Assert.IsTrue(PortraitHitZones.TryResolve(0.50f, 0.88f, false, false, out part));
+            Assert.AreEqual(BodyPart.Head, part);
         }
     }
 }

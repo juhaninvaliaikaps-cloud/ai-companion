@@ -8,12 +8,25 @@ namespace AICompanion.UI
     /// <summary>
     /// JUH-101: the 2D interaction menu's actions. Each action plays the avatar's reaction
     /// when one exists, changes the expression, and queues the event line for the model.
-    /// There are no body zones or 3D touch dependencies here.
+    /// There are no body zones or 3D touch dependencies here. The event line is not the
+    /// user's speech. An adult line that is still queued when the 18+ gate closes is dropped.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class AvatarInteractions : MonoBehaviour
     {
-        readonly Queue<string> _signals = new Queue<string>(4);
+        readonly struct PendingLine
+        {
+            public readonly string Text;
+            public readonly bool Adult;
+
+            public PendingLine(string text, bool adult)
+            {
+                Text = text;
+                Adult = adult;
+            }
+        }
+
+        readonly Queue<PendingLine> _signals = new Queue<PendingLine>(4);
         ChatPanel _chat;
         AnimationDirector.AnimationDirector _director;
         IExpressionHint _hint;
@@ -107,12 +120,25 @@ namespace AICompanion.UI
                 return;
             if (!_resolved)
                 Resolve();
-            if (_chat == null || _chat.TranscriptBusy)
-                return;
 
-            var next = _signals.Peek();
-            if (_chat.SubmitUserText(next))
-                _signals.Dequeue();
+            while (_signals.Count > 0)
+            {
+                var next = _signals.Peek();
+                var ready = _chat != null && !_chat.TranscriptBusy;
+                var choice = InteractionSignalDelivery.Decide(next.Adult, IntimateExpressions.Active, ready);
+                if (choice == InteractionSignalDelivery.Choice.Hold)
+                    return;
+                if (choice == InteractionSignalDelivery.Choice.Drop)
+                {
+                    _signals.Dequeue();
+                    Debug.Log("Interaction: dropped a queued adult line because 18+ is off");
+                    continue;
+                }
+
+                if (_chat.SubmitInteractionLine(next.Text, next.Adult))
+                    _signals.Dequeue();
+                return;
+            }
         }
 
         public bool CanRun(string id)
@@ -174,7 +200,7 @@ namespace AICompanion.UI
                 _target.TryPlayInteraction(item.Id);
 
             if (!string.IsNullOrEmpty(item.Signal))
-                _signals.Enqueue(item.Signal);
+                _signals.Enqueue(new PendingLine(item.Signal, item.Adult));
             return true;
         }
     }

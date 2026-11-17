@@ -116,14 +116,34 @@ namespace AICompanion.NewUI.Wheel
             var zones = BodyPartWheels.HitZones;
             BodyPart part;
             Vector2 anchor;
-            if (zones == null || !zones.TryHit(unityScreen, out part, out anchor))
-                return false;
+            if (zones != null && zones.TryHit(unityScreen, out part, out anchor))
+            {
+                if (part == BodyPart.Head)
+                    OpenAt(unityScreen, false, BuildMain);
+                else
+                    OpenAt(anchor, true, () => BuildPartWheel(part));
+                return true;
+            }
 
-            if (part == BodyPart.Head)
-                OpenAt(unityScreen, false, BuildMain);
-            else
-                OpenAt(anchor, true, () => BuildPartWheel(part));
-            return true;
+            // A miss on the playing portrait must not fall through to rotate mode.
+            // While the portrait is not playing, the 3D model still uses rotate.
+            return ConsumeMissedPortraitClick(IsPortraitPlaying());
+        }
+
+        /// <summary>
+        /// A right-click on the playing 2D portrait is consumed even when it misses a zone,
+        /// so rotate mode cannot take the next left-drag. While the portrait is not playing,
+        /// a miss is left for rotate on the 3D model.
+        /// </summary>
+        public static bool ConsumeMissedPortraitClick(bool portraitPlaying)
+        {
+            return portraitPlaying;
+        }
+
+        bool IsPortraitPlaying()
+        {
+            var video = GetComponent<VideoAvatar>();
+            return video != null && video.State == VideoAvatarState.Playing;
         }
 
         void OpenAt(Vector2 click, bool partWheel, Func<WheelDefinition> build)
@@ -692,21 +712,32 @@ namespace AICompanion.NewUI.Wheel
                 if (item == null)
                     continue;
                 var available = _interactions != null && _interactions.CanRun(item.Id);
-                definition.Slices.Add(new WheelSlice
+                var slice = PartSlice(item, available);
+                slice.OnChoose = () => Do(() =>
                 {
-                    Id = item.Id,
-                    Label = item.Label,
-                    Enabled = available,
-                    DisabledReason = item.Release ? "You are not holding her hand." : "She cannot do that right now.",
-                    OnChoose = () => Do(() =>
-                    {
-                        if (_interactions != null)
-                            _interactions.Run(item.Id);
-                    })
+                    if (_interactions != null)
+                        _interactions.Run(item.Id);
                 });
+                definition.Slices.Add(slice);
             }
 
             return definition;
+        }
+
+        /// <summary>
+        /// One quick-touch slice. Adult actions take the same 18+ gate as the main wheel,
+        /// so they are omitted while that gate is closed instead of shown greyed out.
+        /// </summary>
+        public static WheelSlice PartSlice(AvatarInteractionDefinition item, bool available)
+        {
+            return new WheelSlice
+            {
+                Id = item.Id,
+                Label = item.Label,
+                Enabled = available,
+                DisabledReason = item.Release ? "You are not holding her hand." : "She cannot do that right now.",
+                RequiresIntimateGate = item.Adult,
+            };
         }
 
         static string StripActive(string label)

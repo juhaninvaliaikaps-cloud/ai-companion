@@ -290,7 +290,22 @@ namespace AICompanion.UI
                 StartCompanion();
             if (!_visible)
                 SetVisible(true, false);
-            return TrySend(text);
+            return TrySend(text, false, false);
+        }
+
+        /// <summary>
+        /// An interaction event line. It is not the user's speech, so it does not move the
+        /// user-mood face. An adult line is sent on the local provider.
+        /// </summary>
+        public bool SubmitInteractionLine(string text, bool adult)
+        {
+            if (!_alive)
+                return false;
+            if (!_started)
+                StartCompanion();
+            if (!_visible)
+                SetVisible(true, false);
+            return TrySend(text, true, adult);
         }
 
         public void CancelActiveReply()
@@ -501,6 +516,11 @@ namespace AICompanion.UI
 
         bool TrySend(string text)
         {
+            return TrySend(text, false, false);
+        }
+
+        bool TrySend(string text, bool interactionLine, bool adultLine)
+        {
             if (_conversation == null || _conversation.IsBusy || string.IsNullOrWhiteSpace(text))
                 return false;
             var look = GetComponent<IScreenLook>();
@@ -509,6 +529,9 @@ namespace AICompanion.UI
 
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+            // Adult interaction text stays on the local model even if the privacy flag is stale.
+            if (adultLine)
+                privateMode = true;
             var providerId = settings != null
                 ? PrivateChatRouting.ProviderId(privateMode, settings.providerId, settings.privateEndpointType)
                 : (privateMode ? ChatDefaults.LocalId : string.Empty);
@@ -544,13 +567,17 @@ namespace AICompanion.UI
 
             // JUH-21: read the user's mood on this machine. The face reacts now, before
             // the reply, and the model gets one hint line. The reply cue replaces the face.
-            var mood = UserMoodDetector.Detect(text);
-            Debug.Log(mood.ToLogString());
-            prompt = UserMoodPrompt.Append(prompt, mood);
-            // The face reaction is shaded by her mood before the user's mood moves it.
-            if (director != null && UserMoodReaction.TryGetCue(mood, out var moodCue))
-                director.Play(moodCue);
-            CompanionMoodInputs.ReportUserMood(mood);
+            // An interaction event is not the user's speech, so it must not take that path.
+            if (InteractionSignalDelivery.ScoreAsUserMood(interactionLine))
+            {
+                var mood = UserMoodDetector.Detect(text);
+                Debug.Log(mood.ToLogString());
+                prompt = UserMoodPrompt.Append(prompt, mood);
+                // The face reaction is shaded by her mood before the user's mood moves it.
+                if (director != null && UserMoodReaction.TryGetCue(mood, out var moodCue))
+                    director.Play(moodCue);
+                CompanionMoodInputs.ReportUserMood(mood);
+            }
 
             var temperature = settings.temperature;
             var maxTokens = settings.maxTokens;

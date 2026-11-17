@@ -200,4 +200,37 @@ namespace AICompanion.Core
             return item != null && item.Release;
         }
     }
+
+    /// <summary>
+    /// What to do with one queued interaction line. An adult line is sent only while the
+    /// 18+ gate is open, which keeps that turn on the local model. If the gate closes
+    /// before the line is sent, it is dropped and never handed to a provider.
+    /// </summary>
+    public static class InteractionSignalDelivery
+    {
+        public enum Choice
+        {
+            Hold = 0,
+            Send = 1,
+            Drop = 2,
+        }
+
+        public static Choice Decide(bool adult, bool gateOpen, bool chatReady)
+        {
+            if (adult && !gateOpen)
+                return Choice.Drop;
+            if (!chatReady)
+                return Choice.Hold;
+            return Choice.Send;
+        }
+
+        /// <summary>
+        /// An interaction line is an event for the model, not the user's speech.
+        /// Scoring it would treat words such as "kisses" as the user's mood.
+        /// </summary>
+        public static bool ScoreAsUserMood(bool interactionLine)
+        {
+            return !interactionLine;
+        }
+    }
 }

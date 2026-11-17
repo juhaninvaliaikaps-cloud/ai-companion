@@ -49,5 +49,35 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchButt).BackOnly);
             Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.FingerMouth).Adult);
         }
+
+        [Test]
+        public void AdultLine_IsDroppedWhenTheGateClosesBeforeItIsSent()
+        {
+            Assert.AreEqual(InteractionSignalDelivery.Choice.Drop, InteractionSignalDelivery.Decide(true, false, true));
+            Assert.AreEqual(InteractionSignalDelivery.Choice.Drop, InteractionSignalDelivery.Decide(true, false, false), "a busy chat must not keep the adult line");
+            Assert.AreEqual(InteractionSignalDelivery.Choice.Hold, InteractionSignalDelivery.Decide(true, true, false));
+            Assert.AreEqual(InteractionSignalDelivery.Choice.Send, InteractionSignalDelivery.Decide(true, true, true));
+            Assert.AreEqual(InteractionSignalDelivery.Choice.Send, InteractionSignalDelivery.Decide(false, false, true), "an ordinary line still sends after 18+ is off");
+            Assert.AreEqual(InteractionSignalDelivery.Choice.Hold, InteractionSignalDelivery.Decide(false, false, false));
+
+            for (var i = 0; i < AvatarInteractionCatalog.All.Count; i++)
+            {
+                var item = AvatarInteractionCatalog.All[i];
+                var choice = InteractionSignalDelivery.Decide(item.Adult, false, true);
+                Assert.AreEqual(item.Adult ? InteractionSignalDelivery.Choice.Drop : InteractionSignalDelivery.Choice.Send, choice, item.Id);
+            }
+        }
+
+        [Test]
+        public void InteractionLine_IsNotScoredAsTheUsersMood()
+        {
+            // "kisses" is an affectionate word. Scoring the kiss event would play the shy
+            // mood face over the kiss expression. The send path uses ScoreAsUserMood.
+            var kiss = AvatarInteractionCatalog.Find(AvatarInteractionCatalog.Kiss).Signal;
+            Assert.AreEqual(UserEmotion.Affectionate, UserMoodDetector.Detect(kiss).Emotion);
+            Assert.AreEqual(Emotion.Shy, UserMoodReaction.FaceFor(UserEmotion.Affectionate));
+            Assert.IsFalse(InteractionSignalDelivery.ScoreAsUserMood(true));
+            Assert.IsTrue(InteractionSignalDelivery.ScoreAsUserMood(false));
+        }
     }
 }
