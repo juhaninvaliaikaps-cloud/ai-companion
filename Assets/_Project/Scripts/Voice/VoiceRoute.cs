@@ -13,17 +13,34 @@ namespace AICompanion.Voice
         public const string Cloud = "xai";
         public const string Local = PiperTtsProvider.Id;
 
-        public static string ProviderFor(bool privateMode, string chatProviderId)
+        public static string ProviderFor(bool privateMode, string chatProviderId, string baseUrl = null)
         {
             var chat = OutboundPrivacy.ChatProviderId(privateMode, chatProviderId);
             if (string.Equals(chat, ChatDefaults.LocalId, StringComparison.OrdinalIgnoreCase))
                 return Local;
+            // A non-xAI OpenAI-compatible endpoint (DeepSeek, OpenRouter, Groq) has no xAI
+            // TTS. Do not send its replies to a cloud voice that cannot authenticate.
+            if (!HasXaiVoice(baseUrl))
+                return Local;
             return Cloud;
         }
 
-        public static bool UsesCloudTts(bool privateMode, string chatProviderId)
+        public static bool UsesCloudTts(bool privateMode, string chatProviderId, string baseUrl = null)
         {
-            return string.Equals(ProviderFor(privateMode, chatProviderId), Cloud, StringComparison.OrdinalIgnoreCase);
+            return string.Equals(ProviderFor(privateMode, chatProviderId, baseUrl), Cloud, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Empty keeps the historical xAI default. Only an xAI host gets xAI TTS.</summary>
+        public static bool HasXaiVoice(string baseUrl)
+        {
+            if (string.IsNullOrWhiteSpace(baseUrl))
+                return true;
+            Uri uri;
+            if (!Uri.TryCreate(baseUrl.Trim(), UriKind.Absolute, out uri))
+                return false;
+            var host = uri.Host ?? string.Empty;
+            return host.Equals("x.ai", StringComparison.OrdinalIgnoreCase)
+                || host.EndsWith(".x.ai", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

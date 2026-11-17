@@ -19,7 +19,7 @@ namespace AICompanion.Settings
             var catalog = PersonaCatalog.LoadDefault(Folder());
             Note("Built-ins ship with the app. Edits save outside the repo.");
             AddLabel("Active now: " + ActiveModelText());
-            Note(VoiceRoute.UsesCloudTts(_settings.PrivateMode, _settings.ProviderId)
+            Note(VoiceRoute.UsesCloudTts(_settings.PrivateMode, _settings.ProviderId, _settings.BaseUrl)
                 ? "Cloud voice is used while chat is Grok."
                 : "A local voice is used while chat is local or private: Piper, or Kokoro when you picked it. That audio stays on this PC.");
             Note("Cue instructions are added after the persona on every reply.");

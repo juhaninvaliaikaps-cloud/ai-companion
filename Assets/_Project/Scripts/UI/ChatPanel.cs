@@ -607,7 +607,8 @@ namespace AICompanion.UI
                 {
                     ChatProviderId = ChatDefaults.CustomId,
                     Model = settings != null ? settings.privateModel : string.Empty,
-                    Private = true
+                    Private = true,
+                    BaseUrl = settings != null ? settings.privateBaseUrl : string.Empty
                 };
             }
 
@@ -618,7 +619,8 @@ namespace AICompanion.UI
                 Model = local
                     ? (settings != null ? settings.localModel : string.Empty)
                     : (settings != null ? settings.model : string.Empty),
-                Private = privateMode
+                Private = privateMode,
+                BaseUrl = local ? string.Empty : (settings != null ? settings.baseUrl : string.Empty)
             };
         }
 

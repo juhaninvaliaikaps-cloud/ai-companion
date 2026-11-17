@@ -702,7 +702,7 @@ namespace AICompanion.NewUI
 
         void BuildVoice()
         {
-            Note(VoiceRoute.UsesCloudTts(S.PrivateMode, S.ProviderId)
+            Note(VoiceRoute.UsesCloudTts(S.PrivateMode, S.ProviderId, S.BaseUrl)
                 ? "Voice follows chat. Grok replies use the cloud voice."
                 : "Voice follows chat. Local and private replies use Piper or Kokoro and are not sent to cloud TTS.");
             Toggle("Speak replies", S.TtsEnabled, v => Change(s => s.TtsEnabled = v));
