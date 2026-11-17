@@ -4,7 +4,6 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using UnityEngine;
 
 namespace AICompanion.Voice
 {
@@ -20,7 +19,7 @@ namespace AICompanion.Voice
     /// JUH-128: offline Chatterbox Turbo speech. A single Python process loads the model once;
     /// each request names a preset folder under <c>chatterboxVoices</c> containing reference.wav.
     /// </summary>
-    public sealed class ChatterboxTtsProvider : ITtsProvider
+    public sealed class ChatterboxTtsProvider : ITtsProvider, IDisposable
     {
         public const string Id = "chatterbox";
         public const string MissingPythonMessage = "Chatterbox is not installed. Set the Python and script paths in Settings.";
@@ -242,17 +241,12 @@ namespace AICompanion.Voice
                     var trimmed = line.Trim();
                     if (trimmed.Length == 0 || trimmed[0] != '{')
                         continue;
+                    // Loader noise can start with '{'. A reply always names "ok".
+                    // JsonUtility is a Unity API and is not safe on this worker thread.
+                    if (trimmed.IndexOf("\"ok\"", StringComparison.Ordinal) < 0)
+                        continue;
 
-                    try
-                    {
-                        var parsed = JsonUtility.FromJson<ChatterboxReply>(trimmed);
-                        if (parsed != null)
-                            reply = parsed;
-                    }
-                    catch (ArgumentException)
-                    {
-                        // Not a complete reply; keep reading until the deadline.
-                    }
+                    reply = ChatterboxReply.Parse(trimmed);
                 }
 
                 if (!reply.ok)
@@ -296,33 +290,120 @@ namespace AICompanion.Voice
         }
     }
 
-    [Serializable]
-    internal sealed class ChatterboxRequest
-    {
-        public string text;
-        public string voice;
-        public float speed;
-    }
-
-    [Serializable]
     internal sealed class ChatterboxReply
     {
         public bool ok;
         public string wav;
         public string error;
+
+        public static ChatterboxReply Parse(string line)
+        {
+            var reply = new ChatterboxReply();
+            if (string.IsNullOrEmpty(line))
+                return reply;
+
+            reply.ok = ReadBool(line);
+            reply.wav = Extract(line, "\"wav\"");
+            reply.error = Extract(line, "\"error\"");
+            return reply;
+        }
+
+        static bool ReadBool(string line)
+        {
+            var start = line.IndexOf("\"ok\"", StringComparison.Ordinal);
+            if (start < 0)
+                return false;
+
+            var colon = line.IndexOf(':', start + 4);
+            if (colon < 0)
+                return false;
+
+            var i = colon + 1;
+            while (i < line.Length && char.IsWhiteSpace(line[i]))
+                i++;
+
+            return i + 4 <= line.Length
+                && string.CompareOrdinal(line, i, "true", 0, 4) == 0
+                && (i + 4 == line.Length || !char.IsLetterOrDigit(line[i + 4]));
+        }
+
+        static string Extract(string line, string key)
+        {
+            var start = line.IndexOf(key, StringComparison.Ordinal);
+            if (start < 0)
+                return null;
+
+            var colon = line.IndexOf(':', start);
+            if (colon < 0)
+                return null;
+
+            var quote = line.IndexOf('"', colon + 1);
+            if (quote < 0)
+                return null;
+
+            var sb = new StringBuilder();
+            for (var i = quote + 1; i < line.Length; i++)
+            {
+                var c = line[i];
+                if (c == '\\' && i + 1 < line.Length)
+                {
+                    var next = line[i + 1];
+                    i++;
+                    if (next == 'n')
+                        sb.Append('\n');
+                    else if (next == 'r')
+                        sb.Append('\r');
+                    else if (next == 't')
+                        sb.Append('\t');
+                    else
+                        sb.Append(next);
+                    continue;
+                }
+
+                if (c == '"')
+                    break;
+                sb.Append(c);
+            }
+
+            return sb.ToString();
+        }
     }
 
     internal static class ChatterboxRequestJson
     {
         public static string Build(string text, string voice, float speed)
         {
-            var request = new ChatterboxRequest
+            var safeSpeed = speed <= 0f ? 1f : speed;
+            return "{\"text\":" + Quote(text) + ",\"voice\":" + Quote(voice) + ",\"speed\":"
+                + safeSpeed.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "}";
+        }
+
+        static string Quote(string value)
+        {
+            if (value == null)
+                return "\"\"";
+
+            var sb = new StringBuilder(value.Length + 8);
+            sb.Append('"');
+            for (var i = 0; i < value.Length; i++)
             {
-                text = text ?? string.Empty,
-                voice = voice ?? string.Empty,
-                speed = speed <= 0f ? 1f : speed,
-            };
-            return JsonUtility.ToJson(request);
+                var c = value[i];
+                if (c == '"' || c == '\\')
+                    sb.Append('\\').Append(c);
+                else if (c == '\n')
+                    sb.Append("\\n");
+                else if (c == '\r')
+                    sb.Append("\\r");
+                else if (c == '\t')
+                    sb.Append("\\t");
+                else if (c < 0x20)
+                    sb.Append(' ');
+                else
+                    sb.Append(c);
+            }
+
+            sb.Append('"');
+            return sb.ToString();
         }
     }
 }

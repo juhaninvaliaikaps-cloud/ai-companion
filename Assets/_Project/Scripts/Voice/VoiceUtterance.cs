@@ -167,6 +167,10 @@ namespace AICompanion.Voice
                 && Exists(voice.kokoroVoices, fileExists);
         }
 
+        /// <summary>
+        /// Preset folder name. Capitals are kept so a folder such as Af_Bella is spoken as
+        /// that preset; the sidecar lowercases the id when it opens the folder.
+        /// </summary>
         public static string ChatterboxVoiceName(string value)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -177,7 +181,8 @@ namespace AICompanion.Voice
             for (var i = 0; i < trimmed.Length; i++)
             {
                 var c = trimmed[i];
-                var ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-';
+                var ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+                    || (c >= '0' && c <= '9') || c == '_' || c == '-';
                 if (!ok)
                     return DefaultChatterboxVoiceId;
             }
