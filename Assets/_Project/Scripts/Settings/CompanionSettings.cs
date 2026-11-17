@@ -58,6 +58,11 @@ namespace AICompanion.Settings
         public string KokoroModel = string.Empty;
         public string KokoroVoices = string.Empty;
         public string KokoroVoice = "af_heart";
+        public string ChatterboxPython = string.Empty;
+        public string ChatterboxScript = string.Empty;
+        public string ChatterboxVoices = string.Empty;
+        public string ChatterboxVoice = "af_nicole";
+        public string ChatterboxDevice = "auto";
         public float Volume = 1f;
         public bool Muted;
         public bool SttEnabled = true;
@@ -263,6 +268,11 @@ namespace AICompanion.Settings
         KokoroModel = CleanToken(KokoroModel, string.Empty, 260);
         KokoroVoices = CleanToken(KokoroVoices, string.Empty, 260);
         KokoroVoice = CleanToken(KokoroVoice, "af_heart", 32);
+        ChatterboxPython = CleanToken(ChatterboxPython, string.Empty, 260);
+        ChatterboxScript = CleanToken(ChatterboxScript, string.Empty, 260);
+        ChatterboxVoices = CleanToken(ChatterboxVoices, string.Empty, 260);
+        ChatterboxVoice = CleanToken(ChatterboxVoice, "af_nicole", 64);
+        ChatterboxDevice = CleanToken(ChatterboxDevice, "auto", 16);
             if (float.IsNaN(Volume) || float.IsInfinity(Volume) || Volume < 0f)
                 Volume = 0f;
             if (Volume > 1f)
@@ -615,6 +625,16 @@ namespace AICompanion.Settings
                 settings.KokoroVoices = text;
             if (TryString(json, "kokoroVoice", out text))
                 settings.KokoroVoice = text;
+            if (TryString(json, "chatterboxPython", out text))
+                settings.ChatterboxPython = text;
+            if (TryString(json, "chatterboxScript", out text))
+                settings.ChatterboxScript = text;
+            if (TryString(json, "chatterboxVoices", out text))
+                settings.ChatterboxVoices = text;
+            if (TryString(json, "chatterboxVoice", out text))
+                settings.ChatterboxVoice = text;
+            if (TryString(json, "chatterboxDevice", out text))
+                settings.ChatterboxDevice = text;
             if (TryNumber(json, "volume", out number))
                 settings.Volume = (float)number;
             if (TryBool(json, "muted", out flag))
@@ -776,6 +796,11 @@ namespace AICompanion.Settings
             String(sb, "kokoroModel", source.KokoroModel);
             String(sb, "kokoroVoices", source.KokoroVoices);
             String(sb, "kokoroVoice", source.KokoroVoice);
+            String(sb, "chatterboxPython", source.ChatterboxPython);
+            String(sb, "chatterboxScript", source.ChatterboxScript);
+            String(sb, "chatterboxVoices", source.ChatterboxVoices);
+            String(sb, "chatterboxVoice", source.ChatterboxVoice);
+            String(sb, "chatterboxDevice", source.ChatterboxDevice);
             Number(sb, "volume", source.Volume, false);
             Bool(sb, "muted", source.Muted);
             Bool(sb, "sttEnabled", source.SttEnabled);

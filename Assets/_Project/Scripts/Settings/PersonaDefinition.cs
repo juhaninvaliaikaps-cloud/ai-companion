@@ -16,6 +16,7 @@ namespace AICompanion.Settings
         public const int MaxSpeakingStyleLength = 600;
         public const int MaxPiperVoiceIdLength = 120;
         public const int MaxKokoroVoiceIdLength = 64;
+        public const int MaxChatterboxVoiceIdLength = 64;
         public const int MaxCloudVoiceIdLength = 40;
         public const int MaxPathLength = 260;
 
@@ -28,6 +29,7 @@ namespace AICompanion.Settings
 
         /// <summary>Kokoro voice name, for example af_heart. Blank keeps the current one.</summary>
         public string KokoroVoiceId = string.Empty;
+        public string ChatterboxVoiceId = string.Empty;
         public string CloudVoiceId = string.Empty;
         public string ProviderId = string.Empty;
         public string Model = string.Empty;
@@ -75,6 +77,7 @@ namespace AICompanion.Settings
                 SpeakingStyle = SpeakingStyle,
                 PiperVoiceId = PiperVoiceId,
                 KokoroVoiceId = KokoroVoiceId,
+                ChatterboxVoiceId = ChatterboxVoiceId,
                 CloudVoiceId = CloudVoiceId,
                 ProviderId = ProviderId,
                 Model = Model,
@@ -121,6 +124,7 @@ namespace AICompanion.Settings
             SpeakingStyle = CleanProse(SpeakingStyle, MaxSpeakingStyleLength);
             PiperVoiceId = CleanToken(PiperVoiceId, MaxPiperVoiceIdLength);
             KokoroVoiceId = CleanToken(KokoroVoiceId, MaxKokoroVoiceIdLength);
+            ChatterboxVoiceId = CleanToken(ChatterboxVoiceId, MaxChatterboxVoiceIdLength);
             CloudVoiceId = CleanToken(CloudVoiceId, MaxCloudVoiceIdLength);
             string provider;
             ProviderId = PersonaProviders.TryNormalize(ProviderId, out provider) ? provider : string.Empty;
@@ -339,6 +343,8 @@ namespace AICompanion.Settings
                 persona.PiperVoiceId = text;
             if (TryString(json, "kokoroVoiceId", out text))
                 persona.KokoroVoiceId = text;
+            if (TryString(json, "chatterboxVoiceId", out text))
+                persona.ChatterboxVoiceId = text;
             if (TryString(json, "cloudVoiceId", out text) || TryString(json, "voiceId", out text))
                 persona.CloudVoiceId = text;
             if (TryString(json, "providerId", out text) || TryString(json, "provider", out text))
@@ -375,6 +381,7 @@ namespace AICompanion.Settings
             String(sb, "speakingStyle", source.SpeakingStyle);
             String(sb, "piperVoiceId", source.PiperVoiceId);
             String(sb, "kokoroVoiceId", source.KokoroVoiceId);
+            String(sb, "chatterboxVoiceId", source.ChatterboxVoiceId);
             String(sb, "cloudVoiceId", source.CloudVoiceId);
             String(sb, "providerId", source.ProviderId);
             String(sb, "model", source.Model);

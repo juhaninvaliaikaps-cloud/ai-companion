@@ -108,7 +108,13 @@ namespace AICompanion.Voice
             var timeout = voiceSettings != null && voiceSettings.timeoutSeconds > 0f
                 ? voiceSettings.timeoutSeconds
                 : 20f;
+            var previous = _provider;
             _provider = BuildProvider(timeout);
+            // Rebuilding the provider used to leave the old Chatterbox Python process
+            // running; every settings apply orphaned another model-loaded server.
+            var disposable = previous as System.IDisposable;
+            if (disposable != null && !ReferenceEquals(previous, _provider))
+                disposable.Dispose();
             PrewarmProvider();
         }
 
@@ -176,6 +182,9 @@ namespace AICompanion.Voice
             var kokoro = _provider as KokoroTtsProvider;
             if (kokoro != null)
                 kokoro.Prewarm();
+            var chatterbox = _provider as ChatterboxTtsProvider;
+            if (chatterbox != null)
+                chatterbox.Prewarm();
         }
 
         ITtsProvider BuildProvider(float timeout)
@@ -210,6 +219,25 @@ namespace AICompanion.Voice
                     voiceSettings.kokoroVoice,
                     session,
                     timeout);
+            }
+
+            if (string.Equals(mode, ChatterboxTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+            {
+                var chatterboxTimeout = Mathf.Max(timeout, 180f);
+                var session = new ChatterboxProcessSession(
+                    voiceSettings.chatterboxPython,
+                    voiceSettings.chatterboxScript,
+                    voiceSettings.chatterboxVoices,
+                    voiceSettings.chatterboxVoice,
+                    voiceSettings.chatterboxDevice,
+                    chatterboxTimeout);
+                return new ChatterboxTtsProvider(
+                    voiceSettings.chatterboxPython,
+                    voiceSettings.chatterboxScript,
+                    voiceSettings.chatterboxVoices,
+                    voiceSettings.chatterboxVoice,
+                    session,
+                    chatterboxTimeout);
             }
 
             return new XaiTtsProvider(new EnvironmentApiKeySource(), new UnityTtsTransport(this), timeout);
@@ -344,6 +372,10 @@ namespace AICompanion.Voice
                 // Kokoro loads its model on the first request, which takes about 17 s here.
                 if (voiceSettings != null && string.Equals(voiceSettings.provider, KokoroTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
                     limit = Mathf.Max(limit, 150f);
+                // Chatterbox loads its model on the first request and then synthesizes;
+                // the 20 s default timeout cut off the first reply before its WAV arrived.
+                if (voiceSettings != null && string.Equals(voiceSettings.provider, ChatterboxTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
+                    limit = Mathf.Max(limit, 240f);
                 if (Time.realtimeSinceStartup - _requestStartedAt > limit + 1f)
                 {
                     var screen = ChatErrors.TimedOut("the voice");

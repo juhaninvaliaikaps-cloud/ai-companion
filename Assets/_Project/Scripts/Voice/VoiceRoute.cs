@@ -54,7 +54,8 @@ namespace AICompanion.Voice
                 return false;
 
             return string.Equals(id, PiperTtsProvider.Id, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(id, KokoroTtsProvider.Id, StringComparison.OrdinalIgnoreCase);
+                || string.Equals(id, KokoroTtsProvider.Id, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(id, ChatterboxTtsProvider.Id, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

@@ -369,6 +369,8 @@ namespace AICompanion.Settings
 
             if (!string.IsNullOrEmpty(source.KokoroVoiceId))
                 settings.KokoroVoice = source.KokoroVoiceId.Trim();
+            if (!string.IsNullOrEmpty(source.ChatterboxVoiceId))
+                settings.ChatterboxVoice = source.ChatterboxVoiceId.Trim();
 
             string avatar;
             if (PersonaAvatars.TryNormalize(source.AvatarSource, out avatar))
