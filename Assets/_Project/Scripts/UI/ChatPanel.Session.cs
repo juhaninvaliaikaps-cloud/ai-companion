@@ -171,22 +171,19 @@ namespace AICompanion.UI
                 return false;
 
             var privacy = GetComponent<IPrivacyMode>();
-            // Sticky: private at any point of the session means private now, for the routing and
-            // for the private flag of the memories (Private mode may have been turned off since).
-            var keepsLocal = keptLocal || IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+            var lines = _conversation.Lines;
+            // A restored adult line counts as private even when this process never saw the send.
+            var hasLocalOnly = SessionLineFilter.AnyLocalOnly(lines, startLine);
+            var keepsLocal = SessionLineFilter.MustStayLocal(
+                keptLocal,
+                hasLocalOnly,
+                IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode));
             var providerId = PrivateChatRouting.ProviderId(keepsLocal, settings.providerId, settings.privateEndpointType);
             if (!_registry.TryGet(providerId, out var provider))
                 return false;
 
-            var lines = _conversation.Lines;
             var messages = new List<ChatMessage>();
-            for (var i = Mathf.Clamp(startLine, 0, lines.Count); i < lines.Count; i++)
-            {
-                var line = lines[i];
-                if (line.Kind == ChatLineKind.System || line.Streaming || !line.KeepInHistory)
-                    continue;
-                messages.Add(new ChatMessage(line.Kind == ChatLineKind.User ? ChatRole.User : ChatRole.Assistant, line.Text));
-            }
+            SessionLineFilter.Append(messages, lines, startLine, keepsLocal);
 
             var transcript = SessionMemories.BuildTranscript(messages, WorldPromptNow.HerName);
             if (transcript.Length == 0)
@@ -216,6 +213,55 @@ namespace AICompanion.UI
 
             if (done != null)
                 done();
+        }
+    }
+
+    /// <summary>
+    /// Which transcript lines a session-end request may carry. Local-only lines (adult
+    /// interaction turns) stay in a local request and are left out of a cloud one.
+    /// </summary>
+    public static class SessionLineFilter
+    {
+        public static bool AnyLocalOnly(IReadOnlyList<ChatLine> lines, int start)
+        {
+            if (lines == null)
+                return false;
+            var first = start < 0 ? 0 : start;
+            for (var i = first; i < lines.Count; i++)
+            {
+                var line = lines[i];
+                if (line != null && line.LocalOnly && line.KeepInHistory && !string.IsNullOrEmpty(line.Text))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>A session that contains a local-only turn stays local at its end.</summary>
+        public static bool MustStayLocal(bool keptLocal, bool transcriptHasLocalOnly, bool keepsLocalNow)
+        {
+            return keptLocal || transcriptHasLocalOnly || keepsLocalNow;
+        }
+
+        public static void Append(List<ChatMessage> messages, IReadOnlyList<ChatLine> lines, int start, bool includeLocalOnly)
+        {
+            if (messages == null || lines == null)
+                return;
+            var first = start < 0 ? 0 : start;
+            if (first > lines.Count)
+                first = lines.Count;
+            for (var i = first; i < lines.Count; i++)
+            {
+                var line = lines[i];
+                if (line == null || line.Kind == ChatLineKind.System || line.Streaming || !line.KeepInHistory)
+                    continue;
+                if (!includeLocalOnly && line.LocalOnly)
+                    continue;
+                if (string.IsNullOrEmpty(line.Text))
+                    continue;
+                var role = line.Kind == ChatLineKind.User ? ChatRole.User : ChatRole.Assistant;
+                messages.Add(new ChatMessage(role, line.Text));
+            }
         }
     }
 }

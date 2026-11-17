@@ -125,6 +125,9 @@ namespace AICompanion.UI
             _conversation.ClearTranscript();
             ChatHistoryCodec.ReadInto(json, _conversation);
             _sessionStartLine = 0;
+            // The saved adult lines are part of this session. A later session-end request stays local.
+            if (SessionLineFilter.AnyLocalOnly(_conversation.Lines, 0))
+                NoteSessionPrivacy(true);
             RefreshTranscript(true);
         }
 

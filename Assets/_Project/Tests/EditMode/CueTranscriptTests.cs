@@ -216,6 +216,43 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("later", reloaded);
         }
 
+        [Test]
+        public void ReloadedAdultLines_AreNotPartOfACloudSessionCapture()
+        {
+            var conversation = new ChatConversation();
+            Assert.IsTrue(conversation.TryBeginSend(
+                "*Someone cups your breast.*",
+                "persona",
+                0.5f,
+                32,
+                out _,
+                new ChatTurnOptions { LocalOnly = true }));
+            conversation.Complete(ChatResult.Success("Oh."));
+            Assert.IsTrue(conversation.TryBeginSend("hello", "persona", 0.5f, 32, out _, null));
+            conversation.Complete(ChatResult.Success("Hi."));
+
+            var restored = new ChatConversation();
+            ChatHistoryCodec.ReadInto(ChatHistoryCodec.Write(conversation.Lines), restored);
+            Assert.IsTrue(SessionLineFilter.AnyLocalOnly(restored.Lines, 0));
+            Assert.IsTrue(SessionLineFilter.MustStayLocal(false, true, false));
+            Assert.AreEqual(ChatDefaults.LocalId, PrivateChatRouting.ProviderId(
+                SessionLineFilter.MustStayLocal(false, true, false),
+                ChatDefaults.GrokId,
+                null));
+
+            var cloud = new List<ChatMessage>();
+            SessionLineFilter.Append(cloud, restored.Lines, 0, false);
+            var cloudText = Join(cloud);
+            Assert.IsFalse(cloudText.Contains("breast"));
+            Assert.IsFalse(cloudText.Contains("Oh."));
+            StringAssert.Contains("hello", cloudText);
+            StringAssert.Contains("Hi.", cloudText);
+
+            var local = new List<ChatMessage>();
+            SessionLineFilter.Append(local, restored.Lines, 0, true);
+            StringAssert.Contains("breast", Join(local));
+        }
+
         static string Join(IReadOnlyList<ChatMessage> messages)
         {
             var text = string.Empty;
