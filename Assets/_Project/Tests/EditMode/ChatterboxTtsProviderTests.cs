@@ -235,22 +235,46 @@ namespace AICompanion.Tests.EditMode
         [Timeout(20000)]
         public void Dispose_ReturnsWhileSynthesisHoldsTheRead()
         {
+            // Same deadlock as the quiet-cancel test: Synthesize is async, so waiting for it
+            // on the Unity main thread never lets the continuation finish.
             var bash = BashOrIgnore();
             var script = Path.Combine(_dir, "slow.sh");
             File.WriteAllText(script, SlowScript);
             var session = new ChatterboxProcessSession(bash, script, _voices, "af_nicole", "cpu", 5f);
             var provider = new ChatterboxTtsProvider(bash, script, _voices, "af_nicole", session, 5f);
-            var running = provider.Synthesize(new TtsRequest { Text = "hello", Speed = 1f }, CancellationToken.None);
+            Exception error = null;
+            var done = new ManualResetEventSlim(false);
+            var worker = new Thread(() =>
+            {
+                try
+                {
+                    var running = provider.Synthesize(new TtsRequest { Text = "hello", Speed = 1f }, CancellationToken.None);
+                    WaitForFile(Path.Combine(_voices, "seen"));
+
+                    var watch = Stopwatch.StartNew();
+                    provider.Dispose();
+                    watch.Stop();
+                    if (watch.ElapsedMilliseconds >= 1000)
+                        throw new TimeoutException("Dispose blocked for " + watch.ElapsedMilliseconds + " ms.");
+                    if (!running.Wait(3000))
+                        throw new TimeoutException("Disposed synthesis did not finish.");
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                }
+                finally
+                {
+                    done.Set();
+                }
+            });
+            worker.IsBackground = true;
+            worker.Start();
             try
             {
-                WaitForFile(Path.Combine(_voices, "seen"));
-
-                var watch = Stopwatch.StartNew();
-                provider.Dispose();
-                watch.Stop();
-
-                Assert.Less(watch.ElapsedMilliseconds, 1000);
-                WaitFor(running, 3000);
+                Assert.IsTrue(done.Wait(10000), "Dispose-during-read test timed out.");
+                if (error != null)
+                    throw error;
             }
             finally
             {
