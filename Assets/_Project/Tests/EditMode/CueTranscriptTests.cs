@@ -166,6 +166,64 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("hi", provider.Seen.Messages[0].Content);
         }
 
+        [Test]
+        public void AdultTurn_StaysOutOfALaterCloudRequestAndSurvivesReload()
+        {
+            var conversation = new ChatConversation();
+            Assert.IsTrue(conversation.TryBeginSend(
+                "*Someone cups your breast.*",
+                "persona",
+                0.5f,
+                64,
+                out var sent,
+                new ChatTurnOptions { LocalOnly = true }));
+            StringAssert.Contains("breast", sent.Messages[sent.Messages.Count - 1].Content);
+            conversation.Complete(ChatResult.Success("Oh."));
+
+            Assert.IsTrue(conversation.TryBeginSend(
+                "hello",
+                "persona",
+                0.5f,
+                64,
+                out var cloud,
+                new ChatTurnOptions { OmitLocalOnly = true }));
+            var cloudText = Join(cloud.Messages);
+            Assert.IsFalse(cloudText.Contains("breast"));
+            Assert.IsFalse(cloudText.Contains("Oh."));
+            StringAssert.Contains("hello", cloudText);
+            conversation.Complete(ChatResult.Success("Hi."));
+
+            Assert.IsTrue(conversation.TryBeginSend("again", "persona", 0.5f, 64, out var local, null));
+            var localText = Join(local.Messages);
+            StringAssert.Contains("breast", localText);
+            StringAssert.Contains("Oh.", localText);
+
+            var written = ChatHistoryCodec.Write(conversation.Lines);
+            StringAssert.Contains("\"local\":true", written);
+            var restored = new ChatConversation();
+            ChatHistoryCodec.ReadInto(written, restored);
+            Assert.IsTrue(restored.TryBeginSend(
+                "later",
+                "persona",
+                0.5f,
+                64,
+                out var afterReload,
+                new ChatTurnOptions { OmitLocalOnly = true }));
+            var reloaded = Join(afterReload.Messages);
+            Assert.IsFalse(reloaded.Contains("breast"));
+            Assert.IsFalse(reloaded.Contains("Oh."));
+            StringAssert.Contains("hello", reloaded);
+            StringAssert.Contains("later", reloaded);
+        }
+
+        static string Join(IReadOnlyList<ChatMessage> messages)
+        {
+            var text = string.Empty;
+            for (var i = 0; i < messages.Count; i++)
+                text += messages[i].Content + "\n";
+            return text;
+        }
+
         sealed class ScriptedProvider : IChatProvider
         {
             public string[] Deltas = new string[0];

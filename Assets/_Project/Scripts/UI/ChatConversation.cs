@@ -33,6 +33,12 @@ namespace AICompanion.UI
         /// </summary>
         public bool KeepInHistory { get; internal set; } = true;
 
+        /// <summary>
+        /// Adult interaction text. A later cloud request leaves the line out. A local or
+        /// private request still includes it.
+        /// </summary>
+        public bool LocalOnly { get; internal set; }
+
         internal void Append(string piece)
         {
             if (!string.IsNullOrEmpty(piece))
@@ -103,10 +109,14 @@ namespace AICompanion.UI
 
             Generation++;
             var user = new ChatLine(ChatLineKind.User, text, false);
+            var localOnly = options != null && options.LocalOnly;
+            if (localOnly)
+                user.LocalOnly = true;
             _lines.Add(user);
+            var includeLocalOnly = options == null || !options.OmitLocalOnly;
             request = options != null && options.SingleTurn
                 ? BuildSingle(systemPrompt, temperature, maxTokens, text)
-                : BuildRequest(systemPrompt, temperature, maxTokens);
+                : BuildRequest(systemPrompt, temperature, maxTokens, includeLocalOnly);
             if (options != null)
             {
                 request.Image = options.Image;
@@ -114,6 +124,8 @@ namespace AICompanion.UI
             }
 
             var assistant = new ChatLine(ChatLineKind.Assistant, string.Empty, true);
+            if (localOnly)
+                assistant.LocalOnly = true;
             _lines.Add(assistant);
             if (options != null && options.Ephemeral)
             {
@@ -217,12 +229,20 @@ namespace AICompanion.UI
 
         public ChatRequest BuildRequest(string systemPrompt, float temperature, int maxTokens)
         {
+            return BuildRequest(systemPrompt, temperature, maxTokens, true);
+        }
+
+        /// <param name="includeLocalOnly">False on a cloud send, so adult interaction lines stay on this machine.</param>
+        public ChatRequest BuildRequest(string systemPrompt, float temperature, int maxTokens, bool includeLocalOnly)
+        {
             var messages = new List<ChatMessage>();
             var first = Math.Max(0, HistoryStart);
             for (var i = first; i < _lines.Count; i++)
             {
                 var line = _lines[i];
                 if (line.Kind == ChatLineKind.System || string.IsNullOrEmpty(line.Text))
+                    continue;
+                if (!includeLocalOnly && line.LocalOnly)
                     continue;
 
                 var role = line.Kind == ChatLineKind.Assistant ? ChatRole.Assistant : ChatRole.User;
@@ -265,6 +285,11 @@ namespace AICompanion.UI
 
         public bool ImportLine(ChatLineKind kind, string text)
         {
+            return ImportLine(kind, text, false);
+        }
+
+        public bool ImportLine(ChatLineKind kind, string text, bool localOnly)
+        {
             if (kind != ChatLineKind.User && kind != ChatLineKind.Assistant && kind != ChatLineKind.System)
                 return false;
             if (string.IsNullOrWhiteSpace(text))
@@ -273,7 +298,9 @@ namespace AICompanion.UI
             var clean = text.Trim();
             if (clean.Length > 4000)
                 clean = clean.Substring(0, 4000);
-            _lines.Add(new ChatLine(kind, clean, false));
+            var line = new ChatLine(kind, clean, false);
+            line.LocalOnly = localOnly;
+            _lines.Add(line);
             Touch();
             return true;
         }

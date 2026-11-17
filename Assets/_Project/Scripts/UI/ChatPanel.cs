@@ -581,7 +581,17 @@ namespace AICompanion.UI
 
             var temperature = settings.temperature;
             var maxTokens = settings.maxTokens;
-            Dispatch(provider, text, prompt, temperature, maxTokens, _cancel.Token, null, true);
+            ChatTurnOptions options = null;
+            if (adultLine || !privateMode)
+            {
+                options = new ChatTurnOptions
+                {
+                    LocalOnly = adultLine,
+                    OmitLocalOnly = !privateMode
+                };
+            }
+
+            Dispatch(provider, text, prompt, temperature, maxTokens, _cancel.Token, options, true, privateMode);
             return true;
         }
 
@@ -647,7 +657,7 @@ namespace AICompanion.UI
             RefreshTranscript(true);
         }
 
-        async void Dispatch(IChatProvider provider, string text, string prompt, float temperature, int maxTokens, CancellationToken token, ChatTurnOptions options, bool remember)
+        async void Dispatch(IChatProvider provider, string text, string prompt, float temperature, int maxTokens, CancellationToken token, ChatTurnOptions options, bool remember, bool keepsLocal = false)
         {
             var result = await _exchange.Run(provider, text, prompt, temperature, maxTokens, token, options);
             if (options != null && options.Image != null)
@@ -661,7 +671,7 @@ namespace AICompanion.UI
                 if (remember)
                 {
                     SessionReplyFinished();
-                    CaptureMemory(provider, text, result.Text);
+                    CaptureMemory(provider, text, result.Text, keepsLocal);
                 }
                 if (remember && ScreenLookCue.Requests(result.Text))
                 {
@@ -751,20 +761,19 @@ namespace AICompanion.UI
 
         /// <summary>
         /// Asks the provider for durable facts after a reply, and stores them with the
-        /// private flag of the current session. Very short messages are skipped because
-        /// they never carry a durable fact and every capture is a second request.
+        /// private flag of the send. Very short messages are skipped because they never
+        /// carry a durable fact and every capture is a second request. The flag is the
+        /// one from the send, so a gate that closes while the reply is in flight still
+        /// stores an adult line as private.
         /// </summary>
-        async void CaptureMemory(IChatProvider provider, string userText, string assistantText)
+        async void CaptureMemory(IChatProvider provider, string userText, string assistantText, bool keepsLocal)
         {
             if (provider == null || string.IsNullOrEmpty(userText) || WordCount(userText) < 3)
                 return;
 
-            var privacy = GetComponent<IPrivacyMode>();
-            var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
-
             try
             {
-                await MemoryCapture.CaptureAsync(provider, userText, assistantText, privateMode, MemoryRuntime.Store);
+                await MemoryCapture.CaptureAsync(provider, userText, assistantText, keepsLocal, MemoryRuntime.Store);
             }
             catch (Exception e)
             {

@@ -56,7 +56,7 @@ Embeddings are a later step; `Search`/`SearchFor` is the seam an embedding imple
 4. Each fact is stored with `MemoryStore.Add`, which skips text that already exists ignoring case, and flags identity facts (name, "call me") as core.
 5. A log line reports only the count: `Memory: saved 2 fact(s)`.
 
-The extraction call goes to the active provider. In private mode that is the local model, and if a cloud provider is somehow passed anyway, `CaptureAsync` returns before sending anything. Facts written in private mode carry `isPrivate` and are filtered out of cloud prompts later.
+The extraction call goes to the active provider. In private mode that is the local model, and if a cloud provider is somehow passed anyway, `CaptureAsync` returns before sending anything. Facts written in private mode carry `isPrivate` and are filtered out of cloud prompts later. The private flag is the one from the send, so turning 18+ off while a reply is still in flight does not store that turn as a public fact. An adult interaction line is also marked local-only in the transcript: a later cloud chat request leaves that turn out, and a local or private request still includes it.
 
 ## Prompt wiring
 
