@@ -43,6 +43,12 @@ namespace AICompanion.Voice
         /// <summary>Kokoro voice name, for example af_heart.</summary>
         public string kokoroVoice = "af_heart";
 
+        public string chatterboxPython = string.Empty;
+        public string chatterboxScript = string.Empty;
+        public string chatterboxVoices = string.Empty;
+        public string chatterboxVoice = "af_nicole";
+        public string chatterboxDevice = "auto";
+
         public VoiceSettings RuntimeCopy()
         {
             var copy = CreateInstance<VoiceSettings>();
@@ -63,6 +69,11 @@ namespace AICompanion.Voice
             copy.kokoroModel = kokoroModel;
             copy.kokoroVoices = kokoroVoices;
             copy.kokoroVoice = kokoroVoice;
+            copy.chatterboxPython = chatterboxPython;
+            copy.chatterboxScript = chatterboxScript;
+            copy.chatterboxVoices = chatterboxVoices;
+            copy.chatterboxVoice = chatterboxVoice;
+            copy.chatterboxDevice = chatterboxDevice;
             return copy;
         }
     }

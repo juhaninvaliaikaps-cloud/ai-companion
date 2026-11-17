@@ -64,8 +64,17 @@ namespace AICompanion.Voice
                 return plan;
             }
 
-            // A local reply can use either local engine. Kokoro wins when the user picked it
-            // and its files are present; otherwise Piper, which still never falls to cloud.
+            // A local reply can use any local engine. Chatterbox and Kokoro win when the
+            // user picked them and their files are present; otherwise Piper.
+            if (voice != null && string.Equals(voice.provider, ChatterboxTtsProvider.Id, StringComparison.OrdinalIgnoreCase) &&
+                ChatterboxReady(voice, fileExists))
+            {
+                plan.Engine = "Chatterbox";
+                plan.EngineId = ChatterboxTtsProvider.Id;
+                plan.Voice = ChatterboxVoiceName(voice.chatterboxVoice);
+                return plan;
+            }
+
             if (voice != null && string.Equals(voice.provider, KokoroTtsProvider.Id, StringComparison.OrdinalIgnoreCase) &&
                 KokoroReady(voice, fileExists))
             {
@@ -100,6 +109,9 @@ namespace AICompanion.Voice
             if (string.Equals(id, KokoroTtsProvider.Id, StringComparison.OrdinalIgnoreCase))
                 return head + "Kokoro, voice=" + KokoroVoiceName(voice != null ? voice.kokoroVoice : null) + ", local)";
 
+            if (string.Equals(id, ChatterboxTtsProvider.Id, StringComparison.OrdinalIgnoreCase))
+                return head + "Chatterbox, voice=" + ChatterboxVoiceName(voice != null ? voice.chatterboxVoice : null) + ", local)";
+
             if (string.Equals(id, VoiceRoute.Cloud, StringComparison.OrdinalIgnoreCase))
             {
                 var cloud = voice != null && !string.IsNullOrWhiteSpace(voice.voiceId) ? voice.voiceId.Trim() : "eve";
@@ -111,6 +123,7 @@ namespace AICompanion.Voice
         }
 
         public const string DefaultKokoroVoiceId = "af_heart";
+        public const string DefaultChatterboxVoiceId = "af_nicole";
 
         /// <summary>
         /// Kokoro voice ids look like af_heart. A path pasted into the persona field must not
@@ -152,6 +165,39 @@ namespace AICompanion.Voice
                 && Exists(voice.kokoroScript, fileExists)
                 && Exists(voice.kokoroModel, fileExists)
                 && Exists(voice.kokoroVoices, fileExists);
+        }
+
+        /// <summary>
+        /// Preset folder name. Capitals are kept so a folder such as Af_Bella is spoken as
+        /// that preset; the sidecar lowercases the id when it opens the folder.
+        /// </summary>
+        public static string ChatterboxVoiceName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return DefaultChatterboxVoiceId;
+            var trimmed = value.Trim();
+            if (trimmed.Length > 64)
+                return DefaultChatterboxVoiceId;
+            for (var i = 0; i < trimmed.Length; i++)
+            {
+                var c = trimmed[i];
+                var ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+                    || (c >= '0' && c <= '9') || c == '_' || c == '-';
+                if (!ok)
+                    return DefaultChatterboxVoiceId;
+            }
+
+            return trimmed;
+        }
+
+        public static bool ChatterboxReady(VoiceSettings voice, Func<string, bool> fileExists)
+        {
+            if (voice == null || fileExists == null)
+                return false;
+            return Exists(voice.chatterboxPython, fileExists)
+                && Exists(voice.chatterboxScript, fileExists)
+                && !string.IsNullOrWhiteSpace(voice.chatterboxVoices)
+                && System.IO.Directory.Exists(voice.chatterboxVoices.Trim());
         }
 
         static bool Exists(string path, Func<string, bool> fileExists)
