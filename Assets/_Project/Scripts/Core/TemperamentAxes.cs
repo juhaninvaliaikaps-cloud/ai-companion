@@ -37,6 +37,12 @@ namespace AICompanion.Core
             "Energy", "Directness", "Confidence", "Curiosity",
         };
 
+        static readonly string[] JsonKeys =
+        {
+            "warmth", "volatility", "assertiveness", "playfulness", "openness",
+            "energy", "directness", "confidence", "curiosity",
+        };
+
         public static readonly string[] Hints =
         {
             "0 cold, 100 warm",
@@ -225,6 +231,67 @@ namespace AICompanion.Core
         {
             for (var i = 0; i < Count; i++)
                 Set(i, Raw(i));
+        }
+
+        /// <summary>
+        /// JsonUtility leaves an omitted slider at 0, which is a real extreme, not "unsaid".
+        /// A key missing from <paramref name="json"/>'s <paramref name="objectKey"/> object is put
+        /// back at <see cref="Middle"/>. An explicit 0 stays 0.
+        /// </summary>
+        public static void FillOmitted(TemperamentAxes axes, string json, string objectKey)
+        {
+            if (axes == null)
+                return;
+            var body = ObjectBody(json, objectKey);
+            for (var i = 0; i < Count; i++)
+            {
+                if (body == null || body.IndexOf("\"" + JsonKeys[i] + "\"", StringComparison.Ordinal) < 0)
+                    axes.Set(i, Middle);
+            }
+        }
+
+        static string ObjectBody(string json, string objectKey)
+        {
+            if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(objectKey))
+                return null;
+            var key = "\"" + objectKey + "\"";
+            var i = 0;
+            while (i < json.Length)
+            {
+                var at = json.IndexOf(key, i, StringComparison.Ordinal);
+                if (at < 0)
+                    return null;
+                if (at > 0)
+                {
+                    var prev = json[at - 1];
+                    if (char.IsLetterOrDigit(prev) || prev == '_')
+                    {
+                        i = at + key.Length;
+                        continue;
+                    }
+                }
+
+                var cursor = at + key.Length;
+                while (cursor < json.Length && char.IsWhiteSpace(json[cursor]))
+                    cursor++;
+                if (cursor >= json.Length || json[cursor] != ':')
+                {
+                    i = at + key.Length;
+                    continue;
+                }
+
+                cursor++;
+                while (cursor < json.Length && char.IsWhiteSpace(json[cursor]))
+                    cursor++;
+                if (cursor >= json.Length || json[cursor] != '{')
+                    return null;
+                var end = json.IndexOf('}', cursor);
+                if (end < 0)
+                    return null;
+                return json.Substring(cursor, end - cursor + 1);
+            }
+
+            return null;
         }
 
         public TemperamentAxes Clone()

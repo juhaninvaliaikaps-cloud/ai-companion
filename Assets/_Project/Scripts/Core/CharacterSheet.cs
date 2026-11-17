@@ -264,6 +264,8 @@ namespace AICompanion.Core
             sheet.relationshipLocked = false;
             sheet.readInCloud = false;
             sheet.readBy = string.Empty;
+            if (sheet.temperament != null && sheet.temperament.axes != null)
+                TemperamentAxes.FillOmitted(sheet.temperament.axes, json, "axes");
             sheet.Normalize();
             return sheet;
         }
@@ -278,6 +280,8 @@ namespace AICompanion.Core
                 var sheet = JsonUtility.FromJson<CharacterSheet>(json);
                 if (sheet == null)
                     return null;
+                if (sheet.temperament != null && sheet.temperament.axes != null)
+                    TemperamentAxes.FillOmitted(sheet.temperament.axes, json, "axes");
                 sheet.Normalize();
                 return sheet;
             }

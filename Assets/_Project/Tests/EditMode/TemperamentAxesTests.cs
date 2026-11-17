@@ -330,6 +330,26 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void OmittedSheetSliders_AreTheMiddle_AndAnExplicitZeroStays()
+        {
+            var partial = CharacterSheet.Parse(
+                "{\"temperament\":{\"tsundere\":0.9,\"reason\":\"sharp\",\"axesSet\":true,\"axes\":{\"warmth\":80}}}");
+            Assert.IsNotNull(partial);
+            Assert.AreEqual(80, partial.temperament.axes.Value(TemperamentAxes.Warmth));
+            Assert.AreEqual(TemperamentAxes.Middle, partial.temperament.axes.Value(TemperamentAxes.Volatility));
+            Assert.AreEqual(TemperamentAxes.Middle, partial.temperament.axes.Value(TemperamentAxes.Assertiveness));
+            Assert.AreEqual(TemperamentAxes.Middle, partial.temperament.axes.Value(TemperamentAxes.Curiosity));
+            Assert.Greater(
+                TemperamentMood.From(partial.temperament.axes).Gain(CompanionMood.Affectionate, true),
+                1f);
+
+            var cold = CharacterSheet.Parse(
+                "{\"temperament\":{\"axesSet\":true,\"axes\":{\"warmth\":0}}}");
+            Assert.AreEqual(0, cold.temperament.axes.Value(TemperamentAxes.Warmth));
+            Assert.AreEqual(TemperamentAxes.Middle, cold.temperament.axes.Value(TemperamentAxes.Directness));
+        }
+
+        [Test]
         public void AxesClamp_AndThePromptExampleParses()
         {
             var axes = TemperamentAxes.Neutral();

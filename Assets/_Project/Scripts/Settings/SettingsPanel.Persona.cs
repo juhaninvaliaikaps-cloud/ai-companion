@@ -186,6 +186,7 @@ namespace AICompanion.Settings
         }
 
         int _temperamentRevision;
+        bool _temperamentUiPending;
 
         /// <summary>Bumps when a temperament preset or slider is saved, so the new settings view can refresh after a drag.</summary>
         public int TemperamentRevision
@@ -253,6 +254,8 @@ namespace AICompanion.Settings
             _temperamentRevision++;
             if (rebuild)
                 _rebuild = true;
+            else if (_open)
+                _temperamentUiPending = true;
         }
 
         void CreatePersona()
