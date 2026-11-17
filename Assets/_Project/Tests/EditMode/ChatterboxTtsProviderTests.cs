@@ -1,6 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using AICompanion.Voice;
@@ -156,6 +158,119 @@ namespace AICompanion.Tests.EditMode
             var escaped = ChatterboxReply.Parse("{\"ok\": false, \"error\": \"say \\\"no\\\"\"}");
             Assert.AreEqual("say \"no\"", escaped.error);
         }
+
+        [Test]
+        public void Cancel_DropsThePendingReplySoTheNextRequestIsANewProcess()
+        {
+            var bash = BashOrIgnore();
+            var script = Path.Combine(_dir, "pid.sh");
+            File.WriteAllText(script, PidScript);
+            var seen = Path.Combine(_voices, "seen");
+            var session = new ChatterboxProcessSession(bash, script, _voices, "af_nicole", "cpu", 30f);
+            try
+            {
+                var first = PidOf(session.Synthesize("ping", "af_nicole", 1f, CancellationToken.None).GetAwaiter().GetResult());
+                if (File.Exists(seen))
+                    File.Delete(seen);
+
+                var cancel = new CancellationTokenSource();
+                var slow = session.Synthesize("SLOW", "af_nicole", 1f, cancel.Token);
+                WaitForFile(seen);
+                cancel.Cancel();
+                WaitFor(slow, 3000);
+
+                var second = PidOf(session.Synthesize("ping", "af_nicole", 1f, CancellationToken.None).GetAwaiter().GetResult());
+                Assert.AreNotEqual(first, second);
+                Assert.IsNotEmpty(second);
+            }
+            finally
+            {
+                session.Dispose();
+            }
+        }
+
+        [Test]
+        public void Dispose_ReturnsWhileSynthesisHoldsTheRead()
+        {
+            var bash = BashOrIgnore();
+            var script = Path.Combine(_dir, "slow.sh");
+            File.WriteAllText(script, SlowScript);
+            var session = new ChatterboxProcessSession(bash, script, _voices, "af_nicole", "cpu", 30f);
+            var provider = new ChatterboxTtsProvider(bash, script, _voices, "af_nicole", session, 30f);
+            var running = provider.Synthesize(new TtsRequest { Text = "hello", Speed = 1f }, CancellationToken.None);
+            WaitForFile(Path.Combine(_voices, "seen"));
+
+            var watch = Stopwatch.StartNew();
+            provider.Dispose();
+            watch.Stop();
+
+            Assert.Less(watch.ElapsedMilliseconds, 1000);
+            WaitFor(running, 3000);
+        }
+
+        static string BashOrIgnore()
+        {
+            if (File.Exists("/bin/bash"))
+                return "/bin/bash";
+            if (File.Exists("/usr/bin/bash"))
+                return "/usr/bin/bash";
+            Assert.Ignore("Chatterbox process tests need bash.");
+            return string.Empty;
+        }
+
+        static void WaitFor(Task task, int milliseconds)
+        {
+            try
+            {
+                Assert.IsTrue(task.Wait(milliseconds));
+            }
+            catch (AggregateException)
+            {
+                Assert.IsTrue(task.IsCompleted);
+            }
+        }
+
+        static void WaitForFile(string path)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(5);
+            while (!File.Exists(path) && DateTime.UtcNow < deadline)
+                Thread.Sleep(20);
+            Assert.IsTrue(File.Exists(path));
+        }
+
+        static string PidOf(byte[] wav)
+        {
+            return Encoding.UTF8.GetString(wav).Trim();
+        }
+
+        const string VoicesHeader =
+            "#!/bin/bash\n" +
+            "voices=\"\"\n" +
+            "prev=\"\"\n" +
+            "for arg in \"$@\"; do\n" +
+            "  if [ \"$prev\" = \"--voices\" ]; then voices=\"$arg\"; fi\n" +
+            "  prev=\"$arg\"\n" +
+            "done\n";
+
+        const string PidScript =
+            VoicesHeader +
+            "pid=$$\n" +
+            "while IFS= read -r line; do\n" +
+            "  printf '%s' \"$pid\" > \"$voices/seen\"\n" +
+            "  case \"$line\" in\n" +
+            "    *SLOW*) sleep 3 ;;\n" +
+            "  esac\n" +
+            "  wav=$(printf '%s' \"$pid\" | base64)\n" +
+            "  printf '%s\\n' \"{\\\"ok\\\": true, \\\"wav\\\": \\\"$wav\\\"}\"\n" +
+            "done\n";
+
+        const string SlowScript =
+            VoicesHeader +
+            "IFS= read -r line\n" +
+            "printf '%s' seen > \"$voices/seen\"\n" +
+            "printf '%s\\n' READY\n" +
+            "sleep 8\n" +
+            "printf '%s\\n' '{\"ok\": true, \"wav\": \"YQ==\"}'\n";
 
         sealed class FakeSession : IChatterboxSession
         {

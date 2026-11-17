@@ -140,6 +140,7 @@ namespace AICompanion.Voice
         Process _process;
         StreamWriter _input;
         StreamReader _output;
+        int _stop;
 
         public ChatterboxProcessSession(
             string pythonExe,
@@ -163,6 +164,8 @@ namespace AICompanion.Voice
 
         void EnsureStarted()
         {
+            if (Volatile.Read(ref _stop) != 0)
+                throw new ObjectDisposedException(nameof(ChatterboxProcessSession));
             if (_process != null && !_process.HasExited)
                 return;
             if (string.IsNullOrWhiteSpace(PythonExe) || !File.Exists(PythonExe))
@@ -188,6 +191,11 @@ namespace AICompanion.Voice
             _process = Process.Start(info);
             if (_process == null)
                 throw new InvalidOperationException("Chatterbox process did not start.");
+            if (Volatile.Read(ref _stop) != 0)
+            {
+                KillCurrent();
+                throw new ObjectDisposedException(nameof(ChatterboxProcessSession));
+            }
 
             _input = _process.StandardInput;
             _input.AutoFlush = true;
@@ -223,16 +231,30 @@ namespace AICompanion.Voice
                 ChatterboxReply reply = null;
                 while (reply == null)
                 {
-                    string line = null;
-                    var read = Task.Run(() => line = _output.ReadLine());
+                    var output = _output;
+                    var read = Task.Run(() => ReadLineOrNull(output));
                     while (!read.Wait(50))
                     {
+                        if (Volatile.Read(ref _stop) != 0)
+                            throw new ObjectDisposedException(nameof(ChatterboxProcessSession));
+                        // The reply may still be written after this returns. Kill the process
+                        // so the next request cannot read it from the same stdout.
                         if (cancellationToken.IsCancellationRequested)
+                        {
+                            Close();
                             throw new OperationCanceledException(cancellationToken);
+                        }
                         if (DateTime.UtcNow > deadline)
+                        {
+                            Close();
                             throw new TimeoutException("Chatterbox timed out after " + _timeoutSeconds.ToString("0") + " s.");
+                        }
                     }
 
+                    if (Volatile.Read(ref _stop) != 0)
+                        throw new ObjectDisposedException(nameof(ChatterboxProcessSession));
+
+                    var line = read.Result;
                     if (line == null)
                         throw new InvalidOperationException("Chatterbox closed its output.");
 
@@ -283,10 +305,46 @@ namespace AICompanion.Voice
             _output = null;
         }
 
+        /// <summary>
+        /// Stops the process without taking <c>_sync</c>. Synthesis holds that lock for the
+        /// whole read, and RefreshProvider calls Dispose on the Unity main thread.
+        /// </summary>
         public void Dispose()
         {
-            lock (_sync)
-                Close();
+            Volatile.Write(ref _stop, 1);
+            KillCurrent();
+        }
+
+        void KillCurrent()
+        {
+            var process = _process;
+            if (process == null)
+                return;
+            try
+            {
+                if (!process.HasExited)
+                    process.Kill();
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            catch (NotSupportedException)
+            {
+            }
+        }
+
+        static string ReadLineOrNull(StreamReader output)
+        {
+            if (output == null)
+                return null;
+            try
+            {
+                return output.ReadLine();
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
     }
 
