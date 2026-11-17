@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -190,7 +191,9 @@ namespace AICompanion.Voice
             var info = new ProcessStartInfo
             {
                 FileName = PythonExe,
-                Arguments = "-u \"" + ScriptPath + "\" --voices \"" + _voicesPath + "\" --device \"" + Device + "\"",
+                Arguments = "-u " + ChatterboxProcessArguments.Quote(ScriptPath)
+                    + " --voices " + ChatterboxProcessArguments.Quote(_voicesPath)
+                    + " --device " + ChatterboxProcessArguments.Quote(Device),
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardInput = true,
@@ -474,6 +477,112 @@ namespace AICompanion.Voice
 
             sb.Append('"');
             return sb.ToString();
+        }
+    }
+
+    /// <summary>
+    /// Windows command-line quoting for the Chatterbox sidecar. A trailing backslash
+    /// would escape the closing quote, so those backslashes are doubled.
+    /// </summary>
+    internal static class ChatterboxProcessArguments
+    {
+        public static string Quote(string value)
+        {
+            var text = value ?? string.Empty;
+            var sb = new StringBuilder(text.Length + 2);
+            sb.Append('"');
+            var slashes = 0;
+            for (var i = 0; i < text.Length; i++)
+            {
+                var c = text[i];
+                if (c == '\\')
+                {
+                    slashes++;
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    AppendTimes(sb, '\\', slashes * 2 + 1);
+                    sb.Append('"');
+                    slashes = 0;
+                    continue;
+                }
+
+                if (slashes > 0)
+                {
+                    AppendTimes(sb, '\\', slashes);
+                    slashes = 0;
+                }
+
+                sb.Append(c);
+            }
+
+            if (slashes > 0)
+                AppendTimes(sb, '\\', slashes * 2);
+            sb.Append('"');
+            return sb.ToString();
+        }
+
+        static void AppendTimes(StringBuilder sb, char value, int count)
+        {
+            for (var i = 0; i < count; i++)
+                sb.Append(value);
+        }
+    }
+
+    /// <summary>Preset names for the Chatterbox voice dropdowns, including a persona's own id.</summary>
+    public static class ChatterboxVoiceMenu
+    {
+        public static List<string> Options(IReadOnlyList<string> presetsOnDisk, bool includeEmpty, string current)
+        {
+            var options = new List<string>();
+            if (includeEmpty)
+                options.Add(string.Empty);
+            if (presetsOnDisk != null)
+            {
+                for (var i = 0; i < presetsOnDisk.Count; i++)
+                {
+                    var name = presetsOnDisk[i];
+                    if (string.IsNullOrWhiteSpace(name))
+                        continue;
+                    var already = false;
+                    for (var j = 0; j < options.Count; j++)
+                    {
+                        if (string.Equals(options[j], name, StringComparison.OrdinalIgnoreCase))
+                        {
+                            already = true;
+                            break;
+                        }
+                    }
+
+                    if (!already)
+                        options.Add(name);
+                }
+            }
+
+            options.Sort(StringComparer.OrdinalIgnoreCase);
+            Add(options, current);
+            return options;
+        }
+
+        public static string ClosedLabel(string value, Func<string, string> optionLabel)
+        {
+            var shown = optionLabel != null ? optionLabel(value) : value;
+            return string.IsNullOrWhiteSpace(shown) ? "(not set)" : shown;
+        }
+
+        static void Add(List<string> options, string current)
+        {
+            if (string.IsNullOrWhiteSpace(current))
+                return;
+            for (var i = 0; i < options.Count; i++)
+            {
+                if (string.Equals(options[i], current, StringComparison.OrdinalIgnoreCase))
+                    return;
+            }
+
+            options.Add(current);
         }
     }
 }

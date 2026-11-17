@@ -733,7 +733,7 @@ namespace AICompanion.NewUI
             Field("Chatterbox python", S.ChatterboxPython, false, v => Change(s => s.ChatterboxPython = v));
             Field("Chatterbox script", S.ChatterboxScript, false, v => Change(s => s.ChatterboxScript = v));
             Field("Chatterbox voices folder", S.ChatterboxVoices, false, v => Change(s => s.ChatterboxVoices = v));
-            Dropdown("Chatterbox voice", S.ChatterboxVoice, ChatterboxVoiceOptions(false), v => v, v => Change(s => s.ChatterboxVoice = v));
+            Dropdown("Chatterbox voice", S.ChatterboxVoice, ChatterboxVoiceOptions(false, S.ChatterboxVoice), v => v, v => Change(s => s.ChatterboxVoice = v));
             Field("Chatterbox device (auto/cuda/cpu)", S.ChatterboxDevice, false, v => Change(s => s.ChatterboxDevice = v));
             Note("Piper, Kokoro and Chatterbox speak offline with no API key. Chatterbox is slower but more expressive; it uses the GPU when device is cuda or auto.");
             Field("TTS language", S.TtsLanguage, false, v => Change(s => s.TtsLanguage = v));
@@ -747,7 +747,7 @@ namespace AICompanion.NewUI
                 Section("Voice for this persona");
                 Field("Piper voice id (local)", persona.PiperVoiceId, false, v => Save(id, p => p.PiperVoiceId = v));
                 Field("Kokoro voice id (local)", persona.KokoroVoiceId, false, v => Save(id, p => p.KokoroVoiceId = v));
-                Dropdown("Chatterbox voice id (local)", persona.ChatterboxVoiceId, ChatterboxVoiceOptions(true),
+                Dropdown("Chatterbox voice id (local)", persona.ChatterboxVoiceId, ChatterboxVoiceOptions(true, persona.ChatterboxVoiceId),
                     v => string.IsNullOrEmpty(v) ? "(same as above)" : v,
                     v => Save(id, p => p.ChatterboxVoiceId = v));
                 Field("Cloud voice id (Grok)", persona.CloudVoiceId, false, v => Save(id, p => p.CloudVoiceId = v));
@@ -1494,7 +1494,7 @@ namespace AICompanion.NewUI
         /// </summary>
         void Dropdown(string caption, string value, IReadOnlyList<string> options, Func<string, string> optionLabel, Action<string> changed)
         {
-            var shown = string.IsNullOrWhiteSpace(value) ? "(not set)" : optionLabel(value);
+            var shown = ChatterboxVoiceMenu.ClosedLabel(value, optionLabel);
             var button = Button(caption + ": " + shown + "  v", () =>
             {
                 _openDropdown = string.Equals(_openDropdown, caption, StringComparison.Ordinal) ? null : caption;
@@ -1553,11 +1553,9 @@ namespace AICompanion.NewUI
             return options;
         }
 
-        List<string> ChatterboxVoiceOptions(bool includeEmpty)
+        List<string> ChatterboxVoiceOptions(bool includeEmpty, string current)
         {
-            var options = new List<string>();
-            if (includeEmpty)
-                options.Add(string.Empty);
+            var presets = new List<string>();
             var root = S.ChatterboxVoices;
             if (!string.IsNullOrWhiteSpace(root) && Directory.Exists(root))
             {
@@ -1566,13 +1564,11 @@ namespace AICompanion.NewUI
                 {
                     var name = Path.GetFileName(folders[i]);
                     if (File.Exists(Path.Combine(folders[i], "reference.wav")))
-                        options.Add(name);
+                        presets.Add(name);
                 }
             }
 
-            options.Sort(StringComparer.OrdinalIgnoreCase);
-            AddCurrent(options, S.ChatterboxVoice);
-            return options;
+            return ChatterboxVoiceMenu.Options(presets, includeEmpty, current);
         }
 
         static void AddCurrent(List<string> options, string current)

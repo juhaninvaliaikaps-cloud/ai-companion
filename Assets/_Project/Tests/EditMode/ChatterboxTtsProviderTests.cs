@@ -352,6 +352,74 @@ namespace AICompanion.Tests.EditMode
             "sleep 3\n" +
             "printf '%s\\n' '{\"ok\": true, \"wav\": \"YQ==\"}'\n";
 
+        [Test]
+        public void PersonaMenu_KeepsThatPersonasVoiceAndTheInheritCaption()
+        {
+            var options = ChatterboxVoiceMenu.Options(
+                new[] { "af_nicole", "af_bella" },
+                true,
+                "OnlyOnThisPersona");
+
+            Assert.AreEqual(string.Empty, options[0]);
+            CollectionAssert.Contains(options, "af_nicole");
+            CollectionAssert.Contains(options, "OnlyOnThisPersona");
+            Assert.AreEqual(4, options.Count);
+
+            Assert.AreEqual(
+                "(same as above)",
+                ChatterboxVoiceMenu.ClosedLabel(string.Empty, v => string.IsNullOrEmpty(v) ? "(same as above)" : v));
+            Assert.AreEqual("(not set)", ChatterboxVoiceMenu.ClosedLabel("  ", v => v));
+            Assert.AreEqual("OnlyOnThisPersona", ChatterboxVoiceMenu.ClosedLabel("OnlyOnThisPersona", v => v));
+        }
+
+        [Test]
+        public void Arguments_KeepATrailingBackslashInsideTheQuotes()
+        {
+            Assert.AreEqual("\"C:\\voices\\\\\"", ChatterboxProcessArguments.Quote("C:\\voices\\"));
+            Assert.AreEqual("C:\\voices\\", WindowsArgument(ChatterboxProcessArguments.Quote("C:\\voices\\")));
+            Assert.AreEqual("C:\\", WindowsArgument(ChatterboxProcessArguments.Quote("C:\\")));
+            Assert.AreEqual("C:\\voi\"ces\\", WindowsArgument(ChatterboxProcessArguments.Quote("C:\\voi\"ces\\")));
+            Assert.AreEqual("/tmp/voices", WindowsArgument(ChatterboxProcessArguments.Quote("/tmp/voices")));
+        }
+
+        static string WindowsArgument(string quoted)
+        {
+            Assert.IsTrue(quoted.Length >= 2 && quoted[0] == '"' && quoted[quoted.Length - 1] == '"');
+            var sb = new StringBuilder();
+            var slashes = 0;
+            for (var i = 1; i < quoted.Length; i++)
+            {
+                var c = quoted[i];
+                if (c == '\\')
+                {
+                    slashes++;
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    for (var n = 0; n < slashes / 2; n++)
+                        sb.Append('\\');
+                    if ((slashes % 2) == 1)
+                    {
+                        sb.Append('"');
+                        slashes = 0;
+                        continue;
+                    }
+
+                    slashes = 0;
+                    break;
+                }
+
+                for (var n = 0; n < slashes; n++)
+                    sb.Append('\\');
+                slashes = 0;
+                sb.Append(c);
+            }
+
+            return sb.ToString();
+        }
+
         sealed class BlockingSession : IChatterboxSession
         {
             public readonly ManualResetEventSlim Entered = new ManualResetEventSlim(false);
