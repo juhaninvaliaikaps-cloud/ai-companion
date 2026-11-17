@@ -160,16 +160,17 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        [Timeout(20000)]
         public void Cancel_DropsThePendingReplySoTheNextRequestIsANewProcess()
         {
             var bash = BashOrIgnore();
             var script = Path.Combine(_dir, "pid.sh");
             File.WriteAllText(script, PidScript);
             var seen = Path.Combine(_voices, "seen");
-            var session = new ChatterboxProcessSession(bash, script, _voices, "af_nicole", "cpu", 30f);
+            var session = new ChatterboxProcessSession(bash, script, _voices, "af_nicole", "cpu", 5f);
             try
             {
-                var first = PidOf(session.Synthesize("ping", "af_nicole", 1f, CancellationToken.None).GetAwaiter().GetResult());
+                var first = PidOf(BytesWithin(session.Synthesize("ping", "af_nicole", 1f, CancellationToken.None), 8000));
                 if (File.Exists(seen))
                     File.Delete(seen);
 
@@ -179,7 +180,7 @@ namespace AICompanion.Tests.EditMode
                 cancel.Cancel();
                 WaitFor(slow, 3000);
 
-                var second = PidOf(session.Synthesize("ping", "af_nicole", 1f, CancellationToken.None).GetAwaiter().GetResult());
+                var second = PidOf(BytesWithin(session.Synthesize("ping", "af_nicole", 1f, CancellationToken.None), 8000));
                 Assert.AreNotEqual(first, second);
                 Assert.IsNotEmpty(second);
             }
@@ -190,37 +191,71 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        [Timeout(20000)]
         public void Dispose_DuringSynthesis_IsAQuietCancel()
         {
+            // Synthesize is async. Blocking the Unity main thread on it deadlocks,
+            // because the continuation has to return to that same thread.
             var session = new BlockingSession();
-            var provider = new ChatterboxTtsProvider(_python, _script, _voices, "af_nicole", session, 30f);
-            var running = provider.Synthesize(new TtsRequest { Text = "hello", Speed = 1f }, CancellationToken.None);
-            Assert.IsTrue(session.Entered.Wait(3000));
-
-            provider.Dispose();
-
-            var result = running.GetAwaiter().GetResult();
+            var provider = new ChatterboxTtsProvider(_python, _script, _voices, "af_nicole", session, 5f);
+            TtsResult result = default(TtsResult);
+            Exception error = null;
+            var done = new ManualResetEventSlim(false);
+            var worker = new Thread(() =>
+            {
+                try
+                {
+                    var running = provider.Synthesize(new TtsRequest { Text = "hello", Speed = 1f }, CancellationToken.None);
+                    if (!session.Entered.Wait(3000))
+                        throw new TimeoutException("Chatterbox session did not start.");
+                    provider.Dispose();
+                    if (!running.Wait(3000))
+                        throw new TimeoutException("Disposed synthesis did not finish.");
+                    result = running.Result;
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                }
+                finally
+                {
+                    done.Set();
+                }
+            });
+            worker.IsBackground = true;
+            worker.Start();
+            Assert.IsTrue(done.Wait(10000), "Quiet-cancel test timed out.");
+            if (error != null)
+                throw error;
             Assert.IsFalse(result.Ok);
             Assert.IsTrue(result.Quiet);
         }
 
         [Test]
+        [Timeout(20000)]
         public void Dispose_ReturnsWhileSynthesisHoldsTheRead()
         {
             var bash = BashOrIgnore();
             var script = Path.Combine(_dir, "slow.sh");
             File.WriteAllText(script, SlowScript);
-            var session = new ChatterboxProcessSession(bash, script, _voices, "af_nicole", "cpu", 30f);
-            var provider = new ChatterboxTtsProvider(bash, script, _voices, "af_nicole", session, 30f);
+            var session = new ChatterboxProcessSession(bash, script, _voices, "af_nicole", "cpu", 5f);
+            var provider = new ChatterboxTtsProvider(bash, script, _voices, "af_nicole", session, 5f);
             var running = provider.Synthesize(new TtsRequest { Text = "hello", Speed = 1f }, CancellationToken.None);
-            WaitForFile(Path.Combine(_voices, "seen"));
+            try
+            {
+                WaitForFile(Path.Combine(_voices, "seen"));
 
-            var watch = Stopwatch.StartNew();
-            provider.Dispose();
-            watch.Stop();
+                var watch = Stopwatch.StartNew();
+                provider.Dispose();
+                watch.Stop();
 
-            Assert.Less(watch.ElapsedMilliseconds, 1000);
-            WaitFor(running, 3000);
+                Assert.Less(watch.ElapsedMilliseconds, 1000);
+                WaitFor(running, 3000);
+            }
+            finally
+            {
+                session.Dispose();
+            }
         }
 
         static string BashOrIgnore()
@@ -237,12 +272,18 @@ namespace AICompanion.Tests.EditMode
         {
             try
             {
-                Assert.IsTrue(task.Wait(milliseconds));
+                Assert.IsTrue(task.Wait(milliseconds), "Timed out after " + milliseconds + " ms.");
             }
             catch (AggregateException)
             {
                 Assert.IsTrue(task.IsCompleted);
             }
+        }
+
+        static byte[] BytesWithin(Task<byte[]> task, int milliseconds)
+        {
+            Assert.IsTrue(task.Wait(milliseconds), "Timed out after " + milliseconds + " ms.");
+            return task.Result;
         }
 
         static void WaitForFile(string path)
@@ -284,7 +325,7 @@ namespace AICompanion.Tests.EditMode
             "IFS= read -r line\n" +
             "printf '%s' seen > \"$voices/seen\"\n" +
             "printf '%s\\n' READY\n" +
-            "sleep 8\n" +
+            "sleep 3\n" +
             "printf '%s\\n' '{\"ok\": true, \"wav\": \"YQ==\"}'\n";
 
         sealed class BlockingSession : IChatterboxSession
@@ -297,7 +338,8 @@ namespace AICompanion.Tests.EditMode
                 Entered.Set();
                 Func<byte[]> body = () =>
                 {
-                    _release.Wait();
+                    if (!_release.Wait(5000))
+                        throw new TimeoutException("Dispose did not release the Chatterbox session.");
                     throw new ObjectDisposedException(nameof(BlockingSession));
                 };
                 return Task.Run(body);
