@@ -102,6 +102,16 @@ namespace AICompanion.Tests.EditMode
             var asking = quiet.Clone();
             asking.Set(TemperamentAxes.Curiosity, 100);
             Assert.IsTrue(TemperamentMood.From(quiet).SameTuning(TemperamentMood.From(asking)));
+
+            var onlyCurious = TemperamentAxes.Neutral();
+            onlyCurious.Set(TemperamentAxes.Curiosity, 80);
+            Assert.IsFalse(TemperamentAxes.HasOpinion(onlyCurious));
+            Assert.AreSame(PersonaTemperament.Default, TemperamentMood.From(onlyCurious));
+
+            var tsundereCurious = TemperamentAxes.ForPreset(PersonaTemperaments.TsundereId);
+            tsundereCurious.Set(TemperamentAxes.Curiosity, 0);
+            Assert.AreSame(PersonaTemperaments.Get(PersonaTemperaments.TsundereId), TemperamentMood.From(tsundereCurious));
+            Assert.IsNull(TemperamentAxes.MatchingPresetId(tsundereCurious), "a different Curiosity is still stored as its own profile");
         }
 
         [Test]
@@ -218,6 +228,16 @@ namespace AICompanion.Tests.EditMode
             Assert.IsNull(collapsed.Axes, "a point on a preset is stored as that preset id");
             Assert.AreEqual(PersonaTemperaments.TsundereId, collapsed.Temperament);
 
+            var curiousPreset = new PersonaDefinition { Id = "e", DisplayName = "E", TemperamentMode = TemperamentModes.Manual };
+            var kept = TemperamentAxes.ForPreset(PersonaTemperaments.TsundereId);
+            kept.Set(TemperamentAxes.Curiosity, 90);
+            curiousPreset.SetAxes(kept);
+            Assert.AreEqual(90, curiousPreset.Axes.Value(TemperamentAxes.Curiosity));
+            var keptChoice = PisaraReading.Choose(curiousPreset.TemperamentMode, curiousPreset.Temperament, false, null, curiousPreset.Axes);
+            Assert.AreSame(PersonaTemperaments.Get(PersonaTemperaments.TsundereId), keptChoice.Temperament);
+            Assert.AreEqual(90, keptChoice.Axes.Value(TemperamentAxes.Curiosity));
+            Assert.IsFalse(keptChoice.Custom);
+
             var folder = Path.Combine(Path.GetTempPath(), "leia-axes-" + Guid.NewGuid().ToString("N"), "ProjectLeia");
             Directory.CreateDirectory(folder);
             var key = new byte[32];
@@ -293,6 +313,15 @@ namespace AICompanion.Tests.EditMode
             var fromWeights = PisaraReading.Choose("auto", "", false, flat, null);
             Assert.AreEqual(PersonaTemperaments.TsundereId, fromWeights.Temperament.Id);
             Assert.AreEqual("Temperament: Auto (Tsundere 90%): sharp", fromWeights.Line);
+
+            var curiosityOnly = CharacterSheet.Parse(
+                "{\"temperament\":{\"calm\":0.1,\"cheerful\":0.2,\"shy\":0,\"tsundere\":0.9,\"moody\":0.3,\"reason\":\"sharp\"," +
+                "\"axesSet\":true,\"axes\":{\"warmth\":50,\"volatility\":50,\"assertiveness\":50,\"playfulness\":50," +
+                "\"openness\":50,\"energy\":50,\"directness\":50,\"confidence\":50,\"curiosity\":80}}}");
+            var curiosityChoice = PisaraReading.Choose("auto", "", false, curiosityOnly, null);
+            Assert.AreSame(PersonaTemperaments.Get(PersonaTemperaments.TsundereId), curiosityChoice.Temperament);
+            Assert.AreEqual(80, curiosityChoice.Axes.Value(TemperamentAxes.Curiosity));
+            Assert.AreEqual("Temperament: Auto (Tsundere 90%): sharp", curiosityChoice.Line);
 
             var legacy = CharacterSheet.Parse(
                 "{\"temperament\":{\"calm\":0.1,\"cheerful\":0.2,\"shy\":0,\"tsundere\":0.9,\"moody\":0.3,\"reason\":\"sharp\"}}");

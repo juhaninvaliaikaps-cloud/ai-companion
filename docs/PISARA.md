@@ -120,7 +120,7 @@ The prompt that is hashed and sent is the persona text the chat uses (personalit
 
 **Temperament: Auto, a preset, or nine sliders.** The persona file has an optional key `temperamentMode`: `auto`, `manual`, or missing. Missing means: a built-in persona keeps its hand-picked preset; a user persona that names a preset keeps it (it was picked by hand); a user persona without a preset is automatic. Picking a preset in settings writes `manual` and clears any custom sliders; **Auto** writes `auto` and keeps the preset in the file. A custom profile (JUH-136) writes `manual` and `temperamentAxes` (nine numbers, 0 to 100). Old files have no `temperamentAxes` and load the preset's point. Until the reading is back an automatic persona is balanced. The setup name (no persona) stays balanced.
 
-The character sheet may also carry `temperament.axes` with `axesSet: true`. When any slider is off 50, that profile is what Auto runs, and the five preset weights stay for the profile radar. All 50s, or a sheet from before the sliders, still uses the preset weights and the blend. A manual preset or manual sliders always win.
+The character sheet may also carry `temperament.axes` with `axesSet: true`. When any mood slider is off 50, that profile is what Auto runs, and the five preset weights stay for the profile radar. Curiosity alone does not replace them. All 50s, or a sheet from before the sliders, still uses the preset weights and the blend. A manual preset or manual sliders always win.
 
 **Persona settings** (old and new settings window) show, for the active persona:
 
@@ -157,7 +157,7 @@ The character sheet may also carry `temperament.axes` with `axesSet: true`. When
 | One preset leads, and the second is under 0.2 or under half of it | That preset, unchanged |
 | The second is close | The two mixed by weight |
 
-A mix averages gains and half-lives by share. It keeps the leader's baseline only when the leader has at least 60 %, and scales the rest bias by share. Intimate is never touched, and every number passes the same clamps as the presets. When `axesSet` is true and any slider is off 50, Auto uses those sliders instead of this blend (`TemperamentMood`). The sliders for a blend with no axes are the mix of the two presets' points, for the settings UI only.
+A mix averages gains and half-lives by share. It keeps the leader's baseline only when the leader has at least 60 %, and scales the rest bias by share. Intimate is never touched, and every number passes the same clamps as the presets. When `axesSet` is true and any mood slider is off 50, Auto uses those sliders instead of this blend (`TemperamentMood`). Curiosity alone does not. The sliders for a blend with no axes are the mix of the two presets' points, for the settings UI only.
 
 ## Relationship
 

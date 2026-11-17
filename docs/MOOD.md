@@ -142,11 +142,11 @@ A mood starts on its floor as soon as the temperament is set (load, switch, or p
 - Openness raises affection, sadness and fluster a little. It does not change how much she talks.
 - Directness, when it is low, hides affection and raises fluster and annoyance.
 - Confidence, when it is low, raises anxiety and fluster.
-- Curiosity is saved and shown. It does not change a mood in this phase.
+- Curiosity is saved and shown. It does not change a mood in this phase, and it does not by itself replace a preset or a preset reading.
 
 Intimate is still never a baseline, a bias, or a generated gain. Settings → Persona keeps Auto and the preset picks, and adds the nine sliders. Moving a slider is a manual profile and overrides Auto. There is no Sensuality, Attachment or Forgiveness slider, and no prompt or speaking-style change yet.
 
-**Auto (JUH-118, sliders in JUH-136).** A user persona without a hand-picked preset or custom sliders takes its temperament from the character sheet. A reading that sets the nine sliders (any of them off 50) uses those. Otherwise it is still one preset, or a blend of two (`Mood temperament: <persona> = blend`), and the sliders show that preset's point or the mix. A pick or a slider overrides it, and built-in personas keep their preset. See [PISARA.md](PISARA.md).
+**Auto (JUH-118, sliders in JUH-136).** A user persona without a hand-picked preset or custom sliders takes its temperament from the character sheet. A reading that sets a mood slider off 50 uses those sliders. Curiosity alone does not. Otherwise it is still one preset, or a blend of two (`Mood temperament: <persona> = blend`), and the sliders show that preset's point or the mix. A pick or a slider overrides it, and built-in personas keep their preset. See [PISARA.md](PISARA.md).
 - The built-ins: Leia (`friend`) is Cheerful; Rowan (`calm`) and Avery (`coach`) are Calm.
 - The setup name, a custom persona and an unknown id get Balanced.
 - In Settings → Persona, the **Temperament** buttons pick a preset. Picking one for a built-in saves a copy, like any other edit.

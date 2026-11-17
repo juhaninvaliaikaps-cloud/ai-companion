@@ -137,10 +137,18 @@ namespace AICompanion.Core
             }
 
             var reading = PersonaTemperamentBlend.From(weights);
+            var axes = reading.Axes ?? TemperamentAxes.Neutral();
+            // Curiosity does not choose the mood. A reading that names it still shows on the slider.
+            if (weights != null && weights.axes != null && weights.axes.Value(TemperamentAxes.Curiosity) != TemperamentAxes.Middle)
+            {
+                axes = axes.Clone();
+                axes.Set(TemperamentAxes.Curiosity, weights.axes.Value(TemperamentAxes.Curiosity));
+            }
+
             return new TemperamentChoice
             {
                 Temperament = reading.Temperament ?? PersonaTemperament.Default,
-                Axes = reading.Axes ?? TemperamentAxes.Neutral(),
+                Axes = axes,
                 Auto = true,
                 Line = "Temperament: Auto (" + reading.Summary + ")" + Reason(weights == null ? null : weights.reason, sheet),
             };

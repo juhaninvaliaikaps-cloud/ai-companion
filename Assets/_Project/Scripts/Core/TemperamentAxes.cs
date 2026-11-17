@@ -135,33 +135,55 @@ namespace AICompanion.Core
             return axes;
         }
 
-        /// <summary>The preset these numbers land on, or null when they are a custom profile. The middle is Balanced.</summary>
+        /// <summary>
+        /// The preset these numbers land on, including Curiosity, or null when they are a custom
+        /// profile. The middle is Balanced. Saving uses this, so a different Curiosity is kept.
+        /// </summary>
         public static string MatchingPresetId(TemperamentAxes axes)
         {
-            if (axes == null)
-                return PersonaTemperaments.DefaultId;
-            for (var i = 0; i < PersonaTemperaments.Ids.Length; i++)
-            {
-                var id = PersonaTemperaments.Ids[i];
-                if (axes.Same(ForPreset(id)))
-                    return id;
-            }
-
-            return null;
+            return Match(axes, false);
         }
 
-        /// <summary>True when any slider has left the middle. All 50s is "no opinion" from a reading.</summary>
+        /// <summary>
+        /// The preset the mood sliders land on. Curiosity is ignored: it does not change a mood
+        /// until phase 2, so it must not knock her off an authored preset.
+        /// </summary>
+        public static string MatchingMoodPresetId(TemperamentAxes axes)
+        {
+            return Match(axes, true);
+        }
+
+        /// <summary>
+        /// True when a mood slider has left the middle. Curiosity does not count. All 50s, or only
+        /// Curiosity off 50, is "no opinion" from a reading, so the preset weights still decide.
+        /// </summary>
         public static bool HasOpinion(TemperamentAxes axes)
         {
             if (axes == null)
                 return false;
             for (var i = 0; i < Count; i++)
             {
+                if (i == Curiosity)
+                    continue;
                 if (axes.Value(i) != Middle)
                     return true;
             }
 
             return false;
+        }
+
+        static string Match(TemperamentAxes axes, bool ignoreCuriosity)
+        {
+            if (axes == null)
+                return PersonaTemperaments.DefaultId;
+            for (var i = 0; i < PersonaTemperaments.Ids.Length; i++)
+            {
+                var id = PersonaTemperaments.Ids[i];
+                if (axes.Same(ForPreset(id), ignoreCuriosity))
+                    return id;
+            }
+
+            return null;
         }
 
         /// <summary>Whole number 0 to 100. A blank or invalid number is the middle.</summary>
@@ -215,10 +237,18 @@ namespace AICompanion.Core
 
         public bool Same(TemperamentAxes other)
         {
+            return Same(other, false);
+        }
+
+        /// <summary>As <see cref="Same(TemperamentAxes)"/>. Curiosity can be left out of a mood comparison.</summary>
+        public bool Same(TemperamentAxes other, bool ignoreCuriosity)
+        {
             if (other == null)
                 return false;
             for (var i = 0; i < Count; i++)
             {
+                if (ignoreCuriosity && i == Curiosity)
+                    continue;
                 if (Value(i) != other.Value(i))
                     return false;
             }
@@ -342,7 +372,7 @@ namespace AICompanion.Core
 
         public static PersonaTemperament From(TemperamentAxes axes)
         {
-            var match = TemperamentAxes.MatchingPresetId(axes);
+            var match = TemperamentAxes.MatchingMoodPresetId(axes);
             if (match != null)
                 return PersonaTemperaments.Get(match);
 
