@@ -18,6 +18,8 @@ namespace AICompanion.Voice
             var chat = OutboundPrivacy.ChatProviderId(privateMode, chatProviderId);
             if (string.Equals(chat, ChatDefaults.LocalId, StringComparison.OrdinalIgnoreCase))
                 return Local;
+            // A non-xAI OpenAI-compatible endpoint (DeepSeek, OpenRouter, Groq) has no xAI
+            // TTS. Do not send its replies to a cloud voice that cannot authenticate.
             if (!HasXaiVoice(baseUrl))
                 return Local;
             return Cloud;
