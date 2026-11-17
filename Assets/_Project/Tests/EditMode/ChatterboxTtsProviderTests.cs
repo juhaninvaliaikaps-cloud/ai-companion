@@ -295,7 +295,7 @@ namespace AICompanion.Tests.EditMode
             public Task<byte[]> Synthesize(string text, string voice, float speed, CancellationToken cancellationToken)
             {
                 Entered.Set();
-                return Task.Run(() =>
+                return Task.Run<byte[]>(() =>
                 {
                     _release.Wait();
                     throw new ObjectDisposedException(nameof(BlockingSession));
