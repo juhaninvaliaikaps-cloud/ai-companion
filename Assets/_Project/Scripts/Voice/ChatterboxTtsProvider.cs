@@ -107,13 +107,25 @@ namespace AICompanion.Voice
             {
                 return TtsResult.Cancelled();
             }
+            catch (ObjectDisposedException)
+            {
+                return TtsResult.Cancelled();
+            }
             catch (Exception e)
             {
                 return TtsResult.Fail("Chatterbox failed.", "Chatterbox threw " + e.GetType().Name + ": " + e.Message);
             }
             finally
             {
-                _gate.Release();
+                // Dispose may already have dropped the gate. Release must not replace a
+                // quiet cancel with an exception the speaker shows as a voice failure.
+                try
+                {
+                    _gate.Release();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
             }
         }
 

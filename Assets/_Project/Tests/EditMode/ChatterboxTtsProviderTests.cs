@@ -190,6 +190,21 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Dispose_DuringSynthesis_IsAQuietCancel()
+        {
+            var session = new BlockingSession();
+            var provider = new ChatterboxTtsProvider(_python, _script, _voices, "af_nicole", session, 30f);
+            var running = provider.Synthesize(new TtsRequest { Text = "hello", Speed = 1f }, CancellationToken.None);
+            Assert.IsTrue(session.Entered.Wait(3000));
+
+            provider.Dispose();
+
+            var result = running.GetAwaiter().GetResult();
+            Assert.IsFalse(result.Ok);
+            Assert.IsTrue(result.Quiet);
+        }
+
+        [Test]
         public void Dispose_ReturnsWhileSynthesisHoldsTheRead()
         {
             var bash = BashOrIgnore();
@@ -271,6 +286,31 @@ namespace AICompanion.Tests.EditMode
             "printf '%s\\n' READY\n" +
             "sleep 8\n" +
             "printf '%s\\n' '{\"ok\": true, \"wav\": \"YQ==\"}'\n";
+
+        sealed class BlockingSession : IChatterboxSession
+        {
+            public readonly ManualResetEventSlim Entered = new ManualResetEventSlim(false);
+            readonly ManualResetEventSlim _release = new ManualResetEventSlim(false);
+
+            public Task<byte[]> Synthesize(string text, string voice, float speed, CancellationToken cancellationToken)
+            {
+                Entered.Set();
+                return Task.Run(() =>
+                {
+                    _release.Wait();
+                    throw new ObjectDisposedException(nameof(BlockingSession));
+                });
+            }
+
+            public void Prewarm()
+            {
+            }
+
+            public void Dispose()
+            {
+                _release.Set();
+            }
+        }
 
         sealed class FakeSession : IChatterboxSession
         {
