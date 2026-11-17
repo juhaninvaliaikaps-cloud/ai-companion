@@ -295,11 +295,12 @@ namespace AICompanion.Tests.EditMode
             public Task<byte[]> Synthesize(string text, string voice, float speed, CancellationToken cancellationToken)
             {
                 Entered.Set();
-                return Task.Run<byte[]>(() =>
+                Func<byte[]> body = () =>
                 {
                     _release.Wait();
                     throw new ObjectDisposedException(nameof(BlockingSession));
-                });
+                };
+                return Task.Run(body);
             }
 
             public void Prewarm()
