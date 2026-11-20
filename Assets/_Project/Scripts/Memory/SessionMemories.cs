@@ -88,6 +88,8 @@ namespace AICompanion.Memory
             "- Put each memory on its own line. Each line is one full sentence in the third person about what happened, starting with \"The user\" or with her name. Past tense.\n" +
             "- Call the user \"the user\" and \"they\". Never guess their gender or name.\n" +
             "- Keep only what she would still care about next week: something the user told her about their life, something they did or decided together, a promise, a joke they shared, or a lasting change in how close they are.\n" +
+            "- Name the concrete thing: the person, event, promise, preference or boundary. Never write \"something\", \"a moment\", \"an experience\" or \"what happened\" without naming it. A vague line is worse than no line.\n" +
+            "- Write one sentence that still makes sense a month later without the transcript. If the only thing left is a passing mood, write nothing.\n" +
             "- Do not write a passing feeling, a physical reaction, a gesture, or a description of the scene. \"She trembled\" and \"the room went quiet\" are not memories. A feeling is allowed only when it reveals a lasting trigger, preference or boundary.\n" +
             "- Do not repeat something already known about the user or already in her memories. One clear durable line is better than three overlapping ones.\n" +
             "- No greetings, no small talk, nothing about how she speaks, and nothing about the user arriving, leaving or coming back.\n" +

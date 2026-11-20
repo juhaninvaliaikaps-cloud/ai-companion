@@ -29,6 +29,8 @@ namespace AICompanion.Memory
         public bool resolved;
         public int recallCount;
         public string lastRecalledAtUtc = string.Empty;
+        public int evidenceCount = 1;
+        public string lastSeenAtUtc = string.Empty;
 
         public bool IsValid
         {
@@ -124,10 +126,22 @@ namespace AICompanion.Memory
                 return 0;
 
             var added = 0;
+            var updated = 0;
             for (var i = 0; i < summaries.Count; i++)
             {
                 var clean = Clean(summaries[i]);
-                if (clean.Length == 0 || !MemoryDurability.IsDurable(clean) || Duplicate(clean, existingFacts))
+                if (clean.Length == 0 || !MemoryDurability.IsDurable(clean))
+                    continue;
+
+                var existing = FindSimilar(clean);
+                if (existing != null)
+                {
+                    Merge(existing, clean, privateMode, nowUtc);
+                    updated++;
+                    continue;
+                }
+
+                if (CoveredByFact(clean, existingFacts))
                     continue;
 
                 var kind = MemoryDurability.KindOf(clean);
@@ -136,6 +150,7 @@ namespace AICompanion.Memory
                     id = Guid.NewGuid().ToString("N"),
                     createdAtUtc = nowUtc.ToString("o"),
                     happenedAtUtc = nowUtc.ToString("o"),
+                    lastSeenAtUtc = nowUtc.ToString("o"),
                     title = TitleOf(clean),
                     summary = clean.Length > SummaryLength ? clean.Substring(0, SummaryLength).TrimEnd() : clean,
                     importance = ImportanceOf(clean, kind),
@@ -145,11 +160,12 @@ namespace AICompanion.Memory
                     tags = kind,
                     source = "session",
                     isPrivate = privateMode,
+                    evidenceCount = 1,
                 });
                 added++;
             }
 
-            if (added > 0)
+            if (added > 0 || updated > 0)
             {
                 if (_file.entries.Count > MaxEntries)
                     _file.entries.RemoveRange(0, _file.entries.Count - MaxEntries);
@@ -338,23 +354,129 @@ namespace AICompanion.Memory
             }
         }
 
-        bool Duplicate(string summary, MemoryStore existingFacts)
+        TimelineEntry FindSimilar(string summary)
         {
             for (var i = 0; i < _file.entries.Count; i++)
             {
                 var entry = _file.entries[i];
                 if (entry != null && MemoryDurability.Similar(entry.summary, summary))
+                    return entry;
+            }
+
+            return null;
+        }
+
+        static void Merge(TimelineEntry existing, string candidate, bool privateMode, DateTime nowUtc)
+        {
+            existing.lastSeenAtUtc = nowUtc.ToString("o");
+            existing.evidenceCount++;
+            existing.isPrivate = existing.isPrivate || privateMode;
+
+            var kind = MemoryDurability.KindOf(candidate);
+            if (ImportanceOf(candidate, kind) > existing.importance)
+                existing.importance = ImportanceOf(candidate, kind);
+            if (KindRank(kind) > KindRank(existing.kind))
+            {
+                existing.kind = kind;
+                existing.why = MemoryDurability.Why(kind);
+            }
+
+            // Prefer the more specific wording. A later paraphrase that only adds a vague
+            // "something" must not replace a concrete earlier sentence.
+            if (!MemoryDurability.IsVague(candidate) && candidate.Length > existing.summary.Length)
+            {
+                existing.summary = candidate.Length > SummaryLength
+                    ? candidate.Substring(0, SummaryLength).TrimEnd()
+                    : candidate;
+                existing.title = TitleOf(existing.summary);
+                existing.canonicalKey = MemoryDurability.CanonicalKey(existing.summary);
+            }
+        }
+
+        static int KindRank(string kind)
+        {
+            switch (kind)
+            {
+                case MemoryDurability.Boundary: return 5;
+                case MemoryDurability.Promise: return 4;
+                case MemoryDurability.RelationshipChange: return 3;
+                case MemoryDurability.Preference: return 2;
+                case MemoryDurability.Fact: return 2;
+                case MemoryDurability.OpenThread: return 1;
+                default: return 0;
+            }
+        }
+
+        /// <summary>
+        /// Merges older near-duplicate timeline rows. Kept explicitly separate from Load so
+        /// merely opening the viewer cannot rewrite history.
+        /// </summary>
+        public int Consolidate()
+        {
+            var removed = 0;
+            var kept = new List<TimelineEntry>();
+            for (var i = 0; i < _file.entries.Count; i++)
+            {
+                var entry = _file.entries[i];
+                if (entry == null || !entry.IsValid)
+                    continue;
+
+                TimelineEntry match = null;
+                for (var j = 0; j < kept.Count; j++)
+                {
+                    if (MemoryDurability.Similar(kept[j].summary, entry.summary))
+                    {
+                        match = kept[j];
+                        break;
+                    }
+                }
+
+                if (match == null)
+                {
+                    kept.Add(entry);
+                    continue;
+                }
+
+                Merge(match, entry.summary, entry.isPrivate, DateTime.UtcNow);
+                match.recallCount = Math.Max(match.recallCount, entry.recallCount);
+                if (string.CompareOrdinal(entry.happenedAtUtc, match.happenedAtUtc) < 0)
+                    match.happenedAtUtc = entry.happenedAtUtc;
+                removed++;
+            }
+
+            if (removed > 0)
+            {
+                _file.entries.Clear();
+                _file.entries.AddRange(kept);
+                Save();
+            }
+
+            return removed;
+        }
+
+        static bool CoveredByFact(string summary, MemoryStore store)
+        {
+            if (store == null)
+                return false;
+            for (var i = 0; i < store.Count; i++)
+            {
+                var fact = store.Entries[i];
+                if (fact != null && fact.kind == MemoryKind.Fact && MemoryDurability.Similar(fact.text, summary))
                     return true;
             }
 
-            if (existingFacts != null)
+            return false;
+        }
+
+        static bool CoveredByFact(string summary, IReadOnlyList<MemoryEntry> facts)
+        {
+            if (facts == null)
+                return false;
+            for (var i = 0; i < facts.Count; i++)
             {
-                for (var i = 0; i < existingFacts.Count; i++)
-                {
-                    var fact = existingFacts.Entries[i];
-                    if (fact != null && fact.kind == MemoryKind.Fact && MemoryDurability.Similar(fact.text, summary))
-                        return true;
-                }
+                var fact = facts[i];
+                if (fact != null && fact.kind == MemoryKind.Fact && MemoryDurability.Similar(fact.text, summary))
+                    return true;
             }
 
             return false;

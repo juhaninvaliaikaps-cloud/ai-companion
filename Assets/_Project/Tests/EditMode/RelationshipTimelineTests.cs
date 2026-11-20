@@ -128,6 +128,20 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void AddSession_MergesParaphrasesIntoOneEntry()
+        {
+            var path = TempFile();
+            var timeline = RelationshipTimeline.Load(path);
+            timeline.AddSession(new[] { "The user's sister is called Anna." }, false, DateTime.UtcNow);
+            var added = timeline.AddSession(new[] { "The user's sister Anna was mentioned." }, false, DateTime.UtcNow);
+
+            Assert.AreEqual(0, added);
+            Assert.AreEqual(1, timeline.Count);
+            Assert.AreEqual(2, timeline.Page(1)[0].evidenceCount);
+            Assert.IsFalse(string.IsNullOrEmpty(timeline.Page(1)[0].lastSeenAtUtc));
+        }
+
+        [Test]
         public void TimelinePath_IsBesideTheMatchingMemoryFile()
         {
             var memory = Path.Combine(Path.GetTempPath(), "memory-custom-6.json");

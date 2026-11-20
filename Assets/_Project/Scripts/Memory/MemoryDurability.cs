@@ -47,7 +47,7 @@ namespace AICompanion.Memory
             if (string.IsNullOrWhiteSpace(text))
                 return false;
             var trimmed = text.Trim();
-            if (trimmed.Length < 18)
+            if (trimmed.Length < 18 || IsVague(trimmed))
                 return false;
 
             var lower = trimmed.ToLowerInvariant();
@@ -67,8 +67,7 @@ namespace AICompanion.Memory
 
         static bool HasDurableSubject(string lower)
         {
-            return lower.IndexOf(" afraid", StringComparison.Ordinal) >= 0
-                || lower.IndexOf(" wants", StringComparison.Ordinal) >= 0
+            return lower.IndexOf(" afraid", StringComparison.Ordinal) >= 0                || lower.IndexOf(" wants", StringComparison.Ordinal) >= 0
                 || lower.IndexOf(" likes", StringComparison.Ordinal) >= 0
                 || lower.IndexOf(" loves", StringComparison.Ordinal) >= 0
                 || lower.IndexOf(" hates", StringComparison.Ordinal) >= 0
@@ -103,6 +102,29 @@ namespace AICompanion.Memory
                     return true;
             }
 
+            return false;
+        }
+
+        /// <summary>
+        /// A sentence that says "something deeply personal" without naming the thing is not
+        /// usable a week later. It must not replace a concrete entry during consolidation.
+        /// </summary>
+        public static bool IsVague(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return true;
+            var lower = text.ToLowerInvariant();
+            if (lower.IndexOf("something deeply", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("something personal", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("something vulnerable", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("something intimate", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("a deeply personal", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("an intense experience", StringComparison.Ordinal) >= 0)
+                return true;
+            if (lower.IndexOf("what happened", StringComparison.Ordinal) >= 0
+                && lower.IndexOf(" told", StringComparison.Ordinal) < 0
+                && lower.IndexOf(" said", StringComparison.Ordinal) < 0)
+                return true;
             return false;
         }
 

@@ -25,6 +25,13 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void VagueSummaries_AreNotDurable()
+        {
+            Assert.IsFalse(MemoryDurability.IsDurable("The user confessed to loving something deeply personal and vulnerable during an intense sexual encounter."));
+            Assert.IsFalse(MemoryDurability.IsDurable("They shared a deeply personal moment."));
+        }
+
+        [Test]
         public void KindsAndReasons_AreSet()
         {
             Assert.AreEqual(MemoryDurability.Promise, MemoryDurability.KindOf("The user promised to visit on Sunday."));
