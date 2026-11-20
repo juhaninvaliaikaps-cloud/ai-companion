@@ -54,6 +54,7 @@ namespace AICompanion.NewUI
         GameObject _chatMenu;
         HappiButton _menuSettings;
         HappiButton _menuClose;
+        HappiButton _menuProgram;
         bool _menuOpen;
         HappiButton _mode;
         HappiButton _next;
@@ -929,7 +930,8 @@ namespace AICompanion.NewUI
             var menuPanel = HappiUiKit.Panel(_box, "ChatMenu", _theme.PanelBackground, true);
             _chatMenu = menuPanel.gameObject;
             _menuSettings = HappiUiKit.Button(_chatMenu.transform, "MenuSettings", "Settings", _theme.FontSmall, OpenSettingsFromMenu);
-            _menuClose = HappiUiKit.Button(_chatMenu.transform, "MenuClose", "Close", _theme.FontSmall, CloseChatFromMenu);
+            _menuClose = HappiUiKit.Button(_chatMenu.transform, "MenuClose", "Close chat", _theme.FontSmall, CloseChatFromMenu);
+            _menuProgram = HappiUiKit.Button(_chatMenu.transform, "MenuProgram", "Close program", _theme.FontSmall, CloseProgramFromMenu);
             _chatMenu.SetActive(false);
 
             var historyImage = HappiUiKit.Panel(_box, "HistoryArea", _theme.PanelInset, true);
@@ -1212,6 +1214,8 @@ namespace AICompanion.NewUI
                 _menuSettings.Label.fontSize = _theme.FontSmall * s;
             if (_menuClose != null)
                 _menuClose.Label.fontSize = _theme.FontSmall * s;
+            if (_menuProgram != null)
+                _menuProgram.Label.fontSize = _theme.FontSmall * s;
             _close.Label.fontSize = _theme.FontBody * s;
             SetInputFont(_input, ChatFontSize() * s);
             SetInputFont(_keyInput, _theme.FontSmall * s);
@@ -1650,6 +1654,12 @@ namespace AICompanion.NewUI
                 _chat.ShowChat(false);
         }
 
+        void CloseProgramFromMenu()
+        {
+            CloseChatMenu();
+            Application.Quit();
+        }
+
         void PlaceChatMenu(float s, float pad, float row, float gap)
         {
             if (_chatMenu == null)
@@ -1659,11 +1669,12 @@ namespace AICompanion.NewUI
             rect.anchorMax = new Vector2(1f, 1f);
             rect.pivot = new Vector2(1f, 1f);
             var width = 170f * s;
-            var height = row * 2f + gap * 3f;
+            var height = row * 3f + gap * 4f;
             rect.sizeDelta = new Vector2(width, height);
             rect.anchoredPosition = new Vector2(-pad, -(pad + row + gap));
             HappiUiKit.Place(_menuSettings.Rect, gap, gap, width - 2f * gap, row);
             HappiUiKit.Place(_menuClose.Rect, gap, gap * 2f + row, width - 2f * gap, row);
+            HappiUiKit.Place(_menuProgram.Rect, gap, gap * 3f + row * 2f, width - 2f * gap, row);
         }
 
         /// <summary>The Windows resize cursor while over an edge or corner, or while resizing.</summary>
