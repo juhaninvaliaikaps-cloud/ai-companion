@@ -233,7 +233,7 @@ namespace AICompanion.NewUI
                 + "|" + s.PisaraCloud + "|" + s.PisaraCloudBaseUrl + "|" + s.PisaraCloudModel
                 + "|" + _settings.PisaraApiKeySaved + "|" + _settings.PisaraApiKeyFromEnvironment
                 + "|" + (look != null ? look.Revision : 0) + "|" + _settings.ConnectionTestRunning + "|" + s.ShowMoodDebug + "|" + s.VoiceNarration
-                + "|" + _settings.PisaraRevision;
+                + "|" + _settings.PisaraRevision + "|" + _settings.TemperamentRevision;
         }
 
         // ---- Chrome ------------------------------------------------------------------------
@@ -449,7 +449,19 @@ namespace AICompanion.NewUI
             {
                 var preset = PersonaTemperaments.Get(PersonaTemperaments.Ids[i]);
                 var stored = PersonaTemperaments.Normalize(preset.Id);
-                Choice(preset.Name, view.Manual && Same(persona.Temperament, stored), () => { _settings.SetPersonaTemperament(id, stored); _rebuild = true; });
+                Choice(preset.Name, view.Manual && !view.Custom && Same(PersonaTemperaments.Normalize(view.TemperamentId), stored), () => { _settings.SetPersonaTemperament(id, stored); _rebuild = true; });
+            }
+
+            Note("Custom profile. 50 is the middle. Moving a slider overrides Auto and the presets. It changes how her moods build and fade.");
+            var editing = (view.Axes ?? TemperamentAxes.Neutral()).Clone();
+            for (var axis = 0; axis < TemperamentAxes.Count; axis++)
+            {
+                var index = axis;
+                Slider(v => TemperamentAxes.SliderLabel(index, v), editing.Value(index), TemperamentAxes.Min, TemperamentAxes.Max, true, v =>
+                {
+                    editing.Set(index, v);
+                    _settings.SetPersonaTemperamentAxes(id, editing);
+                });
             }
 
             // JUH-117: one switch per Pisara part. Off freezes that part; nothing is deleted.

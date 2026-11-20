@@ -437,6 +437,28 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void ResizedDockedPortrait_KeepsTheEdgeNextToTheBox()
+        {
+            // JUH-139: a resized portrait docked on the left used to keep its left edge, so a
+            // wider one overlapped the box. The edge next to the box must stay put on both sides.
+            var center = new Vector2(500f, 300f);
+            var left = PortraitDocking.DockRect(center, Box, PortraitDocking.LeftOfBox, Gap, 1000f);
+            var right = PortraitDocking.DockRect(center, Box, PortraitDocking.RightOfBox, Gap, 1000f);
+            var boxLeft = center.x - Box.x * 0.5f;
+            var boxRight = center.x + Box.x * 0.5f;
+            foreach (var size in new[] { new Vector2(400f, 500f), new Vector2(120f, 160f) })
+            {
+                var sizedLeft = PortraitDocking.Sized(left, size, PortraitDocking.LeftOfBox);
+                var sizedRight = PortraitDocking.Sized(right, size, PortraitDocking.RightOfBox);
+                Assert.AreEqual(boxLeft - Gap, sizedLeft.xMax, 0.01f, "left dock: one gap from the box, never over it");
+                Assert.AreEqual(boxRight + Gap, sizedRight.xMin, 0.01f, "right dock: one gap from the box");
+                Assert.AreEqual(size, sizedLeft.size);
+                Assert.AreEqual(size, sizedRight.size);
+                Assert.AreEqual(left.yMin, sizedLeft.yMin, 0.01f, "tops stay lined up with the box");
+            }
+        }
+
+        [Test]
         public void DockedPortrait_FlipsSideWithoutRoom()
         {
             var left = new Rect(-40f, 100f, 249f, 280f);

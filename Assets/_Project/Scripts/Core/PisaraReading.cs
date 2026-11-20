@@ -50,8 +50,14 @@ namespace AICompanion.Core
         /// <summary>Never null.</summary>
         public PersonaTemperament Temperament;
 
+        /// <summary>The nine sliders behind <see cref="Temperament"/>. Never null.</summary>
+        public TemperamentAxes Axes;
+
         /// <summary>True when it comes from the sheet.</summary>
         public bool Auto;
+
+        /// <summary>True when a hand-set profile is not one of the named presets.</summary>
+        public bool Custom;
 
         /// <summary>"Temperament: Auto (Shy 60%, Cheerful 40%): reason" or "Temperament: Tsundere (your pick)".</summary>
         public string Line;
@@ -69,12 +75,37 @@ namespace AICompanion.Core
         /// <summary>A manual pick wins; otherwise the sheet decides, and no sheet is Balanced.</summary>
         public static TemperamentChoice Choose(string mode, string preset, bool builtIn, CharacterSheet sheet)
         {
+            return Choose(mode, preset, builtIn, sheet, null);
+        }
+
+        /// <summary>
+        /// As <see cref="Choose(string, string, bool, CharacterSheet)"/>. <paramref name="manualAxes"/>
+        /// is a custom profile saved on the persona. It wins over the sheet and over the preset id.
+        /// A null value means the persona has no custom profile, so the preset id is the manual pick.
+        /// </summary>
+        public static TemperamentChoice Choose(string mode, string preset, bool builtIn, CharacterSheet sheet, TemperamentAxes manualAxes)
+        {
             if (TemperamentModes.IsManual(mode, preset, builtIn))
             {
+                if (manualAxes != null)
+                {
+                    var custom = TemperamentMood.From(manualAxes);
+                    var named = custom.Id != TemperamentAxes.CustomId;
+                    return new TemperamentChoice
+                    {
+                        Temperament = custom,
+                        Axes = manualAxes.Clone(),
+                        Auto = false,
+                        Custom = !named,
+                        Line = "Temperament: " + custom.Name + " (your pick)",
+                    };
+                }
+
                 var picked = PersonaTemperaments.Get(preset);
                 return new TemperamentChoice
                 {
                     Temperament = picked,
+                    Axes = TemperamentAxes.ForPreset(picked.Id),
                     Auto = false,
                     Line = "Temperament: " + picked.Name + (builtIn && TemperamentModes.Normalize(mode).Length == 0 ? " (built-in)" : " (your pick)"),
                 };
@@ -85,17 +116,41 @@ namespace AICompanion.Core
                 return new TemperamentChoice
                 {
                     Temperament = PersonaTemperament.Default,
+                    Axes = TemperamentAxes.Neutral(),
                     Auto = true,
                     Line = "Temperament: Auto (" + PersonaTemperament.Default.Name + "): " + WaitingText,
                 };
             }
 
-            var reading = PersonaTemperamentBlend.From(sheet.temperament);
+            var weights = sheet.temperament;
+            if (weights != null && weights.axes != null && TemperamentAxes.HasOpinion(weights.axes))
+            {
+                var read = weights.axes.Clone();
+                var fromAxes = TemperamentMood.From(read);
+                return new TemperamentChoice
+                {
+                    Temperament = fromAxes,
+                    Axes = read,
+                    Auto = true,
+                    Line = "Temperament: Auto (" + TemperamentMood.Label(read) + ")" + Reason(weights.reason, sheet),
+                };
+            }
+
+            var reading = PersonaTemperamentBlend.From(weights);
+            var axes = reading.Axes ?? TemperamentAxes.Neutral();
+            // Curiosity does not choose the mood. A reading that names it still shows on the slider.
+            if (weights != null && weights.axes != null && weights.axes.Value(TemperamentAxes.Curiosity) != TemperamentAxes.Middle)
+            {
+                axes = axes.Clone();
+                axes.Set(TemperamentAxes.Curiosity, weights.axes.Value(TemperamentAxes.Curiosity));
+            }
+
             return new TemperamentChoice
             {
                 Temperament = reading.Temperament ?? PersonaTemperament.Default,
+                Axes = axes,
                 Auto = true,
-                Line = "Temperament: Auto (" + reading.Summary + ")" + Reason(sheet.temperament == null ? null : sheet.temperament.reason, sheet),
+                Line = "Temperament: Auto (" + reading.Summary + ")" + Reason(weights == null ? null : weights.reason, sheet),
             };
         }
 
@@ -132,7 +187,7 @@ namespace AICompanion.Core
             if (sheet == null)
                 return "none";
             var sb = new StringBuilder();
-            sb.Append(PersonaTemperamentBlend.From(sheet.temperament).Summary);
+            sb.Append(TemperamentText(sheet));
             var r = sheet.relationship ?? new SheetRelationship();
             sb.Append("; ").Append(RelationshipRoles.Normalize(r.role));
             sb.Append(", affection ").Append(Whole(r.affection));
@@ -293,6 +348,14 @@ namespace AICompanion.Core
                 && existingForPrompt.source == CharacterSheet.SourceModel)
                 return existingForPrompt;
             return fresh;
+        }
+
+        static string TemperamentText(CharacterSheet sheet)
+        {
+            var weights = sheet == null ? null : sheet.temperament;
+            if (weights != null && weights.axes != null && TemperamentAxes.HasOpinion(weights.axes))
+                return TemperamentMood.Label(weights.axes);
+            return PersonaTemperamentBlend.From(weights).Summary;
         }
 
         static string Reason(string reason, CharacterSheet sheet)

@@ -58,6 +58,33 @@ namespace AICompanion.Core
             get { return PersonaTemperaments.Get(PersonaTemperaments.DefaultId); }
         }
 
+        /// <summary>
+        /// True when both temperaments scale the same moods the same way. A custom profile is a
+        /// new object on every read, so the mood keeper uses this instead of reference equality.
+        /// </summary>
+        public bool SameTuning(PersonaTemperament other)
+        {
+            if (other == null)
+                return false;
+            if (ReferenceEquals(this, other))
+                return true;
+            if (!string.Equals(Id, other.Id, StringComparison.Ordinal)
+                || !string.Equals(Name, other.Name, StringComparison.Ordinal)
+                || Baseline != other.Baseline
+                || RestBias != other.RestBias
+                || Math.Abs(RestBiasStrength - other.RestBiasStrength) > 0.0001f)
+                return false;
+            for (var i = 1; i < CompanionMoodNames.Count; i++)
+            {
+                var mood = (CompanionMood)i;
+                if (Math.Abs(Gain(mood, true) - other.Gain(mood, true)) > 0.0001f
+                    || Math.Abs(HalfLifeScale(mood) - other.HalfLifeScale(mood)) > 0.0001f)
+                    return false;
+            }
+
+            return true;
+        }
+
         /// <summary>True when every number is the phase 1/2 one.</summary>
         public bool IsNeutral
         {
@@ -164,7 +191,8 @@ namespace AICompanion.Core
 
     /// <summary>
     /// The temperament presets the persona picker offers. A persona file stores the preset id
-    /// ("temperament": "tsundere"), never raw numbers. A blank or unknown id is the default.
+    /// ("temperament": "tsundere"). A custom profile stores the nine sliders instead
+    /// (<see cref="TemperamentAxes"/>). A blank or unknown id, with no sliders, is the default.
     /// </summary>
     public static class PersonaTemperaments
     {
