@@ -51,6 +51,10 @@ namespace AICompanion.NewUI
         HappiButton _mute;
         HappiButton _look;
         HappiButton _close;
+        GameObject _chatMenu;
+        HappiButton _menuSettings;
+        HappiButton _menuClose;
+        bool _menuOpen;
         HappiButton _mode;
         HappiButton _next;
         HappiButton _skip;
@@ -280,6 +284,10 @@ namespace AICompanion.NewUI
             HappiUiKit.FollowCamera(_canvas, PlaneDistance);
             Layout();
             PlaceBox(settings);
+            if (_menuOpen && Input.GetMouseButtonDown(0)
+                && !Contains(_chatMenu != null ? (RectTransform)_chatMenu.transform : null)
+                && !Contains(_close != null ? _close.Rect : null))
+                CloseChatMenu();
             if (!_wasVisible)
             {
                 _wasVisible = true;
@@ -296,8 +304,19 @@ namespace AICompanion.NewUI
             SyncFocus();
         }
 
+        bool Contains(RectTransform rect)
+        {
+            return rect != null && RectTransformUtility.RectangleContainsScreenPoint(rect, Input.mousePosition, _canvas != null ? _canvas.worldCamera : null);
+        }
+
         void HandleKeys()
         {
+            if (_menuOpen && Input.GetKeyDown(KeyCode.Escape))
+            {
+                CloseChatMenu();
+                return;
+            }
+
             var typing = (_input != null && _input.isFocused) || (_keyInput != null && _keyInput.isFocused);
             if (!typing && _player.Mode == VnMode.Step && Input.GetKeyDown(KeyCode.Space))
                 _player.Next();
@@ -895,7 +914,13 @@ namespace AICompanion.NewUI
             _badge = HappiUiKit.Text(_box, "Badge", string.Empty, _theme.FontSmall, _theme.BadgeCloud, TextAlignmentOptions.MidlineLeft, false);
             _mute = HappiUiKit.Button(_box, "Mute", ChatPresenter.MuteOffLabel, _theme.FontSmall, () => _chat.Presenter.ToggleMute());
             _look = HappiUiKit.Button(_box, "Look", ChatPresenter.LookLabelIdle, _theme.FontSmall, OnLook);
-            _close = HappiUiKit.Button(_box, "Close", "Ã—", _theme.FontBody, () => _chat.ShowChat(false));
+            _close = HappiUiKit.Button(_box, "Close", "⚙", _theme.FontBody, ToggleChatMenu);
+
+            var menuPanel = HappiUiKit.Panel(_box, "ChatMenu", _theme.PanelBackground, true);
+            _chatMenu = menuPanel.gameObject;
+            _menuSettings = HappiUiKit.Button(_chatMenu.transform, "MenuSettings", "Settings", _theme.FontSmall, OpenSettingsFromMenu);
+            _menuClose = HappiUiKit.Button(_chatMenu.transform, "MenuClose", "Close", _theme.FontSmall, CloseChatFromMenu);
+            _chatMenu.SetActive(false);
 
             var historyImage = HappiUiKit.Panel(_box, "HistoryArea", _theme.PanelInset, true);
             _historyRoot = historyImage.rectTransform;
@@ -1077,6 +1102,7 @@ namespace AICompanion.NewUI
             var muteW = 58f * s;
             var right = pad + inner;
             HappiUiKit.Place(_close.Rect, right - closeW, y, closeW, row);
+            PlaceChatMenu(s, pad, row, gap);
             right -= closeW + gap;
             HappiUiKit.Place(_look.Rect, right - lookW, y, lookW, row);
             right -= lookW + gap;
@@ -1167,14 +1193,70 @@ namespace AICompanion.NewUI
         {
             _name.fontSize = _theme.FontTitle * s;
             _badge.fontSize = _theme.FontSmall * s * 0.9f;
-            _dialogue.fontSize = _theme.FontBody * s;
+            _dialogue.fontSize = ChatFontSize() * s;
             _note.fontSize = _theme.FontSmall * s;
             var buttons = _fontButtons;
             for (var i = 0; i < buttons.Length; i++)
                 buttons[i].Label.fontSize = _theme.FontSmall * s;
+            if (_menuSettings != null)
+                _menuSettings.Label.fontSize = _theme.FontSmall * s;
+            if (_menuClose != null)
+                _menuClose.Label.fontSize = _theme.FontSmall * s;
             _close.Label.fontSize = _theme.FontBody * s;
-            SetInputFont(_input, _theme.FontBody * s);
+            SetInputFont(_input, ChatFontSize() * s);
             SetInputFont(_keyInput, _theme.FontSmall * s);
+            ApplyChatFont();
+        }
+
+        /// <summary>Base font size for the chat, from the user's Chat settings.</summary>
+        float ChatFontSize()
+        {
+            var settings = _settings != null ? _settings.CurrentSettings : null;
+            return settings != null && settings.ChatFontSize >= 10f ? settings.ChatFontSize : _theme.FontBody;
+        }
+
+        /// <summary>Applies the chosen font to the dialogue, transcript and input.</summary>
+        public void ApplyChatFont()
+        {
+            var settings = _settings != null ? _settings.CurrentSettings : null;
+            var family = settings != null && !string.IsNullOrWhiteSpace(settings.ChatFontFamily)
+                ? settings.ChatFontFamily
+                : _theme.FontFamily;
+            var font = HappiFonts.For(family);
+            var scale = _layoutScale > 0f ? _layoutScale : 1f;
+            var size = ChatFontSize() * scale;
+            if (_dialogue != null)
+            {
+                if (font != null)
+                    _dialogue.font = font;
+                _dialogue.fontSize = size;
+            }
+            for (var i = 0; i < _historyTexts.Count; i++)
+            {
+                if (_historyTexts[i] == null)
+                    continue;
+                if (font != null)
+                    _historyTexts[i].font = font;
+                _historyTexts[i].fontSize = Mathf.Max(9f, size * 0.86f);
+            }
+            if (_input != null && _input.textComponent != null)
+            {
+                if (font != null)
+                    _input.textComponent.font = font;
+                _input.textComponent.fontSize = size;
+            }
+            if (_input != null && _input.placeholder is TMP_Text hint)
+            {
+                if (font != null)
+                    hint.font = font;
+                hint.fontSize = size;
+            }
+            if (_keyInput != null && _keyInput.textComponent != null)
+            {
+                if (font != null)
+                    _keyInput.textComponent.font = font;
+                _keyInput.textComponent.fontSize = Mathf.Max(9f, size * 0.86f);
+            }
         }
 
         static void SetInputFont(TMP_InputField field, float size)
@@ -1354,9 +1436,10 @@ namespace AICompanion.NewUI
             _historyWidth = width;
             _liveDirty = false;
             var count = _transcript.Count;
+            var historySize = Mathf.Max(9f, ChatFontSize() * 0.86f) * _layoutScale;
             while (_historyTexts.Count < count)
             {
-                var text = HappiUiKit.Text(_historyContent, "Message", string.Empty, _theme.FontSmall * _layoutScale, _theme.Text, TextAlignmentOptions.TopLeft, false);
+                var text = HappiUiKit.Text(_historyContent, "Message", string.Empty, historySize, _theme.Text, TextAlignmentOptions.TopLeft, false);
                 text.overflowMode = TextOverflowModes.Overflow;
                 var rect = text.rectTransform;
                 rect.anchorMin = new Vector2(0f, 1f);
@@ -1365,6 +1448,10 @@ namespace AICompanion.NewUI
                 _historyTexts.Add(text);
                 _historyHeights.Add(-1f);
             }
+
+            for (var i = 0; i < _historyTexts.Count; i++)
+                if (_historyTexts[i] != null)
+                    _historyTexts[i].fontSize = historySize;
 
             var y = 0f;
             for (var i = 0; i < _historyTexts.Count; i++)
@@ -1514,6 +1601,59 @@ namespace AICompanion.NewUI
                 return;
             var settings = _settings.CurrentSettings;
             _settings.Presenter.SetVoiceNarration(settings == null || !settings.VoiceNarration);
+        }
+
+        void ToggleChatMenu()
+        {
+            _menuOpen = !_menuOpen;
+            if (_chatMenu != null)
+            {
+                _chatMenu.SetActive(_menuOpen);
+                if (_menuOpen)
+                    _chatMenu.transform.SetAsLastSibling();
+            }
+            if (_menuOpen)
+            {
+                var scale = _layoutScale > 0f ? _layoutScale : 1f;
+                PlaceChatMenu(scale, _theme.Padding * scale, 26f * scale, _theme.Spacing * scale);
+            }
+        }
+
+        void CloseChatMenu()
+        {
+            _menuOpen = false;
+            if (_chatMenu != null)
+                _chatMenu.SetActive(false);
+        }
+
+        void OpenSettingsFromMenu()
+        {
+            CloseChatMenu();
+            if (_settings != null)
+                _settings.Open();
+        }
+
+        void CloseChatFromMenu()
+        {
+            CloseChatMenu();
+            if (_chat != null)
+                _chat.ShowChat(false);
+        }
+
+        void PlaceChatMenu(float s, float pad, float row, float gap)
+        {
+            if (_chatMenu == null)
+                return;
+            var rect = (RectTransform)_chatMenu.transform;
+            rect.anchorMin = new Vector2(1f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(1f, 1f);
+            var width = 170f * s;
+            var height = row * 2f + gap * 3f;
+            rect.sizeDelta = new Vector2(width, height);
+            rect.anchoredPosition = new Vector2(-pad, -(pad + row + gap));
+            HappiUiKit.Place(_menuSettings.Rect, gap, gap, width - 2f * gap, row);
+            HappiUiKit.Place(_menuClose.Rect, gap, gap * 2f + row, width - 2f * gap, row);
         }
 
         /// <summary>The Windows resize cursor while over an edge or corner, or while resizing.</summary>

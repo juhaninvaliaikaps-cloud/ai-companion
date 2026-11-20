@@ -914,6 +914,19 @@ namespace AICompanion.NewUI
             Toggle("Show relationship changes while chatting", S.ShowRelationshipFeedback, v => Change(s => s.ShowRelationshipFeedback = v));
             Note("A small heart floats up beside her when a message moves how much she likes you; a critical hit pops out big and gold.");
 
+            Section("Text style");
+            Dropdown("Chat font", S.ChatFontFamily, ChatFontFamilies(), v => v, v =>
+            {
+                Change(s => s.ChatFontFamily = v);
+                ApplyChatFont();
+            });
+            Slider(v => "Chat text size: " + Mathf.RoundToInt(v) + " px", S.ChatFontSize, 10f, 24f, true, v =>
+            {
+                Change(s => s.ChatFontSize = v);
+                ApplyChatFont();
+            });
+            Note("Applies to the dialogue, transcript and message box. The rest of the UI keeps its own font.");
+
             Section("Chat box");
             Note("Drag the chat box by its top bar to put it anywhere around her. While you drag, spots appear: 1 left of her head, 2 right of her head (the portrait moves to her left), 3 beside her on the left, 4 beside her on the right, 5 under her, so she stands on it (2D video avatar only). Let go near one to snap there. The box stays with her when she walks.");
             // JUH-127: the box is resized by dragging its edges and corners; the old height slider is gone.
@@ -1568,6 +1581,18 @@ namespace AICompanion.NewUI
         static string FileLabel(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? "(none)" : Path.GetFileName(value);
+        }
+
+        static IReadOnlyList<string> ChatFontFamilies()
+        {
+            return new[] { "Segoe UI", "Georgia", "Trebuchet MS", "Consolas" };
+        }
+
+        void ApplyChatFont()
+        {
+            var chat = GetComponent<HappiChatView>();
+            if (chat != null)
+                chat.ApplyChatFont();
         }
 
         /// <summary>A labelled on/off switch.</summary>

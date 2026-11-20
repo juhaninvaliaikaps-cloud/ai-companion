@@ -15,6 +15,8 @@ namespace AICompanion.NewUI
         static TMP_FontAsset _regular;
         static TMP_FontAsset _bold;
         static bool _tried;
+        static readonly System.Collections.Generic.Dictionary<string, TMP_FontAsset> Named =
+            new System.Collections.Generic.Dictionary<string, TMP_FontAsset>(StringComparer.OrdinalIgnoreCase);
 
         public static TMP_FontAsset Regular
         {
@@ -46,6 +48,24 @@ namespace AICompanion.NewUI
             _bold = TryOs(theme.FontFamily, theme.FontStyleBold, fallback);
             if (_regular == null)
                 _regular = fallback;
+        }
+
+        /// <summary>
+        /// A named OS font for the chat box. Cached because TMP creates an atlas per asset.
+        /// Missing fonts fall back to the UI's normal regular face.
+        /// </summary>
+        public static TMP_FontAsset For(string family, string style = null)
+        {
+            Ensure();
+            var name = string.IsNullOrWhiteSpace(family) ? "Segoe UI" : family.Trim();
+            var face = string.IsNullOrWhiteSpace(style) ? "Regular" : style.Trim();
+            var key = name + "|" + face;
+            TMP_FontAsset cached;
+            if (Named.TryGetValue(key, out cached))
+                return cached != null ? cached : _regular;
+            var created = TryOs(name, face, TMP_Settings.defaultFontAsset);
+            Named[key] = created;
+            return created != null ? created : _regular;
         }
 
         static TMP_FontAsset TryOs(string family, string style, TMP_FontAsset fallback)

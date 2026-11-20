@@ -233,6 +233,12 @@ namespace AICompanion.Settings
         /// <summary>Strength of the spoken-text glow, 0 (subtle) to 1 (strong).</summary>
         public float SpokenGlowIntensity = 0.6f;
 
+        /// <summary>Font family used by the chat box's dialogue, transcript, and input.</summary>
+        public string ChatFontFamily = "Segoe UI";
+
+        /// <summary>Base chat text size in pixels at 100% scaling, 10 to 24.</summary>
+        public float ChatFontSize = 14f;
+
         public static CompanionSettings CreateDefault()
         {
             return new CompanionSettings();
@@ -326,6 +332,10 @@ namespace AICompanion.Settings
             if (float.IsNaN(SpokenGlowIntensity) || float.IsInfinity(SpokenGlowIntensity))
                 SpokenGlowIntensity = 0.6f;
             SpokenGlowIntensity = Math.Max(0f, Math.Min(1f, SpokenGlowIntensity));
+            ChatFontFamily = CleanToken(ChatFontFamily, "Segoe UI", 64);
+            if (float.IsNaN(ChatFontSize) || float.IsInfinity(ChatFontSize))
+                ChatFontSize = 14f;
+            ChatFontSize = Math.Max(10f, Math.Min(24f, ChatFontSize));
         }
 
         /// <summary>JUH-127: a dragged chat box size, above 0, or 0 for the automatic size.</summary>
@@ -741,6 +751,10 @@ namespace AICompanion.Settings
                 settings.SpokenGlow = flag;
             if (TryNumber(json, "spokenGlowIntensity", out number))
                 settings.SpokenGlowIntensity = (float)number;
+            if (TryString(json, "chatFontFamily", out text))
+                settings.ChatFontFamily = text;
+            if (TryNumber(json, "chatFontSize", out number))
+                settings.ChatFontSize = (float)number;
             if (TryNumber(json, "chatBoxSnap", out number))
                 settings.ChatBoxSnap = (int)Math.Round(number);
             if (TryNumber(json, "chatBoxOffsetX", out number))
@@ -854,6 +868,8 @@ namespace AICompanion.Settings
             Bool(sb, "showDebugInfo", source.ShowDebugInfo);
             Bool(sb, "spokenGlow", source.SpokenGlow);
             Number(sb, "spokenGlowIntensity", source.SpokenGlowIntensity, false);
+            String(sb, "chatFontFamily", source.ChatFontFamily);
+            Number(sb, "chatFontSize", source.ChatFontSize, false);
             Number(sb, "chatBoxSnap", source.ChatBoxSnap, true);
             Number(sb, "chatBoxOffsetX", source.ChatBoxOffsetX, false);
             Number(sb, "chatBoxOffsetY", source.ChatBoxOffsetY, false);
