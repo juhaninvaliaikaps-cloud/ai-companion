@@ -915,6 +915,16 @@ namespace AICompanion.NewUI
             _mute = HappiUiKit.Button(_box, "Mute", ChatPresenter.MuteOffLabel, _theme.FontSmall, () => _chat.Presenter.ToggleMute());
             _look = HappiUiKit.Button(_box, "Look", ChatPresenter.LookLabelIdle, _theme.FontSmall, OnLook);
             _close = HappiUiKit.Button(_box, "Close", "⚙", _theme.FontBody, ToggleChatMenu);
+            var gearFont = HappiFonts.For("Segoe UI Symbol");
+            if (gearFont != null)
+            {
+                _close.Label.font = gearFont;
+                _close.Label.fontStyle = FontStyles.Normal;
+            }
+            else
+            {
+                _close.Label.text = "...";
+            }
 
             var menuPanel = HappiUiKit.Panel(_box, "ChatMenu", _theme.PanelBackground, true);
             _chatMenu = menuPanel.gameObject;
