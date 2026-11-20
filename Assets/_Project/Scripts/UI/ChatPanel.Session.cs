@@ -292,6 +292,7 @@ namespace AICompanion.UI
         void DropSession()
         {
             _sessionId = string.Empty;
+            _sceneDigest.Reset();
             _sessionUserMessages = 0;
             _sessionStartLine = _conversation != null ? _conversation.Lines.Count : 0;
             if (_conversation != null)
