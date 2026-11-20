@@ -9,13 +9,6 @@ using UnityEngine.UI;
 
 namespace AICompanion.NewUI.Wheel
 {
-    /// <summary>One dated row shown in the Profile timeline, with its stable id for Forget.</summary>
-    public sealed class ProfileTimelineItem
-    {
-        public string Id = string.Empty;
-        public string Label = string.Empty;
-    }
-
     /// <summary>Everything the Profile panel shows, gathered by the wheel host when it opens.</summary>
     public sealed class ProfileData
     {
@@ -33,7 +26,7 @@ namespace AICompanion.NewUI.Wheel
         public string MemoriesSummary = string.Empty;
         public readonly List<string> Memories = new List<string>();
         public int MemoryCount;
-        public readonly List<ProfileTimelineItem> Timeline = new List<ProfileTimelineItem>();
+        public readonly List<string> Timeline = new List<string>();
         public int TimelineCount;
     }
 
@@ -577,27 +570,10 @@ namespace AICompanion.NewUI.Wheel
             else
             {
                 for (var i = 0; i < _data.Timeline.Count; i++)
-                {
-                    var item = _data.Timeline[i];
-                    Paragraph("• " + item.Label, false);
-                    Button("Forget", () =>
-                    {
-                        RelationshipTimeline.ForStore(MemoryRuntime.Store).Forget(item.Id);
-                        Select(Tab.Memories);
-                    });
-                }
+                    Paragraph("• " + _data.Timeline[i], false);
                 if (_data.TimelineCount > _data.Timeline.Count)
                     Paragraph("And " + (_data.TimelineCount - _data.Timeline.Count) + " earlier.", true);
             }
-
-            Button("Clean up old memories", () =>
-            {
-                var timeline = RelationshipTimeline.ForStore(MemoryRuntime.Store);
-                var timelineRemoved = timeline.Cleanup();
-                var factRemoved = MemoryRuntime.Store.ConsolidateSimilar();
-                Debug.Log("Memory cleanup: timeline " + timelineRemoved + ", facts " + factRemoved);
-                Select(Tab.Memories);
-            });
 
             Button("Manage in Settings", () => { if (OpenSettings != null) OpenSettings(); });
             End(box);

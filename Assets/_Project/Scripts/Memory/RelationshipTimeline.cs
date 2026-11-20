@@ -313,23 +313,6 @@ namespace AICompanion.Memory
             public float Score;
         }
 
-        public bool Forget(string id)
-        {
-            if (string.IsNullOrEmpty(id))
-                return false;
-            for (var i = 0; i < _file.entries.Count; i++)
-            {
-                if (_file.entries[i] != null && string.Equals(_file.entries[i].id, id, StringComparison.Ordinal))
-                {
-                    _file.entries.RemoveAt(i);
-                    Save();
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         public int Clear()
         {
             var removed = _file.entries.Count;
@@ -404,103 +387,6 @@ namespace AICompanion.Memory
                 case MemoryDurability.Fact: return 2;
                 case MemoryDurability.OpenThread: return 1;
                 default: return 0;
-            }
-        }
-
-        /// <summary>
-        /// Merges older near-duplicate timeline rows. Kept explicitly separate from Load so
-        /// merely opening the viewer cannot rewrite history.
-        /// </summary>
-        public int Consolidate()
-        {
-            var removed = 0;
-            var kept = new List<TimelineEntry>();
-            for (var i = 0; i < _file.entries.Count; i++)
-            {
-                var entry = _file.entries[i];
-                if (entry == null || !entry.IsValid)
-                    continue;
-
-                TimelineEntry match = null;
-                for (var j = 0; j < kept.Count; j++)
-                {
-                    if (MemoryDurability.Similar(kept[j].summary, entry.summary))
-                    {
-                        match = kept[j];
-                        break;
-                    }
-                }
-
-                if (match == null)
-                {
-                    kept.Add(entry);
-                    continue;
-                }
-
-                Merge(match, entry.summary, entry.isPrivate, DateTime.UtcNow);
-                match.recallCount = Math.Max(match.recallCount, entry.recallCount);
-                if (string.CompareOrdinal(entry.happenedAtUtc, match.happenedAtUtc) < 0)
-                    match.happenedAtUtc = entry.happenedAtUtc;
-                removed++;
-            }
-
-            if (removed > 0)
-            {
-                BackupBeforeCleanup();
-                _file.entries.Clear();
-                _file.entries.AddRange(kept);
-                Save();
-            }
-
-            return removed;
-        }
-
-        /// <summary>
-        /// Explicit old-data cleanup: drops entries that are only vague scene summaries and
-        /// merges near-duplicates. Returns the number removed.
-        /// </summary>
-        public int Cleanup()
-        {
-            var hasVague = false;
-            for (var i = 0; i < _file.entries.Count; i++)
-            {
-                if (_file.entries[i] == null || MemoryDurability.IsVague(_file.entries[i].summary))
-                {
-                    hasVague = true;
-                    break;
-                }
-            }
-
-            if (hasVague)
-                BackupBeforeCleanup();
-
-            var removed = 0;
-            for (var i = _file.entries.Count - 1; i >= 0; i--)
-            {
-                var entry = _file.entries[i];
-                if (entry == null || MemoryDurability.IsVague(entry.summary))
-                {
-                    _file.entries.RemoveAt(i);
-                    removed++;
-                }
-            }
-
-            if (removed > 0)
-                Save();
-            return removed + Consolidate();
-        }
-
-        void BackupBeforeCleanup()
-        {
-            if (string.IsNullOrEmpty(_path) || !System.IO.File.Exists(_path))
-                return;
-            try
-            {
-                System.IO.File.Copy(_path, _path + ".before-cleanup", true);
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning("Timeline cleanup: backup could not be written (" + e.GetType().Name + ")");
             }
         }
 
