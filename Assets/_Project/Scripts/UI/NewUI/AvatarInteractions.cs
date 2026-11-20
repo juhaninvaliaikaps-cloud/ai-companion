@@ -150,7 +150,13 @@ namespace AICompanion.UI
                 return false;
             if (item.BackOnly && (_target == null || !_target.IsBackView))
                 return false;
-            return _holding ? item.Release : !item.Release;
+            if (item.Release)
+                return _holding;
+            if (item.Hold && _holding)
+                return false;
+            // Holding one hand does not freeze her. A kiss, a cheek touch or a shoulder
+            // touch may happen while the hand stays held; only another hold is refused.
+            return true;
         }
 
         public bool Run(string id)
