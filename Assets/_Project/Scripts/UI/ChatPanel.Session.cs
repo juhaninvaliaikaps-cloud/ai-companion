@@ -131,6 +131,16 @@ namespace AICompanion.UI
             }
         }
 
+        /// <summary>JUH-141: the day the pending conversation happened, so its dates are written for that day.</summary>
+        static DateTime? PendingLocalDate(PendingSession pending)
+        {
+            DateTime at;
+            if (pending != null && DateTime.TryParse(pending.createdAtUtc, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AdjustToUniversal, out at))
+                return at.ToLocalTime();
+            return null;
+        }
+
         async System.Threading.Tasks.Task ResumePendingSessionCore()
         {
             PendingSession pending;
@@ -166,14 +176,15 @@ namespace AICompanion.UI
             var stored = await SessionMemories.CaptureAsync(
                 provider, pending.transcript, pending.herName, pending.userMessages,
                 pending.keepsLocal, pending.intimateActive, store,
-                SessionMemories.DefaultTimeoutSeconds, CancellationToken.None, false);
+                SessionMemories.DefaultTimeoutSeconds, CancellationToken.None, false, PendingLocalDate(pending));
 
             Debug.Log("Session handoff: finished " + pending.why + " with " + stored.Memories.Count + " memories (answered=" + stored.Answered + ")");
 
+            // JUH-141: new lines, corrections and closed promises; the handoff's own date is "today".
             var timeline = RelationshipTimeline.ForStore(store);
-            var added = timeline.AddSession(stored.Memories, pending.keepsLocal, DateTime.UtcNow, store, stored.Details);
-            if (added > 0)
-                Debug.Log("Relationship timeline: " + added + " entry recovered from the handoff");
+            var applied = timeline.ApplySession(stored, pending.keepsLocal, DateTime.UtcNow, store);
+            if (applied.Added + applied.Updated + applied.Resolved > 0)
+                Debug.Log("Relationship timeline: from the handoff " + applied.Added + " added, " + applied.Updated + " updated, " + applied.Resolved + " resolved");
 
             if (stored.Answered)
                 SessionHandoff.Clear(pending);
@@ -325,10 +336,11 @@ namespace AICompanion.UI
 
                 // JUH-134: the session summary is not enough on its own; keep a dated
                 // relationship entry that Pisara reseeding and the short-term fade cannot remove.
+                // JUH-141: corrections ("update m1") and closed promises ("resolved m2") too.
                 var timeline = RelationshipTimeline.ForStore(store);
-                var timelineAdded = timeline.AddSession(stored.Memories, keepsLocal, DateTime.UtcNow, store, stored.Details);
-                if (timelineAdded > 0)
-                    Debug.Log("Relationship timeline: " + timelineAdded + " entry added after " + why);
+                var applied = timeline.ApplySession(stored, keepsLocal, DateTime.UtcNow, store);
+                if (applied.Added + applied.Updated + applied.Resolved > 0)
+                    Debug.Log("Relationship timeline: after " + why + " " + applied.Added + " added, " + applied.Updated + " updated, " + applied.Resolved + " resolved");
 
                 // Only a real answer clears the handoff. A timeout stays pending for startup.
                 if (stored.Answered)

@@ -83,9 +83,11 @@ namespace AICompanion.Memory
                 : store.SearchFor(query, MemoryStore.MaxSearchResults, IsLocal);
 
             var timeline = store == null ? null : RelationshipTimeline.ForStore(store);
+            // JUH-141: the latest user message, and the one before it at half weight, so a
+            // follow-up like "do you remember what I told you?" still has a topic.
             var timelineHits = timeline == null
                 ? null
-                : timeline.Search(query, 3, IsLocal, memories);
+                : timeline.SearchHits(query, PreviousUserMessage(request), TimelineSearch.DefaultMax, IsLocal, DateTime.UtcNow, memories);
 
             // JUH-118: memories that say when they happened get "(3 days ago)", and a short-term
             // memory that keeps coming up becomes long-term. The fact-extraction request reads the
@@ -96,7 +98,7 @@ namespace AICompanion.Memory
                 WorldMemory.MarkRecalled(store, memories);
             if (timelineBlock.Length > 0 && timeline != null)
             {
-                timeline.MarkRecalled(timelineHits);
+                timeline.MarkRecalled(Entries(timelineHits));
                 Debug.Log("Memory: " + timelineHits.Count + " timeline entries injected");
             }
             var personaBlock = personality == null ? string.Empty : MemoryPrompt.BuildPersona(personality.Current);
@@ -139,6 +141,37 @@ namespace AICompanion.Memory
                 BlockCloud = request.BlockCloud,
                 NoMemory = request.NoMemory,
             };
+        }
+
+        /// <summary>The user message before the latest one, or empty.</summary>
+        static string PreviousUserMessage(ChatRequest request)
+        {
+            var messages = request.Messages;
+            if (messages == null)
+                return string.Empty;
+            var seen = 0;
+            for (var i = messages.Count - 1; i >= 0; i--)
+            {
+                if (messages[i].Role != ChatRole.User)
+                    continue;
+                seen++;
+                if (seen == 2)
+                    return messages[i].Content ?? string.Empty;
+            }
+
+            return string.Empty;
+        }
+
+        static List<TimelineEntry> Entries(List<TimelineHit> hits)
+        {
+            var entries = new List<TimelineEntry>(hits != null ? hits.Count : 0);
+            if (hits != null)
+            {
+                for (var i = 0; i < hits.Count; i++)
+                    entries.Add(hits[i].Entry);
+            }
+
+            return entries;
         }
 
         static string LastUserMessage(ChatRequest request)
