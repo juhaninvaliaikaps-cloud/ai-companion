@@ -10,6 +10,7 @@ namespace AICompanion.Memory
     public static class MemoryPrompt
     {
         public const string Header = "What you remember from earlier sessions:";
+        public const string TimelineHeader = "Shared history (earlier sessions, background only):";
         public const string PersonaHeader = "Your continuing persona:";
 
         public static string Build(IReadOnlyList<MemoryEntry> entries)
@@ -66,6 +67,34 @@ namespace AICompanion.Memory
             if (!string.IsNullOrWhiteSpace(state.mood))
                 builder.Append("\n- Mood: ").Append(state.mood.Trim());
             return builder.ToString();
+        }
+
+        /// <summary>
+        /// Renders the dated timeline entries selected for this turn. The date is local
+        /// calendar text; the kind tells the model whether it is a promise, a boundary,
+        /// a fact or only a shared event.
+        /// </summary>
+        public static string BuildTimeline(IReadOnlyList<TimelineEntry> entries, System.DateTime nowUtc)
+        {
+            if (entries == null || entries.Count == 0)
+                return string.Empty;
+
+            var builder = new StringBuilder(TimelineHeader);
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry == null || string.IsNullOrWhiteSpace(entry.summary))
+                    continue;
+
+                builder.Append("\n- ");
+                System.DateTime at;
+                if (System.DateTime.TryParse(entry.happenedAtUtc, out at))
+                    builder.Append('(').Append(at.ToLocalTime().ToString("d.M.yyyy")).Append(") ");
+                builder.Append('[').Append(MemoryDurability.KindLabel(entry.kind)).Append("] ");
+                builder.Append(entry.summary.Trim());
+            }
+
+            return builder.Length <= TimelineHeader.Length ? string.Empty : builder.ToString();
         }
     }
 }

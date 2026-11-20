@@ -202,6 +202,34 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("curious", enriched.SystemPrompt);
         }
 
+        [Test]
+        public void Enrich_AppendsRelevantTimelineEntriesAndMarksThem()
+        {
+            var timeline = RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath));
+            timeline.AddSession(new[] { "The user promised to visit on Sunday." }, false, DateTime.UtcNow);
+            var provider = new MemoryChatProvider(new FakeProvider(ChatDefaults.LocalId), _store);
+
+            var enriched = provider.Enrich(Request("Did I promise to visit on Sunday?", "base"));
+
+            StringAssert.Contains(MemoryPrompt.TimelineHeader, enriched.SystemPrompt);
+            StringAssert.Contains("The user promised to visit on Sunday.", enriched.SystemPrompt);
+            StringAssert.Contains("[promise]", enriched.SystemPrompt);
+            Assert.AreEqual(1, RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath)).Page(1)[0].recallCount);
+        }
+
+        [Test]
+        public void Enrich_KeepsPrivateTimelineEntriesAwayFromTheCloud()
+        {
+            var timeline = RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath));
+            timeline.AddSession(new[] { "The user's private family story is important." }, true, DateTime.UtcNow);
+            var cloud = new MemoryChatProvider(new FakeProvider(ChatDefaults.GrokId), _store);
+            var local = new MemoryChatProvider(new FakeProvider(ChatDefaults.LocalId), _store);
+            var request = Request("Tell me the private family story", "base");
+
+            Assert.IsFalse(cloud.Enrich(request).SystemPrompt.Contains("private family story"));
+            StringAssert.Contains("private family story", local.Enrich(request).SystemPrompt);
+        }
+
         static ChatRequest Request(string userText, string systemPrompt)
         {
             return new ChatRequest

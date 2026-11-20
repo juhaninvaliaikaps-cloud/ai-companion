@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using AICompanion.AI;
+using UnityEngine;
 
 namespace AICompanion.Memory
 {
@@ -76,18 +77,30 @@ namespace AICompanion.Memory
 
             var store = _store();
             var personality = _personality();
+            var query = LastUserMessage(request);
             var memories = store == null
                 ? null
-                : store.SearchFor(LastUserMessage(request), MemoryStore.MaxSearchResults, IsLocal);
+                : store.SearchFor(query, MemoryStore.MaxSearchResults, IsLocal);
+
+            var timeline = store == null ? null : RelationshipTimeline.ForStore(store);
+            var timelineHits = timeline == null
+                ? null
+                : timeline.Search(query, 3, IsLocal, memories);
 
             // JUH-118: memories that say when they happened get "(3 days ago)", and a short-term
             // memory that keeps coming up becomes long-term. The fact-extraction request reads the
             // same memories but is not her recalling them.
             var memoryBlock = MemoryPrompt.Build(memories, DateTime.UtcNow);
+            var timelineBlock = MemoryPrompt.BuildTimeline(timelineHits, DateTime.UtcNow);
             if (memoryBlock.Length > 0 && !ReferenceEquals(request.SystemPrompt, MemoryFactExtractor.SystemPrompt))
                 WorldMemory.MarkRecalled(store, memories);
+            if (timelineBlock.Length > 0 && timeline != null)
+            {
+                timeline.MarkRecalled(timelineHits);
+                Debug.Log("Memory: " + timelineHits.Count + " timeline entries injected");
+            }
             var personaBlock = personality == null ? string.Empty : MemoryPrompt.BuildPersona(personality.Current);
-            if (memoryBlock.Length == 0 && personaBlock.Length == 0)
+            if (memoryBlock.Length == 0 && timelineBlock.Length == 0 && personaBlock.Length == 0)
                 return request;
 
             var builder = new StringBuilder();
@@ -105,6 +118,13 @@ namespace AICompanion.Memory
                 if (builder.Length > 0)
                     builder.Append("\n\n");
                 builder.Append(memoryBlock);
+            }
+
+            if (timelineBlock.Length > 0)
+            {
+                if (builder.Length > 0)
+                    builder.Append("\n\n");
+                builder.Append(timelineBlock);
             }
 
             return new ChatRequest

@@ -27,6 +27,8 @@ namespace AICompanion.Memory
         public string source = "session";
         public bool isPrivate;
         public bool resolved;
+        public int recallCount;
+        public string lastRecalledAtUtc = string.Empty;
 
         public bool IsValid
         {
@@ -171,6 +173,115 @@ namespace AICompanion.Memory
             for (var i = 0; i < sorted.Count && (max <= 0 || result.Count < max); i++)
                 result.Add(sorted[i]);
             return result;
+        }
+
+        /// <summary>
+        /// Finds the few dated entries relevant to this turn. Matches are keyword-based for
+        /// now, then weighted by importance and recency. Private entries never reach a cloud
+        /// prompt. Entries already covered by a durable fact are skipped.
+        /// </summary>
+        public IReadOnlyList<TimelineEntry> Search(string query, int max, bool includePrivate, IReadOnlyList<MemoryEntry> facts = null)
+        {
+            var result = new List<TimelineEntry>();
+            var tokens = QueryTokens(query);
+            if (tokens.Count == 0 || max <= 0)
+                return result;
+
+            var scored = new List<ScoredEntry>();
+            var now = DateTime.UtcNow;
+            for (var i = 0; i < _file.entries.Count; i++)
+            {
+                var entry = _file.entries[i];
+                if (entry == null || !entry.IsValid || entry.resolved)
+                    continue;
+                if (entry.isPrivate && !includePrivate)
+                    continue;
+                if (CoveredByFact(entry, facts))
+                    continue;
+
+                var matches = 0;
+                var haystack = (entry.title + " " + entry.summary + " " + entry.kind).ToLowerInvariant();
+                for (var t = 0; t < tokens.Count; t++)
+                {
+                    if (haystack.IndexOf(tokens[t], StringComparison.Ordinal) >= 0)
+                        matches++;
+                }
+
+                if (matches == 0)
+                    continue;
+
+                DateTime happened;
+                var ageDays = DateTime.TryParse(entry.happenedAtUtc, out happened)
+                    ? Math.Max(0d, (now - happened.ToUniversalTime()).TotalDays)
+                    : 365d;
+                var recency = Math.Max(0d, 1d - ageDays / 60d);
+                var score = matches * 3f + entry.importance * 0.4f + (float)recency;
+                scored.Add(new ScoredEntry { Entry = entry, Score = score });
+            }
+
+            scored.Sort((a, b) => b.Score.CompareTo(a.Score));
+            for (var i = 0; i < scored.Count && result.Count < max; i++)
+                result.Add(scored[i].Entry);
+            return result;
+        }
+
+        /// <summary>Records that these entries were actually put in front of the model.</summary>
+        public void MarkRecalled(IReadOnlyList<TimelineEntry> entries)
+        {
+            if (entries == null || entries.Count == 0)
+                return;
+            var now = DateTime.UtcNow.ToString("o");
+            var changed = false;
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry == null)
+                    continue;
+                entry.recallCount++;
+                entry.lastRecalledAtUtc = now;
+                changed = true;
+            }
+
+            if (changed)
+                Save();
+        }
+
+        static bool CoveredByFact(TimelineEntry entry, IReadOnlyList<MemoryEntry> facts)
+        {
+            if (facts == null)
+                return false;
+            for (var i = 0; i < facts.Count; i++)
+            {
+                var fact = facts[i];
+                if (fact != null && fact.kind == MemoryKind.Fact && MemoryDurability.Similar(fact.text, entry.summary))
+                    return true;
+            }
+
+            return false;
+        }
+
+        static List<string> QueryTokens(string query)
+        {
+            var tokens = new List<string>();
+            if (string.IsNullOrWhiteSpace(query))
+                return tokens;
+            var parts = query.ToLowerInvariant().Split(new[] { ' ', '\n', '\r', '\t', '.', ',', '!', '?', ';', ':', '\'', '"' },
+                StringSplitOptions.RemoveEmptyEntries);
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < parts.Length; i++)
+            {
+                var part = parts[i].Trim();
+                if (part.Length >= 4 && seen.Add(part))
+                    tokens.Add(part);
+            }
+
+            return tokens;
+        }
+
+        struct ScoredEntry
+        {
+            public TimelineEntry Entry;
+            public float Score;
         }
 
         public bool Forget(string id)
