@@ -483,5 +483,37 @@ namespace AICompanion.Tests.EditMode
             Assert.Greater(theme.SpokenGlowPop, 0.05f, "lit words also grow");
             Assert.Greater(HappiTheme.Contrast(theme.SpokenGlowColor, theme.Text), 1.15f, "the glow colour differs clearly from the text colour");
         }
+
+        [Test]
+        public void ThoughtQuote_OutsideAsterisks_StaysNarration()
+        {
+            var script = VnScriptParser.Parse("*She thinks* \"I want him.\"\n*She says* \"Hello.\"", true);
+
+            Assert.AreEqual(4, script.Segments.Count);
+            Assert.AreEqual(VnSegmentKind.Narration, script.Segments[0].Kind);
+            Assert.AreEqual(VnSegmentKind.Narration, script.Segments[1].Kind);
+            Assert.AreEqual("\"I want him.\"", script.Segments[1].Text);
+            Assert.AreEqual(VnSegmentKind.Speech, script.Segments[3].Kind);
+            Assert.AreEqual("\"Hello.\"", script.Segments[3].Text);
+        }
+
+        [Test]
+        public void SpokenQuote_AfterAThinkMarkerWithAloud_StaysSpeech()
+        {
+            var script = VnScriptParser.Parse("*She thinks aloud* \"I want him.\"", true);
+
+            Assert.AreEqual(2, script.Segments.Count);
+            Assert.AreEqual(VnSegmentKind.Narration, script.Segments[0].Kind);
+            Assert.AreEqual(VnSegmentKind.Speech, script.Segments[1].Kind);
+        }
+
+        [Test]
+        public void ThoughtLine_WithoutAsterisks_IsNotSpeech()
+        {
+            var script = VnScriptParser.Parse("She thinks, \"I want him.\"", true);
+
+            Assert.AreEqual(1, script.Segments.Count);
+            Assert.AreEqual(VnSegmentKind.Narration, script.Segments[0].Kind);
+        }
     }
 }
