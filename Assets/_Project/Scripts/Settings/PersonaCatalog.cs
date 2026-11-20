@@ -486,11 +486,12 @@ namespace AICompanion.Settings
                 return new TemperamentChoice
                 {
                     Temperament = AICompanion.Core.PersonaTemperament.Default,
+                    Axes = AICompanion.Core.TemperamentAxes.Neutral(),
                     Line = "Temperament: " + AICompanion.Core.PersonaTemperament.Default.Name,
                 };
             }
 
-            return PisaraReading.Choose(entry.Persona.TemperamentMode, entry.Persona.Temperament, entry.BuiltIn, sheet);
+            return PisaraReading.Choose(entry.Persona.TemperamentMode, entry.Persona.Temperament, entry.BuiltIn, sheet, entry.Persona.Axes);
         }
 
         public static string SystemPrompt(CompanionSettings settings, PersonaCatalog catalog)

@@ -6,7 +6,11 @@ using UnityEngine;
 
 namespace AICompanion.Core
 {
-    /// <summary>Temperament weights from the reading, 0 to 1 per preset. See <see cref="PersonaTemperamentBlend"/>.</summary>
+    /// <summary>
+    /// Temperament from the reading. The five weights are how well each preset fits, 0 to 1
+    /// (see <see cref="PersonaTemperamentBlend"/>). <see cref="axes"/> is the nine sliders when
+    /// <see cref="axesSet"/> is true (JUH-136). Old sheets leave the flag false.
+    /// </summary>
     [Serializable]
     public sealed class SheetTemperament
     {
@@ -16,6 +20,12 @@ namespace AICompanion.Core
         public float tsundere;
         public float moody;
         public string reason = string.Empty;
+
+        /// <summary>True when <see cref="axes"/> was part of the reading. Missing on old sheets.</summary>
+        public bool axesSet;
+
+        /// <summary>Nine sliders, 0 to 100. Ignored unless <see cref="axesSet"/> is true.</summary>
+        public TemperamentAxes axes;
 
         public float Weight(string presetId)
         {
@@ -254,6 +264,18 @@ namespace AICompanion.Core
             sheet.relationshipLocked = false;
             sheet.readInCloud = false;
             sheet.readBy = string.Empty;
+            if (sheet.temperament != null && sheet.temperament.axes != null)
+            {
+                TemperamentAxes.FillOmitted(sheet.temperament.axes, json, "axes");
+                // JUH-136 (Cursor Bugbot, medium): a reading that sends the sliders but leaves out
+                // "axesSet", or writes it as "true" or 1, still means them. Small local models do
+                // this. A present axes object with any slider off the middle counts as set; saved
+                // sheets (FromJson) keep the strict flag.
+                if (!sheet.temperament.axesSet && TemperamentAxes.Present(json, "axes")
+                    && TemperamentAxes.HasOpinion(sheet.temperament.axes))
+                    sheet.temperament.axesSet = true;
+            }
+
             sheet.Normalize();
             return sheet;
         }
@@ -268,6 +290,8 @@ namespace AICompanion.Core
                 var sheet = JsonUtility.FromJson<CharacterSheet>(json);
                 if (sheet == null)
                     return null;
+                if (sheet.temperament != null && sheet.temperament.axes != null)
+                    TemperamentAxes.FillOmitted(sheet.temperament.axes, json, "axes");
                 sheet.Normalize();
                 return sheet;
             }
@@ -301,6 +325,12 @@ namespace AICompanion.Core
             temperament.tsundere = Clamp(temperament.tsundere, 0f, 1f);
             temperament.moody = Clamp(temperament.moody, 0f, 1f);
             temperament.reason = Line(temperament.reason, MaxLineLength);
+            if (!temperament.axesSet)
+                temperament.axes = null;
+            else if (temperament.axes == null)
+                temperament.axes = TemperamentAxes.Neutral();
+            else
+                temperament.axes.Clamp();
 
             if (relationship == null)
                 relationship = new SheetRelationship();

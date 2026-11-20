@@ -259,10 +259,8 @@ namespace AICompanion.Settings
             if (settings == null || !string.Equals(settings.PersonaId ?? string.Empty, _personaId, StringComparison.Ordinal))
                 return;
             var temperament = ResolveTemperament(SettingsPanelFolder(), _personaId);
-            // A blend from the character sheet is a new object each time: compare what it is.
-            if (ReferenceEquals(temperament, _state.Temperament)
-                || (temperament.Id == PersonaTemperamentBlend.BlendId && _state.Temperament != null
-                    && _state.Temperament.Id == temperament.Id && _state.Temperament.Name == temperament.Name))
+            // A blend or a custom profile is a new object each time: compare the mood numbers.
+            if (temperament != null && temperament.SameTuning(_state.Temperament))
                 return;
             _state.Temperament = temperament;
             LogTemperament(_personaId);
