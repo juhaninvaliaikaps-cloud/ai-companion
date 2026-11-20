@@ -27,7 +27,18 @@ namespace AICompanion.UI
         readonly List<ChatLine> _sources = new List<ChatLine>();
         readonly List<string> _sourceTexts = new List<string>();
         readonly List<int> _visible = new List<int>();
+        readonly List<bool> _sourceHighlighted = new List<bool>();
         int _hidden = -1;
+        Func<ChatLine, string> _formatter;
+
+        /// <summary>
+        /// Lets the new chat render narration with the same rich text it uses for a live
+        /// line. The old panel leaves this null and keeps plain text.
+        /// </summary>
+        public void SetFormatter(Func<ChatLine, string> formatter)
+        {
+            _formatter = formatter;
+        }
 
         public int Count
         {
@@ -80,6 +91,7 @@ namespace AICompanion.UI
                 _changed.Add(true);
                 _sources.Add(null);
                 _sourceTexts.Add(null);
+                _sourceHighlighted.Add(false);
             }
 
             while (_entries.Count > count)
@@ -89,6 +101,7 @@ namespace AICompanion.UI
                 _changed.RemoveAt(last);
                 _sources.RemoveAt(last);
                 _sourceTexts.RemoveAt(last);
+                _sourceHighlighted.RemoveAt(last);
             }
 
             var slot = 0;
@@ -100,6 +113,7 @@ namespace AICompanion.UI
                     _entries[0] = string.Format(HiddenNoteFormat, hidden);
                     _sources[0] = null;
                     _sourceTexts[0] = null;
+                    _sourceHighlighted[0] = false;
                 }
 
                 _changed[0] = noteChanged;
@@ -114,12 +128,15 @@ namespace AICompanion.UI
             {
                 var line = lines[_visible[v]];
                 // The text is a new string after every streamed piece, so a reference check is enough.
-                var same = ReferenceEquals(_sources[slot], line) && ReferenceEquals(_sourceTexts[slot], line.Text);
+                var same = ReferenceEquals(_sources[slot], line)
+                    && ReferenceEquals(_sourceTexts[slot], line.Text)
+                    && _sourceHighlighted[slot] == line.HighlightFeedback;
                 if (!same)
                 {
-                    _entries[slot] = Format(line);
+                    _entries[slot] = FormatEntry(line);
                     _sources[slot] = line;
                     _sourceTexts[slot] = line.Text;
+                    _sourceHighlighted[slot] = line.HighlightFeedback;
                 }
 
                 _changed[slot] = !same;
@@ -135,6 +152,16 @@ namespace AICompanion.UI
             var text = line.Text ?? string.Empty;
             if (text.Length > MaxShownCharacters)
                 text = CutPrefix + text.Substring(text.Length - MaxShownCharacters);
+            return Label(line.Kind) + "\n" + text;
+        }
+
+        string FormatEntry(ChatLine line)
+        {
+            var text = line.Text ?? string.Empty;
+            if (text.Length > MaxShownCharacters)
+                text = CutPrefix + text.Substring(text.Length - MaxShownCharacters);
+            if (_formatter != null)
+                text = _formatter(line);
             return Label(line.Kind) + "\n" + text;
         }
 

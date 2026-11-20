@@ -168,6 +168,7 @@ namespace AICompanion.NewUI
             _cues = new VnCueSink(PlayCue);
             _player = new VnPlayer(_voice, _cues, VnTiming.From(_theme));
             _player.Mode = PlayerPrefs.GetInt(ModePref, 0) == 1 ? VnMode.Step : VnMode.Auto;
+            _transcript.SetFormatter(FormatHistoryText);
             _sink = new VnSpeechSink(_player, _voice, RealVoice, () => _chat != null ? _chat.LastAssistantText : string.Empty);
 
             _window = GetComponent<OverlayWindow>();
@@ -1239,6 +1240,19 @@ namespace AICompanion.NewUI
         string _companionName;
         string _companionNameKey;
 
+        /// <summary>
+        /// The live dialogue uses VnRender for italics and pink feedback. Finished replies
+        /// must use the same renderer, otherwise the narration changes font as soon as it
+        /// leaves the live box and enters the scrollback.
+        /// </summary>
+        string FormatHistoryText(ChatLine line)
+        {
+            if (line == null || line.Kind != ChatLineKind.Assistant || string.IsNullOrEmpty(line.Text))
+                return line != null ? line.Text : string.Empty;
+            var segments = VnScriptParser.Parse(line.Text, true).Segments;
+            return VnRender.Dialogue(segments, segments.Count, -1, _theme, line.HighlightFeedback);
+        }
+
         void RefreshDialogue()
         {
             var revision = _chat.TranscriptRevision;
@@ -1281,7 +1295,8 @@ namespace AICompanion.NewUI
             string text;
             if (_player.Segments.Count > 0 && _appendedSerial != serial)
             {
-                text = VnRender.Dialogue(_player.Segments, _player.Revealed, _player.Finished ? -1 : _player.Current, _theme);
+                text = VnRender.Dialogue(_player.Segments, _player.Revealed, _player.Finished ? -1 : _player.Current, _theme,
+                    _chat != null && _chat.LastAssistantHighlighted);
                 _glowLineStart = VnRender.LineStart(_player.Segments, _player.Current);
             }
             else if (_sink.Streaming)

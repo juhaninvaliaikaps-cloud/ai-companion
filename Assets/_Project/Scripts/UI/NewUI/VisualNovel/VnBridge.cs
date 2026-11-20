@@ -263,17 +263,20 @@ namespace AICompanion.NewUI.VisualNovel
             return start;
         }
 
-        public static string Dialogue(IReadOnlyList<VnSegment> segments, int revealed, int current, HappiTheme theme)
+        public static string Dialogue(IReadOnlyList<VnSegment> segments, int revealed, int current, HappiTheme theme, bool feedback = false)
         {
             if (segments == null || revealed <= 0)
                 return string.Empty;
             var sb = new StringBuilder();
             var count = Math.Min(revealed, segments.Count);
-            var narration = HappiUiKit.ColorTag(theme.Narration);
+            var feedbackColor = HappiUiKit.ColorTag(theme.Intimate);
+            var narration = HappiUiKit.ColorTag(feedback ? theme.Intimate : theme.Narration);
             var mark = HappiUiKit.ColorTag(theme.HighlightBackground);
+            if (feedback)
+                sb.Append("<color=").Append(feedbackColor).Append('>');
             for (var i = 0; i < count; i++)
             {
-                if (sb.Length > 0)
+                if (sb.Length > 0 && !(feedback && i == 0))
                     sb.Append('\n');
                 var segment = segments[i];
                 var highlighted = i == current;
@@ -287,6 +290,8 @@ namespace AICompanion.NewUI.VisualNovel
                     sb.Append("</mark>");
             }
 
+            if (feedback)
+                sb.Append("</color>");
             return sb.ToString();
         }
     }

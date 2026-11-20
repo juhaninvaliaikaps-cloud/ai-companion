@@ -252,7 +252,19 @@ namespace AICompanion.Core
             return line + " Adult-only video reactions: " + list
                 + ". Trigger these only with reaction=\"name\" in the animation cue, for example <animation emotion=\"flustered\" reaction=\"strip\" />; do not use emotion= or gesture= for them. "
                 + "When she is clothed and the scene becomes intimate, use reaction=\"strip\" first; without that cue the video stays clothed no matter what the text says. After strip she is naked and stays naked: use only the naked animations, and reaction=\"dress\" when she should get dressed again. "
+                + ClothingRule()
                 + "Use these only in Private mode with the 18+ switch on, when the scene is already intimate and both of you clearly want it; keep the wording suggestive.";
+        }
+
+        /// <summary>
+        /// Explicit clothing-removal rule. Small models often narrate a shirt coming off but
+        /// leave reaction="strip" out, which leaves the video clothed.
+        /// </summary>
+        public static string ClothingRule()
+        {
+            if (!IntimateExpressions.Active || IntimateExpressions.Undressed)
+                return string.Empty;
+            return " Clothing removal rule: when the user pulls off, opens, lifts or removes any item of her clothing, or your narration says an item comes off, you must put reaction=\"strip\" in the cue for that reply. Do not describe her as undressed without that cue. ";
         }
 
         static string AdultHint(string name)

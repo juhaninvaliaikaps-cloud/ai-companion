@@ -58,6 +58,7 @@ namespace AICompanion.UI
         ISpeechOutput _speech;
         IPushToTalk _talk;
         bool _wasRecording;
+        bool _forceStrip;
         InputField _input;
         InputField _keyInput;
         Sprite _white;
@@ -553,6 +554,10 @@ namespace AICompanion.UI
             if (_cancel != null)
                 _cancel.Dispose();
             _cancel = new CancellationTokenSource();
+            _forceStrip = !interactionLine
+                && IntimateExpressions.Active
+                && !IntimateExpressions.Undressed
+                && ClothingIntent.RemovesClothing(text);
             BindSpeech();
             if (_speech != null)
             {
@@ -674,6 +679,7 @@ namespace AICompanion.UI
             if (result.Ok)
             {
                 ApplyCue();
+                ApplyForcedStrip();
                 if (remember)
                 {
                     SessionReplyFinished();
@@ -685,6 +691,10 @@ namespace AICompanion.UI
                     if (look != null && look.RequestAutoLook())
                         Debug.Log("Screen look: the reply asked for a look");
                 }
+            }
+            else
+            {
+                _forceStrip = false;
             }
 
             BindSpeech();
@@ -814,6 +824,14 @@ namespace AICompanion.UI
             // What the model really wrote, so a missing or broken cue shows in Player.log.
             Debug.Log(AnimationCueParser.DescribeTag(_exchange.LastCueTag, _exchange.LastCueStatus));
             Debug.Log(EmotionNames.FormatFieldLog(_exchange.LastCue.EmotionField));
+
+            // JUH-134: a hit secret or a landed relationship event keeps the pink feedback
+            // look in the transcript. This is display metadata only; it is never sent back
+            // to the model or added to the reply text.
+            if (_conversation != null
+                && (!string.IsNullOrEmpty(_exchange.LastCue.Secret)
+                    || _exchange.LastCue.Landed != LandingEvent.Neutral))
+                _conversation.MarkLastAssistantFeedback();
             // JUH-108: the new chat fires each cue at its own line and reports the mood there.
             if (_replyCuesElsewhere)
             {
@@ -833,6 +851,32 @@ namespace AICompanion.UI
                 _moodCueSerial = _exchange.CueSerial;
                 CompanionMoodInputs.ReportCue(_exchange.LastCue);
             }
+        }
+
+        /// <summary>
+        /// Small models sometimes describe clothes coming off without adding reaction="strip".
+        /// The user's removal action already implies it, so force only the avatar cue. No text
+        /// is added to her reply, the transcript or the prompt.
+        /// </summary>
+        void ApplyForcedStrip()
+        {
+            if (!_forceStrip)
+                return;
+            _forceStrip = false;
+            if (!IntimateExpressions.Active || IntimateExpressions.Undressed)
+                return;
+
+            var cue = _exchange.LastCue;
+            if (string.Equals(cue.Reaction, "strip", System.StringComparison.OrdinalIgnoreCase)
+                || IntimateExpressions.IsNakedCue(cue.Reaction))
+                return;
+
+            var director = GetComponent<Director>();
+            if (director == null)
+                return;
+            director.Play(new AnimationCue(cue.Emotion, cue.Intensity, cue.Gesture, cue.Direction,
+                cue.EmotionField, "strip", cue.Landed, cue.Secret));
+            Debug.Log("Clothing: forced strip because the user removed clothing and the reply had no strip cue");
         }
 
         public void ShowSpeechNote(string message)

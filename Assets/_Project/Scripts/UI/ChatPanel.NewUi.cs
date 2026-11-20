@@ -100,6 +100,12 @@ namespace AICompanion.UI
             }
         }
 
+        /// <summary>True when the newest assistant line is a pink feedback line.</summary>
+        public bool LastAssistantHighlighted
+        {
+            get { return _conversation != null && _conversation.LastAssistantHighlighted; }
+        }
+
         /// <summary>The same badge text and colour the old panel shows (provider, model, private/local).</summary>
         public string ModelBadgeText => _modelBadge != null ? _modelBadge.text : string.Empty;
 
