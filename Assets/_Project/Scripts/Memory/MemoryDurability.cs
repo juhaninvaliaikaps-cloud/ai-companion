@@ -226,6 +226,12 @@ namespace AICompanion.Memory
         /// <summary>Fuzzy duplicate check for paraphrased summaries.</summary>
         public static bool Similar(string left, string right)
         {
+            return SimilarAtLeast(left, right, 0.70f);
+        }
+
+        /// <summary>Used by the explicit cleanup action, where a false merge is worse than a missed one.</summary>
+        public static bool SimilarAtLeast(string left, string right, float threshold)
+        {
             if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
                 return false;
             var a = CanonicalKey(left);
@@ -247,7 +253,7 @@ namespace AICompanion.Memory
             }
 
             var union = leftWords.Count + rightWords.Count - overlap;
-            return union > 0 && overlap / (float)union >= 0.70f;
+            return union > 0 && overlap / (float)union >= threshold;
         }
 
         public static string KindLabel(string kind)
