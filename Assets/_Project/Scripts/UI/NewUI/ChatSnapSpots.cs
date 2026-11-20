@@ -223,6 +223,18 @@ namespace AICompanion.NewUI
             return new Rect(x, top, width, height);
         }
 
+        /// <summary>
+        /// JUH-139: a docked rect at the user's portrait size. The edge next to the chat box
+        /// stays put: the right edge on the left dock, the left edge on the right dock. Setting
+        /// <c>Rect.size</c> keeps the left edge, which made a wider left-docked portrait
+        /// overlap the box.
+        /// </summary>
+        public static Rect Sized(Rect docked, Vector2 size, int side)
+        {
+            var x = side == LeftOfBox ? docked.xMax - size.x : docked.xMin;
+            return new Rect(x, docked.yMin, size.x, size.y);
+        }
+
         /// <summary>The docked side to use: the chosen one, or the other when the chosen side has no room on screen.</summary>
         public static int FitSide(int side, Rect left, Rect right, float minX, float maxX)
         {

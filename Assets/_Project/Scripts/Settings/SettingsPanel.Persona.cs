@@ -69,19 +69,20 @@ namespace AICompanion.Settings
             AddButton(string.IsNullOrEmpty(persona.AvatarSource) ? "Leave avatar unchanged (selected)" : "Leave avatar unchanged", () => SaveActive(idFixed, item => item.AvatarSource = string.Empty));
             AddField("Portrait folder", persona.PortraitFolder, false, value => SaveActive(idFixed, item => item.PortraitFolder = value));
             Note("A missing portrait folder uses the standard portraits folder.");
-            AddTemperamentPicker(idFixed, persona.Temperament);
+            AddTemperamentPicker(idFixed);
             if (current.UserFile)
                 AddButton(current.BuiltIn ? "Delete saved copy" : "Delete persona", DeleteActivePersona);
         }
 
         /// <summary>
-        /// JUH-103 phase 3: a few temperament presets, never raw numbers. The choice is saved in
-        /// the persona file and takes effect at once.
+        /// JUH-103 phase 3 presets, plus the nine sliders (JUH-136). Auto and a preset stay.
+        /// Moving a slider saves a custom profile and overrides both.
         /// </summary>
-        void AddTemperamentPicker(string id, string current)
+        void AddTemperamentPicker(string id)
         {
             // JUH-118: what the model read from her description, then the picker. A pick overrides the reading.
             var view = PisaraView();
+            var picked = view.Custom ? "\0" : AICompanion.Core.PersonaTemperaments.Normalize(view.TemperamentId);
             Note("Temperament: how quickly her moods build and fade. Auto reads it from her description; a pick below overrides it.");
             Note(view.TemperamentLine);
             Note(view.RelationshipLine);
@@ -92,9 +93,23 @@ namespace AICompanion.Settings
             {
                 var preset = AICompanion.Core.PersonaTemperaments.Get(AICompanion.Core.PersonaTemperaments.Ids[i]);
                 var stored = AICompanion.Core.PersonaTemperaments.Normalize(preset.Id);
-                var selected = view.Manual && string.Equals(current ?? string.Empty, stored, StringComparison.OrdinalIgnoreCase);
+                var selected = view.Manual && !view.Custom && string.Equals(picked, stored, StringComparison.OrdinalIgnoreCase);
                 AddButton("Temperament: " + preset.Name + (selected ? " (selected)" : string.Empty),
                     () => SetPersonaTemperament(id, stored));
+            }
+
+            Note("Custom profile. 50 is the middle. Moving a slider overrides Auto and the presets. It changes how her moods build and fade.");
+            var editing = (view.Axes ?? AICompanion.Core.TemperamentAxes.Neutral()).Clone();
+            for (var axis = 0; axis < AICompanion.Core.TemperamentAxes.Count; axis++)
+            {
+                var index = axis;
+                var label = AddLabel(AICompanion.Core.TemperamentAxes.SliderLabel(index, editing.Value(index)));
+                AddSlider(editing.Value(index), AICompanion.Core.TemperamentAxes.Min, AICompanion.Core.TemperamentAxes.Max, true, value =>
+                {
+                    editing.Set(index, value);
+                    label.text = AICompanion.Core.TemperamentAxes.SliderLabel(index, editing.Value(index));
+                    SetPersonaTemperamentAxes(id, editing);
+                });
             }
         }
 
@@ -170,7 +185,26 @@ namespace AICompanion.Settings
             SetStatus(UseStatus(persona, beforeVoice));
         }
 
+        int _temperamentRevision;
+        bool _temperamentUiPending;
+
+        /// <summary>Bumps when a temperament preset or slider is saved, so the new settings view can refresh after a drag.</summary>
+        public int TemperamentRevision
+        {
+            get { return _temperamentRevision; }
+        }
+
         void SaveActive(string id, Action<PersonaDefinition> change)
+        {
+            SaveActive(id, change, true, true);
+        }
+
+        /// <summary>
+        /// <paramref name="applyLive"/> reapplies voice and the rest of the persona.
+        /// <paramref name="rebuild"/> redraws this window. A slider passes false for both so the
+        /// drag is not thrown away, and still reloads her mood.
+        /// </summary>
+        void SaveActive(string id, Action<PersonaDefinition> change, bool applyLive, bool rebuild)
         {
             if (change == null || string.IsNullOrEmpty(id))
                 return;
@@ -202,18 +236,26 @@ namespace AICompanion.Settings
 
             if (string.Equals(_settings.PersonaId, saved.Id, StringComparison.OrdinalIgnoreCase))
             {
-                var beforeVoice = _settings.PiperVoice;
-                PersonaApply.Overlay(_settings, saved, File.Exists, Directory.Exists);
-                ApplyLive();
+                if (applyLive)
+                {
+                    var beforeVoice = _settings.PiperVoice;
+                    PersonaApply.Overlay(_settings, saved, File.Exists, Directory.Exists);
+                    ApplyLive();
+                    SetStatus(SavedStatus(saved, beforeVoice));
+                }
+
                 ReloadMoodTemperament();
-                SetStatus(SavedStatus(saved, beforeVoice));
             }
-            else
+            else if (applyLive)
             {
                 SetStatus("Saved " + PersonaName(saved) + ".");
             }
 
-            _rebuild = true;
+            _temperamentRevision++;
+            if (rebuild)
+                _rebuild = true;
+            else if (_open)
+                _temperamentUiPending = true;
         }
 
         void CreatePersona()

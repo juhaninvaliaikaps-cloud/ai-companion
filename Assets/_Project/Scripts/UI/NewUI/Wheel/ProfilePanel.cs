@@ -274,8 +274,23 @@ namespace AICompanion.NewUI.Wheel
 
             var box = Begin();
             Heading(p.Title);
-            if (p.HasReading)
+            if (p.HasSliders)
+            {
+                // JUH-136 (Jussi): the nine sliders she runs on, instead of the 5-axis radar.
+                for (var i = 0; i < TemperamentAxes.Count; i++)
+                {
+                    var value = p.Sliders[i];
+                    Row(TemperamentAxes.Names[i], ProfilePersonality.SliderWord(i, value) + "  " + Mathf.RoundToInt(value));
+                    FillBar(value / 100f, i == TemperamentAxes.Curiosity ? _theme.Disabled : _theme.Hover);
+                }
+
+                Paragraph("Each runs from 0 to 100. Curiosity does not change her mood yet. Set them on Settings → Persona → Temperament.", true);
+            }
+            else if (p.HasReading)
+            {
                 Radar(p.Axes);
+            }
+
             if (p.Reason.Length > 0)
                 Paragraph(p.Reason, !p.HasReading);
             End(box);

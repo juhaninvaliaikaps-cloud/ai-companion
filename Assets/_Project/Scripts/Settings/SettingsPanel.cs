@@ -251,6 +251,14 @@ namespace AICompanion.Settings
             TrackHistory();
             TrackScreen();
             TrackPisara();
+            // A temperament slider saves without rebuilding, so the drag survives. The preset
+            // marks catch up when the button is released.
+            if (_temperamentUiPending && !Input.GetMouseButton(0))
+            {
+                _temperamentUiPending = false;
+                _rebuild = true;
+            }
+
             Place();
         }
 

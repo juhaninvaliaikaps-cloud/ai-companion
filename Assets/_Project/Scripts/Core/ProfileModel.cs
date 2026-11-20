@@ -104,7 +104,60 @@ namespace AICompanion.Core
         public float Innocence = InnocenceMath.Default;
         public string InnocenceValue = string.Empty;
 
+        /// <summary>
+        /// JUH-136 (Jussi, 2026-11-20): the nine temperament sliders she runs on, 0 to 100, in
+        /// <see cref="TemperamentAxes.Names"/> order. They replace the 5-axis radar. Null when
+        /// unknown; the radar is then the fallback.
+        /// </summary>
+        public float[] Sliders;
+
+        public bool HasSliders
+        {
+            get { return Sliders != null && Sliders.Length == TemperamentAxes.Count; }
+        }
+
+        /// <summary>"warm", "cold" or "in between" for a slider value, from the slider's hint.</summary>
+        public static string SliderWord(int axis, float value)
+        {
+            string low;
+            string high;
+            SliderEnds(axis, out low, out high);
+            if (value >= 60f)
+                return high;
+            if (value <= 40f)
+                return low;
+            return "in between";
+        }
+
+        /// <summary>The two ends of a slider, from its hint: "0 cold, 100 warm" gives cold and warm.</summary>
+        public static void SliderEnds(int axis, out string low, out string high)
+        {
+            low = string.Empty;
+            high = string.Empty;
+            if (axis < 0 || axis >= TemperamentAxes.Hints.Length)
+                return;
+            var hint = TemperamentAxes.Hints[axis] ?? string.Empty;
+            var comma = hint.IndexOf(',');
+            if (comma < 0)
+                return;
+            low = StripNumber(hint.Substring(0, comma));
+            high = StripNumber(hint.Substring(comma + 1));
+        }
+
+        static string StripNumber(string part)
+        {
+            var text = (part ?? string.Empty).Trim();
+            var space = text.IndexOf(' ');
+            return space > 0 && char.IsDigit(text[0]) ? text.Substring(space + 1).Trim() : text;
+        }
+
         public static ProfilePersonality Build(CharacterSheet sheet, string temperamentLine, bool gateOpen, float innocence)
+        {
+            return Build(sheet, temperamentLine, gateOpen, innocence, null);
+        }
+
+        /// <summary>As above, with the nine sliders she runs on (manual, Auto from the sheet, or a preset's point).</summary>
+        public static ProfilePersonality Build(CharacterSheet sheet, string temperamentLine, bool gateOpen, float innocence, TemperamentAxes axes)
         {
             var view = new ProfilePersonality
             {
@@ -125,6 +178,13 @@ namespace AICompanion.Core
                     if (view.Axes[i] > 0f)
                         view.HasReading = true;
                 }
+            }
+
+            if (axes != null)
+            {
+                view.Sliders = new float[TemperamentAxes.Count];
+                for (var i = 0; i < TemperamentAxes.Count; i++)
+                    view.Sliders[i] = axes.Value(i);
             }
 
             if (!view.HasReading)
