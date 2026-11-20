@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using AICompanion.Core;
 using AICompanion.Settings.Presenters;
 
 namespace AICompanion.Settings
@@ -283,10 +284,13 @@ namespace AICompanion.Settings
             public readonly string RelationshipLine;
             public readonly string Status;
             public readonly bool Manual;
+            public readonly bool Custom;
+            public readonly string TemperamentId;
+            public readonly TemperamentAxes Axes;
             public readonly bool Reading;
             public readonly float ReadingStartedAt;
 
-            public PisaraPersonaView(string temperamentLine, string relationshipLine, string status, bool manual, bool reading, float readingStartedAt)
+            public PisaraPersonaView(string temperamentLine, string relationshipLine, string status, bool manual, bool reading, float readingStartedAt, bool custom, string temperamentId, TemperamentAxes axes)
             {
                 TemperamentLine = temperamentLine ?? string.Empty;
                 RelationshipLine = relationshipLine ?? string.Empty;
@@ -294,6 +298,9 @@ namespace AICompanion.Settings
                 Manual = manual;
                 Reading = reading;
                 ReadingStartedAt = readingStartedAt;
+                Custom = custom;
+                TemperamentId = temperamentId ?? string.Empty;
+                Axes = axes ?? TemperamentAxes.Neutral();
             }
         }
 
@@ -310,7 +317,10 @@ namespace AICompanion.Settings
                 keeper != null ? keeper.StatusLine : AICompanion.Core.PisaraReading.SourceLine(sheet),
                 !choice.Auto,
                 keeper != null && keeper.IsReading,
-                keeper != null ? keeper.ReadingStartedAt : 0f);
+                keeper != null ? keeper.ReadingStartedAt : 0f,
+                choice.Custom,
+                choice.Temperament == null ? string.Empty : choice.Temperament.Id,
+                choice.Axes);
         }
 
         /// <summary>The "Re-read" button: asks the model again for the active persona's sheet.</summary>
@@ -425,7 +435,22 @@ namespace AICompanion.Settings
             {
                 item.Temperament = preset;
                 item.TemperamentMode = AICompanion.Core.TemperamentModes.Manual;
+                item.Axes = null;
             });
+        }
+
+        /// <summary>
+        /// Persona temperament: the nine sliders. This is a manual profile and it overrides the
+        /// reading. A point that lands on a preset is saved as that preset. The window is not
+        /// rebuilt, so a drag can finish.
+        /// </summary>
+        public void SetPersonaTemperamentAxes(string id, TemperamentAxes axes)
+        {
+            SaveActive(id, item =>
+            {
+                item.SetAxes(axes);
+                item.TemperamentMode = AICompanion.Core.TemperamentModes.Manual;
+            }, false, false);
         }
 
         /// <summary>Goes up when a reading starts or comes back.</summary>
