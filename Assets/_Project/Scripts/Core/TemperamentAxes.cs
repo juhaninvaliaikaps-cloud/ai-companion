@@ -250,6 +250,12 @@ namespace AICompanion.Core
             }
         }
 
+        /// <summary>True when <paramref name="json"/> has an <paramref name="objectKey"/> object (JUH-136).</summary>
+        public static bool Present(string json, string objectKey)
+        {
+            return ObjectBody(json, objectKey) != null;
+        }
+
         static string ObjectBody(string json, string objectKey)
         {
             if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(objectKey))
