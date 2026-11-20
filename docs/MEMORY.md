@@ -57,6 +57,10 @@ The session summary used to write blind: its request is `NoMemory`, so a correct
 - **Applied** by `RelationshipTimeline.ApplySession`: a correction must itself be durable and concrete (a vague line never replaces a concrete one); it keeps the entry's id and date, saves the old sentence in `previousSummary` with `updatedAtUtc`, counts as one more mention, and a correction from a private session makes the entry private. A resolved entry gets `resolvedAtUtc` and is no longer recalled. An id the summary was not shown, or an unknown one, changes nothing.
 - Not yet: the fact store (`MemoryStore`) keeps its own older facts; only the timeline is corrected.
 
+### Whose memory it is (JUH-141)
+
+When the retrieved memories mix her own life (Pisara's `seeded`, `away` and `life` entries) with what she knows about the user, `MemoryPrompt.Build` puts them under two sub-headings: "About the user and your time together" and "Your own life (things that happened to you, not to the user)". A list of one kind stays flat. Timeline lines already start with "The user" or her name.
+
 `MemoryStore.Search(query, max, includePrivate)` is keyword search: the query is lowercased, split on non-alphanumeric characters, words shorter than three characters and a small stop-word list are dropped, and every remaining token that appears in an entry scores a point. A summary scores two, because it carries more context. Ties keep the newest entry. At most eight entries come back by default.
 
 The chat path uses `MemoryStore.SearchFor(...)`, which is built on top of that:

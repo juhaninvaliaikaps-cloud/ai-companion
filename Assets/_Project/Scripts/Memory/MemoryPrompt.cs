@@ -31,20 +31,69 @@ namespace AICompanion.Memory
             return builder.Length <= Header.Length ? string.Empty : builder.ToString();
         }
 
+        /// <summary>JUH-141: the sub-heading for what the user told her and what they did together.</summary>
+        public const string AboutUserHeader = "About the user and your time together:";
+
+        /// <summary>JUH-141: the sub-heading for her own life (Pisara's world, what happened while away).</summary>
+        public const string OwnLifeHeader = "Your own life (things that happened to you, not to the user):";
+
         /// <summary>
-        /// JUH-117: as <see cref="Build(IReadOnlyList{MemoryEntry})"/>, with "(2 days ago)" in
-        /// front of entries that say when they happened, so she can place them in time.
+        /// As <see cref="Build(IReadOnlyList{MemoryEntry})"/>, with "(2 days ago)" in front of
+        /// entries that say when they happened (JUH-117). JUH-141: when the list mixes her own
+        /// life (seeded, away and life entries) with what she knows about the user, the two get
+        /// their own sub-headings, so she never mistakes the user's dislike for her own. A list
+        /// of one kind stays flat.
         /// </summary>
         public static string Build(IReadOnlyList<MemoryEntry> entries, System.DateTime nowUtc)
         {
             if (entries == null || entries.Count == 0)
                 return string.Empty;
 
-            var builder = new StringBuilder(Header);
+            var hers = 0;
+            var theirs = 0;
             for (var i = 0; i < entries.Count; i++)
             {
                 var entry = entries[i];
                 if (entry == null || string.IsNullOrWhiteSpace(entry.text))
+                    continue;
+                if (IsHerOwnLife(entry))
+                    hers++;
+                else
+                    theirs++;
+            }
+
+            var builder = new StringBuilder(Header);
+            if (hers > 0 && theirs > 0)
+            {
+                builder.Append("\n").Append(AboutUserHeader);
+                AppendEntries(builder, entries, nowUtc, false);
+                builder.Append("\n").Append(OwnLifeHeader);
+                AppendEntries(builder, entries, nowUtc, true);
+            }
+            else
+            {
+                AppendEntries(builder, entries, nowUtc, null);
+            }
+
+            return builder.Length <= Header.Length ? string.Empty : builder.ToString();
+        }
+
+        /// <summary>Her own life: what Pisara seeded, what happened while the user was away, and her own new threads.</summary>
+        public static bool IsHerOwnLife(MemoryEntry entry)
+        {
+            if (entry == null)
+                return false;
+            return entry.origin == MemoryOrigins.Seeded || entry.origin == MemoryOrigins.Away || entry.origin == MemoryOrigins.Life;
+        }
+
+        static void AppendEntries(StringBuilder builder, IReadOnlyList<MemoryEntry> entries, System.DateTime nowUtc, bool? herOwn)
+        {
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry == null || string.IsNullOrWhiteSpace(entry.text))
+                    continue;
+                if (herOwn.HasValue && IsHerOwnLife(entry) != herOwn.Value)
                     continue;
 
                 builder.Append("\n- ");
@@ -53,8 +102,6 @@ namespace AICompanion.Memory
                     builder.Append('(').Append(when).Append(") ");
                 builder.Append(entry.text.Trim());
             }
-
-            return builder.Length <= Header.Length ? string.Empty : builder.ToString();
         }
 
         public static string BuildPersona(PersonalityState state)
