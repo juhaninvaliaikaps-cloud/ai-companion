@@ -43,7 +43,11 @@ namespace AICompanion.Settings
             var forgotten = 0;
             try
             {
-                forgotten = MemoryRuntime.Store.DeleteAll();
+                var store = MemoryRuntime.Store;
+                forgotten = store.DeleteAll();
+                // JUH-134: the relationship timeline is a separate file, so Start over
+                // must clear it explicitly as well.
+                RelationshipTimeline.ForStore(store).Clear();
             }
             catch (Exception e)
             {

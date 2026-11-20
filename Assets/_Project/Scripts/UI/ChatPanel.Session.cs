@@ -205,6 +205,13 @@ namespace AICompanion.UI
                     provider, transcript, herName, userMessages, keepsLocal, IntimateExpressions.Active, store, timeoutSeconds, CancellationToken.None, askThread);
                 Debug.Log("Session memories: " + stored.Memories.Count + " stored after " + why + " (" + userMessages + " messages)"
                     + (askThread ? ", new thread: " + (stored.Thread != null ? "yes" : "no") : string.Empty));
+
+                // JUH-134: the session summary is not enough on its own; keep a dated
+                // relationship entry that Pisara reseeding and the short-term fade cannot remove.
+                var timeline = RelationshipTimeline.ForStore(store);
+                var timelineAdded = timeline.AddSession(stored.Memories, keepsLocal, DateTime.UtcNow);
+                if (timelineAdded > 0)
+                    Debug.Log("Relationship timeline: " + timelineAdded + " entry added after " + why);
             }
             catch (Exception e)
             {

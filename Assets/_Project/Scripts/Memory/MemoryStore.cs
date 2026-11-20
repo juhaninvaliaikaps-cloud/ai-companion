@@ -76,6 +76,31 @@ namespace AICompanion.Memory
             return MemoryFile(string.Empty);
         }
 
+        /// <summary>JUH-134: the relationship timeline beside the matching persona memory file.</summary>
+        public static string TimelineFile(string personaId)
+        {
+            var folder = Folder();
+            if (folder == null)
+                return null;
+            var id = MemoryId(personaId);
+            return Path.Combine(folder, string.IsNullOrEmpty(id) ? "timeline.json" : "timeline-" + id + ".json");
+        }
+
+        /// <summary>Maps memory-&lt;persona&gt;.json to timeline-&lt;persona&gt;.json.</summary>
+        public static string TimelineFileForMemoryPath(string memoryPath)
+        {
+            if (string.IsNullOrWhiteSpace(memoryPath))
+                return null;
+            var folder = Path.GetDirectoryName(memoryPath);
+            if (string.IsNullOrEmpty(folder))
+                return null;
+            var name = Path.GetFileNameWithoutExtension(memoryPath);
+            var id = name != null && name.StartsWith("memory-", StringComparison.Ordinal)
+                ? name.Substring("memory-".Length)
+                : string.Empty;
+            return Path.Combine(folder, string.IsNullOrEmpty(id) ? "timeline.json" : "timeline-" + id + ".json");
+        }
+
         public static string PersonalityFile()
         {
             var folder = Folder();

@@ -1,0 +1,112 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using AICompanion.Core;
+using AICompanion.Memory;
+using NUnit.Framework;
+
+namespace AICompanion.Tests.EditMode
+{
+    /// <summary>JUH-134: the dated relationship timeline is local, deduplicated and persona-scoped.</summary>
+    public sealed class RelationshipTimelineTests
+    {
+        readonly List<string> _cleanup = new List<string>();
+
+        [TearDown]
+        public void TearDown()
+        {
+            for (var i = 0; i < _cleanup.Count; i++)
+            {
+                try
+                {
+                    if (File.Exists(_cleanup[i]))
+                        File.Delete(_cleanup[i]);
+                }
+                catch (Exception)
+                {
+                    // The test cleanup must not hide the assertion result.
+                }
+            }
+
+            _cleanup.Clear();
+        }
+
+        string TempFile()
+        {
+            var path = Path.Combine(Path.GetTempPath(), "happi-timeline-" + Guid.NewGuid().ToString("N") + ".json");
+            _cleanup.Add(path);
+            return path;
+        }
+
+        [Test]
+        public void AddSession_WritesDatedEntries_AndReloadKeepsThem()
+        {
+            var path = TempFile();
+            var timeline = RelationshipTimeline.Load(path);
+            var now = new DateTime(2026, 11, 20, 12, 0, 0, DateTimeKind.Utc);
+
+            var added = timeline.AddSession(new[]
+            {
+                "You told her about your sister and she promised to ask again.",
+                "You both laughed about the broken coffee machine.",
+            }, false, now);
+
+            Assert.AreEqual(2, added);
+            Assert.AreEqual(2, timeline.Count);
+            var reloaded = RelationshipTimeline.Load(path);
+            Assert.AreEqual(2, reloaded.Count);
+            Assert.AreEqual("You told her about your sister and she promised to ask again.", reloaded.Page(1)[0].summary);
+            Assert.AreEqual(4, reloaded.Page(1)[0].importance);
+            Assert.AreEqual(now.ToString("o"), reloaded.Page(1)[0].happenedAtUtc);
+        }
+
+        [Test]
+        public void AddSession_SkipsDuplicateSummaries()
+        {
+            var path = TempFile();
+            var timeline = RelationshipTimeline.Load(path);
+            var now = DateTime.UtcNow;
+            Assert.AreEqual(1, timeline.AddSession(new[] { "A promise about the weekend." }, false, now));
+            Assert.AreEqual(0, timeline.AddSession(new[] { "A promise about the weekend." }, false, now));
+            Assert.AreEqual(1, timeline.Count);
+        }
+
+        [Test]
+        public void Page_NewestFirst_AndClear()
+        {
+            var path = TempFile();
+            var timeline = RelationshipTimeline.Load(path);
+            timeline.AddSession(new[] { "Older entry." }, false, new DateTime(2026, 11, 18, 10, 0, 0, DateTimeKind.Utc));
+            timeline.AddSession(new[] { "Newer entry." }, true, new DateTime(2026, 11, 20, 10, 0, 0, DateTimeKind.Utc));
+
+            var page = timeline.Page(10);
+            Assert.AreEqual(2, page.Count);
+            Assert.AreEqual("Newer entry.", page[0].summary);
+            Assert.IsTrue(page[0].isPrivate);
+            Assert.AreEqual("Older entry.", page[1].summary);
+            Assert.AreEqual(2, timeline.Clear());
+            Assert.AreEqual(0, RelationshipTimeline.Load(path).Count);
+        }
+
+        [Test]
+        public void TimelinePath_IsBesideTheMatchingMemoryFile()
+        {
+            var memory = Path.Combine(Path.GetTempPath(), "memory-custom-6.json");
+            Assert.AreEqual(
+                Path.Combine(Path.GetTempPath(), "timeline-custom-6.json"),
+                MemoryPaths.TimelineFileForMemoryPath(memory));
+            Assert.AreEqual(
+                Path.Combine(Path.GetTempPath(), "timeline.json"),
+                MemoryPaths.TimelineFileForMemoryPath(Path.Combine(Path.GetTempPath(), "memory.json")));
+        }
+
+        [Test]
+        public void InventoryTreatsTimelineAsPrivateEncryptedData()
+        {
+            Assert.IsTrue(LocalDataInventory.IsTimelineName("timeline.json"));
+            Assert.IsTrue(LocalDataInventory.IsTimelineName("timeline-custom-6.json"));
+            Assert.IsTrue(LocalDataInventory.IsEncryptedFile("timeline-custom-6.json"));
+            Assert.IsFalse(LocalDataInventory.IsTimelineName("memory-custom-6.json"));
+        }
+    }
+}
