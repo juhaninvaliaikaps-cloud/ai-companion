@@ -218,6 +218,21 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Enrich_DoesNotRepeatTheSameTimelineEntryImmediately()
+        {
+            var timeline = RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath));
+            timeline.AddSession(new[] { "The user promised to visit on Sunday." }, false, DateTime.UtcNow);
+            var provider = new MemoryChatProvider(new FakeProvider(ChatDefaults.LocalId), _store);
+            var request = Request("Did I promise to visit on Sunday?", "base");
+
+            var first = provider.Enrich(request);
+            var second = provider.Enrich(request);
+
+            StringAssert.Contains("The user promised to visit on Sunday.", first.SystemPrompt);
+            Assert.IsFalse(second.SystemPrompt.Contains(MemoryPrompt.TimelineHeader));
+        }
+
+        [Test]
         public void Enrich_KeepsPrivateTimelineEntriesAwayFromTheCloud()
         {
             var timeline = RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath));

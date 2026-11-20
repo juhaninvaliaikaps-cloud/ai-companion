@@ -53,6 +53,7 @@ namespace AICompanion.Memory
         public const int MaxEntries = 1000;
         public const int TitleLength = 72;
         public const int SummaryLength = 280;
+        public const int RecentRecallMinutes = 10;
 
         readonly string _path;
         readonly TimelineFile _file;
@@ -196,6 +197,8 @@ namespace AICompanion.Memory
                     continue;
                 if (entry.isPrivate && !includePrivate)
                     continue;
+                if (RecentlyRecalled(entry, now))
+                    continue;
                 if (CoveredByFact(entry, facts))
                     continue;
 
@@ -258,6 +261,16 @@ namespace AICompanion.Memory
             }
 
             return false;
+        }
+
+        static bool RecentlyRecalled(TimelineEntry entry, DateTime nowUtc)
+        {
+            if (string.IsNullOrEmpty(entry.lastRecalledAtUtc))
+                return false;
+            DateTime last;
+            if (!DateTime.TryParse(entry.lastRecalledAtUtc, out last))
+                return false;
+            return nowUtc - last.ToUniversalTime() < TimeSpan.FromMinutes(RecentRecallMinutes);
         }
 
         static List<string> QueryTokens(string query)
