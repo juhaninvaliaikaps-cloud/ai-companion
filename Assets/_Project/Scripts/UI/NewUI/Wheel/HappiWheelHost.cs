@@ -572,8 +572,9 @@ namespace AICompanion.NewUI.Wheel
 
             var innocence = GetComponent<InnocenceKeeper>();
             var gate = IntimateExpressions.Active && innocence != null && innocence.IsLoaded;
-            var temperamentLine = _settings != null ? _settings.PisaraView().TemperamentLine : string.Empty;
-            data.Personality = ProfilePersonality.Build(sheet, temperamentLine, gate, gate ? innocence.State.Current : InnocenceMath.Default);
+            var pisaraView = _settings != null ? _settings.PisaraView() : default(SettingsPanel.PisaraPersonaView);
+            var temperamentLine = pisaraView.TemperamentLine ?? string.Empty;
+            data.Personality = ProfilePersonality.Build(sheet, temperamentLine, gate, gate ? innocence.State.Current : InnocenceMath.Default, pisaraView.Axes);
             data.Secrets = loaded ? relationship.SecretsView() : null;
             var intimateSecrets = GetComponent<IntimateSecretsKeeper>();
             data.IntimateSecrets = gate && intimateSecrets != null ? intimateSecrets.View(innocence.State.Current) : null;

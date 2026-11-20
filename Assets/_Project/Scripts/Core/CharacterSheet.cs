@@ -265,7 +265,17 @@ namespace AICompanion.Core
             sheet.readInCloud = false;
             sheet.readBy = string.Empty;
             if (sheet.temperament != null && sheet.temperament.axes != null)
+            {
                 TemperamentAxes.FillOmitted(sheet.temperament.axes, json, "axes");
+                // JUH-136 (Cursor Bugbot, medium): a reading that sends the sliders but leaves out
+                // "axesSet", or writes it as "true" or 1, still means them. Small local models do
+                // this. A present axes object with any slider off the middle counts as set; saved
+                // sheets (FromJson) keep the strict flag.
+                if (!sheet.temperament.axesSet && TemperamentAxes.Present(json, "axes")
+                    && TemperamentAxes.HasOpinion(sheet.temperament.axes))
+                    sheet.temperament.axesSet = true;
+            }
+
             sheet.Normalize();
             return sheet;
         }
