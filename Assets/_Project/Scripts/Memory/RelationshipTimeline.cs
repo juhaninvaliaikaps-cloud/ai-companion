@@ -446,6 +446,7 @@ namespace AICompanion.Memory
 
             if (removed > 0)
             {
+                BackupBeforeCleanup();
                 _file.entries.Clear();
                 _file.entries.AddRange(kept);
                 Save();
@@ -460,6 +461,19 @@ namespace AICompanion.Memory
         /// </summary>
         public int Cleanup()
         {
+            var hasVague = false;
+            for (var i = 0; i < _file.entries.Count; i++)
+            {
+                if (_file.entries[i] == null || MemoryDurability.IsVague(_file.entries[i].summary))
+                {
+                    hasVague = true;
+                    break;
+                }
+            }
+
+            if (hasVague)
+                BackupBeforeCleanup();
+
             var removed = 0;
             for (var i = _file.entries.Count - 1; i >= 0; i--)
             {
@@ -474,6 +488,20 @@ namespace AICompanion.Memory
             if (removed > 0)
                 Save();
             return removed + Consolidate();
+        }
+
+        void BackupBeforeCleanup()
+        {
+            if (string.IsNullOrEmpty(_path) || !System.IO.File.Exists(_path))
+                return;
+            try
+            {
+                System.IO.File.Copy(_path, _path + ".before-cleanup", true);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Timeline cleanup: backup could not be written (" + e.GetType().Name + ")");
+            }
         }
 
         static bool CoveredByFact(string summary, MemoryStore store)
