@@ -67,6 +67,13 @@ namespace AICompanion.Memory
 
         readonly string _path;
         readonly TimelineFile _file;
+        FileStamp _stamp;
+
+        // JUH-134 review: one instance per persona file. Loading decrypted up to 1000 entries
+        // twice per exchange, and two instances could overwrite each other's new entries.
+        static readonly object CacheGate = new object();
+        static readonly Dictionary<string, RelationshipTimeline> Cache =
+            new Dictionary<string, RelationshipTimeline>(StringComparer.OrdinalIgnoreCase);
 
         RelationshipTimeline(string path, TimelineFile file)
         {
@@ -91,7 +98,15 @@ namespace AICompanion.Memory
             get { return _file.entries.Count; }
         }
 
+        /// <summary>A fresh instance read from disk. Chat code uses <see cref="ForStore"/>.</summary>
         public static RelationshipTimeline Load(string path)
+        {
+            var timeline = LoadFresh(path);
+            timeline._stamp = FileStamp.Of(path);
+            return timeline;
+        }
+
+        static RelationshipTimeline LoadFresh(string path)
         {
             var read = ProtectedLocalFile.Read(path);
             if (read.Status != LocalReadStatus.Ready || string.IsNullOrWhiteSpace(read.Text))
@@ -117,10 +132,30 @@ namespace AICompanion.Memory
             }
         }
 
-        /// <summary>The timeline that belongs to the same persona as a memory store.</summary>
+        /// <summary>
+        /// The timeline that belongs to the same persona as a memory store. The same instance
+        /// is returned while its file is unchanged; a file written by anything else (another
+        /// instance, a wipe, an import) is read again.
+        /// </summary>
         public static RelationshipTimeline ForStore(MemoryStore store)
         {
-            return Load(MemoryPaths.TimelineFileForMemoryPath(store != null ? store.Path : null));
+            return Shared(MemoryPaths.TimelineFileForMemoryPath(store != null ? store.Path : null));
+        }
+
+        public static RelationshipTimeline Shared(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return new RelationshipTimeline(path, new TimelineFile());
+
+            lock (CacheGate)
+            {
+                RelationshipTimeline cached;
+                if (Cache.TryGetValue(path, out cached) && cached._stamp.Equals(FileStamp.Of(path)))
+                    return cached;
+                var loaded = Load(path);
+                Cache[path] = loaded;
+                return loaded;
+            }
         }
 
         /// <summary>
@@ -418,6 +453,7 @@ namespace AICompanion.Memory
             try
             {
                 ProtectedLocalFile.Write(_path, JsonUtility.ToJson(_file, true));
+                _stamp = FileStamp.Of(_path);
             }
             catch (Exception e)
             {
@@ -505,6 +541,39 @@ namespace AICompanion.Memory
             }
 
             return false;
+        }
+
+        /// <summary>Whether a file is still the one an instance last read or wrote.</summary>
+        struct FileStamp : IEquatable<FileStamp>
+        {
+            bool _exists;
+            long _ticks;
+            long _length;
+
+            public static FileStamp Of(string path)
+            {
+                var stamp = new FileStamp();
+                try
+                {
+                    var info = new System.IO.FileInfo(path);
+                    if (info.Exists)
+                    {
+                        stamp._exists = true;
+                        stamp._ticks = info.LastWriteTimeUtc.Ticks;
+                        stamp._length = info.Length;
+                    }
+                }
+                catch (Exception)
+                {
+                }
+
+                return stamp;
+            }
+
+            public bool Equals(FileStamp other)
+            {
+                return _exists == other._exists && _ticks == other._ticks && _length == other._length;
+            }
         }
 
         static string Clean(string text)

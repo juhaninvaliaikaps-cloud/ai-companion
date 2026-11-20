@@ -282,6 +282,22 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("private family story", local.Enrich(request).SystemPrompt);
         }
 
+        [Test]
+        public void Enrich_LeavesTheTimelineOutOfTheFactExtraction()
+        {
+            // JUH-134 review, bug 1: the extractor's "user" message is the whole exchange.
+            var timeline = RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath));
+            timeline.AddSession(new[] { "The user promised to visit on Sunday." }, false, DateTime.UtcNow);
+            var provider = new MemoryChatProvider(new FakeProvider(ChatDefaults.LocalId), _store);
+            var exchange = MemoryFactExtractor.BuildExchangeText("Did I promise to visit on Sunday?", "You promised to visit on Sunday!");
+
+            var enriched = provider.Enrich(Request(exchange, MemoryFactExtractor.SystemPrompt));
+
+            Assert.IsFalse(enriched.SystemPrompt.Contains(MemoryPrompt.TimelineHeader), "no shared history in the extractor's prompt");
+            Assert.AreEqual(0, RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath)).Page(1)[0].recallCount,
+                "the extraction does not restart the recall cooldown");
+        }
+
         static ChatRequest Request(string userText, string systemPrompt)
         {
             return new ChatRequest

@@ -82,7 +82,11 @@ namespace AICompanion.Memory
                 ? null
                 : store.SearchFor(query, MemoryStore.MaxSearchResults, IsLocal);
 
-            var timeline = store == null ? null : RelationshipTimeline.ForStore(store);
+            // JUH-134 review, bug 1: the fact-extraction request is not her talking. Its "user"
+            // message is the whole exchange, so a timeline search would find what she just said,
+            // restart its recall cooldown, and let old history be extracted again as new facts.
+            var extraction = ReferenceEquals(request.SystemPrompt, MemoryFactExtractor.SystemPrompt);
+            var timeline = store == null || extraction ? null : RelationshipTimeline.ForStore(store);
             // JUH-141: the latest user message, and the one before it at half weight, so a
             // follow-up like "do you remember what I told you?" still has a topic.
             var timelineHits = timeline == null
@@ -94,7 +98,7 @@ namespace AICompanion.Memory
             // same memories but is not her recalling them.
             var memoryBlock = MemoryPrompt.Build(memories, DateTime.UtcNow);
             var timelineBlock = MemoryPrompt.BuildTimeline(timelineHits, DateTime.UtcNow);
-            if (memoryBlock.Length > 0 && !ReferenceEquals(request.SystemPrompt, MemoryFactExtractor.SystemPrompt))
+            if (memoryBlock.Length > 0 && !extraction)
                 WorldMemory.MarkRecalled(store, memories);
             if (timelineBlock.Length > 0 && timeline != null)
             {

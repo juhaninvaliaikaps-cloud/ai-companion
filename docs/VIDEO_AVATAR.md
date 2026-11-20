@@ -137,6 +137,16 @@ she is undressed, normal reactions and the normal test buttons are hidden; use
 `reaction="dress"` to return to the clothed idle. There is no dressing
 animation, so that cue changes state directly.
 
+**When the model forgets the cue.** Small models sometimes narrate clothing coming
+off without writing `reaction="strip"`. While the gate is open and she is dressed,
+`ChatPanel.ApplyForcedStrip` plays the strip reaction when **her reply** narrates it:
+`ClothingIntent.ReplyRemovesClothing` looks for a sentence with a clothing word and a
+removal word (whole words: "top" is not "stop" or "laptop"; Finnish stems like
+`paita`, `mekko`, `riisu`), and skips any sentence that refuses or asks ("I won't",
+"not yet", "keeps it on", "en riisu", a question). The user asking is not enough: if
+she says no, the video stays clothed (JUH-134 review, Jussi 2026-11-20). Interaction
+menu turns are left to their own cues. Nothing is added to her reply or the prompt.
+
 To add a reaction later, add a clip with `"role": "reaction"` and a name such as `happy`, `concerned`, `surprised` or `annoyed`. `VideoAvatarClipSet.FindReaction(name)` finds it. Playing it is a later change.
 
 After editing the manifest or the folder, press **Reload video** on the Avatar tab.
