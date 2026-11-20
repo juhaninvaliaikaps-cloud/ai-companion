@@ -125,8 +125,6 @@ namespace AICompanion.Memory
             "the", "and", "for", "with", "that", "this", "you", "your", "are", "was", "were",
             "have", "has", "had", "but", "not", "all", "can", "did", "does", "from", "how",
             "what", "when", "where", "who", "why", "will", "would", "there", "their", "them",
-            "mutta", "että", "kun", "niin", "joka", "tämä", "tuo", "olen", "olet", "onko",
-            "se", "ne", "ja", "tai", "eli", "kun", "nyt", "vielä", "hyvin", "kanssa"
         };
 
         readonly string _path;
@@ -350,7 +348,7 @@ namespace AICompanion.Memory
 
         static readonly HashSet<string> TopicNoise = new HashSet<string>(StringComparer.Ordinal)
         {
-            "user", "users", "käyttäjä", "käyttäjän", "ask", "asked", "remember",
+            "user", "users", "ask", "asked", "remember",
         };
 
         /// <summary>

@@ -21,15 +21,6 @@ namespace AICompanion.Core
             "t-shirt", "tshirt", "shorts", "leggings", "stockings", "lingerie", "robe", "nightgown",
         };
 
-        // Finnish words change their ending (paita, paidan, paitansa), so these match the
-        // start of a word. Each stem is long enough not to start an everyday word.
-        static readonly string[] FinnishClothingStems =
-        {
-            "paita", "paida", "paido", "mekko", "mekon", "hame", "housu", "farkku", "farkut",
-            "vaatte", "vaatteet", "alusvaat", "rintaliiv", "liivi", "pusero", "takki", "takin",
-            "huppari", "neule", "pikkuhous", "alushous", "yöpai", "aamutak",
-        };
-
         // English removal as whole words or phrases; "off" catches "slid her dress off".
         static readonly string[] RemovalPhrases =
         {
@@ -45,20 +36,16 @@ namespace AICompanion.Core
             "unbuttoning", "unzip", "unzips", "unzipped", "unzipping", "unhook", "unhooks", "unhooked",
         };
 
-        // "her dress off", "mekon pois": only right after a clothing word, so "the top of the
+        // "her dress off": only right after a clothing word, so "the top of the
         // hill, then off to work" is not a strip.
-        static readonly HashSet<string> AfterClothing = new HashSet<string>(StringComparer.Ordinal) { "off", "pois" };
+        static readonly HashSet<string> AfterClothing = new HashSet<string>(StringComparer.Ordinal) { "off" };
         const int AfterClothingWords = 3;
-
-        // riisuu, riisui, riisuen; avaa, avasi, avaten (a button or a zip).
-        static readonly string[] FinnishRemovalStems = { "riisu", "avaa", "avas", "avat" };
 
         static readonly HashSet<string> Refusals = new HashSet<string>(StringComparer.Ordinal)
         {
             "not", "no", "never", "won't", "wont", "don't", "dont", "doesn't", "doesnt", "didn't",
             "didnt", "can't", "cant", "cannot", "refuse", "refuses", "refused", "stop", "stops",
             "stopped", "instead", "keep", "keeps", "kept", "rather", "wait", "later", "maybe",
-            "ei", "en", "älä", "eikä", "kieltäytyy", "pitää", "pidän", "odota", "myöhemmin",
         };
 
         /// <summary>
@@ -105,7 +92,7 @@ namespace AICompanion.Core
                     clothing = true;
                     lastClothing = i;
                 }
-                if (!removal && (RemovalWords.Contains(word) || StartsWithAny(word, FinnishRemovalStems)))
+                if (!removal && RemovalWords.Contains(word))
                     removal = true;
                 if (!removal && AfterClothing.Contains(word) && lastClothing >= 0 && i - lastClothing <= AfterClothingWords)
                     removal = true;
@@ -128,20 +115,7 @@ namespace AICompanion.Core
 
         static bool IsClothing(string word)
         {
-            if (Clothing.Contains(word))
-                return true;
-            return StartsWithAny(word, FinnishClothingStems);
-        }
-
-        static bool StartsWithAny(string word, string[] stems)
-        {
-            for (var i = 0; i < stems.Length; i++)
-            {
-                if (word.StartsWith(stems[i], StringComparison.Ordinal))
-                    return true;
-            }
-
-            return false;
+            return Clothing.Contains(word);
         }
 
         /// <summary>Lower-case words; an apostrophe or a hyphen inside a word is kept.</summary>

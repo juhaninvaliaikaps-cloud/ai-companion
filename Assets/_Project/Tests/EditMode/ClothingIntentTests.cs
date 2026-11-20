@@ -13,8 +13,6 @@ namespace AICompanion.Tests.EditMode
         [TestCase("She slowly unbuttons her blouse.")]
         [TestCase("*slides her skirt off* There.")]
         [TestCase("Okay... *she takes off her shirt*")]
-        [TestCase("*Hän riisuu paitansa hitaasti.*")]
-        [TestCase("*Hän vetää mekon pois päältään.*")]
         [TestCase("Fine, I'll do it. <animation reaction=\"shy\"/> *She removes her bra.*")]
         public void HerReplyRemovingClothes_IsDetected(string reply)
         {
@@ -26,8 +24,6 @@ namespace AICompanion.Tests.EditMode
         [TestCase("Not yet. *She keeps her dress on.*")]
         [TestCase("Should I take off my jacket?")]
         [TestCase("*She stops you from pulling off her top.*")]
-        [TestCase("En riisu paitaa.")]
-        [TestCase("*Hän pitää mekon päällä.*")]
         public void ARefusalOrAQuestion_KeepsHerDressed(string reply)
         {
             Assert.IsFalse(ClothingIntent.ReplyRemovesClothing(reply));
@@ -35,7 +31,6 @@ namespace AICompanion.Tests.EditMode
 
         [TestCase("Please stop removing the files from my laptop.")]
         [TestCase("I'm going to the top of the hill, then off to work.")]
-        [TestCase("Laitan sen pois ja avaan ikkunan.")]
         [TestCase("You look nice in that dress.")]
         [TestCase("")]
         public void EverydayText_IsNotAStrip(string reply)

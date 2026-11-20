@@ -12,8 +12,6 @@ namespace AICompanion.Tests.EditMode
             string memory;
             Assert.IsTrue(MemoryCommands.TryExtract("Remember that my sister is Anna.", out memory));
             Assert.AreEqual("my sister is Anna", memory);
-            Assert.IsTrue(MemoryCommands.TryExtract("Muista että pidän kahvista.", out memory));
-            Assert.AreEqual("pidän kahvista", memory);
             Assert.IsTrue(MemoryCommands.TryExtract("Remember to ask me about the exam on Friday", out memory));
             Assert.AreEqual("to ask me about the exam on Friday", memory);
             Assert.IsTrue(MemoryCommands.TryExtract("Don't forget my birthday is May 3.", out memory));
@@ -37,8 +35,6 @@ namespace AICompanion.Tests.EditMode
         [TestCase("Remember how you laughed")]
         [TestCase("Don't forget me")]
         [TestCase("Don't forget about us, okay")]
-        [TestCase("Muista kun käytiin rannalla")]
-        [TestCase("Älä unohda minua")]
         public void Recollections_AreNotStored(string text)
         {
             string memory;

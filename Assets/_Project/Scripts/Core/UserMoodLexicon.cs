@@ -6,7 +6,7 @@ namespace AICompanion.Core
     /// <summary>
     /// Word lists for <see cref="UserMoodDetector"/>. Every entry is lower case with
     /// apostrophes removed, because the detector normalises tokens the same way
-    /// ("don't" is "dont"). English first, then a small Finnish set.
+    /// ("don't" is "dont"). English only: the app is in English.
     /// A weight of 1 is an ordinary emotion word, 1.5 a strong one, 2 a very strong one.
     /// </summary>
     public static class UserMoodLexicon
@@ -68,7 +68,6 @@ namespace AICompanion.Core
         {
             "not", "never", "dont", "doesnt", "didnt", "isnt", "arent", "wasnt", "werent",
             "cant", "cannot", "wont", "wouldnt", "aint", "hardly",
-            "en", "et", "ei", "emme", "ette", "eivät", "älä",
         };
 
         // "no" negates only the very next word ("no fun"). As a reply it stands alone:
@@ -83,14 +82,12 @@ namespace AICompanion.Core
         {
             "very", "really", "so", "extremely", "super", "totally", "absolutely", "incredibly",
             "too", "fucking", "freaking", "insanely",
-            "tosi", "todella", "erittäin", "niin",
         };
 
         // "kind" is left out: "you are kind and sweet" is not "kind of sweet".
         static readonly HashSet<string> Dampeners = new HashSet<string>(StringComparer.Ordinal)
         {
             "slightly", "somewhat", "kinda", "bit", "little", "fairly",
-            "vähän", "hieman", "hiukan",
         };
 
         /// <summary>Phrases, longest first, so "i love you" is tried before "love you".</summary>
@@ -200,42 +197,14 @@ namespace AICompanion.Core
             AddWords(words, UserEmotion.Confused, 1.2f, "puzzled");
             AddWords(words, UserEmotion.Confused, 1.5f, "confused", "confusing");
 
-            // Finnish, whole words. Inflected forms are in BuildStems.
-            AddWords(words, UserEmotion.Happy, 0.8f, "kiitos", "kiitti", "kiva", "paras");
-            AddWords(words, UserEmotion.Happy, 1f, "ihana", "jee");
-            AddWords(words, UserEmotion.Sad, 0.6f, "paha");
-            AddWords(words, UserEmotion.Sad, 1f, "harmi", "kurja");
-            AddWords(words, UserEmotion.Angry, 1f, "perkele", "saatana", "tyhmä");
-            AddWords(words, UserEmotion.Angry, 1.5f, "vihaan");
-            AddWords(words, UserEmotion.Anxious, 1f, "huoli");
-            AddWords(words, UserEmotion.Surprised, 1.2f, "vau", "oho");
-            AddWords(words, UserEmotion.Affectionate, 1.2f, "rakas", "söpö", "halaus", "pusu");
-            AddWords(words, UserEmotion.Confused, 1f, "sekava");
 
             return words;
         }
 
+        /// <summary>Prefix matches. None for English, which the whole words and phrases cover; kept for a later lexicon.</summary>
         static Stem[] BuildStems()
         {
-            var stems = new List<Stem>();
-
-            // Finnish inflects, so these match the start of a word: "iloi" covers iloinen and iloisia.
-            AddStems(stems, UserEmotion.Happy, 1f, "iloi", "hieno", "hauska", "huippu");
-            AddStems(stems, UserEmotion.Happy, 1.5f, "onnelli", "mahtav", "loista");
-            AddStems(stems, UserEmotion.Sad, 1f, "harmitt", "väsyn", "väsyt");
-            AddStems(stems, UserEmotion.Sad, 1.2f, "surulli", "itke");
-            AddStems(stems, UserEmotion.Sad, 1.5f, "yksinäi", "pettyn");
-            AddStems(stems, UserEmotion.Sad, 2f, "masenn", "masentu");
-            AddStems(stems, UserEmotion.Angry, 1.2f, "ärsyt");
-            AddStems(stems, UserEmotion.Angry, 1.5f, "vihai", "vitu", "raivo");
-            AddStems(stems, UserEmotion.Anxious, 1f, "jännit");
-            AddStems(stems, UserEmotion.Anxious, 1.2f, "stressa");
-            AddStems(stems, UserEmotion.Anxious, 1.5f, "pelott", "pelkää", "huolest", "ahdist");
-            AddStems(stems, UserEmotion.Surprised, 1.2f, "uskomat", "yllätt");
-            AddStems(stems, UserEmotion.Affectionate, 1.5f, "rakasta");
-            AddStems(stems, UserEmotion.Confused, 1.5f, "hämmenn");
-
-            return stems.ToArray();
+            return new Stem[0];
         }
 
         static Phrase[] BuildPhrases()
@@ -271,13 +240,6 @@ namespace AICompanion.Core
             AddPhrase(phrases, UserEmotion.Confused, 1f, "not sure");
             AddPhrase(phrases, UserEmotion.Confused, 1.5f, "makes no sense");
             AddPhrase(phrases, UserEmotion.Confused, 1.2f, "what do you mean");
-
-            // Finnish
-            AddPhrase(phrases, UserEmotion.Confused, 1.5f, "en ymmärrä");
-            AddPhrase(phrases, UserEmotion.Confused, 1.5f, "en tajua");
-            AddPhrase(phrases, UserEmotion.Surprised, 1.2f, "mitä ihmettä");
-            AddPhrase(phrases, UserEmotion.Affectionate, 1.5f, "tykkään sinusta");
-            AddPhrase(phrases, UserEmotion.Affectionate, 1.5f, "ikävä sinua");
 
             phrases.Sort((a, b) => b.Tokens.Length.CompareTo(a.Tokens.Length));
             return phrases.ToArray();

@@ -99,7 +99,7 @@ namespace AICompanion.Memory
         /// <summary>
         /// The user's own stored facts (not her life, not session summaries) that fit this
         /// exchange, best first: identity facts, then the ones the user's words are about,
-        /// ranked like the timeline (BM25, stemming, Finnish). At most
+        /// ranked like the timeline (BM25, stemming). At most
         /// <see cref="MemoryFactExtractor.MaxKnownFacts"/>.
         /// </summary>
         public static List<MemoryEntry> KnownFacts(MemoryStore store, string userText, string assistantText, bool includePrivate)

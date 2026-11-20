@@ -21,11 +21,11 @@ The detector uses word rules, not a model. All of it is in `AICompanion.Core`, w
 
 1. The first 2000 characters are split into lower-case words. Apostrophes are removed, so "don't" is `dont`.
 2. Phrases are matched first, longest first: "i love you", "no way", "dont understand". A matched phrase uses up its words.
-3. Each remaining word is looked up. English words match exactly. Finnish also has stems that match the start of a word, so `iloi` covers "iloinen" and "iloisia".
+3. Each remaining word is looked up. Words match exactly.
 4. Each hit looks back in the same clause. A comma or a full stop ends the clause.
-   - "very", "really", "so", "tosi" within two words multiply the weight by 1.5.
-   - "a bit", "slightly", "vähän" within two words multiply it by 0.6.
-   - "not", "dont", "never", "en", "ei" within three words negate it. A negated happy or affectionate hit counts as mildly sad. Any other negated hit is dropped, so "not sad" is neutral.
+   - "very", "really", "so" within two words multiply the weight by 1.5.
+   - "a bit", "slightly" within two words multiply it by 0.6.
+   - "not", "dont", "never" within three words negate it. A negated happy or affectionate hit counts as mildly sad. Any other negated hit is dropped, so "not sad" is neutral.
    - "no" negates only the word directly after it ("no fun"). "No I'm happy" is still happy.
 5. Emoticons and emoji add to the score: `:)`, `:(`, `<3`, and common emoji.
 6. `?!` adds surprise. `??` adds confusion.
@@ -45,10 +45,10 @@ To teach it a word, add the word to `UserMoodLexicon` and add a case to `UserMoo
 ## Limits
 
 - It does not understand sarcasm, context, or mixed feelings. It is a guess from wording, and the prompt line tells the model so.
-- Only English and a small Finnish word list are covered. Finnish "no" as a filler ("no kiva") is read as a negation.
+- English only, like the app (Jussi, 2026-11-21).
 - There is no setting to turn it off on its own yet. The tray pause stops the face reaction.
 - It runs when a message is sent. Reacting while the user is still typing or talking is JUH-23.
 
 ## Tests
 
-`UserMoodTests` covers neutral input, each emotion in English and Finnish, emoticons, negation, the comma boundary, phrases, intensifiers, exclamation marks, shouted words, the 2000-character limit, the speed budget, the face mapping, and the prompt line. They run in EditMode with no scene.
+`UserMoodTests` covers neutral input, each emotion, emoticons, negation, the comma boundary, phrases, intensifiers, exclamation marks, shouted words, the 2000-character limit, the speed budget, the face mapping, and the prompt line. They run in EditMode with no scene.
