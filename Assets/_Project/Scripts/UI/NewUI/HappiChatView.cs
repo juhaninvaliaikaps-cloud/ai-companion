@@ -501,8 +501,9 @@ namespace AICompanion.NewUI
 
             var left = PortraitDocking.DockRect(_boxCenter, _boxSize, PortraitDocking.LeftOfBox, gap, Screen.height);
             var right = PortraitDocking.DockRect(_boxCenter, _boxSize, PortraitDocking.RightOfBox, gap, Screen.height);
-            left.size = normal;
-            right.size = normal;
+            // JUH-139: keep the edge next to the box when the user resized the portrait.
+            left = PortraitDocking.Sized(left, normal, PortraitDocking.LeftOfBox);
+            right = PortraitDocking.Sized(right, normal, PortraitDocking.RightOfBox);
 
             if (!_portraitResizing && shown.width > 0f && Input.GetMouseButtonDown(0))
             {
@@ -894,7 +895,7 @@ namespace AICompanion.NewUI
             _badge = HappiUiKit.Text(_box, "Badge", string.Empty, _theme.FontSmall, _theme.BadgeCloud, TextAlignmentOptions.MidlineLeft, false);
             _mute = HappiUiKit.Button(_box, "Mute", ChatPresenter.MuteOffLabel, _theme.FontSmall, () => _chat.Presenter.ToggleMute());
             _look = HappiUiKit.Button(_box, "Look", ChatPresenter.LookLabelIdle, _theme.FontSmall, OnLook);
-            _close = HappiUiKit.Button(_box, "Close", "Ã—", _theme.FontBody, () => _chat.ShowChat(false));
+            _close = HappiUiKit.Button(_box, "Close", "×", _theme.FontBody, () => _chat.ShowChat(false));
 
             var historyImage = HappiUiKit.Panel(_box, "HistoryArea", _theme.PanelInset, true);
             _historyRoot = historyImage.rectTransform;
@@ -929,7 +930,7 @@ namespace AICompanion.NewUI
             _note.fontStyle = FontStyles.Italic;
 
             _mode = HappiUiKit.Button(_box, "Mode", "Auto", _theme.FontSmall, ToggleMode);
-            _next = HappiUiKit.Button(_box, "Next", "Next â€º", _theme.FontSmall, () => _player.Next());
+            _next = HappiUiKit.Button(_box, "Next", "Next ›", _theme.FontSmall, () => _player.Next());
             _skip = HappiUiKit.Button(_box, "Skip", "Skip", _theme.FontSmall, () => _player.Skip());
             _showAll = HappiUiKit.Button(_box, "ShowAll", "Show all", _theme.FontSmall, () => _player.ShowAll());
             _narration = HappiUiKit.Button(_box, "Narration", "Narration voice: off", _theme.FontSmall, ToggleNarration);
@@ -1069,7 +1070,7 @@ namespace AICompanion.NewUI
 
             SetFonts(s);
 
-            // Header: name + badge on the left, History / Mute / Look / Ã— on the right.
+            // Header: name + badge on the left, History / Mute / Look / × on the right.
             var y = pad;
             var closeW = row;
             var lookW = 112f * s;
@@ -1451,7 +1452,7 @@ namespace AICompanion.NewUI
         {
             if (string.IsNullOrEmpty(text) || text.Length <= max)
                 return text ?? string.Empty;
-            return "â€¦" + text.Substring(text.Length - max);
+            return "…" + text.Substring(text.Length - max);
         }
 
         // ---- Actions ---------------------------------------------------------------------
