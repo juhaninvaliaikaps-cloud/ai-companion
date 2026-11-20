@@ -178,6 +178,12 @@ namespace AICompanion.Settings
         /// <summary>Empty uses <see cref="Model"/>. Only used while <see cref="PisaraCloud"/> is on.</summary>
         public string PisaraCloudModel = string.Empty;
 
+        /// <summary>
+        /// JUH-141: the smarter memory search, by meaning as well as words, with the local
+        /// nomic-embed-text model in Ollama. Off by default. Local only, so private mode is unchanged.
+        /// </summary>
+        public bool MemoryEmbeddings;
+
         /// <summary>JUH-122: floating pieces near her when the relationship moves. On by default.</summary>
         public bool ShowRelationshipFeedback = true;
 
@@ -735,6 +741,8 @@ namespace AICompanion.Settings
                 settings.PisaraCloudBaseUrl = text;
             if (TryString(json, "pisaraCloudModel", out text))
                 settings.PisaraCloudModel = text;
+            if (TryBool(json, "memoryEmbeddings", out flag))
+                settings.MemoryEmbeddings = flag;
             if (TryBool(json, "showRelationshipFeedback", out flag))
                 settings.ShowRelationshipFeedback = flag;
             if (TryBool(json, "voiceNarration", out flag))
@@ -860,6 +868,7 @@ namespace AICompanion.Settings
             Bool(sb, "pisaraCloud", source.PisaraCloud);
             String(sb, "pisaraCloudBaseUrl", source.PisaraCloudBaseUrl);
             String(sb, "pisaraCloudModel", source.PisaraCloudModel);
+            Bool(sb, "memoryEmbeddings", source.MemoryEmbeddings);
             Bool(sb, "showRelationshipFeedback", source.ShowRelationshipFeedback);
             Bool(sb, "voiceNarration", source.VoiceNarration);
             Bool(sb, "showDeveloperSettings", source.ShowDeveloperSettings);

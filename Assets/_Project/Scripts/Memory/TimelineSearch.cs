@@ -45,6 +45,22 @@ namespace AICompanion.Memory
 
         public const float PreviousMessageWeight = 0.5f;
         public const float ConceptWeight = 0.6f;
+
+        // ---- JUH-141: the smarter search (local embeddings). Cosine values are for
+        // nomic-embed-text with its search_query / search_document prefixes. First guesses, to
+        // be tuned by hand on the Windows PC with real memories.
+
+        /// <summary>Below this a meaning match adds nothing.</summary>
+        public const float SemanticFloor = 0.55f;
+
+        /// <summary>A meaning match this close is found even with no shared word ("my dad" → "his father").</summary>
+        public const float SemanticOnly = 0.68f;
+
+        /// <summary>A just-raised entry stays while the talk is this close to it, even without two shared words.</summary>
+        public const float SemanticRaised = 0.78f;
+
+        /// <summary>What a perfect meaning match adds to the word relevance.</summary>
+        public const float SemanticWeight = 3f;
         const float K1 = 1.2f;
         const float B = 0.75f;
 
@@ -54,6 +70,10 @@ namespace AICompanion.Memory
         /// <param name="previous">The user message before it, or empty.</param>
         /// <param name="includePrivate">False for a cloud provider: private entries never go there.</param>
         /// <param name="skip">Entries to leave out, for example ones a retrieved fact already says.</param>
+        /// <param name="semantic">
+        /// JUH-141: the meaning score (cosine) of an entry for this turn, NaN when unknown. Null
+        /// when the smarter search is off: then this is the word search only.
+        /// </param>
         public static List<TimelineHit> Rank(
             IReadOnlyList<TimelineEntry> entries,
             string latest,
@@ -61,7 +81,8 @@ namespace AICompanion.Memory
             bool includePrivate,
             DateTime nowUtc,
             int max = DefaultMax,
-            Predicate<TimelineEntry> skip = null)
+            Predicate<TimelineEntry> skip = null,
+            Func<TimelineEntry, float> semantic = null)
         {
             var result = new List<TimelineHit>();
             if (entries == null || entries.Count == 0 || max <= 0)
@@ -123,13 +144,16 @@ namespace AICompanion.Memory
                         direct++;
                 }
 
-                if (relevance <= 0f)
+                var meaning = semantic != null ? semantic(doc.Entry) : float.NaN;
+                var hasMeaning = !float.IsNaN(meaning);
+                if (relevance <= 0f && !(hasMeaning && meaning >= SemanticOnly))
                     continue;
+                relevance += SemanticBoost(meaning);
 
                 var raised = RecentlyRaised(doc.Entry, nowUtc);
                 // A just-raised entry stays only while the talk is still plainly about it;
                 // a passing word no longer brings it back (the old verbal tic).
-                if (raised && direct < RaisedMinDirectMatches)
+                if (raised && direct < RaisedMinDirectMatches && !(hasMeaning && meaning >= SemanticRaised))
                     continue;
 
                 var score = relevance * Trust(doc.Entry) * (1f + 0.12f * (Clamp(doc.Entry.importance, 1, 5) - 3)) + 0.25f * Recency(doc.Entry, nowUtc);
@@ -140,6 +164,14 @@ namespace AICompanion.Memory
             for (var i = 0; i < scored.Count && result.Count < max; i++)
                 result.Add(scored[i]);
             return result;
+        }
+
+        /// <summary>What a meaning match adds: 0 at <see cref="SemanticFloor"/> or below, <see cref="SemanticWeight"/> at 1.</summary>
+        public static float SemanticBoost(float cosine)
+        {
+            if (float.IsNaN(cosine) || cosine <= SemanticFloor)
+                return 0f;
+            return SemanticWeight * Math.Min(1f, (cosine - SemanticFloor) / (1f - SemanticFloor));
         }
 
         // ---- Trust --------------------------------------------------------------------------
