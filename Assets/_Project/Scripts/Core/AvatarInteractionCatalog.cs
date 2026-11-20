@@ -53,7 +53,7 @@ namespace AICompanion.Core
                 Clip = "happy",
                 Emotion = Emotion.Happy,
                 Intensity = 0.6f,
-                Signal = "*Someone gently pats your head.*",
+                Signal = "*User gently pats your head.*",
             },
             new AvatarInteractionDefinition
             {
@@ -63,7 +63,7 @@ namespace AICompanion.Core
                 Clip = "happy",
                 Emotion = Emotion.Happy,
                 Intensity = 0.45f,
-                Signal = "*Someone strokes your hair.*",
+                Signal = "*User strokes your hair.*",
             },
             new AvatarInteractionDefinition
             {
@@ -73,7 +73,7 @@ namespace AICompanion.Core
                 Clip = "flustered",
                 Emotion = Emotion.Flustered,
                 Intensity = 0.7f,
-                Signal = "*Someone cups your cheek.*",
+                Signal = "*User cups your cheek.*",
             },
             new AvatarInteractionDefinition
             {
@@ -83,7 +83,7 @@ namespace AICompanion.Core
                 Clip = "embarrassed",
                 Emotion = Emotion.Embarrassed,
                 Intensity = 0.6f,
-                Signal = "*Someone touches your face.*",
+                Signal = "*User touches your face.*",
             },
             new AvatarInteractionDefinition
             {
@@ -93,7 +93,7 @@ namespace AICompanion.Core
                 Clip = "kiss",
                 Emotion = Emotion.Happy,
                 Intensity = 0.8f,
-                Signal = "*Someone kisses you.*",
+                Signal = "*User kisses you.*",
             },
             new AvatarInteractionDefinition
             {
@@ -103,7 +103,7 @@ namespace AICompanion.Core
                 Clip = "hold_hand",
                 Emotion = Emotion.Shy,
                 Intensity = 0.6f,
-                Signal = "*Someone takes your hand and holds it.*",
+                Signal = "*User is holding your hand.*",
                 Hold = true,
             },
             new AvatarInteractionDefinition
@@ -114,7 +114,7 @@ namespace AICompanion.Core
                 Clip = "happy",
                 Emotion = Emotion.Happy,
                 Intensity = 0.45f,
-                Signal = "*Someone lets go of your hand.*",
+                Signal = "*User lets go of your hand.*",
                 Release = true,
             },
             new AvatarInteractionDefinition
@@ -125,7 +125,7 @@ namespace AICompanion.Core
                 Clip = "concerned",
                 Emotion = Emotion.Concerned,
                 Intensity = 0.4f,
-                Signal = "*Someone touches your shoulder.*",
+                Signal = "*User touches your shoulder.*",
             },
             new AvatarInteractionDefinition
             {
@@ -135,7 +135,7 @@ namespace AICompanion.Core
                 Clip = "touch_breast",
                 Emotion = Emotion.Flustered,
                 Intensity = 0.7f,
-                Signal = "*Someone cups your breast.*",
+                Signal = "*User cups your breast.*",
                 Adult = true,
             },
             new AvatarInteractionDefinition
@@ -146,7 +146,7 @@ namespace AICompanion.Core
                 Clip = "touch_vagina",
                 Emotion = Emotion.Flustered,
                 Intensity = 0.8f,
-                Signal = "*Someone touches your vagina.*",
+                Signal = "*User touches your vagina.*",
                 Adult = true,
             },
             new AvatarInteractionDefinition
@@ -157,7 +157,7 @@ namespace AICompanion.Core
                 Clip = "touch_butt",
                 Emotion = Emotion.Embarrassed,
                 Intensity = 0.7f,
-                Signal = "*Someone touches your butt.*",
+                Signal = "*User touches your butt.*",
                 Adult = true,
                 BackOnly = true,
             },
@@ -169,7 +169,7 @@ namespace AICompanion.Core
                 Clip = "finger_mouth",
                 Emotion = Emotion.Flustered,
                 Intensity = 0.7f,
-                Signal = "*Someone slides a finger into your mouth.*",
+                Signal = "*User slides a finger into your mouth.*",
                 Adult = true,
             },
         };

@@ -1247,8 +1247,10 @@ namespace AICompanion.NewUI
         /// </summary>
         string FormatHistoryText(ChatLine line)
         {
-            if (line == null || line.Kind != ChatLineKind.Assistant || string.IsNullOrEmpty(line.Text))
+            if (line == null || string.IsNullOrEmpty(line.Text))
                 return line != null ? line.Text : string.Empty;
+            if (line.Kind != ChatLineKind.Assistant && line.Kind != ChatLineKind.User)
+                return line.Text;
             var segments = VnScriptParser.Parse(line.Text, true).Segments;
             return VnRender.Dialogue(segments, segments.Count, -1, _theme, line.HighlightFeedback);
         }

@@ -82,6 +82,7 @@ namespace AICompanion.Core
             "Walk to the left is <animation emotion=\"neutral\" gesture=\"walk\" direction=\"left\" />. " +
             "Walk to the right uses direction=\"right\". Omit direction when they do not name a side. " +
             "When they ask you to stop, wait, or stand still, set gesture to stop. " +
+            "User text between *asterisks* is narration of their emotion, gesture or action; treat it as something they are doing, never as their spoken words. " +
             "Internal thoughts are narration: put the whole thought, including any quoted words, inside *asterisks*. Never leave a thought's quoted words outside the asterisks, because that would be spoken aloud.";
 
         /// <summary>
