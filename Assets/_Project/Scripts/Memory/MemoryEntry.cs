@@ -55,6 +55,14 @@ namespace AICompanion.Memory
         public string goodOutcome = string.Empty;
         public string badOutcome = string.Empty;
 
+        // ---- JUH-141: a fact the user corrected later ("my sister moved to Oulu").
+
+        /// <summary>The sentence before the last correction, or empty. Kept for the viewer and for checking.</summary>
+        public string previousText = string.Empty;
+
+        /// <summary>When it was last corrected (ISO 8601 UTC), or empty.</summary>
+        public string updatedAtUtc = string.Empty;
+
         public bool IsShortTerm
         {
             get { return horizon == MemoryHorizons.Short; }

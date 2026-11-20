@@ -299,6 +299,77 @@ namespace AICompanion.Memory
             return null;
         }
 
+        /// <summary>
+        /// JUH-141: replaces a fact the user corrected, instead of keeping both the old and the
+        /// new sentence forever. The old sentence is kept in <see cref="MemoryEntry.previousText"/>.
+        /// A correction made in private mode makes the fact private. Refused when the new
+        /// sentence shares no topic word with the old one, so a confused model cannot turn
+        /// "the user's sister lives in Tampere" into "the user likes tea". When the corrected
+        /// sentence is already stored, the old row is removed instead. Saves.
+        /// </summary>
+        public bool Correct(string id, string text, bool privateMode, bool core, DateTime nowUtc)
+        {
+            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(text))
+                return false;
+            var corrected = text.Trim();
+            MemoryEntry entry = null;
+            for (var i = 0; i < _file.entries.Count; i++)
+            {
+                if (_file.entries[i] != null && string.Equals(_file.entries[i].id, id, StringComparison.OrdinalIgnoreCase))
+                {
+                    entry = _file.entries[i];
+                    break;
+                }
+            }
+
+            if (entry == null || entry.origin != MemoryOrigins.Lived || entry.kind != MemoryKind.Fact)
+                return false;
+            if (string.Equals(entry.text, corrected, StringComparison.OrdinalIgnoreCase))
+                return false;
+            if (!SharesTopic(entry.text, corrected))
+                return false;
+
+            var existing = FindDuplicate(corrected);
+            if (existing != null)
+            {
+                existing.isPrivate |= privateMode || entry.isPrivate;
+                existing.isCore |= core || entry.isCore;
+                _file.entries.Remove(entry);
+                Save();
+                return true;
+            }
+
+            entry.previousText = entry.text;
+            entry.text = corrected;
+            entry.updatedAtUtc = nowUtc.ToString("o");
+            entry.isPrivate |= privateMode;
+            entry.isCore |= core;
+            Save();
+            return true;
+        }
+
+        static readonly HashSet<string> TopicNoise = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "user", "users", "käyttäjä", "käyttäjän", "ask", "asked", "remember",
+        };
+
+        /// <summary>
+        /// True when the two sentences share a word that is not about "the user" in general.
+        /// Concept terms do not count: "sister" and "brother" are both #family but not one fact.
+        /// </summary>
+        static bool SharesTopic(string before, string after)
+        {
+            var left = TimelineSearch.Words(before);
+            var right = new HashSet<string>(TimelineSearch.Words(after), StringComparer.Ordinal);
+            for (var i = 0; i < left.Count; i++)
+            {
+                if (!TimelineSearch.IsConcept(left[i]) && !TopicNoise.Contains(left[i]) && right.Contains(left[i]))
+                    return true;
+            }
+
+            return false;
+        }
+
         public bool Delete(string id)
         {
             if (string.IsNullOrWhiteSpace(id))
