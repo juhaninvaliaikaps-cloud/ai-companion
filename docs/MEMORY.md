@@ -36,6 +36,18 @@ Entries can also carry her world (JUH-117): `origin`, `horizon`, `happenedAtUtc`
 
 ## Retrieval
 
+### Relationship timeline retrieval (JUH-141)
+
+The dated timeline (JUH-134) is searched separately from the facts, by `TimelineSearch.Rank`, at most 3 entries per turn under "Shared history".
+
+- **Words.** Whole words only ("work" does not find "homework"), English and Finnish stop words dropped ("that", "with", "about", "että", "kun"…), so small talk finds nothing. A light stemmer folds endings: promise/promised, sister/sisters, family/families, siskosta/siskon → sisko, isäni → isä. The language is guessed per text.
+- **Concepts.** Groups such as family, work, fear, anger, joy, promise, boundary, home, travel, health, loss and pets, in English and Finnish, add a concept term, so "my family" finds "her sister" at 0.6 of a direct word.
+- **Ranking.** BM25 over this persona's open entries: a word that appears in few entries counts for more. The latest user message counts fully, the one before it at half weight, so a follow-up like "do you remember what I told you?" keeps its topic.
+- **Trust.** The relevance is shaded by trust: repetition (`evidenceCount`, +10% per extra mention, up to +50%), the explicit "remember this" command (+20%) and the kind (boundaries and promises +15%) count for more than the model's own confidence, which moves it only ±10%. Importance and recency add a little.
+- **Already raised.** An entry she brought up in the last 10 minutes stays only while the talk names it directly (2+ words), tagged "you already brought this up today; keep it in mind, but do not repeat it unprompted". A passing word does not bring it back. This replaced the 10-minute skip, which made her forget the topic mid-conversation.
+- **Privacy.** Private entries never reach a cloud provider; resolved entries are not recalled.
+- **Measured.** `TimelineSearchTests` is the acceptance set: real questions and the entry each must find first, and small talk that must find nothing. Tuning has to keep it green.
+
 `MemoryStore.Search(query, max, includePrivate)` is keyword search: the query is lowercased, split on non-alphanumeric characters, words shorter than three characters and a small stop-word list are dropped, and every remaining token that appears in an entry scores a point. A summary scores two, because it carries more context. Ties keep the newest entry. At most eight entries come back by default.
 
 The chat path uses `MemoryStore.SearchFor(...)`, which is built on top of that:

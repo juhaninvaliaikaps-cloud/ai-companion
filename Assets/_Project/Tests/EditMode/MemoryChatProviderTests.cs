@@ -218,8 +218,10 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void Enrich_DoesNotRepeatTheSameTimelineEntryImmediately()
+        public void Enrich_KeepsAJustRaisedEntryWhileTheTalkIsAboutIt_TaggedNotToRepeat()
         {
+            // JUH-141: asked again about the same thing, she still knows it (no amnesia), but the
+            // entry is tagged so she does not bring it up again unprompted (no verbal tic).
             var timeline = RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath));
             timeline.AddSession(new[] { "The user promised to visit on Sunday." }, false, DateTime.UtcNow);
             var provider = new MemoryChatProvider(new FakeProvider(ChatDefaults.LocalId), _store);
@@ -229,7 +231,42 @@ namespace AICompanion.Tests.EditMode
             var second = provider.Enrich(request);
 
             StringAssert.Contains("The user promised to visit on Sunday.", first.SystemPrompt);
-            Assert.IsFalse(second.SystemPrompt.Contains(MemoryPrompt.TimelineHeader));
+            Assert.IsFalse(first.SystemPrompt.Contains(MemoryPrompt.AlreadyRaisedNote));
+            StringAssert.Contains("The user promised to visit on Sunday.", second.SystemPrompt);
+            StringAssert.Contains(MemoryPrompt.AlreadyRaisedNote, second.SystemPrompt);
+        }
+
+        [Test]
+        public void Enrich_DoesNotBringBackAJustRaisedEntryOnAPassingWord()
+        {
+            var timeline = RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath));
+            timeline.AddSession(new[] { "The user promised to visit on Sunday." }, false, DateTime.UtcNow);
+            var provider = new MemoryChatProvider(new FakeProvider(ChatDefaults.LocalId), _store);
+
+            provider.Enrich(Request("Did I promise to visit on Sunday?", "base"));
+            var passing = provider.Enrich(Request("What a lovely Sunday", "base"));
+
+            Assert.IsFalse(passing.SystemPrompt.Contains(MemoryPrompt.TimelineHeader), "one shared word is not the same topic");
+        }
+
+        [Test]
+        public void Enrich_UsesTheMessageBeforeForAFollowUp()
+        {
+            var timeline = RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath));
+            timeline.AddSession(new[] { "The user planned a trip to Lapland in March." }, false, DateTime.UtcNow);
+            var provider = new MemoryChatProvider(new FakeProvider(ChatDefaults.LocalId), _store);
+            var request = new ChatRequest
+            {
+                SystemPrompt = "base",
+                Messages = new List<ChatMessage>
+                {
+                    new ChatMessage(ChatRole.User, "I can't wait for Lapland"),
+                    new ChatMessage(ChatRole.Assistant, "Me neither!"),
+                    new ChatMessage(ChatRole.User, "Do you remember what I told you?"),
+                },
+            };
+
+            StringAssert.Contains("Lapland", provider.Enrich(request).SystemPrompt);
         }
 
         [Test]

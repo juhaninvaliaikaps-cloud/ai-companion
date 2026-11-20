@@ -253,50 +253,25 @@ namespace AICompanion.Memory
         /// </summary>
         public IReadOnlyList<TimelineEntry> Search(string query, int max, bool includePrivate, IReadOnlyList<MemoryEntry> facts = null)
         {
-            var result = new List<TimelineEntry>();
-            var tokens = QueryTokens(query);
-            if (tokens.Count == 0 || max <= 0)
-                return result;
-
-            var scored = new List<ScoredEntry>();
-            var now = DateTime.UtcNow;
-            for (var i = 0; i < _file.entries.Count; i++)
-            {
-                var entry = _file.entries[i];
-                if (entry == null || !entry.IsValid || entry.resolved)
-                    continue;
-                if (entry.isPrivate && !includePrivate)
-                    continue;
-                if (RecentlyRecalled(entry, now))
-                    continue;
-                if (CoveredByFact(entry, facts))
-                    continue;
-
-                var matches = 0;
-                var haystack = (entry.title + " " + entry.summary + " " + entry.kind).ToLowerInvariant();
-                for (var t = 0; t < tokens.Count; t++)
-                {
-                    if (haystack.IndexOf(tokens[t], StringComparison.Ordinal) >= 0)
-                        matches++;
-                }
-
-                if (matches == 0)
-                    continue;
-
-                DateTime happened;
-                var ageDays = DateTime.TryParse(entry.happenedAtUtc, out happened)
-                    ? Math.Max(0d, (now - happened.ToUniversalTime()).TotalDays)
-                    : 365d;
-                var recency = Math.Max(0d, 1d - ageDays / 60d);
-                var confidence = entry.confidence > 0 ? entry.confidence / 100f : 0.6f;
-                var score = matches * 3f + entry.importance * 0.4f + (float)recency + confidence * 0.3f;
-                scored.Add(new ScoredEntry { Entry = entry, Score = score });
-            }
-
-            scored.Sort((a, b) => b.Score.CompareTo(a.Score));
-            for (var i = 0; i < scored.Count && result.Count < max; i++)
-                result.Add(scored[i].Entry);
+            var hits = SearchHits(query, string.Empty, max, includePrivate, DateTime.UtcNow, facts);
+            var result = new List<TimelineEntry>(hits.Count);
+            for (var i = 0; i < hits.Count; i++)
+                result.Add(hits[i].Entry);
             return result;
+        }
+
+        /// <summary>
+        /// JUH-141: the entries for this turn, ranked by <see cref="TimelineSearch"/> (BM25,
+        /// stop words, stemming, concepts, trust). <paramref name="previous"/> is the user
+        /// message before the latest one, at half weight. An entry a retrieved fact already
+        /// says is left out. One she brought up in the last few minutes stays only while the
+        /// talk is still plainly about it, marked <see cref="TimelineHit.AlreadyRaised"/>.
+        /// </summary>
+        public List<TimelineHit> SearchHits(string latest, string previous, int max, bool includePrivate, DateTime nowUtc,
+            IReadOnlyList<MemoryEntry> facts = null)
+        {
+            return TimelineSearch.Rank(_file.entries, latest, previous, includePrivate, nowUtc, max,
+                facts == null ? (Predicate<TimelineEntry>)null : entry => CoveredByFact(entry, facts));
         }
 
         /// <summary>Records that these entries were actually put in front of the model.</summary>
@@ -332,101 +307,6 @@ namespace AICompanion.Memory
             }
 
             return false;
-        }
-
-        static bool RecentlyRecalled(TimelineEntry entry, DateTime nowUtc)
-        {
-            if (string.IsNullOrEmpty(entry.lastRecalledAtUtc))
-                return false;
-            DateTime last;
-            if (!DateTime.TryParse(entry.lastRecalledAtUtc, out last))
-                return false;
-            return nowUtc - last.ToUniversalTime() < TimeSpan.FromMinutes(RecentRecallMinutes);
-        }
-
-        static List<string> QueryTokens(string query)
-        {
-            var tokens = new List<string>();
-            if (string.IsNullOrWhiteSpace(query))
-                return tokens;
-            var parts = query.ToLowerInvariant().Split(new[] { ' ', '\n', '\r', '\t', '.', ',', '!', '?', ';', ':', '\'', '"' },
-                StringSplitOptions.RemoveEmptyEntries);
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-            for (var i = 0; i < parts.Length; i++)
-            {
-                var part = parts[i].Trim();
-                if (part.Length < 4)
-                    continue;
-                AddToken(tokens, seen, part);
-                AddToken(tokens, seen, Stem(part));
-                AddConcepts(tokens, seen, part);
-            }
-
-            return tokens;
-        }
-
-        static void AddToken(List<string> tokens, HashSet<string> seen, string token)
-        {
-            if (token.Length >= 4 && seen.Add(token))
-                tokens.Add(token);
-        }
-
-        static void AddConcepts(List<string> tokens, HashSet<string> seen, string word)
-        {
-            foreach (var pair in Concepts)
-            {
-                var hit = string.Equals(pair.Key, word, StringComparison.Ordinal);
-                if (!hit)
-                {
-                    for (var i = 0; i < pair.Value.Length; i++)
-                    {
-                        if (string.Equals(pair.Value[i], word, StringComparison.Ordinal))
-                        {
-                            hit = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!hit)
-                    continue;
-                AddToken(tokens, seen, pair.Key);
-                for (var i = 0; i < pair.Value.Length; i++)
-                    AddToken(tokens, seen, pair.Value[i]);
-            }
-        }
-
-        static string Stem(string word)
-        {
-            if (word.Length > 7 && word.EndsWith("ing", StringComparison.Ordinal))
-                return word.Substring(0, word.Length - 3);
-            if (word.Length > 5 && word.EndsWith("ed", StringComparison.Ordinal))
-                return word.Substring(0, word.Length - 2);
-            if (word.Length > 4 && word.EndsWith("s", StringComparison.Ordinal)
-                && !word.EndsWith("ss", StringComparison.Ordinal))
-                return word.Substring(0, word.Length - 1);
-            return word;
-        }
-
-        static readonly Dictionary<string, string[]> Concepts = new Dictionary<string, string[]>(StringComparer.Ordinal)
-        {
-            { "family", new[] { "sister", "brother", "mother", "father", "parent", "relative", "sibling" } },
-            { "work", new[] { "job", "career", "office", "boss", "colleague", "project" } },
-            { "afraid", new[] { "scared", "fear", "anxious", "nervous", "worried" } },
-            { "angry", new[] { "annoyed", "mad", "furious", "upset", "irritated" } },
-            { "happy", new[] { "glad", "joy", "cheerful", "smile", "delighted" } },
-            { "promise", new[] { "promised", "vow", "agreed", "commitment" } },
-            { "boundary", new[] { "limit", "trigger", "uncomfortable", "dislike", "warning" } },
-            { "home", new[] { "house", "apartment", "flat", "lives", "lived" } },
-            { "travel", new[] { "trip", "visit", "holiday", "vacation", "away" } },
-            { "health", new[] { "sick", "illness", "doctor", "hospital", "pain" } },
-            { "loss", new[] { "died", "death", "grief", "funeral", "gone" } },
-        };
-
-        struct ScoredEntry
-        {
-            public TimelineEntry Entry;
-            public float Score;
         }
 
         public int Clear()
