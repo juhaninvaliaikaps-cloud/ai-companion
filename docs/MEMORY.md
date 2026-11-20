@@ -48,6 +48,16 @@ The dated timeline (JUH-134) is searched separately from the facts, by `Timeline
 - **Privacy.** Private entries never reach a cloud provider; resolved entries are not recalled.
 - **Measured.** `TimelineSearchTests` is the acceptance set: real questions and the entry each must find first, and small talk that must find nothing. Tuning has to keep it green.
 
+### Smarter search: meaning as well as words (JUH-141)
+
+Off by default: **Settings → Persona → Memories → Smarter memory search** (`CompanionSettings.MemoryEmbeddings`, `"memoryEmbeddings"` in the settings file). When it is on, the timeline search also matches by meaning, so "how is my old man holding up?" finds "his father is in hospital" with no shared word.
+
+- **The model.** `nomic-embed-text` (about 274 MB) in the local Ollama, through `/api/embed` (`OllamaEmbedder`). Install it once with `ollama pull nomic-embed-text`. It is only ever called on Ollama on this PC (a loopback address on port 11434); any other base URL is refused before anything is sent. So private mode and 18+ memories are covered too.
+- **Vectors.** Each open timeline entry gets a vector of `search_document: <summary>`; the query is `search_query: <latest message>` (with the previous message when the latest is short). The prefixes are what nomic-embed-text was trained with; Ollama does not add them. Vectors live in memory only (`EmbeddingIndex`, per persona). They are filled in the background, 64 entries per chat turn, and rebuilt after a restart. A corrected entry is embedded again. Nothing new is written to disk.
+- **Ranking.** `TimelineSearch.Rank` takes the cosine of each entry. Above `SemanticFloor` (0.55) it adds up to `SemanticWeight` (3) to the word relevance. From `SemanticOnly` (0.68) an entry is found with no shared word. A just-raised entry stays while the meaning is at least `SemanticRaised` (0.78). These are first guesses for nomic-embed-text and are meant to be tuned on the Windows PC.
+- **Falling back.** With the switch off, Ollama not running, the model not pulled, or a query vector slower than 3 seconds, the search is the word search, unchanged. A failure is logged once (`Memory: smarter search is using words only: …`, with the `ollama pull` hint), and the model is not asked again for 5 minutes.
+- **Not yet.** Stored facts (`MemoryStore`) still use the word search; only the timeline uses meaning.
+
 ### Corrections, kept promises and real dates (JUH-141)
 
 The session summary used to write blind: its request is `NoMemory`, so a correction ("her sister moved from Tampere to Helsinki") became a second, contradicting entry, and a promise stayed open forever. Now `SessionMemories.CaptureAsync` shows the summary what she already remembers (`SessionKnowledge`):

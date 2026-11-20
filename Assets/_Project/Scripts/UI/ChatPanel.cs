@@ -172,7 +172,10 @@ namespace AICompanion.UI
             _exchange = new ChatExchange(_conversation);
             _exchange.SpokenDelta = ForwardSpeech;
             _exchange.TurnReminder = AnimationCueParser.TurnReminder;
-            _registry = ChatProviderFactory.Create(settings, new EnvironmentApiKeySource(), new UnityChatTransport(this), MemoryRuntime.Decorator);
+            var transport = new UnityChatTransport(this);
+            _registry = ChatProviderFactory.Create(settings, new EnvironmentApiKeySource(), transport, MemoryRuntime.Decorator);
+            // JUH-141: the smarter memory search asks the same local Ollama; it is used only while it is switched on.
+            MemoryEmbeddings.UseEmbedder(new OllamaEmbedder(transport, () => settings != null ? settings.localBaseUrl : ChatDefaults.LocalBaseUrl));
             _visible = PlayerPrefs.GetInt(OpenPref, 1) != 0;
             BuildUi();
             SetVisible(_visible, false);

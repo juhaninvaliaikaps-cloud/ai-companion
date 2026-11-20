@@ -395,10 +395,10 @@ namespace AICompanion.Memory
         /// talk is still plainly about it, marked <see cref="TimelineHit.AlreadyRaised"/>.
         /// </summary>
         public List<TimelineHit> SearchHits(string latest, string previous, int max, bool includePrivate, DateTime nowUtc,
-            IReadOnlyList<MemoryEntry> facts = null)
+            IReadOnlyList<MemoryEntry> facts = null, Func<TimelineEntry, float> semantic = null)
         {
             return TimelineSearch.Rank(_file.entries, latest, previous, includePrivate, nowUtc, max,
-                facts == null ? (Predicate<TimelineEntry>)null : entry => CoveredByFact(entry, facts));
+                facts == null ? (Predicate<TimelineEntry>)null : entry => CoveredByFact(entry, facts), semantic);
         }
 
         /// <summary>Records that these entries were actually put in front of the model.</summary>

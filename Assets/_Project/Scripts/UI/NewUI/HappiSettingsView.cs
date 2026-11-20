@@ -230,7 +230,7 @@ namespace AICompanion.NewUI
                 + "|" + IntimateExpressions.Undressed
                 + "|" + s.PrivateEndpointType + "|" + s.PrivateBaseUrl + "|" + s.PrivateModel
                 + "|" + _settings.PrivateApiKeySaved + "|" + _settings.PrivateEndpointTestRunning
-                + "|" + s.PisaraCloud + "|" + s.PisaraCloudBaseUrl + "|" + s.PisaraCloudModel
+                + "|" + s.PisaraCloud + "|" + s.PisaraCloudBaseUrl + "|" + s.PisaraCloudModel + "|" + s.MemoryEmbeddings
                 + "|" + _settings.PisaraApiKeySaved + "|" + _settings.PisaraApiKeyFromEnvironment
                 + "|" + (look != null ? look.Revision : 0) + "|" + _settings.ConnectionTestRunning + "|" + s.ShowMoodDebug + "|" + s.VoiceNarration
                 + "|" + _settings.PisaraRevision + "|" + _settings.TemperamentRevision;
@@ -513,6 +513,10 @@ namespace AICompanion.NewUI
             Button(StartOverText.Button(_settings.StartOverName), () => { _confirm.Request(PrivacyConfirmKind.StartOver); _rebuild = true; }, true);
             Note("Clears this persona's chat, what she remembers about you, her mood and your relationship. Her persona and her own life stay.");
             Note("Complete wipes only. Selective memory deletion is intentionally not available in this build.");
+
+            // JUH-141: meaning as well as words; local Ollama only.
+            Toggle("Smarter memory search", S.MemoryEmbeddings, v => Change(s => s.MemoryEmbeddings = v));
+            Note("She also finds memories by meaning, not only by the same words (\"my dad\" finds \"his father\"). Uses the small local model nomic-embed-text (about 274 MB) in Ollama on this PC; nothing leaves this PC. Install it once with: ollama pull nomic-embed-text. Without it she uses words only.");
         }
 
         /// <summary>A pending "are you sure" (start over, wipe, clear history) replaces the tab until it is answered.</summary>

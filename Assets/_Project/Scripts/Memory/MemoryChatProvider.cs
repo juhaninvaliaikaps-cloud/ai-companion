@@ -58,9 +58,36 @@ namespace AICompanion.Memory
             get { return string.Equals(_inner.ProviderId, ChatDefaults.LocalId, StringComparison.OrdinalIgnoreCase); }
         }
 
-        public Task<ChatResult> StreamChat(ChatRequest request, Action<string> onDelta, CancellationToken cancellationToken)
+        public async Task<ChatResult> StreamChat(ChatRequest request, Action<string> onDelta, CancellationToken cancellationToken)
         {
-            return _inner.StreamChat(Enrich(request), onDelta, cancellationToken);
+            var enriched = await EnrichAsync(request, cancellationToken);
+            return await _inner.StreamChat(enriched, onDelta, cancellationToken);
+        }
+
+        /// <summary>
+        /// <see cref="Enrich(ChatRequest)"/>, with the smarter search (JUH-141) when it is on: the
+        /// local model gives the query a meaning vector first. Words only when it is off, the
+        /// model is missing, or it takes longer than <see cref="MemoryEmbeddings.QueryWaitSeconds"/>.
+        /// </summary>
+        public async Task<ChatRequest> EnrichAsync(ChatRequest request, CancellationToken cancellationToken)
+        {
+            if (request == null || request.NoMemory || !MemoryEmbeddings.Enabled
+                || ReferenceEquals(request.SystemPrompt, MemoryFactExtractor.SystemPrompt))
+                return Enrich(request);
+
+            Func<TimelineEntry, float> semantic = null;
+            try
+            {
+                var store = _store();
+                var timeline = store == null ? null : RelationshipTimeline.ForStore(store);
+                semantic = await MemoryEmbeddings.SemanticFor(timeline, LastUserMessage(request), PreviousUserMessage(request), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Memory: smarter search skipped (" + e.GetType().Name + ")");
+            }
+
+            return Enrich(request, semantic);
         }
 
         /// <summary>
@@ -69,6 +96,12 @@ namespace AICompanion.Memory
         /// test can check the prompt without a transport.
         /// </summary>
         public ChatRequest Enrich(ChatRequest request)
+        {
+            return Enrich(request, null);
+        }
+
+        /// <param name="semantic">The meaning score of each timeline entry for this turn, or null for words only.</param>
+        public ChatRequest Enrich(ChatRequest request, Func<TimelineEntry, float> semantic)
         {
             if (request == null)
                 return null;
@@ -91,7 +124,7 @@ namespace AICompanion.Memory
             // follow-up like "do you remember what I told you?" still has a topic.
             var timelineHits = timeline == null
                 ? null
-                : timeline.SearchHits(query, PreviousUserMessage(request), TimelineSearch.DefaultMax, IsLocal, DateTime.UtcNow, memories);
+                : timeline.SearchHits(query, PreviousUserMessage(request), TimelineSearch.DefaultMax, IsLocal, DateTime.UtcNow, memories, semantic);
 
             // JUH-118: memories that say when they happened get "(3 days ago)", and a short-term
             // memory that keeps coming up becomes long-term. The fact-extraction request reads the
