@@ -36,6 +36,31 @@ Entries can also carry her world (JUH-117): `origin`, `horizon`, `happenedAtUtc`
 
 ## Retrieval
 
+### Relationship timeline retrieval (JUH-141)
+
+The dated timeline (JUH-134) is searched separately from the facts, by `TimelineSearch.Rank`, at most 3 entries per turn under "Shared history".
+
+- **Words.** Whole words only ("work" does not find "homework"), English and Finnish stop words dropped ("that", "with", "about", "että", "kun"…), so small talk finds nothing. A light stemmer folds endings: promise/promised, sister/sisters, family/families, siskosta/siskon → sisko, isäni → isä. The language is guessed per text.
+- **Concepts.** Groups such as family, work, fear, anger, joy, promise, boundary, home, travel, health, loss and pets, in English and Finnish, add a concept term, so "my family" finds "her sister" at 0.6 of a direct word.
+- **Ranking.** BM25 over this persona's open entries: a word that appears in few entries counts for more. The latest user message counts fully, the one before it at half weight, so a follow-up like "do you remember what I told you?" keeps its topic.
+- **Trust.** The relevance is shaded by trust: repetition (`evidenceCount`, +10% per extra mention, up to +50%), the explicit "remember this" command (+20%) and the kind (boundaries and promises +15%) count for more than the model's own confidence, which moves it only ±10%. Importance and recency add a little.
+- **Already raised.** An entry she brought up in the last 10 minutes stays only while the talk names it directly (2+ words), tagged "you already brought this up today; keep it in mind, but do not repeat it unprompted". A passing word does not bring it back. This replaced the 10-minute skip, which made her forget the topic mid-conversation.
+- **Privacy.** Private entries never reach a cloud provider; resolved entries are not recalled.
+- **Measured.** `TimelineSearchTests` is the acceptance set: real questions and the entry each must find first, and small talk that must find nothing. Tuning has to keep it green.
+
+### Corrections, kept promises and real dates (JUH-141)
+
+The session summary used to write blind: its request is `NoMemory`, so a correction ("her sister moved from Tampere to Helsinki") became a second, contradicting entry, and a promise stayed open forever. Now `SessionMemories.CaptureAsync` shows the summary what she already remembers (`SessionKnowledge`):
+
+- **Shown:** up to 6 entries the conversation is about (ranked over the transcript, ignoring "already raised"), then open promises and threads, newest first, at most 8, as `[m1] (12.11.2026) [promise] …`. A summary going to a cloud model is never shown private entries. Plus "Today is Friday 20.11.2026", so a date is written as a date ("on Sunday 22.11.2026"), not "on Sunday". A resumed handoff uses the day the conversation happened.
+- **Answered:** `update m1: <full new sentence>` corrects an entry; `resolved m2` closes a promise or thread that was kept, done or is no longer true. These lines are never stored as new memories.
+- **Applied** by `RelationshipTimeline.ApplySession`: a correction must itself be durable and concrete (a vague line never replaces a concrete one); it keeps the entry's id and date, saves the old sentence in `previousSummary` with `updatedAtUtc`, counts as one more mention, and a correction from a private session makes the entry private. A resolved entry gets `resolvedAtUtc` and is no longer recalled. An id the summary was not shown, or an unknown one, changes nothing.
+- Not yet: the fact store (`MemoryStore`) keeps its own older facts; only the timeline is corrected.
+
+### Whose memory it is (JUH-141)
+
+When the retrieved memories mix her own life (Pisara's `seeded`, `away` and `life` entries) with what she knows about the user, `MemoryPrompt.Build` puts them under two sub-headings: "About the user and your time together" and "Your own life (things that happened to you, not to the user)". A list of one kind stays flat. Timeline lines already start with "The user" or her name.
+
 `MemoryStore.Search(query, max, includePrivate)` is keyword search: the query is lowercased, split on non-alphanumeric characters, words shorter than three characters and a small stop-word list are dropped, and every remaining token that appears in an entry scores a point. A summary scores two, because it carries more context. Ties keep the newest entry. At most eight entries come back by default.
 
 The chat path uses `MemoryStore.SearchFor(...)`, which is built on top of that:
@@ -57,6 +82,15 @@ Embeddings are a later step; `Search`/`SearchFor` is the seam an embedding imple
 5. A log line reports only the count: `Memory: saved 2 fact(s)`.
 
 The extraction call goes to the active provider. In private mode that is the local model, and if a cloud provider is somehow passed anyway, `CaptureAsync` returns before sending anything. Facts written in private mode carry `isPrivate` and are filtered out of cloud prompts later. The private flag is the one from the send, so turning 18+ off while a reply is still in flight does not store that turn as a public fact. An adult interaction line is also marked local-only in the transcript, and that flag is saved with the line. A later cloud chat request leaves that turn out. A local or private request still includes it. After the transcript is loaded again, a session that contains one of those lines stays local, so the session-end summary is not asked of a cloud model.
+
+### Review fixes on the timeline (JUH-134)
+
+- **The fact-extraction request is not her talking.** Its "user" message is the whole exchange (`User: … Assistant: …`), so `MemoryChatProvider.Enrich` neither searches nor injects nor marks timeline entries for it. Her reply can no longer restart an entry's recall cooldown, and old history is not extracted again as new facts.
+- **"Remember that …" is kept as the user's words.** `MemoryCommands.TryExtract` takes the clause, and `MemoryCommands.Stored` saves it as `The user asked you to remember: "I hate pickles"`, both as a core fact and as a timeline entry. Saved as `I hate pickles`, it would read as her own dislike under "What you remember".
+- **A recollection is not a command.** There is no bare `remember ` or `muista ` prefix any more; the forms are "remember that / this: / to", "don't forget", "keep in mind", "muista että / tämä:" and "älä unohda". A clause that starts like a shared moment or a plea ("when", "how", "that time", "the night", "me", "us", "kun", "minua") is not stored: "Remember when we went to the beach" stays a sentence.
+- **Scene words no longer drop real memories.** `MemoryDurability.IsDurable` treats body beats (trembled, blushed, heart raced, "for a moment") as scene state unless the line names something lasting (a family member, likes, hates, lives, works, died, a promise, a boundary). "Said" or "told" is not enough, so "She blushed when the user said she was pretty" still goes. Everyday words (smiled, looked at, silence, suddenly, felt nervous) only drop a short line under 7 words: "The user's father suddenly died last year", "She hates long silences" and "The user looked at apartments in Tampere" are kept; "The user smiled at her warmly" is not.
+- **One timeline per persona in memory.** `RelationshipTimeline.ForStore` returns the same instance while its file is unchanged (write time and size), and reads it again after anything else wrote it (a wipe, an import, a test's own instance). Chat no longer decrypts up to 1000 entries twice per exchange, and a request that loaded before a session ended can no longer save over that session's new entries. `RelationshipTimeline.Load` still gives a fresh instance.
+- **One handoff file per session.** The session-end request is written to `pending-session-<session>.json`. The rolling checkpoint and the final save of the same session share that file, so the next session's checkpoint can no longer overwrite a session whose summary is still running. On start (and after settings are applied) `ChatPanel.ResumePendingSession` finishes every waiting file, oldest first, including the old single `pending-session.json`. It skips the running session's own checkpoint and a session whose summary is already being written. A resumed session uses the live memory store when it belongs to the same persona.
 
 ## Prompt wiring
 

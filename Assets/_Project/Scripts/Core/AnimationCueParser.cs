@@ -81,14 +81,16 @@ namespace AICompanion.Core
             "in that same reply, even if you only agree in the sentence. " +
             "Walk to the left is <animation emotion=\"neutral\" gesture=\"walk\" direction=\"left\" />. " +
             "Walk to the right uses direction=\"right\". Omit direction when they do not name a side. " +
-            "When they ask you to stop, wait, or stand still, set gesture to stop.";
+            "When they ask you to stop, wait, or stand still, set gesture to stop. " +
+            "User text between *asterisks* is narration of their emotion, gesture or action; treat it as something they are doing, never as their spoken words. " +
+            "Internal thoughts are narration: put the whole thought, including any quoted words, inside *asterisks*. Never leave a thought's quoted words outside the asterisks, because that would be spoken aloud.";
 
         /// <summary>
         /// Added to the newest user message in the request only, never to the transcript:
         /// local roleplay models follow the last turn more than the system prompt.
         /// </summary>
         public const string TurnReminder =
-            "(Start your reply with your cue tag, for example <animation emotion=\"neutral\" />.)";
+            "(Start your reply with your cue tag, for example <animation emotion=\"neutral\" />. Keep thoughts inside *asterisks*.)";
 
         /// <summary>One log line for the tag the model wrote, so Player.log shows what arrived.</summary>
         public static string DescribeTag(string rawTag, CueParseStatus status)

@@ -160,6 +160,16 @@ namespace AICompanion.Memory
         {
             if (store == null || string.IsNullOrWhiteSpace(text))
                 return null;
+
+            // A session summary often paraphrases a fact already extracted after an exchange.
+            // Do not store it twice just because the wording changed.
+            for (var i = 0; i < store.Entries.Count; i++)
+            {
+                var fact = store.Entries[i];
+                if (fact != null && fact.kind == MemoryKind.Fact && MemoryDurability.Similar(fact.text, text))
+                    return fact;
+            }
+
             var entry = store.AddEntry(new MemoryEntry
             {
                 text = text,

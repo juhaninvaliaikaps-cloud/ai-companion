@@ -28,7 +28,11 @@ namespace AICompanion.Settings
 
             var chat = host.GetComponent<ChatPanel>();
             if (chat != null)
+            {
                 ApplyChat(chat.RuntimeChat, settings, provider);
+                // The handoff needs the configured local model, not the startup default.
+                chat.ResumePendingSession();
+            }
 
             var speaker = host.GetComponent<VoiceSpeaker>();
             if (speaker != null)

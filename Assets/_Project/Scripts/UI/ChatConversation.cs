@@ -39,6 +39,12 @@ namespace AICompanion.UI
         /// </summary>
         public bool LocalOnly { get; internal set; }
 
+        /// <summary>
+        /// The reply hit a weak spot, kink or secret, so the chat should keep its pink
+        /// feedback styling. UI only; the text sent to the model is unchanged.
+        /// </summary>
+        public bool HighlightFeedback { get; internal set; }
+
         internal void Append(string piece)
         {
             if (!string.IsNullOrEmpty(piece))
@@ -225,6 +231,34 @@ namespace AICompanion.UI
 
             _lines.Add(new ChatLine(ChatLineKind.System, text.Trim(), false));
             Touch();
+        }
+
+        /// <summary>Marks the newest assistant reply as a pink feedback line.</summary>
+        public void MarkLastAssistantFeedback()
+        {
+            for (var i = _lines.Count - 1; i >= 0; i--)
+            {
+                if (_lines[i] == null || _lines[i].Kind != ChatLineKind.Assistant)
+                    continue;
+                _lines[i].HighlightFeedback = true;
+                Touch();
+                return;
+            }
+        }
+
+        /// <summary>True when the newest assistant reply is a pink feedback line.</summary>
+        public bool LastAssistantHighlighted
+        {
+            get
+            {
+                for (var i = _lines.Count - 1; i >= 0; i--)
+                {
+                    if (_lines[i] != null && _lines[i].Kind == ChatLineKind.Assistant)
+                        return _lines[i].HighlightFeedback;
+                }
+
+                return false;
+            }
         }
 
         public ChatRequest BuildRequest(string systemPrompt, float temperature, int maxTokens)

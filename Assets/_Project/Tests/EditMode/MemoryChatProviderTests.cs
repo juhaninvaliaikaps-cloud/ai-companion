@@ -202,6 +202,102 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("curious", enriched.SystemPrompt);
         }
 
+        [Test]
+        public void Enrich_AppendsRelevantTimelineEntriesAndMarksThem()
+        {
+            var timeline = RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath));
+            timeline.AddSession(new[] { "The user promised to visit on Sunday." }, false, DateTime.UtcNow);
+            var provider = new MemoryChatProvider(new FakeProvider(ChatDefaults.LocalId), _store);
+
+            var enriched = provider.Enrich(Request("Did I promise to visit on Sunday?", "base"));
+
+            StringAssert.Contains(MemoryPrompt.TimelineHeader, enriched.SystemPrompt);
+            StringAssert.Contains("The user promised to visit on Sunday.", enriched.SystemPrompt);
+            StringAssert.Contains("[promise]", enriched.SystemPrompt);
+            Assert.AreEqual(1, RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath)).Page(1)[0].recallCount);
+        }
+
+        [Test]
+        public void Enrich_KeepsAJustRaisedEntryWhileTheTalkIsAboutIt_TaggedNotToRepeat()
+        {
+            // JUH-141: asked again about the same thing, she still knows it (no amnesia), but the
+            // entry is tagged so she does not bring it up again unprompted (no verbal tic).
+            var timeline = RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath));
+            timeline.AddSession(new[] { "The user promised to visit on Sunday." }, false, DateTime.UtcNow);
+            var provider = new MemoryChatProvider(new FakeProvider(ChatDefaults.LocalId), _store);
+            var request = Request("Did I promise to visit on Sunday?", "base");
+
+            var first = provider.Enrich(request);
+            var second = provider.Enrich(request);
+
+            StringAssert.Contains("The user promised to visit on Sunday.", first.SystemPrompt);
+            Assert.IsFalse(first.SystemPrompt.Contains(MemoryPrompt.AlreadyRaisedNote));
+            StringAssert.Contains("The user promised to visit on Sunday.", second.SystemPrompt);
+            StringAssert.Contains(MemoryPrompt.AlreadyRaisedNote, second.SystemPrompt);
+        }
+
+        [Test]
+        public void Enrich_DoesNotBringBackAJustRaisedEntryOnAPassingWord()
+        {
+            var timeline = RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath));
+            timeline.AddSession(new[] { "The user promised to visit on Sunday." }, false, DateTime.UtcNow);
+            var provider = new MemoryChatProvider(new FakeProvider(ChatDefaults.LocalId), _store);
+
+            provider.Enrich(Request("Did I promise to visit on Sunday?", "base"));
+            var passing = provider.Enrich(Request("What a lovely Sunday", "base"));
+
+            Assert.IsFalse(passing.SystemPrompt.Contains(MemoryPrompt.TimelineHeader), "one shared word is not the same topic");
+        }
+
+        [Test]
+        public void Enrich_UsesTheMessageBeforeForAFollowUp()
+        {
+            var timeline = RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath));
+            timeline.AddSession(new[] { "The user planned a trip to Lapland in March." }, false, DateTime.UtcNow);
+            var provider = new MemoryChatProvider(new FakeProvider(ChatDefaults.LocalId), _store);
+            var request = new ChatRequest
+            {
+                SystemPrompt = "base",
+                Messages = new List<ChatMessage>
+                {
+                    new ChatMessage(ChatRole.User, "I can't wait for Lapland"),
+                    new ChatMessage(ChatRole.Assistant, "Me neither!"),
+                    new ChatMessage(ChatRole.User, "Do you remember what I told you?"),
+                },
+            };
+
+            StringAssert.Contains("Lapland", provider.Enrich(request).SystemPrompt);
+        }
+
+        [Test]
+        public void Enrich_KeepsPrivateTimelineEntriesAwayFromTheCloud()
+        {
+            var timeline = RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath));
+            timeline.AddSession(new[] { "The user's private family story is important." }, true, DateTime.UtcNow);
+            var cloud = new MemoryChatProvider(new FakeProvider(ChatDefaults.GrokId), _store);
+            var local = new MemoryChatProvider(new FakeProvider(ChatDefaults.LocalId), _store);
+            var request = Request("Tell me the private family story", "base");
+
+            Assert.IsFalse(cloud.Enrich(request).SystemPrompt.Contains("private family story"));
+            StringAssert.Contains("private family story", local.Enrich(request).SystemPrompt);
+        }
+
+        [Test]
+        public void Enrich_LeavesTheTimelineOutOfTheFactExtraction()
+        {
+            // JUH-134 review, bug 1: the extractor's "user" message is the whole exchange.
+            var timeline = RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath));
+            timeline.AddSession(new[] { "The user promised to visit on Sunday." }, false, DateTime.UtcNow);
+            var provider = new MemoryChatProvider(new FakeProvider(ChatDefaults.LocalId), _store);
+            var exchange = MemoryFactExtractor.BuildExchangeText("Did I promise to visit on Sunday?", "You promised to visit on Sunday!");
+
+            var enriched = provider.Enrich(Request(exchange, MemoryFactExtractor.SystemPrompt));
+
+            Assert.IsFalse(enriched.SystemPrompt.Contains(MemoryPrompt.TimelineHeader), "no shared history in the extractor's prompt");
+            Assert.AreEqual(0, RelationshipTimeline.Load(MemoryPaths.TimelineFileForMemoryPath(_memoryPath)).Page(1)[0].recallCount,
+                "the extraction does not restart the recall cooldown");
+        }
+
         static ChatRequest Request(string userText, string systemPrompt)
         {
             return new ChatRequest

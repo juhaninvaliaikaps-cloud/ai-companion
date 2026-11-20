@@ -16,7 +16,8 @@ namespace AICompanion.UI
     /// <item>A session is the messages since the last pause. When it ends (the persona is
     /// switched, ten minutes pass without a message, or the app quits) the model is asked once
     /// for one to three memories of it (<see cref="SessionMemories"/>). Sessions with fewer
-    /// than four user messages are skipped. Quitting waits a few seconds at most.</item>
+    /// than four user messages are skipped. Quitting writes an encrypted handoff first, so a
+    /// slow local model is retried on the next start instead of losing the session.</item>
     /// </list>
     /// </summary>
     public sealed partial class ChatPanel
@@ -27,6 +28,22 @@ namespace AICompanion.UI
         float _sessionLastMessageAt;
         bool _quitHooked;
         bool _quitAnswered;
+        bool _resumeRunning;
+
+        // JUH-134 review: each session has its own handoff file. The rolling checkpoint and
+        // the final save share the id; a new session gets a new one.
+        string _sessionId = string.Empty;
+        readonly HashSet<string> _sessionsCapturing = new HashSet<string>(StringComparer.Ordinal);
+
+        string SessionId
+        {
+            get
+            {
+                if (_sessionId.Length == 0)
+                    _sessionId = Guid.NewGuid().ToString("N");
+                return _sessionId;
+            }
+        }
 
         /// <summary>
         /// The persona text for a request: her mood line, then the lines about her own life.
@@ -100,6 +117,142 @@ namespace AICompanion.UI
             }
         }
 
+        /// <summary>
+        /// Finishes a session that the previous process had to hand over. The raw transcript
+        /// is already encrypted on disk; a local model can take its time now, and a timeout
+        /// leaves the handoff for the next start.
+        /// </summary>
+        public void ResumePendingSession()
+        {
+            if (_resumeRunning)
+                return;
+            _resumeRunning = true;
+            ResumePendingSessionNow();
+        }
+
+        async void ResumePendingSessionNow()
+        {
+            try
+            {
+                await ResumePendingSessionCore();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Session handoff: finish failed (" + e.GetType().Name + "); keeping it pending.");
+            }
+            finally
+            {
+                _resumeRunning = false;
+            }
+        }
+
+        /// <summary>JUH-141: the day the pending conversation happened, so its dates are written for that day.</summary>
+        static DateTime? PendingLocalDate(PendingSession pending)
+        {
+            DateTime at;
+            if (pending != null && DateTime.TryParse(pending.createdAtUtc, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AdjustToUniversal, out at))
+                return at.ToLocalTime();
+            return null;
+        }
+
+        async System.Threading.Tasks.Task ResumePendingSessionCore()
+        {
+            List<PendingSession> all;
+            try
+            {
+                all = SessionHandoff.LoadAll();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Session handoff: load failed (" + e.GetType().Name + ")");
+                return;
+            }
+
+            // Oldest first. The running session's checkpoint and a session whose summary is
+            // already being written are not finished twice.
+            for (var i = 0; i < all.Count; i++)
+            {
+                var pending = all[i];
+                if (pending.session.Length > 0
+                    && (string.Equals(pending.session, _sessionId, StringComparison.Ordinal)
+                        || _sessionsCapturing.Contains(pending.session)))
+                    continue;
+                await ResumeOne(pending);
+            }
+        }
+
+        async System.Threading.Tasks.Task ResumeOne(PendingSession pending)
+        {
+            if (_registry == null || !_registry.TryGet(pending.providerId, out var provider))
+            {
+                Debug.Log("Session handoff: waiting for provider " + pending.providerId);
+                return;
+            }
+
+            if (!PisaraReader.MayUse(provider, pending.keepsLocal))
+            {
+                Debug.Log("Session handoff: provider is not allowed for this private session; keeping it pending.");
+                return;
+            }
+
+            Debug.Log("Session handoff: provider=" + provider.ProviderId + " localModel="
+                + (settings != null ? settings.localModel : string.Empty));
+
+            // The live store when it is the same persona, so two instances never overwrite each other.
+            var live = MemoryRuntime.Store;
+            var store = live != null && string.Equals(live.Path, pending.memoryPath, StringComparison.OrdinalIgnoreCase)
+                ? live
+                : MemoryStore.Load(pending.memoryPath);
+            var stored = await SessionMemories.CaptureAsync(
+                provider, pending.transcript, pending.herName, pending.userMessages,
+                pending.keepsLocal, pending.intimateActive, store,
+                SessionMemories.DefaultTimeoutSeconds, CancellationToken.None, false, PendingLocalDate(pending));
+
+            Debug.Log("Session handoff: finished " + pending.why + " with " + stored.Memories.Count + " memories (answered=" + stored.Answered + ")");
+
+            // JUH-141: new lines, corrections and closed promises; the handoff's own date is "today".
+            var timeline = RelationshipTimeline.ForStore(store);
+            var applied = timeline.ApplySession(stored, pending.keepsLocal, DateTime.UtcNow, store);
+            if (applied.Added + applied.Updated + applied.Resolved > 0)
+                Debug.Log("Relationship timeline: from the handoff " + applied.Added + " added, " + applied.Updated + " updated, " + applied.Resolved + " resolved");
+
+            if (stored.Answered)
+                SessionHandoff.Clear(pending);
+        }
+
+        /// <summary>
+        /// Keeps a crash-safe copy of the session after every finished reply. A long
+        /// conversation no longer has to reach the quiet ten-minute end before anything is
+        /// recoverable. It is encrypted and overwritten by the normal final handoff.
+        /// </summary>
+        void SaveRollingCheckpoint()
+        {
+            if (!SessionMemories.Qualifies(_sessionUserMessages) || _conversation == null
+                || settings == null || _registry == null)
+                return;
+
+            var privacy = GetComponent<IPrivacyMode>();
+            var lines = _conversation.Lines;
+            var keepsLocal = SessionLineFilter.MustStayLocal(
+                _sessionPrivacy.KeptLocal,
+                SessionLineFilter.AnyLocalOnly(lines, _sessionStartLine),
+                IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode));
+            var providerId = PrivateChatRouting.ProviderId(keepsLocal, settings.providerId, settings.privateEndpointType);
+            if (!_registry.TryGet(providerId, out var provider))
+                return;
+
+            var messages = new List<ChatMessage>();
+            SessionLineFilter.Append(messages, lines, _sessionStartLine, keepsLocal);
+            var transcript = SessionMemories.BuildTranscript(messages, WorldPromptNow.HerName);
+            if (transcript.Length == 0)
+                return;
+
+            SessionHandoff.Save(SessionId, transcript, WorldPromptNow.HerName, provider.ProviderId,
+                MemoryRuntime.Store, "a rolling checkpoint", _sessionUserMessages, keepsLocal,
+                IntimateExpressions.Active);
+        }
+
         /// <summary>Once per frame: a long pause ends the session. No allocation.</summary>
         void TickSession()
         {
@@ -138,6 +291,7 @@ namespace AICompanion.UI
         /// <summary>Forgets the running session without asking for memories (the transcript was cleared).</summary>
         void DropSession()
         {
+            _sessionId = string.Empty;
             _sessionUserMessages = 0;
             _sessionStartLine = _conversation != null ? _conversation.Lines.Count : 0;
             if (_conversation != null)
@@ -166,6 +320,7 @@ namespace AICompanion.UI
             var userMessages = _sessionUserMessages;
             var startLine = _sessionStartLine;
             var keptLocal = _sessionPrivacy.KeptLocal;
+            var sessionId = SessionId;
             DropSession();
             if (!SessionMemories.Qualifies(userMessages) || _conversation == null || settings == null || _registry == null)
                 return false;
@@ -189,13 +344,20 @@ namespace AICompanion.UI
             if (transcript.Length == 0)
                 return false;
 
+            // Write the handoff before the model call. A local model or a quit can miss the
+            // four-second window; the next start retries this exact session.
+            var pending = SessionHandoff.Save(
+                sessionId, transcript, WorldPromptNow.HerName, provider.ProviderId, MemoryRuntime.Store,
+                why, userMessages, keepsLocal, IntimateExpressions.Active);
+            _sessionsCapturing.Add(sessionId);
+
             // The store of the persona this session belongs to: after a switch MemoryRuntime.Store is another one.
-            CaptureSession(provider, transcript, WorldPromptNow.HerName, userMessages, keepsLocal, MemoryRuntime.Store, timeoutSeconds, why, done);
+            CaptureSession(provider, transcript, WorldPromptNow.HerName, userMessages, keepsLocal, MemoryRuntime.Store, timeoutSeconds, why, pending, sessionId, done);
             return true;
         }
 
         async void CaptureSession(IChatProvider provider, string transcript, string herName, int userMessages, bool keepsLocal,
-            MemoryStore store, float timeoutSeconds, string why, Action done)
+            MemoryStore store, float timeoutSeconds, string why, PendingSession pending, string sessionId, Action done)
         {
             try
             {
@@ -205,12 +367,25 @@ namespace AICompanion.UI
                     provider, transcript, herName, userMessages, keepsLocal, IntimateExpressions.Active, store, timeoutSeconds, CancellationToken.None, askThread);
                 Debug.Log("Session memories: " + stored.Memories.Count + " stored after " + why + " (" + userMessages + " messages)"
                     + (askThread ? ", new thread: " + (stored.Thread != null ? "yes" : "no") : string.Empty));
+
+                // JUH-134: the session summary is not enough on its own; keep a dated
+                // relationship entry that Pisara reseeding and the short-term fade cannot remove.
+                // JUH-141: corrections ("update m1") and closed promises ("resolved m2") too.
+                var timeline = RelationshipTimeline.ForStore(store);
+                var applied = timeline.ApplySession(stored, keepsLocal, DateTime.UtcNow, store);
+                if (applied.Added + applied.Updated + applied.Resolved > 0)
+                    Debug.Log("Relationship timeline: after " + why + " " + applied.Added + " added, " + applied.Updated + " updated, " + applied.Resolved + " resolved");
+
+                // Only a real answer clears the handoff. A timeout stays pending for startup.
+                if (stored.Answered)
+                    SessionHandoff.Clear(pending);
             }
             catch (Exception e)
             {
                 Debug.LogWarning("Session memories: failed (" + e.GetType().Name + ")");
             }
 
+            _sessionsCapturing.Remove(sessionId);
             if (done != null)
                 done();
         }

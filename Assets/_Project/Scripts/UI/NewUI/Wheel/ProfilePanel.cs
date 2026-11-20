@@ -26,6 +26,8 @@ namespace AICompanion.NewUI.Wheel
         public string MemoriesSummary = string.Empty;
         public readonly List<string> Memories = new List<string>();
         public int MemoryCount;
+        public readonly List<string> Timeline = new List<string>();
+        public int TimelineCount;
     }
 
     /// <summary>
@@ -574,6 +576,20 @@ namespace AICompanion.NewUI.Wheel
                 Paragraph("• " + _data.Memories[i], false);
             if (_data.MemoryCount > _data.Memories.Count)
                 Paragraph("And " + (_data.MemoryCount - _data.Memories.Count) + " more.", true);
+
+            Heading("Relationship timeline");
+            if (_data.TimelineCount == 0)
+            {
+                Paragraph("Nothing dated yet. A session summary becomes a timeline entry when a conversation ends.", true);
+            }
+            else
+            {
+                for (var i = 0; i < _data.Timeline.Count; i++)
+                    Paragraph("• " + _data.Timeline[i], false);
+                if (_data.TimelineCount > _data.Timeline.Count)
+                    Paragraph("And " + (_data.TimelineCount - _data.Timeline.Count) + " earlier.", true);
+            }
+
             Button("Manage in Settings", () => { if (OpenSettings != null) OpenSettings(); });
             End(box);
         }

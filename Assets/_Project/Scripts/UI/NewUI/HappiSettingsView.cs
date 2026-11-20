@@ -512,26 +512,7 @@ namespace AICompanion.NewUI
             // JUH-117: a fresh start with this persona; her persona and her own life stay.
             Button(StartOverText.Button(_settings.StartOverName), () => { _confirm.Request(PrivacyConfirmKind.StartOver); _rebuild = true; }, true);
             Note("Clears this persona's chat, what she remembers about you, her mood and your relationship. Her persona and her own life stay.");
-            if (memories.Count == 0)
-                return;
-            if (memories.Confirm.HasPending)
-            {
-                Note(memories.PendingPrompt());
-                Button(memories.Confirm.Pending == PrivacyConfirmKind.DeleteAllMemories ? "Confirm delete all" : "Confirm delete", () => { memories.ConfirmPending(); _rebuild = true; }, true);
-                Button("Cancel", () => { memories.Confirm.Cancel(); _rebuild = true; });
-                return;
-            }
-
-            var page = memories.Page();
-            for (var i = 0; i < page.Count; i++)
-            {
-                var memoryId = page[i].Id;
-                Button(page[i].Label, () => { memories.AskForget(memoryId); _rebuild = true; });
-            }
-
-            if (memories.Count > page.Count)
-                Note("Showing " + page.Count + " of " + memories.Count + ". Delete one to reveal more.");
-            Button("Delete all memories", () => { memories.AskForgetAll(); _rebuild = true; }, true);
+            Note("Complete wipes only. Selective memory deletion is intentionally not available in this build.");
         }
 
         /// <summary>A pending "are you sure" (start over, wipe, clear history) replaces the tab until it is answered.</summary>
@@ -938,12 +919,28 @@ namespace AICompanion.NewUI
             });
             Note("The words light up warmly as she says them. Narration glows only when Voice narration is on.");
             if (S.SpokenGlow)
-                Slider(v => "Glow intensity: " + (v < 0.34f ? "subtle" : v < 0.67f ? "medium" : "strong"), S.SpokenGlowIntensity, 0f, 1f, false,
+                Slider(v => "Spoken text glow intensity: " + (v < 0.34f ? "subtle" : v < 0.67f ? "medium" : "strong"), S.SpokenGlowIntensity, 0f, 1f, false,
                     v => _settings.SaveLayoutSetting(s => s.SpokenGlowIntensity = v));
 
             // JUH-122: floating pieces near her when how your message landed moves the relationship.
             Toggle("Show relationship changes while chatting", S.ShowRelationshipFeedback, v => Change(s => s.ShowRelationshipFeedback = v));
             Note("A small heart floats up beside her when a message moves how much she likes you; a critical hit pops out big and gold.");
+
+            Section("Text style");
+            Dropdown("Chat font", S.ChatFontFamily, ChatFontFamilies(), v => v, v =>
+            {
+                Change(s => s.ChatFontFamily = v);
+                ApplyChatFont();
+            });
+            Dropdown("Chat text size", Mathf.RoundToInt(S.ChatFontSize).ToString(), ChatFontSizes(), v => v + " px", v =>
+            {
+                int size;
+                if (!int.TryParse(v, out size))
+                    return;
+                Change(s => s.ChatFontSize = size);
+                ApplyChatFont();
+            });
+            Note("Applies to the dialogue, transcript and message box. The rest of the UI keeps its own font.");
 
             Section("Chat box");
             Note("Drag the chat box by its top bar to put it anywhere around her. While you drag, spots appear: 1 left of her head, 2 right of her head (the portrait moves to her left), 3 beside her on the left, 4 beside her on the right, 5 under her, so she stands on it (2D video avatar only). Let go near one to snap there. The box stays with her when she walks.");
@@ -1599,6 +1596,26 @@ namespace AICompanion.NewUI
         static string FileLabel(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? "(none)" : Path.GetFileName(value);
+        }
+
+        static IReadOnlyList<string> ChatFontFamilies()
+        {
+            return new[] { "Segoe UI", "Georgia", "Trebuchet MS", "Consolas" };
+        }
+
+        static IReadOnlyList<string> ChatFontSizes()
+        {
+            var sizes = new List<string>();
+            for (var size = 10; size <= 24; size++)
+                sizes.Add(size.ToString(CultureInfo.InvariantCulture));
+            return sizes;
+        }
+
+        void ApplyChatFont()
+        {
+            var chat = GetComponent<HappiChatView>();
+            if (chat != null)
+                chat.ApplyChatFont();
         }
 
         /// <summary>A labelled on/off switch.</summary>

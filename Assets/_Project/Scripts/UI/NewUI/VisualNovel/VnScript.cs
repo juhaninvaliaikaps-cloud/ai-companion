@@ -135,8 +135,57 @@ namespace AICompanion.NewUI.VisualNovel
             if (final && !stopped)
                 Flush(buffer, narration, segments, pending);
 
+            KeepThoughtQuotesInternal(segments);
             Cap(segments);
             return new VnScript(segments, final ? pending : new List<AnimationCue>());
+        }
+
+        /// <summary>
+        /// A model sometimes writes a thought as `*She thinks* "I want him."` — the quote is
+        /// outside the asterisks and would otherwise become a spoken speech segment. After a
+        /// thought marker on the same line, quoted words are internal narration, not speech.
+        /// </summary>
+        static void KeepThoughtQuotesInternal(List<VnSegment> segments)
+        {
+            for (var i = 1; i < segments.Count; i++)
+            {
+                var current = segments[i];
+                var previous = segments[i - 1];
+                if (current.Kind != VnSegmentKind.Speech
+                    || previous.Kind != VnSegmentKind.Narration
+                    || !IsThoughtMarker(previous.Text)
+                    || !StartsWithQuote(current.Text))
+                    continue;
+                segments[i] = new VnSegment(VnSegmentKind.Narration, current.Text, current.Cues);
+            }
+        }
+
+        static bool StartsWithQuote(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return false;
+            var first = text.TrimStart();
+            return first.Length > 0 && (first[0] == '"' || first[0] == '“' || first[0] == '”' || first[0] == '\'');
+        }
+
+        static bool IsThoughtMarker(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+            var lower = text.ToLowerInvariant();
+            if (lower.IndexOf("aloud", StringComparison.Ordinal) >= 0)
+                return false;
+            return lower.IndexOf("thinks", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("thought", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("wonders", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("wondered", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("imagines", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("imagined", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("remembers", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("remembered", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("thinks to herself", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("in her head", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("to herself", StringComparison.Ordinal) >= 0;
         }
 
         /// <summary>The visible text of the whole reply, lines joined by spaces (for logs and tests).</summary>
@@ -162,7 +211,31 @@ namespace AICompanion.NewUI.VisualNovel
 
             var cues = pending.Count > 0 ? new List<AnimationCue>(pending) : null;
             pending.Clear();
-            segments.Add(new VnSegment(narration ? VnSegmentKind.Narration : VnSegmentKind.Speech, text, cues));
+            segments.Add(new VnSegment(narration || StartsThoughtMarker(text) ? VnSegmentKind.Narration : VnSegmentKind.Speech, text, cues));
+        }
+
+        /// <summary>
+        /// A line such as `She thinks, "..."` is a thought even without asterisks. Only a
+        /// leading thought marker counts; a line merely containing the word is not enough.
+        /// </summary>
+        static bool StartsThoughtMarker(string text)
+        {
+            var lower = (text ?? string.Empty).TrimStart().ToLowerInvariant();
+            if (lower.StartsWith("she thinks", StringComparison.Ordinal)
+                || lower.StartsWith("he thinks", StringComparison.Ordinal)
+                || lower.StartsWith("she thought", StringComparison.Ordinal)
+                || lower.StartsWith("he thought", StringComparison.Ordinal)
+                || lower.StartsWith("she wonders", StringComparison.Ordinal)
+                || lower.StartsWith("he wonders", StringComparison.Ordinal)
+                || lower.StartsWith("she remembers", StringComparison.Ordinal)
+                || lower.StartsWith("he remembers", StringComparison.Ordinal)
+                || lower.StartsWith("thinking,", StringComparison.Ordinal)
+                || lower.StartsWith("thinking:", StringComparison.Ordinal))
+            {
+                return lower.IndexOf("aloud", StringComparison.Ordinal) < 0;
+            }
+
+            return false;
         }
 
         /// <summary>

@@ -33,6 +33,8 @@ namespace AICompanion.Core
             return rel == "settings.json"
                 || rel == "personality.json"
                 || IsMemoryName(rel)
+                || IsTimelineName(rel)
+                || IsPendingSessionName(rel)
                 || IsHistoryName(rel)
                 || IsMoodName(rel)
                 || IsRelationshipName(rel)
@@ -75,6 +77,27 @@ namespace AICompanion.Core
             if (name == "memory.json")
                 return true;
             return name.StartsWith("memory-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
+        }
+
+        /// <summary>Her relationship timeline per persona (JUH-134): timeline.json and timeline-&lt;persona&gt;.json.</summary>
+        public static bool IsTimelineName(string fileName)
+        {
+            var name = Normalize(fileName);
+            if (name == "timeline.json")
+                return true;
+            return name.StartsWith("timeline-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// The encrypted sessions being handed to the next start (JUH-134): the old single
+        /// pending-session.json and one pending-session-&lt;session&gt;.json per session.
+        /// </summary>
+        public static bool IsPendingSessionName(string fileName)
+        {
+            var name = Normalize(fileName);
+            if (name == "pending-session.json")
+                return true;
+            return name.StartsWith("pending-session-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
         }
 
         /// <summary>Her mood per persona (JUH-103): mood.json and mood-&lt;persona&gt;.json.</summary>

@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using AICompanion.AI;
+using UnityEngine;
 
 namespace AICompanion.Memory
 {
@@ -76,18 +77,36 @@ namespace AICompanion.Memory
 
             var store = _store();
             var personality = _personality();
+            var query = LastUserMessage(request);
             var memories = store == null
                 ? null
-                : store.SearchFor(LastUserMessage(request), MemoryStore.MaxSearchResults, IsLocal);
+                : store.SearchFor(query, MemoryStore.MaxSearchResults, IsLocal);
+
+            // JUH-134 review, bug 1: the fact-extraction request is not her talking. Its "user"
+            // message is the whole exchange, so a timeline search would find what she just said,
+            // restart its recall cooldown, and let old history be extracted again as new facts.
+            var extraction = ReferenceEquals(request.SystemPrompt, MemoryFactExtractor.SystemPrompt);
+            var timeline = store == null || extraction ? null : RelationshipTimeline.ForStore(store);
+            // JUH-141: the latest user message, and the one before it at half weight, so a
+            // follow-up like "do you remember what I told you?" still has a topic.
+            var timelineHits = timeline == null
+                ? null
+                : timeline.SearchHits(query, PreviousUserMessage(request), TimelineSearch.DefaultMax, IsLocal, DateTime.UtcNow, memories);
 
             // JUH-118: memories that say when they happened get "(3 days ago)", and a short-term
             // memory that keeps coming up becomes long-term. The fact-extraction request reads the
             // same memories but is not her recalling them.
             var memoryBlock = MemoryPrompt.Build(memories, DateTime.UtcNow);
-            if (memoryBlock.Length > 0 && !ReferenceEquals(request.SystemPrompt, MemoryFactExtractor.SystemPrompt))
+            var timelineBlock = MemoryPrompt.BuildTimeline(timelineHits, DateTime.UtcNow);
+            if (memoryBlock.Length > 0 && !extraction)
                 WorldMemory.MarkRecalled(store, memories);
+            if (timelineBlock.Length > 0 && timeline != null)
+            {
+                timeline.MarkRecalled(Entries(timelineHits));
+                Debug.Log("Memory: " + timelineHits.Count + " timeline entries injected");
+            }
             var personaBlock = personality == null ? string.Empty : MemoryPrompt.BuildPersona(personality.Current);
-            if (memoryBlock.Length == 0 && personaBlock.Length == 0)
+            if (memoryBlock.Length == 0 && timelineBlock.Length == 0 && personaBlock.Length == 0)
                 return request;
 
             var builder = new StringBuilder();
@@ -107,6 +126,13 @@ namespace AICompanion.Memory
                 builder.Append(memoryBlock);
             }
 
+            if (timelineBlock.Length > 0)
+            {
+                if (builder.Length > 0)
+                    builder.Append("\n\n");
+                builder.Append(timelineBlock);
+            }
+
             return new ChatRequest
             {
                 SystemPrompt = builder.ToString(),
@@ -119,6 +145,37 @@ namespace AICompanion.Memory
                 BlockCloud = request.BlockCloud,
                 NoMemory = request.NoMemory,
             };
+        }
+
+        /// <summary>The user message before the latest one, or empty.</summary>
+        static string PreviousUserMessage(ChatRequest request)
+        {
+            var messages = request.Messages;
+            if (messages == null)
+                return string.Empty;
+            var seen = 0;
+            for (var i = messages.Count - 1; i >= 0; i--)
+            {
+                if (messages[i].Role != ChatRole.User)
+                    continue;
+                seen++;
+                if (seen == 2)
+                    return messages[i].Content ?? string.Empty;
+            }
+
+            return string.Empty;
+        }
+
+        static List<TimelineEntry> Entries(List<TimelineHit> hits)
+        {
+            var entries = new List<TimelineEntry>(hits != null ? hits.Count : 0);
+            if (hits != null)
+            {
+                for (var i = 0; i < hits.Count; i++)
+                    entries.Add(hits[i].Entry);
+            }
+
+            return entries;
         }
 
         static string LastUserMessage(ChatRequest request)

@@ -58,6 +58,7 @@ namespace AICompanion.UI
         ISpeechOutput _speech;
         IPushToTalk _talk;
         bool _wasRecording;
+        bool _forceStrip;
         InputField _input;
         InputField _keyInput;
         Sprite _white;
@@ -175,6 +176,9 @@ namespace AICompanion.UI
             _visible = PlayerPrefs.GetInt(OpenPref, 1) != 0;
             BuildUi();
             SetVisible(_visible, false);
+            // SettingsApplicator may start after ChatPanel. Give it the first few seconds
+            // before reading the handoff, otherwise the local provider still has the default model.
+            Invoke(nameof(ResumePendingSession), 5f);
         }
 
         void Start()
@@ -550,6 +554,11 @@ namespace AICompanion.UI
             if (_cancel != null)
                 _cancel.Dispose();
             _cancel = new CancellationTokenSource();
+            // JUH-134 review (Jussi): only arms the check. Her reply decides (ApplyForcedStrip).
+            _forceStrip = !interactionLine
+                && IntimateExpressions.Active
+                && !IntimateExpressions.Undressed;
+            RememberExplicit(text, privateMode);
             BindSpeech();
             if (_speech != null)
             {
@@ -671,9 +680,11 @@ namespace AICompanion.UI
             if (result.Ok)
             {
                 ApplyCue();
+                ApplyForcedStrip(result.Text);
                 if (remember)
                 {
                     SessionReplyFinished();
+                    SaveRollingCheckpoint();
                     CaptureMemory(provider, text, result.Text, keepsLocal);
                 }
                 if (remember && ScreenLookCue.Requests(result.Text))
@@ -682,6 +693,10 @@ namespace AICompanion.UI
                     if (look != null && look.RequestAutoLook())
                         Debug.Log("Screen look: the reply asked for a look");
                 }
+            }
+            else
+            {
+                _forceStrip = false;
             }
 
             BindSpeech();
@@ -811,6 +826,14 @@ namespace AICompanion.UI
             // What the model really wrote, so a missing or broken cue shows in Player.log.
             Debug.Log(AnimationCueParser.DescribeTag(_exchange.LastCueTag, _exchange.LastCueStatus));
             Debug.Log(EmotionNames.FormatFieldLog(_exchange.LastCue.EmotionField));
+
+            // JUH-134: a hit secret or a landed relationship event keeps the pink feedback
+            // look in the transcript. This is display metadata only; it is never sent back
+            // to the model or added to the reply text.
+            if (_conversation != null
+                && (!string.IsNullOrEmpty(_exchange.LastCue.Secret)
+                    || _exchange.LastCue.Landed != LandingEvent.Neutral))
+                _conversation.MarkLastAssistantFeedback();
             // JUH-108: the new chat fires each cue at its own line and reports the mood there.
             if (_replyCuesElsewhere)
             {
@@ -829,6 +852,61 @@ namespace AICompanion.UI
             {
                 _moodCueSerial = _exchange.CueSerial;
                 CompanionMoodInputs.ReportCue(_exchange.LastCue);
+            }
+        }
+
+        /// <summary>
+        /// Small models sometimes describe clothes coming off without adding reaction="strip".
+        /// When her own reply narrates it (and does not refuse), force only the avatar cue.
+        /// The user asking is not enough: she may say no. No text is added to her reply, the
+        /// transcript or the prompt.
+        /// </summary>
+        void ApplyForcedStrip(string reply)
+        {
+            if (!_forceStrip)
+                return;
+            _forceStrip = false;
+            if (!IntimateExpressions.Active || IntimateExpressions.Undressed)
+                return;
+            if (!ClothingIntent.ReplyRemovesClothing(reply))
+                return;
+
+            var cue = _exchange.LastCue;
+            if (string.Equals(cue.Reaction, "strip", System.StringComparison.OrdinalIgnoreCase)
+                || IntimateExpressions.IsNakedCue(cue.Reaction))
+                return;
+
+            var director = GetComponent<Director>();
+            if (director == null)
+                return;
+            director.Play(new AnimationCue(cue.Emotion, cue.Intensity, cue.Gesture, cue.Direction,
+                cue.EmotionField, "strip", cue.Landed, cue.Secret));
+            Debug.Log("Clothing: forced strip because the user removed clothing and the reply had no strip cue");
+        }
+
+        /// <summary>
+        /// A direct "remember this" is stored immediately. It is a local side effect only:
+        /// the reply is not asked to announce it and no extra text is added to the model.
+        /// </summary>
+        void RememberExplicit(string text, bool privateMode)
+        {
+            string memory;
+            if (!MemoryCommands.TryExtract(text, out memory))
+                return;
+            try
+            {
+                var store = MemoryRuntime.Store;
+                if (store == null)
+                    return;
+                // JUH-134 review: kept as the user's words, so "I hate pickles" is never read as hers.
+                var stored = MemoryCommands.Stored(memory);
+                store.AddFact(stored, privateMode, MemoryFactExtractor.IsCoreFact(memory));
+                RelationshipTimeline.ForStore(store).AddExplicit(stored, privateMode, DateTime.UtcNow);
+                Debug.Log("Memory: explicit request stored");
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Memory: explicit request failed (" + e.GetType().Name + ")");
             }
         }
 

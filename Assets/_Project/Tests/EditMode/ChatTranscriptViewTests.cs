@@ -100,6 +100,23 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Formatter_KeepsNarrationStyling_AndRebuildsWhenFeedbackTurnsPink()
+        {
+            var conversation = Conversation(1, "*she smiles* Hello.");
+            var view = new ChatTranscriptView();
+            view.SetFormatter(line => line.Kind == ChatLineKind.Assistant
+                ? "<i><color=#FF7EB6>" + line.Text + "</color></i>"
+                : line.Text);
+            view.Update(conversation.Lines);
+
+            StringAssert.Contains("<i><color=#FF7EB6>*she smiles* Hello. 0</color></i>", view.Entry(1));
+            conversation.MarkLastAssistantFeedback();
+            Assert.IsTrue(view.Update(conversation.Lines));
+            Assert.IsTrue(conversation.LastAssistantHighlighted);
+            StringAssert.Contains("<color=#FF7EB6>", view.Entry(1));
+        }
+
+        [Test]
         public void ClearingTheConversation_EmptiesTheView()
         {
             var conversation = Conversation(150);
