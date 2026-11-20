@@ -88,10 +88,16 @@ namespace AICompanion.Core
             return name.StartsWith("timeline-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
         }
 
-        /// <summary>The encrypted session being handed to the next start (JUH-134).</summary>
+        /// <summary>
+        /// The encrypted sessions being handed to the next start (JUH-134): the old single
+        /// pending-session.json and one pending-session-&lt;session&gt;.json per session.
+        /// </summary>
         public static bool IsPendingSessionName(string fileName)
         {
-            return string.Equals(Normalize(fileName), "pending-session.json", StringComparison.Ordinal);
+            var name = Normalize(fileName);
+            if (name == "pending-session.json")
+                return true;
+            return name.StartsWith("pending-session-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
         }
 
         /// <summary>Her mood per persona (JUH-103): mood.json and mood-&lt;persona&gt;.json.</summary>

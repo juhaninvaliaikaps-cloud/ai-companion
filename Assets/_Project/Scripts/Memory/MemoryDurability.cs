@@ -20,15 +20,26 @@ namespace AICompanion.Memory
         public const string RelationshipChange = "relationship_change";
         public const string OpenThread = "open_thread";
 
+        // JUH-134 review: a marker no longer drops a line that names something lasting
+        // ("The user's father suddenly died last year", "She hates silence").
+        // Strong markers are scene beats in any line without a durable subject.
         static readonly string[] TransientMarkers =
         {
             "trembl", "blush", "shiver", "shudder", "heart raced", "heart pounded",
-            "breath caught", "breath hitched", "looked at", "looks at", "smiled",
-            "smiles", "sighed", "sighs", "the room went", "the room fell", "silence",
-            "eyes widened", "eyes darted", "cheeks burned", "felt flustered",
-            "felt shy", "felt embarrassed", "felt nervous", "in that moment",
-            "for a moment", "just then", "suddenly",
+            "breath caught", "breath hitched", "the room went", "the room fell",
+            "eyes widened", "eyes darted", "cheeks burned", "in that moment",
+            "for a moment", "just then",
         };
+
+        // Weak markers are ordinary words too, so they drop only a short line:
+        // "The user smiled warmly." goes, "The user looked at apartments in Tampere" stays.
+        static readonly string[] WeakTransientMarkers =
+        {
+            "looked at", "looks at", "smiled", "smiles", "sighed", "sighs", "silence",
+            "felt flustered", "felt shy", "felt embarrassed", "felt nervous", "suddenly",
+        };
+
+        const int ShortLineWords = 7;
 
         static readonly string[] TransientStarts =
         {
@@ -51,23 +62,63 @@ namespace AICompanion.Memory
                 return false;
 
             var lower = trimmed.ToLowerInvariant();
-            for (var i = 0; i < TransientMarkers.Length; i++)
-            {
-                if (lower.IndexOf(TransientMarkers[i], StringComparison.Ordinal) >= 0)
-                    return false;
-            }
+            // A body beat stays out unless the line names something lasting. "Said" or "told"
+            // is not enough: "She blushed when the user said she was pretty" is still a beat.
+            if (ContainsAny(lower, TransientMarkers) && !HasDurableSubject(lower, true))
+                return false;
+            if (HasDurableSubject(lower, false))
+                return true;
+            if (WordCount(lower) < ShortLineWords && ContainsAny(lower, WeakTransientMarkers))
+                return false;
 
             // "She was afraid of being left" is durable even though it starts with "she".
             // A bare physical beat ("She trembled.") is not. Requiring a durable noun or
             // relationship verb keeps the second kind out without dropping the first.
-            if (StartsWithAny(lower, TransientStarts) && !HasDurableSubject(lower))
+            if (StartsWithAny(lower, TransientStarts))
                 return false;
             return true;
         }
 
-        static bool HasDurableSubject(string lower)
+        static bool ContainsAny(string lower, string[] markers)
         {
-            return lower.IndexOf(" afraid", StringComparison.Ordinal) >= 0                || lower.IndexOf(" wants", StringComparison.Ordinal) >= 0
+            for (var i = 0; i < markers.Length; i++)
+            {
+                if (lower.IndexOf(markers[i], StringComparison.Ordinal) >= 0)
+                    return true;
+            }
+
+            return false;
+        }
+
+        static int WordCount(string text)
+        {
+            var count = 0;
+            var inWord = false;
+            for (var i = 0; i < text.Length; i++)
+            {
+                var letter = char.IsLetterOrDigit(text[i]);
+                if (letter && !inWord)
+                    count++;
+                inWord = letter;
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// A noun or verb that makes a line lasting. With <paramref name="lastingOnly"/> false,
+        /// "told", "said", "admitted" and "name" count too.
+        /// </summary>
+        static bool HasDurableSubject(string lower, bool lastingOnly)
+        {
+            if (!lastingOnly
+                && (lower.IndexOf(" told", StringComparison.Ordinal) >= 0
+                    || lower.IndexOf(" said", StringComparison.Ordinal) >= 0
+                    || lower.IndexOf(" admitted", StringComparison.Ordinal) >= 0
+                    || lower.IndexOf(" name", StringComparison.Ordinal) >= 0))
+                return true;
+            return lower.IndexOf(" afraid", StringComparison.Ordinal) >= 0
+                || lower.IndexOf(" wants", StringComparison.Ordinal) >= 0
                 || lower.IndexOf(" likes", StringComparison.Ordinal) >= 0
                 || lower.IndexOf(" loves", StringComparison.Ordinal) >= 0
                 || lower.IndexOf(" hates", StringComparison.Ordinal) >= 0
@@ -78,9 +129,6 @@ namespace AICompanion.Memory
                 || lower.IndexOf("do not want", StringComparison.Ordinal) >= 0
                 || lower.IndexOf(" promised", StringComparison.Ordinal) >= 0
                 || lower.IndexOf(" agreed", StringComparison.Ordinal) >= 0
-                || lower.IndexOf(" admitted", StringComparison.Ordinal) >= 0
-                || lower.IndexOf(" told", StringComparison.Ordinal) >= 0
-                || lower.IndexOf(" said", StringComparison.Ordinal) >= 0
                 || lower.IndexOf(" works", StringComparison.Ordinal) >= 0
                 || lower.IndexOf(" lives", StringComparison.Ordinal) >= 0
                 || lower.IndexOf(" family", StringComparison.Ordinal) >= 0
@@ -91,7 +139,10 @@ namespace AICompanion.Memory
                 || lower.IndexOf(" boundary", StringComparison.Ordinal) >= 0
                 || lower.IndexOf(" trigger", StringComparison.Ordinal) >= 0
                 || lower.IndexOf(" relationship", StringComparison.Ordinal) >= 0
-                || lower.IndexOf(" name", StringComparison.Ordinal) >= 0;
+                || lower.IndexOf(" died", StringComparison.Ordinal) >= 0
+                || lower.IndexOf(" passed away", StringComparison.Ordinal) >= 0
+                || lower.IndexOf(" moved", StringComparison.Ordinal) >= 0
+                || lower.IndexOf(" birthday", StringComparison.Ordinal) >= 0;
         }
 
         static bool StartsWithAny(string text, string[] prefixes)

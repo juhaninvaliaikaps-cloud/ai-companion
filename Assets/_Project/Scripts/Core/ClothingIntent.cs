@@ -1,66 +1,206 @@
 using System;
+using System.Collections.Generic;
 
 namespace AICompanion.Core
 {
     /// <summary>
-    /// Detects a direct "take her clothes off" user action so the avatar can use the strip
-    /// reaction even when a small model forgets the cue. This only drives the avatar; it never
+    /// Detects clothing coming off in her reply, so the avatar can use the strip reaction even
+    /// when a small model narrates it and forgets the cue. This only drives the avatar; it never
     /// adds text to the reply or the prompt.
+    ///
+    /// JUH-134 review (Jussi, 2026-11-20): her reply decides, not the user's message. "Take off
+    /// your shirt" followed by her saying no leaves her dressed. Words are matched whole, so
+    /// "stop" and "laptop" are not a "top", and a sentence that refuses or asks does not count.
     /// </summary>
     public static class ClothingIntent
     {
-        static readonly string[] Clothing =
+        static readonly HashSet<string> Clothing = new HashSet<string>(StringComparer.Ordinal)
         {
-            "shirt", "dress", "blouse", "skirt", "pants", "jeans", "trousers", "bra",
-            "panties", "underwear", "clothes", "clothing", "top", "jacket", "hoodie",
-            "riisu", "vaatteet", "paita", "mekko", "hame", "housut", "alusvaatteet",
+            "shirt", "shirts", "dress", "blouse", "skirt", "pants", "jeans", "trousers", "bra",
+            "panties", "underwear", "clothes", "clothing", "top", "jacket", "hoodie", "sweater",
+            "t-shirt", "tshirt", "shorts", "leggings", "stockings", "lingerie", "robe", "nightgown",
         };
 
-        static readonly string[] Removal =
+        // Finnish words change their ending (paita, paidan, paitansa), so these match the
+        // start of a word. Each stem is long enough not to start an everyday word.
+        static readonly string[] FinnishClothingStems =
         {
-            "remove", "removes", "removing", "take off", "takes off", "taking off",
-            "pull off", "pulls off", "pulling off", "strip", "strips", "stripping",
-            "undress", "unbutton", "unzip", "slide off", "peel off", "riisu", "riisua",
-            "pois", "avaa",
+            "paita", "paida", "paido", "mekko", "mekon", "hame", "housu", "farkku", "farkut",
+            "vaatte", "vaatteet", "alusvaat", "rintaliiv", "liivi", "pusero", "takki", "takin",
+            "huppari", "neule", "pikkuhous", "alushous", "yöpai", "aamutak",
         };
 
-        static readonly string[] Negations =
+        // English removal as whole words or phrases; "off" catches "slid her dress off".
+        static readonly string[] RemovalPhrases =
         {
-            "don't remove", "do not remove", "don't take off", "do not take off",
-            "keep your clothes", "keep the clothes", "leave your clothes",
-            "älä riisu", "pidä vaatteet",
+            "take off", "takes off", "took off", "taking off", "pull off", "pulls off", "pulled off",
+            "pulling off", "slide off", "slides off", "slid off", "peel off", "peels off", "peeled off",
+            "shrug off", "shrugs off", "shrugged off", "slip off", "slips off", "slipped off",
         };
 
-        public static bool RemovesClothing(string text)
+        static readonly HashSet<string> RemovalWords = new HashSet<string>(StringComparer.Ordinal)
         {
-            if (string.IsNullOrWhiteSpace(text))
+            "remove", "removes", "removed", "removing", "strip", "strips", "stripped", "stripping",
+            "undress", "undresses", "undressed", "undressing", "unbutton", "unbuttons", "unbuttoned",
+            "unbuttoning", "unzip", "unzips", "unzipped", "unzipping", "unhook", "unhooks", "unhooked",
+        };
+
+        // "her dress off", "mekon pois": only right after a clothing word, so "the top of the
+        // hill, then off to work" is not a strip.
+        static readonly HashSet<string> AfterClothing = new HashSet<string>(StringComparer.Ordinal) { "off", "pois" };
+        const int AfterClothingWords = 3;
+
+        // riisuu, riisui, riisuen; avaa, avasi, avaten (a button or a zip).
+        static readonly string[] FinnishRemovalStems = { "riisu", "avaa", "avas", "avat" };
+
+        static readonly HashSet<string> Refusals = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "not", "no", "never", "won't", "wont", "don't", "dont", "doesn't", "doesnt", "didn't",
+            "didnt", "can't", "cant", "cannot", "refuse", "refuses", "refused", "stop", "stops",
+            "stopped", "instead", "keep", "keeps", "kept", "rather", "wait", "later", "maybe",
+            "ei", "en", "älä", "eikä", "kieltäytyy", "pitää", "pidän", "odota", "myöhemmin",
+        };
+
+        /// <summary>
+        /// True when a sentence of her reply narrates clothing coming off, and that sentence
+        /// neither refuses nor asks. Cue tags in angle brackets are ignored.
+        /// </summary>
+        public static bool ReplyRemovesClothing(string reply)
+        {
+            if (string.IsNullOrWhiteSpace(reply))
                 return false;
-            var lower = text.ToLowerInvariant();
-            for (var i = 0; i < Negations.Length; i++)
+
+            var text = WithoutTags(reply).ToLowerInvariant();
+            var start = 0;
+            for (var i = 0; i <= text.Length; i++)
             {
-                if (lower.IndexOf(Negations[i], StringComparison.Ordinal) >= 0)
+                var end = i == text.Length;
+                var c = end ? '.' : text[i];
+                if (c != '.' && c != '!' && c != '?' && c != '\n' && c != ';')
+                    continue;
+                if (i > start && c != '?' && SentenceRemoves(text.Substring(start, i - start)))
+                    return true;
+                start = i + 1;
+            }
+
+            return false;
+        }
+
+        static bool SentenceRemoves(string sentence)
+        {
+            var words = Words(sentence);
+            if (words.Count == 0)
+                return false;
+
+            var clothing = false;
+            var removal = false;
+            var lastClothing = -1;
+            for (var i = 0; i < words.Count; i++)
+            {
+                var word = words[i];
+                if (Refusals.Contains(word))
                     return false;
-            }
-
-            var mentionsClothing = false;
-            for (var i = 0; i < Clothing.Length; i++)
-            {
-                if (lower.IndexOf(Clothing[i], StringComparison.Ordinal) >= 0)
+                if (IsClothing(word))
                 {
-                    mentionsClothing = true;
-                    break;
+                    clothing = true;
+                    lastClothing = i;
                 }
+                if (!removal && (RemovalWords.Contains(word) || StartsWithAny(word, FinnishRemovalStems)))
+                    removal = true;
+                if (!removal && AfterClothing.Contains(word) && lastClothing >= 0 && i - lastClothing <= AfterClothingWords)
+                    removal = true;
             }
 
-            if (!mentionsClothing)
+            if (!clothing)
                 return false;
-            for (var i = 0; i < Removal.Length; i++)
+            if (removal)
+                return true;
+
+            var joined = " " + string.Join(" ", words.ToArray()) + " ";
+            for (var i = 0; i < RemovalPhrases.Length; i++)
             {
-                if (lower.IndexOf(Removal[i], StringComparison.Ordinal) >= 0)
+                if (joined.IndexOf(" " + RemovalPhrases[i] + " ", StringComparison.Ordinal) >= 0)
                     return true;
             }
 
             return false;
+        }
+
+        static bool IsClothing(string word)
+        {
+            if (Clothing.Contains(word))
+                return true;
+            return StartsWithAny(word, FinnishClothingStems);
+        }
+
+        static bool StartsWithAny(string word, string[] stems)
+        {
+            for (var i = 0; i < stems.Length; i++)
+            {
+                if (word.StartsWith(stems[i], StringComparison.Ordinal))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>Lower-case words; an apostrophe or a hyphen inside a word is kept.</summary>
+        static List<string> Words(string sentence)
+        {
+            var words = new List<string>();
+            var current = new System.Text.StringBuilder();
+            for (var i = 0; i < sentence.Length; i++)
+            {
+                var c = sentence[i];
+                if (c == '’')
+                    c = '\'';
+                var inside = char.IsLetterOrDigit(c)
+                    || ((c == '\'' || c == '-') && current.Length > 0 && i + 1 < sentence.Length && char.IsLetter(sentence[i + 1]));
+                if (inside)
+                {
+                    current.Append(c);
+                    continue;
+                }
+
+                if (current.Length > 0)
+                {
+                    words.Add(current.ToString());
+                    current.Length = 0;
+                }
+            }
+
+            if (current.Length > 0)
+                words.Add(current.ToString());
+            return words;
+        }
+
+        static string WithoutTags(string text)
+        {
+            if (text.IndexOf('<') < 0)
+                return text;
+            var builder = new System.Text.StringBuilder(text.Length);
+            var depth = 0;
+            for (var i = 0; i < text.Length; i++)
+            {
+                var c = text[i];
+                if (c == '<')
+                {
+                    depth++;
+                    continue;
+                }
+
+                if (c == '>' && depth > 0)
+                {
+                    depth--;
+                    builder.Append(' ');
+                    continue;
+                }
+
+                if (depth == 0)
+                    builder.Append(c);
+            }
+
+            return builder.ToString();
         }
     }
 }

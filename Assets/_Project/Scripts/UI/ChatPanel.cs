@@ -554,10 +554,10 @@ namespace AICompanion.UI
             if (_cancel != null)
                 _cancel.Dispose();
             _cancel = new CancellationTokenSource();
+            // JUH-134 review (Jussi): only arms the check. Her reply decides (ApplyForcedStrip).
             _forceStrip = !interactionLine
                 && IntimateExpressions.Active
-                && !IntimateExpressions.Undressed
-                && ClothingIntent.RemovesClothing(text);
+                && !IntimateExpressions.Undressed;
             RememberExplicit(text, privateMode);
             BindSpeech();
             if (_speech != null)
@@ -680,7 +680,7 @@ namespace AICompanion.UI
             if (result.Ok)
             {
                 ApplyCue();
-                ApplyForcedStrip();
+                ApplyForcedStrip(result.Text);
                 if (remember)
                 {
                     SessionReplyFinished();
@@ -857,15 +857,18 @@ namespace AICompanion.UI
 
         /// <summary>
         /// Small models sometimes describe clothes coming off without adding reaction="strip".
-        /// The user's removal action already implies it, so force only the avatar cue. No text
-        /// is added to her reply, the transcript or the prompt.
+        /// When her own reply narrates it (and does not refuse), force only the avatar cue.
+        /// The user asking is not enough: she may say no. No text is added to her reply, the
+        /// transcript or the prompt.
         /// </summary>
-        void ApplyForcedStrip()
+        void ApplyForcedStrip(string reply)
         {
             if (!_forceStrip)
                 return;
             _forceStrip = false;
             if (!IntimateExpressions.Active || IntimateExpressions.Undressed)
+                return;
+            if (!ClothingIntent.ReplyRemovesClothing(reply))
                 return;
 
             var cue = _exchange.LastCue;
@@ -895,8 +898,10 @@ namespace AICompanion.UI
                 var store = MemoryRuntime.Store;
                 if (store == null)
                     return;
-                store.AddFact(memory, privateMode, MemoryFactExtractor.IsCoreFact(memory));
-                RelationshipTimeline.ForStore(store).AddExplicit(memory, privateMode, DateTime.UtcNow);
+                // JUH-134 review: kept as the user's words, so "I hate pickles" is never read as hers.
+                var stored = MemoryCommands.Stored(memory);
+                store.AddFact(stored, privateMode, MemoryFactExtractor.IsCoreFact(memory));
+                RelationshipTimeline.ForStore(store).AddExplicit(stored, privateMode, DateTime.UtcNow);
                 Debug.Log("Memory: explicit request stored");
             }
             catch (Exception e)

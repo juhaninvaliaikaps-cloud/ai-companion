@@ -30,6 +30,21 @@ namespace AICompanion.UI
         bool _quitAnswered;
         bool _resumeRunning;
 
+        // JUH-134 review: each session has its own handoff file. The rolling checkpoint and
+        // the final save share the id; a new session gets a new one.
+        string _sessionId = string.Empty;
+        readonly HashSet<string> _sessionsCapturing = new HashSet<string>(StringComparer.Ordinal);
+
+        string SessionId
+        {
+            get
+            {
+                if (_sessionId.Length == 0)
+                    _sessionId = Guid.NewGuid().ToString("N");
+                return _sessionId;
+            }
+        }
+
         /// <summary>
         /// The persona text for a request: her mood line, then the lines about her own life.
         /// <paramref name="chatMessage"/> is true for a typed or spoken message; the first scene
@@ -143,10 +158,10 @@ namespace AICompanion.UI
 
         async System.Threading.Tasks.Task ResumePendingSessionCore()
         {
-            PendingSession pending;
+            List<PendingSession> all;
             try
             {
-                pending = SessionHandoff.Load();
+                all = SessionHandoff.LoadAll();
             }
             catch (Exception e)
             {
@@ -154,9 +169,21 @@ namespace AICompanion.UI
                 return;
             }
 
-            if (pending == null)
-                return;
+            // Oldest first. The running session's checkpoint and a session whose summary is
+            // already being written are not finished twice.
+            for (var i = 0; i < all.Count; i++)
+            {
+                var pending = all[i];
+                if (pending.session.Length > 0
+                    && (string.Equals(pending.session, _sessionId, StringComparison.Ordinal)
+                        || _sessionsCapturing.Contains(pending.session)))
+                    continue;
+                await ResumeOne(pending);
+            }
+        }
 
+        async System.Threading.Tasks.Task ResumeOne(PendingSession pending)
+        {
             if (_registry == null || !_registry.TryGet(pending.providerId, out var provider))
             {
                 Debug.Log("Session handoff: waiting for provider " + pending.providerId);
@@ -172,7 +199,11 @@ namespace AICompanion.UI
             Debug.Log("Session handoff: provider=" + provider.ProviderId + " localModel="
                 + (settings != null ? settings.localModel : string.Empty));
 
-            var store = MemoryStore.Load(pending.memoryPath);
+            // The live store when it is the same persona, so two instances never overwrite each other.
+            var live = MemoryRuntime.Store;
+            var store = live != null && string.Equals(live.Path, pending.memoryPath, StringComparison.OrdinalIgnoreCase)
+                ? live
+                : MemoryStore.Load(pending.memoryPath);
             var stored = await SessionMemories.CaptureAsync(
                 provider, pending.transcript, pending.herName, pending.userMessages,
                 pending.keepsLocal, pending.intimateActive, store,
@@ -217,7 +248,7 @@ namespace AICompanion.UI
             if (transcript.Length == 0)
                 return;
 
-            SessionHandoff.Save(transcript, WorldPromptNow.HerName, provider.ProviderId,
+            SessionHandoff.Save(SessionId, transcript, WorldPromptNow.HerName, provider.ProviderId,
                 MemoryRuntime.Store, "a rolling checkpoint", _sessionUserMessages, keepsLocal,
                 IntimateExpressions.Active);
         }
@@ -260,6 +291,7 @@ namespace AICompanion.UI
         /// <summary>Forgets the running session without asking for memories (the transcript was cleared).</summary>
         void DropSession()
         {
+            _sessionId = string.Empty;
             _sessionUserMessages = 0;
             _sessionStartLine = _conversation != null ? _conversation.Lines.Count : 0;
             if (_conversation != null)
@@ -288,6 +320,7 @@ namespace AICompanion.UI
             var userMessages = _sessionUserMessages;
             var startLine = _sessionStartLine;
             var keptLocal = _sessionPrivacy.KeptLocal;
+            var sessionId = SessionId;
             DropSession();
             if (!SessionMemories.Qualifies(userMessages) || _conversation == null || settings == null || _registry == null)
                 return false;
@@ -314,16 +347,17 @@ namespace AICompanion.UI
             // Write the handoff before the model call. A local model or a quit can miss the
             // four-second window; the next start retries this exact session.
             var pending = SessionHandoff.Save(
-                transcript, WorldPromptNow.HerName, provider.ProviderId, MemoryRuntime.Store,
+                sessionId, transcript, WorldPromptNow.HerName, provider.ProviderId, MemoryRuntime.Store,
                 why, userMessages, keepsLocal, IntimateExpressions.Active);
+            _sessionsCapturing.Add(sessionId);
 
             // The store of the persona this session belongs to: after a switch MemoryRuntime.Store is another one.
-            CaptureSession(provider, transcript, WorldPromptNow.HerName, userMessages, keepsLocal, MemoryRuntime.Store, timeoutSeconds, why, pending, done);
+            CaptureSession(provider, transcript, WorldPromptNow.HerName, userMessages, keepsLocal, MemoryRuntime.Store, timeoutSeconds, why, pending, sessionId, done);
             return true;
         }
 
         async void CaptureSession(IChatProvider provider, string transcript, string herName, int userMessages, bool keepsLocal,
-            MemoryStore store, float timeoutSeconds, string why, PendingSession pending, Action done)
+            MemoryStore store, float timeoutSeconds, string why, PendingSession pending, string sessionId, Action done)
         {
             try
             {
@@ -351,6 +385,7 @@ namespace AICompanion.UI
                 Debug.LogWarning("Session memories: failed (" + e.GetType().Name + ")");
             }
 
+            _sessionsCapturing.Remove(sessionId);
             if (done != null)
                 done();
         }
