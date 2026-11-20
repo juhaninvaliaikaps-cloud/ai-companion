@@ -500,26 +500,7 @@ namespace AICompanion.NewUI
             // JUH-117: a fresh start with this persona; her persona and her own life stay.
             Button(StartOverText.Button(_settings.StartOverName), () => { _confirm.Request(PrivacyConfirmKind.StartOver); _rebuild = true; }, true);
             Note("Clears this persona's chat, what she remembers about you, her mood and your relationship. Her persona and her own life stay.");
-            if (memories.Count == 0)
-                return;
-            if (memories.Confirm.HasPending)
-            {
-                Note(memories.PendingPrompt());
-                Button(memories.Confirm.Pending == PrivacyConfirmKind.DeleteAllMemories ? "Confirm delete all" : "Confirm delete", () => { memories.ConfirmPending(); _rebuild = true; }, true);
-                Button("Cancel", () => { memories.Confirm.Cancel(); _rebuild = true; });
-                return;
-            }
-
-            var page = memories.Page();
-            for (var i = 0; i < page.Count; i++)
-            {
-                var memoryId = page[i].Id;
-                Button(page[i].Label, () => { memories.AskForget(memoryId); _rebuild = true; });
-            }
-
-            if (memories.Count > page.Count)
-                Note("Showing " + page.Count + " of " + memories.Count + ". Delete one to reveal more.");
-            Button("Delete all memories", () => { memories.AskForgetAll(); _rebuild = true; }, true);
+            Note("Complete wipes only. Selective memory deletion is intentionally not available in this build.");
         }
 
         /// <summary>A pending "are you sure" (start over, wipe, clear history) replaces the tab until it is answered.</summary>
