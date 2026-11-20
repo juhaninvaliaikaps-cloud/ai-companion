@@ -142,6 +142,20 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void AddExplicit_StoresAnImmediateHighImportanceRow()
+        {
+            var path = TempFile();
+            var timeline = RelationshipTimeline.Load(path);
+            Assert.AreEqual(1, timeline.AddExplicit("my sister is Anna", false, DateTime.UtcNow));
+            var entry = timeline.Page(1)[0];
+            Assert.AreEqual("explicit", entry.source);
+            Assert.AreEqual(5, entry.importance);
+            Assert.IsFalse(string.IsNullOrEmpty(entry.why));
+            Assert.AreEqual(0, timeline.AddExplicit("my sister is Anna", false, DateTime.UtcNow));
+            Assert.AreEqual(1, timeline.Count);
+        }
+
+        [Test]
         public void TimelinePath_IsBesideTheMatchingMemoryFile()
         {
             var memory = Path.Combine(Path.GetTempPath(), "memory-custom-6.json");

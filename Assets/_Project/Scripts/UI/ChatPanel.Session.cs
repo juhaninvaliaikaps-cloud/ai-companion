@@ -179,6 +179,38 @@ namespace AICompanion.UI
                 SessionHandoff.Clear(pending);
         }
 
+        /// <summary>
+        /// Keeps a crash-safe copy of the session after every finished reply. A long
+        /// conversation no longer has to reach the quiet ten-minute end before anything is
+        /// recoverable. It is encrypted and overwritten by the normal final handoff.
+        /// </summary>
+        void SaveRollingCheckpoint()
+        {
+            if (!SessionMemories.Qualifies(_sessionUserMessages) || _conversation == null
+                || settings == null || _registry == null)
+                return;
+
+            var privacy = GetComponent<IPrivacyMode>();
+            var lines = _conversation.Lines;
+            var keepsLocal = SessionLineFilter.MustStayLocal(
+                _sessionPrivacy.KeptLocal,
+                SessionLineFilter.AnyLocalOnly(lines, _sessionStartLine),
+                IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode));
+            var providerId = PrivateChatRouting.ProviderId(keepsLocal, settings.providerId, settings.privateEndpointType);
+            if (!_registry.TryGet(providerId, out var provider))
+                return;
+
+            var messages = new List<ChatMessage>();
+            SessionLineFilter.Append(messages, lines, _sessionStartLine, keepsLocal);
+            var transcript = SessionMemories.BuildTranscript(messages, WorldPromptNow.HerName);
+            if (transcript.Length == 0)
+                return;
+
+            SessionHandoff.Save(transcript, WorldPromptNow.HerName, provider.ProviderId,
+                MemoryRuntime.Store, "a rolling checkpoint", _sessionUserMessages, keepsLocal,
+                IntimateExpressions.Active);
+        }
+
         /// <summary>Once per frame: a long pause ends the session. No allocation.</summary>
         void TickSession()
         {

@@ -558,6 +558,7 @@ namespace AICompanion.UI
                 && IntimateExpressions.Active
                 && !IntimateExpressions.Undressed
                 && ClothingIntent.RemovesClothing(text);
+            RememberExplicit(text, privateMode);
             BindSpeech();
             if (_speech != null)
             {
@@ -683,6 +684,7 @@ namespace AICompanion.UI
                 if (remember)
                 {
                     SessionReplyFinished();
+                    SaveRollingCheckpoint();
                     CaptureMemory(provider, text, result.Text, keepsLocal);
                 }
                 if (remember && ScreenLookCue.Requests(result.Text))
@@ -877,6 +879,30 @@ namespace AICompanion.UI
             director.Play(new AnimationCue(cue.Emotion, cue.Intensity, cue.Gesture, cue.Direction,
                 cue.EmotionField, "strip", cue.Landed, cue.Secret));
             Debug.Log("Clothing: forced strip because the user removed clothing and the reply had no strip cue");
+        }
+
+        /// <summary>
+        /// A direct "remember this" is stored immediately. It is a local side effect only:
+        /// the reply is not asked to announce it and no extra text is added to the model.
+        /// </summary>
+        void RememberExplicit(string text, bool privateMode)
+        {
+            string memory;
+            if (!MemoryCommands.TryExtract(text, out memory))
+                return;
+            try
+            {
+                var store = MemoryRuntime.Store;
+                if (store == null)
+                    return;
+                store.AddFact(memory, privateMode, MemoryFactExtractor.IsCoreFact(memory));
+                RelationshipTimeline.ForStore(store).AddExplicit(memory, privateMode, DateTime.UtcNow);
+                Debug.Log("Memory: explicit request stored");
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Memory: explicit request failed (" + e.GetType().Name + ")");
+            }
         }
 
         public void ShowSpeechNote(string message)

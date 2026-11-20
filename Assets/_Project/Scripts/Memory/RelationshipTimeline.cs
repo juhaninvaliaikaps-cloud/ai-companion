@@ -175,6 +175,50 @@ namespace AICompanion.Memory
             return added;
         }
 
+        /// <summary>
+        /// Stores an explicit "remember this" sentence. Unlike a session summary this is
+        /// user-requested, so it bypasses the scene filter and starts at the highest
+        /// importance.
+        /// </summary>
+        public int AddExplicit(string text, bool privateMode, DateTime nowUtc)
+        {
+            var clean = Clean(text);
+            if (clean.Length == 0 || string.IsNullOrEmpty(_path))
+                return 0;
+
+            var existing = FindSimilar(clean);
+            if (existing != null)
+            {
+                Merge(existing, clean, privateMode, nowUtc);
+                existing.importance = 5;
+                existing.source = "explicit";
+                existing.why = "The user explicitly asked her to remember this.";
+                Save();
+                return 0;
+            }
+
+            var kind = MemoryDurability.KindOf(clean);
+            _file.entries.Add(new TimelineEntry
+            {
+                id = Guid.NewGuid().ToString("N"),
+                createdAtUtc = nowUtc.ToString("o"),
+                happenedAtUtc = nowUtc.ToString("o"),
+                lastSeenAtUtc = nowUtc.ToString("o"),
+                title = TitleOf(clean),
+                summary = clean.Length > SummaryLength ? clean.Substring(0, SummaryLength).TrimEnd() : clean,
+                importance = 5,
+                kind = kind,
+                why = "The user explicitly asked her to remember this.",
+                canonicalKey = MemoryDurability.CanonicalKey(clean),
+                tags = kind,
+                source = "explicit",
+                isPrivate = privateMode,
+                evidenceCount = 1,
+            });
+            Save();
+            return 1;
+        }
+
         /// <summary>Newest first, for the Profile viewer.</summary>
         public IReadOnlyList<TimelineEntry> Page(int max)
         {
