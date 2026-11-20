@@ -28,7 +28,7 @@ namespace AICompanion.UI
         float _sessionLastMessageAt;
         bool _quitHooked;
         bool _quitAnswered;
-        bool _resumeStarted;
+        bool _resumeRunning;
 
         /// <summary>
         /// The persona text for a request: her mood line, then the lines about her own life.
@@ -107,12 +107,32 @@ namespace AICompanion.UI
         /// is already encrypted on disk; a local model can take its time now, and a timeout
         /// leaves the handoff for the next start.
         /// </summary>
-        async void ResumePendingSession()
+        public void ResumePendingSession()
         {
-            if (_resumeStarted)
+            if (_resumeRunning)
                 return;
-            _resumeStarted = true;
+            _resumeRunning = true;
+            ResumePendingSessionNow();
+        }
 
+        async void ResumePendingSessionNow()
+        {
+            try
+            {
+                await ResumePendingSessionCore();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Session handoff: finish failed (" + e.GetType().Name + "); keeping it pending.");
+            }
+            finally
+            {
+                _resumeRunning = false;
+            }
+        }
+
+        async System.Threading.Tasks.Task ResumePendingSessionCore()
+        {
             PendingSession pending;
             try
             {
@@ -139,27 +159,24 @@ namespace AICompanion.UI
                 return;
             }
 
-            try
-            {
-                var store = MemoryStore.Load(pending.memoryPath);
-                var stored = await SessionMemories.CaptureAsync(
-                    provider, pending.transcript, pending.herName, pending.userMessages,
-                    pending.keepsLocal, pending.intimateActive, store,
-                    SessionMemories.DefaultTimeoutSeconds, CancellationToken.None, false);
+            Debug.Log("Session handoff: provider=" + provider.ProviderId + " localModel="
+                + (settings != null ? settings.localModel : string.Empty));
 
-                Debug.Log("Session handoff: finished " + pending.why + " with " + stored.Memories.Count + " memories");
-                var timeline = RelationshipTimeline.ForStore(store);
-                var added = timeline.AddSession(stored.Memories, pending.keepsLocal, DateTime.UtcNow, store);
-                if (added > 0)
-                    Debug.Log("Relationship timeline: " + added + " entry recovered from the handoff");
+            var store = MemoryStore.Load(pending.memoryPath);
+            var stored = await SessionMemories.CaptureAsync(
+                provider, pending.transcript, pending.herName, pending.userMessages,
+                pending.keepsLocal, pending.intimateActive, store,
+                SessionMemories.DefaultTimeoutSeconds, CancellationToken.None, false);
 
-                if (stored.Answered)
-                    SessionHandoff.Clear(pending);
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning("Session handoff: finish failed (" + e.GetType().Name + "); keeping it pending.");
-            }
+            Debug.Log("Session handoff: finished " + pending.why + " with " + stored.Memories.Count + " memories (answered=" + stored.Answered + ")");
+
+            var timeline = RelationshipTimeline.ForStore(store);
+            var added = timeline.AddSession(stored.Memories, pending.keepsLocal, DateTime.UtcNow, store);
+            if (added > 0)
+                Debug.Log("Relationship timeline: " + added + " entry recovered from the handoff");
+
+            if (stored.Answered)
+                SessionHandoff.Clear(pending);
         }
 
         /// <summary>Once per frame: a long pause ends the session. No allocation.</summary>

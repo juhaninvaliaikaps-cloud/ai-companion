@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AICompanion.AI;
 using AICompanion.Core;
+using UnityEngine;
 
 namespace AICompanion.Memory
 {
@@ -264,20 +265,25 @@ namespace AICompanion.Memory
                     {
                         linked.Cancel();
                         call.ContinueWith(t => { var ignored = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
+                        Debug.LogWarning("Session memories: timed out after " + timeoutSeconds.ToString("0") + "s");
                         return capture;
                     }
 
                     reply = await call;
                     linked.Cancel();
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
+                    Debug.LogWarning("Session memories: provider call failed (" + e.GetType().Name + ")");
                     return capture;
                 }
             }
 
             if (!reply.Ok)
+            {
+                Debug.LogWarning("Session memories: provider reply failed (" + reply.Error + "): " + reply.LogMessage);
                 return capture;
+            }
 
             capture.Answered = true;
             var memories = Parse(reply.Text);

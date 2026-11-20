@@ -175,7 +175,9 @@ namespace AICompanion.UI
             _visible = PlayerPrefs.GetInt(OpenPref, 1) != 0;
             BuildUi();
             SetVisible(_visible, false);
-            ResumePendingSession();
+            // SettingsApplicator may start after ChatPanel. Give it the first few seconds
+            // before reading the handoff, otherwise the local provider still has the default model.
+            Invoke(nameof(ResumePendingSession), 5f);
         }
 
         void Start()
