@@ -20,6 +20,7 @@ namespace AICompanion.Memory
         public string title = string.Empty;
         public string summary = string.Empty;
         public int importance = 2;
+        public int confidence = 60;
         public string kind = "event";
         public string why = string.Empty;
         public string canonicalKey = string.Empty;
@@ -120,7 +121,8 @@ namespace AICompanion.Memory
         /// were added. Existing identical summaries are skipped, so a retry cannot duplicate
         /// a session.
         /// </summary>
-        public int AddSession(IReadOnlyList<string> summaries, bool privateMode, DateTime nowUtc, MemoryStore existingFacts = null)
+        public int AddSession(IReadOnlyList<string> summaries, bool privateMode, DateTime nowUtc, MemoryStore existingFacts = null,
+            IReadOnlyList<SessionMemory> details = null)
         {
             if (summaries == null || summaries.Count == 0 || string.IsNullOrEmpty(_path))
                 return 0;
@@ -133,10 +135,16 @@ namespace AICompanion.Memory
                 if (clean.Length == 0 || !MemoryDurability.IsDurable(clean))
                     continue;
 
+                var detail = details != null && i < details.Count ? details[i] : null;
+                var kind = detail != null && detail.HasMetadata ? detail.Kind : MemoryDurability.KindOf(clean);
+                var importance = detail != null && detail.HasMetadata ? detail.Importance : ImportanceOf(clean, kind);
+                var confidence = detail != null && detail.HasMetadata ? detail.Confidence : 60;
+
                 var existing = FindSimilar(clean);
                 if (existing != null)
                 {
                     Merge(existing, clean, privateMode, nowUtc);
+                    existing.confidence = Math.Max(existing.confidence, confidence);
                     updated++;
                     continue;
                 }
@@ -144,7 +152,6 @@ namespace AICompanion.Memory
                 if (CoveredByFact(clean, existingFacts))
                     continue;
 
-                var kind = MemoryDurability.KindOf(clean);
                 _file.entries.Add(new TimelineEntry
                 {
                     id = Guid.NewGuid().ToString("N"),
@@ -153,7 +160,8 @@ namespace AICompanion.Memory
                     lastSeenAtUtc = nowUtc.ToString("o"),
                     title = TitleOf(clean),
                     summary = clean.Length > SummaryLength ? clean.Substring(0, SummaryLength).TrimEnd() : clean,
-                    importance = ImportanceOf(clean, kind),
+                    importance = importance,
+                    confidence = confidence,
                     kind = kind,
                     why = MemoryDurability.Why(kind),
                     canonicalKey = MemoryDurability.CanonicalKey(clean),
@@ -191,6 +199,7 @@ namespace AICompanion.Memory
             {
                 Merge(existing, clean, privateMode, nowUtc);
                 existing.importance = 5;
+                existing.confidence = 100;
                 existing.source = "explicit";
                 existing.why = "The user explicitly asked her to remember this.";
                 Save();
@@ -207,6 +216,7 @@ namespace AICompanion.Memory
                 title = TitleOf(clean),
                 summary = clean.Length > SummaryLength ? clean.Substring(0, SummaryLength).TrimEnd() : clean,
                 importance = 5,
+                confidence = 100,
                 kind = kind,
                 why = "The user explicitly asked her to remember this.",
                 canonicalKey = MemoryDurability.CanonicalKey(clean),
@@ -278,7 +288,8 @@ namespace AICompanion.Memory
                     ? Math.Max(0d, (now - happened.ToUniversalTime()).TotalDays)
                     : 365d;
                 var recency = Math.Max(0d, 1d - ageDays / 60d);
-                var score = matches * 3f + entry.importance * 0.4f + (float)recency;
+                var confidence = entry.confidence > 0 ? entry.confidence / 100f : 0.6f;
+                var score = matches * 3f + entry.importance * 0.4f + (float)recency + confidence * 0.3f;
                 scored.Add(new ScoredEntry { Entry = entry, Score = score });
             }
 
@@ -344,12 +355,73 @@ namespace AICompanion.Memory
             for (var i = 0; i < parts.Length; i++)
             {
                 var part = parts[i].Trim();
-                if (part.Length >= 4 && seen.Add(part))
-                    tokens.Add(part);
+                if (part.Length < 4)
+                    continue;
+                AddToken(tokens, seen, part);
+                AddToken(tokens, seen, Stem(part));
+                AddConcepts(tokens, seen, part);
             }
 
             return tokens;
         }
+
+        static void AddToken(List<string> tokens, HashSet<string> seen, string token)
+        {
+            if (token.Length >= 4 && seen.Add(token))
+                tokens.Add(token);
+        }
+
+        static void AddConcepts(List<string> tokens, HashSet<string> seen, string word)
+        {
+            foreach (var pair in Concepts)
+            {
+                var hit = string.Equals(pair.Key, word, StringComparison.Ordinal);
+                if (!hit)
+                {
+                    for (var i = 0; i < pair.Value.Length; i++)
+                    {
+                        if (string.Equals(pair.Value[i], word, StringComparison.Ordinal))
+                        {
+                            hit = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!hit)
+                    continue;
+                AddToken(tokens, seen, pair.Key);
+                for (var i = 0; i < pair.Value.Length; i++)
+                    AddToken(tokens, seen, pair.Value[i]);
+            }
+        }
+
+        static string Stem(string word)
+        {
+            if (word.Length > 7 && word.EndsWith("ing", StringComparison.Ordinal))
+                return word.Substring(0, word.Length - 3);
+            if (word.Length > 5 && word.EndsWith("ed", StringComparison.Ordinal))
+                return word.Substring(0, word.Length - 2);
+            if (word.Length > 4 && word.EndsWith("s", StringComparison.Ordinal)
+                && !word.EndsWith("ss", StringComparison.Ordinal))
+                return word.Substring(0, word.Length - 1);
+            return word;
+        }
+
+        static readonly Dictionary<string, string[]> Concepts = new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            { "family", new[] { "sister", "brother", "mother", "father", "parent", "relative", "sibling" } },
+            { "work", new[] { "job", "career", "office", "boss", "colleague", "project" } },
+            { "afraid", new[] { "scared", "fear", "anxious", "nervous", "worried" } },
+            { "angry", new[] { "annoyed", "mad", "furious", "upset", "irritated" } },
+            { "happy", new[] { "glad", "joy", "cheerful", "smile", "delighted" } },
+            { "promise", new[] { "promised", "vow", "agreed", "commitment" } },
+            { "boundary", new[] { "limit", "trigger", "uncomfortable", "dislike", "warning" } },
+            { "home", new[] { "house", "apartment", "flat", "lives", "lived" } },
+            { "travel", new[] { "trip", "visit", "holiday", "vacation", "away" } },
+            { "health", new[] { "sick", "illness", "doctor", "hospital", "pain" } },
+            { "loss", new[] { "died", "death", "grief", "funeral", "gone" } },
+        };
 
         struct ScoredEntry
         {
@@ -398,6 +470,7 @@ namespace AICompanion.Memory
             existing.lastSeenAtUtc = nowUtc.ToString("o");
             existing.evidenceCount++;
             existing.isPrivate = existing.isPrivate || privateMode;
+            existing.confidence = Math.Max(existing.confidence, 60);
 
             var kind = MemoryDurability.KindOf(candidate);
             if (ImportanceOf(candidate, kind) > existing.importance)

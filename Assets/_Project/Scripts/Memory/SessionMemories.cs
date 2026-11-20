@@ -14,11 +14,29 @@ namespace AICompanion.Memory
     {
         public readonly List<string> Memories = new List<string>();
 
+        /// <summary>Optional model-assigned type, importance and confidence, parallel to Memories.</summary>
+        public readonly List<SessionMemory> Details = new List<SessionMemory>();
+
         /// <summary>True when the provider returned a usable reply, even if every line was filtered.</summary>
         public bool Answered;
 
         /// <summary>A new open thread in her own life (JUH-117 <see cref="WorldThreads"/>), or null.</summary>
         public MemoryEntry Thread;
+    }
+
+    /// <summary>One parsed session line, with optional model metadata (JUH-134).</summary>
+    public sealed class SessionMemory
+    {
+        public string Text = string.Empty;
+        public string Kind = string.Empty;
+        public int Importance;
+        public int Confidence;
+        public bool HasMetadata;
+
+        public bool IsValid
+        {
+            get { return !string.IsNullOrWhiteSpace(Text); }
+        }
     }
 
     /// <summary>
@@ -85,7 +103,8 @@ namespace AICompanion.Memory
             "You write what a desktop companion will remember from one conversation with the user. " +
             "Read the conversation and reply with 1 to 3 short lines, one memory per line, nothing else.\n" +
             "Rules:\n" +
-            "- Put each memory on its own line. Each line is one full sentence in the third person about what happened, starting with \"The user\" or with her name. Past tense.\n" +
+            "- Put each memory on its own line. Start it with a metadata tag: [type|importance|confidence] then the sentence. type is fact, preference, boundary, promise, event, relationship or thread. importance is 1 to 5; confidence is 0 to 100. Example: [promise|5|95] The user promised to visit on Sunday. If you are unsure, omit the tag; the app will infer one.\n" +
+            "- Each line is one full sentence in the third person about what happened, starting with \"The user\" or with her name. Past tense.\n" +
             "- Call the user \"the user\" and \"they\". Never guess their gender or name.\n" +
             "- Keep only what she would still care about next week: something the user told her about their life, something they did or decided together, a promise, a joke they shared, or a lasting change in how close they are.\n" +
             "- Name the concrete thing: the person, event, promise, preference or boundary. Never write \"something\", \"a moment\", \"an experience\" or \"what happened\" without naming it. A vague line is worse than no line.\n" +
@@ -196,24 +215,113 @@ namespace AICompanion.Memory
         /// </summary>
         public static List<string> Parse(string reply)
         {
+            var details = ParseDetailed(reply);
             var result = new List<string>();
+            for (var i = 0; i < details.Count; i++)
+                result.Add(details[i].Text);
+            return result;
+        }
+
+        /// <summary>
+        /// Parses the optional [type|importance|confidence] prefix. A model that omits it still
+        /// produces a usable line; the timeline falls back to its local classifier.
+        /// </summary>
+        public static List<SessionMemory> ParseDetailed(string reply)
+        {
+            var result = new List<SessionMemory>();
             if (string.IsNullOrWhiteSpace(reply))
                 return result;
             var lines = WithoutObject(reply).Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
             for (var i = 0; i < lines.Length && result.Count < MaxMemories; i++)
             {
-                var line = Clean(lines[i]);
-                if (line.Length < 12 || line.EndsWith(":", StringComparison.Ordinal) || line.IndexOf('<') >= 0
-                    || line.IndexOf('{') >= 0 || line.IndexOf('}') >= 0 || line.IndexOf("newThread", StringComparison.OrdinalIgnoreCase) >= 0
-                    || line.StartsWith("`", StringComparison.Ordinal))
+                var parsed = ParseLine(lines[i]);
+                if (parsed == null || !parsed.IsValid)
                     continue;
-                if (line.Length > MaxMemoryLength)
-                    line = line.Substring(0, MaxMemoryLength).TrimEnd();
-                if (!result.Contains(line))
-                    result.Add(line);
+                var duplicate = false;
+                for (var j = 0; j < result.Count; j++)
+                {
+                    if (string.Equals(result[j].Text, parsed.Text, StringComparison.OrdinalIgnoreCase))
+                    {
+                        duplicate = true;
+                        break;
+                    }
+                }
+
+                if (!duplicate)
+                    result.Add(parsed);
             }
 
             return result;
+        }
+
+        static SessionMemory ParseLine(string raw)
+        {
+            var line = Clean(raw);
+            if (line.Length == 0)
+                return null;
+
+            var memory = new SessionMemory();
+            if (line[0] == '[')
+            {
+                var end = line.IndexOf(']');
+                if (end > 1)
+                {
+                    var tag = line.Substring(1, end - 1);
+                    var body = line.Substring(end + 1).Trim();
+                    ApplyTag(memory, tag);
+                    line = body;
+                }
+            }
+
+            if (line.Length < 12 || line.EndsWith(":", StringComparison.Ordinal) || line.IndexOf('<') >= 0
+                || line.IndexOf('{') >= 0 || line.IndexOf('}') >= 0 || line.IndexOf("newThread", StringComparison.OrdinalIgnoreCase) >= 0
+                || line.StartsWith("`", StringComparison.Ordinal))
+                return null;
+            if (line.Length > MaxMemoryLength)
+                line = line.Substring(0, MaxMemoryLength).TrimEnd();
+            memory.Text = line;
+            return memory;
+        }
+
+        static void ApplyTag(SessionMemory memory, string tag)
+        {
+            var parts = (tag ?? string.Empty).Split('|');
+            if (parts.Length == 0)
+                return;
+            var kind = NormalizeKind(parts[0]);
+            var importance = 0;
+            var confidence = 0;
+            var ok = !string.IsNullOrEmpty(kind);
+            if (parts.Length > 1)
+                ok &= int.TryParse(parts[1], out importance) && importance >= 1 && importance <= 5;
+            if (parts.Length > 2)
+                ok &= int.TryParse(parts[2], out confidence) && confidence >= 0 && confidence <= 100;
+            if (!ok)
+                return;
+            memory.Kind = kind;
+            memory.Importance = importance;
+            memory.Confidence = confidence;
+            memory.HasMetadata = true;
+        }
+
+        static string NormalizeKind(string value)
+        {
+            var kind = (value ?? string.Empty).Trim().ToLowerInvariant();
+            switch (kind)
+            {
+                case "fact": return MemoryDurability.Fact;
+                case "preference": return MemoryDurability.Preference;
+                case "boundary": return MemoryDurability.Boundary;
+                case "promise": return MemoryDurability.Promise;
+                case "event": return MemoryDurability.Event;
+                case "relationship":
+                case "relationship_change":
+                    return MemoryDurability.RelationshipChange;
+                case "thread":
+                case "open_thread":
+                    return MemoryDurability.OpenThread;
+                default: return string.Empty;
+            }
         }
 
         static string Clean(string line)
@@ -288,16 +396,20 @@ namespace AICompanion.Memory
             }
 
             capture.Answered = true;
-            var memories = Parse(reply.Text);
+            var memories = ParseDetailed(reply.Text);
             var now = DateTime.UtcNow;
             for (var i = 0; i < memories.Count; i++)
             {
-                if (!MemoryDurability.IsDurable(memories[i]))
+                var memory = memories[i];
+                if (memory == null || !memory.IsValid || !MemoryDurability.IsDurable(memory.Text))
                     continue;
                 var before = store.Count;
-                WorldMemory.AddShortTerm(store, memories[i], now, keepsLocal);
+                WorldMemory.AddShortTerm(store, memory.Text, now, keepsLocal);
                 if (store.Count > before)
-                    stored.Add(memories[i]);
+                {
+                    stored.Add(memory.Text);
+                    capture.Details.Add(memory);
+                }
             }
 
             if (askThread)

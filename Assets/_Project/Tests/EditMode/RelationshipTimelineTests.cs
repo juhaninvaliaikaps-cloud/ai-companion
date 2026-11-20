@@ -142,6 +142,43 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void AddSession_UsesModelMetadata_WhenPresent()
+        {
+            var path = TempFile();
+            var timeline = RelationshipTimeline.Load(path);
+            var details = new List<SessionMemory>
+            {
+                new SessionMemory
+                {
+                    Text = "The user does not want her neck touched without warning.",
+                    Kind = MemoryDurability.Boundary,
+                    Importance = 5,
+                    Confidence = 93,
+                    HasMetadata = true,
+                },
+            };
+
+            Assert.AreEqual(1, timeline.AddSession(new[] { details[0].Text },
+                false, DateTime.UtcNow, null, details));
+            var entry = timeline.Page(1)[0];
+            Assert.AreEqual(MemoryDurability.Boundary, entry.kind);
+            Assert.AreEqual(5, entry.importance);
+            Assert.AreEqual(93, entry.confidence);
+        }
+
+        [Test]
+        public void Search_ExpandsFamilyToSister()
+        {
+            var path = TempFile();
+            var timeline = RelationshipTimeline.Load(path);
+            timeline.AddSession(new[] { "The user's sister is called Anna." }, false, DateTime.UtcNow);
+
+            var hits = timeline.Search("What do you know about my family?", 3, true);
+            Assert.AreEqual(1, hits.Count);
+            Assert.AreEqual("The user's sister is called Anna.", hits[0].summary);
+        }
+
+        [Test]
         public void AddExplicit_StoresAnImmediateHighImportanceRow()
         {
             var path = TempFile();

@@ -171,7 +171,7 @@ namespace AICompanion.UI
             Debug.Log("Session handoff: finished " + pending.why + " with " + stored.Memories.Count + " memories (answered=" + stored.Answered + ")");
 
             var timeline = RelationshipTimeline.ForStore(store);
-            var added = timeline.AddSession(stored.Memories, pending.keepsLocal, DateTime.UtcNow, store);
+            var added = timeline.AddSession(stored.Memories, pending.keepsLocal, DateTime.UtcNow, store, stored.Details);
             if (added > 0)
                 Debug.Log("Relationship timeline: " + added + " entry recovered from the handoff");
 
@@ -326,7 +326,7 @@ namespace AICompanion.UI
                 // JUH-134: the session summary is not enough on its own; keep a dated
                 // relationship entry that Pisara reseeding and the short-term fade cannot remove.
                 var timeline = RelationshipTimeline.ForStore(store);
-                var timelineAdded = timeline.AddSession(stored.Memories, keepsLocal, DateTime.UtcNow, store);
+                var timelineAdded = timeline.AddSession(stored.Memories, keepsLocal, DateTime.UtcNow, store, stored.Details);
                 if (timelineAdded > 0)
                     Debug.Log("Relationship timeline: " + timelineAdded + " entry added after " + why);
 
