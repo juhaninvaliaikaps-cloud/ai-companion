@@ -33,6 +33,13 @@ namespace AICompanion.Memory
         public int evidenceCount = 1;
         public string lastSeenAtUtc = string.Empty;
 
+        /// <summary>JUH-141: the sentence before the last correction, and when it was corrected.</summary>
+        public string previousSummary = string.Empty;
+        public string updatedAtUtc = string.Empty;
+
+        /// <summary>JUH-141: when a session summary closed this promise or thread.</summary>
+        public string resolvedAtUtc = string.Empty;
+
         public bool IsValid
         {
             get { return !string.IsNullOrWhiteSpace(id) && !string.IsNullOrWhiteSpace(summary); }
@@ -181,6 +188,91 @@ namespace AICompanion.Memory
             }
 
             return added;
+        }
+
+        /// <summary>What <see cref="ApplySession"/> changed.</summary>
+        public struct SessionResult
+        {
+            public int Added;
+            public int Updated;
+            public int Resolved;
+        }
+
+        /// <summary>
+        /// JUH-141: applies a whole session summary: new lines (<see cref="AddSession"/>), then
+        /// the corrections ("update m1: …") and the closed promises and threads ("resolved m2").
+        /// A correction must itself be a durable, concrete sentence; it keeps the entry's id and
+        /// date, remembers the old sentence, and counts as one more mention. A correction made in
+        /// a private session makes the entry private.
+        /// </summary>
+        public SessionResult ApplySession(SessionCapture capture, bool privateMode, DateTime nowUtc, MemoryStore existingFacts = null)
+        {
+            var result = new SessionResult();
+            if (capture == null || string.IsNullOrEmpty(_path))
+                return result;
+            result.Added = AddSession(capture.Memories, privateMode, nowUtc, existingFacts, capture.Details);
+
+            var changed = false;
+            var now = nowUtc.ToString("o");
+            for (var i = 0; i < capture.Updates.Count; i++)
+            {
+                var update = capture.Updates[i];
+                var entry = FindById(update.EntryId);
+                var text = update.Memory != null ? Clean(update.Memory.Text) : string.Empty;
+                if (entry == null || text.Length == 0 || !MemoryDurability.IsDurable(text))
+                    continue;
+                if (string.Equals(text, entry.summary, StringComparison.Ordinal))
+                    continue;
+                entry.previousSummary = entry.summary;
+                entry.summary = text.Length > SummaryLength ? text.Substring(0, SummaryLength).TrimEnd() : text;
+                entry.title = TitleOf(entry.summary);
+                entry.canonicalKey = MemoryDurability.CanonicalKey(entry.summary);
+                if (update.Memory.HasMetadata)
+                {
+                    entry.kind = update.Memory.Kind;
+                    entry.importance = update.Memory.Importance;
+                    entry.confidence = update.Memory.Confidence;
+                    entry.why = MemoryDurability.Why(entry.kind);
+                }
+
+                entry.updatedAtUtc = now;
+                entry.lastSeenAtUtc = now;
+                entry.evidenceCount = Math.Max(1, entry.evidenceCount) + 1;
+                entry.isPrivate |= privateMode;
+                entry.resolved = false;
+                result.Updated++;
+                changed = true;
+            }
+
+            for (var i = 0; i < capture.Resolved.Count; i++)
+            {
+                var entry = FindById(capture.Resolved[i]);
+                if (entry == null || entry.resolved)
+                    continue;
+                entry.resolved = true;
+                entry.resolvedAtUtc = now;
+                entry.lastSeenAtUtc = now;
+                result.Resolved++;
+                changed = true;
+            }
+
+            if (changed)
+                Save();
+            return result;
+        }
+
+        TimelineEntry FindById(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                return null;
+            for (var i = 0; i < _file.entries.Count; i++)
+            {
+                var entry = _file.entries[i];
+                if (entry != null && string.Equals(entry.id, id, StringComparison.Ordinal))
+                    return entry;
+            }
+
+            return null;
         }
 
         /// <summary>

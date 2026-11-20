@@ -48,6 +48,15 @@ The dated timeline (JUH-134) is searched separately from the facts, by `Timeline
 - **Privacy.** Private entries never reach a cloud provider; resolved entries are not recalled.
 - **Measured.** `TimelineSearchTests` is the acceptance set: real questions and the entry each must find first, and small talk that must find nothing. Tuning has to keep it green.
 
+### Corrections, kept promises and real dates (JUH-141)
+
+The session summary used to write blind: its request is `NoMemory`, so a correction ("her sister moved from Tampere to Helsinki") became a second, contradicting entry, and a promise stayed open forever. Now `SessionMemories.CaptureAsync` shows the summary what she already remembers (`SessionKnowledge`):
+
+- **Shown:** up to 6 entries the conversation is about (ranked over the transcript, ignoring "already raised"), then open promises and threads, newest first, at most 8, as `[m1] (12.11.2026) [promise] …`. A summary going to a cloud model is never shown private entries. Plus "Today is Friday 20.11.2026", so a date is written as a date ("on Sunday 22.11.2026"), not "on Sunday". A resumed handoff uses the day the conversation happened.
+- **Answered:** `update m1: <full new sentence>` corrects an entry; `resolved m2` closes a promise or thread that was kept, done or is no longer true. These lines are never stored as new memories.
+- **Applied** by `RelationshipTimeline.ApplySession`: a correction must itself be durable and concrete (a vague line never replaces a concrete one); it keeps the entry's id and date, saves the old sentence in `previousSummary` with `updatedAtUtc`, counts as one more mention, and a correction from a private session makes the entry private. A resolved entry gets `resolvedAtUtc` and is no longer recalled. An id the summary was not shown, or an unknown one, changes nothing.
+- Not yet: the fact store (`MemoryStore`) keeps its own older facts; only the timeline is corrected.
+
 `MemoryStore.Search(query, max, includePrivate)` is keyword search: the query is lowercased, split on non-alphanumeric characters, words shorter than three characters and a small stop-word list are dropped, and every remaining token that appears in an entry scores a point. A summary scores two, because it carries more context. Ties keep the newest entry. At most eight entries come back by default.
 
 The chat path uses `MemoryStore.SearchFor(...)`, which is built on top of that:

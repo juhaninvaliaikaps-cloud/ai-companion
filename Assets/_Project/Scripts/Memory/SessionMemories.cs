@@ -22,6 +22,15 @@ namespace AICompanion.Memory
 
         /// <summary>A new open thread in her own life (JUH-117 <see cref="WorldThreads"/>), or null.</summary>
         public MemoryEntry Thread;
+
+        /// <summary>JUH-141: the memories the summary was shown (m1, m2, …).</summary>
+        public readonly List<KnownMemory> Known = new List<KnownMemory>();
+
+        /// <summary>JUH-141: entries the summary corrected ("update m1: …").</summary>
+        public readonly List<MemoryUpdate> Updates = new List<MemoryUpdate>();
+
+        /// <summary>JUH-141: entry ids the summary closed ("resolved m2").</summary>
+        public readonly List<string> Resolved = new List<string>();
     }
 
     /// <summary>One parsed session line, with optional model metadata (JUH-134).</summary>
@@ -89,7 +98,8 @@ namespace AICompanion.Memory
         public const int MaxMemories = 3;
         public const int MaxMemoryLength = 200;
         public const int MaxTranscriptCharacters = 6000;
-        public const int MaxTokens = 220;
+        /// <summary>Room for up to three memories plus a few update and resolved lines (JUH-141).</summary>
+        public const int MaxTokens = 320;
         public const float Temperature = 0.3f;
 
         /// <summary>A session ends after this long without a message.</summary>
@@ -152,10 +162,14 @@ namespace AICompanion.Memory
         /// With <paramref name="askThread"/> the request also asks for one new thread in her own
         /// life (<see cref="WorldThreads.Instruction"/>), written as a JSON object after the lines.
         /// </summary>
-        public static ChatRequest BuildRequest(string transcript, string herName, bool keepsLocal, bool intimateActive, bool askThread = false)
+        public static ChatRequest BuildRequest(string transcript, string herName, bool keepsLocal, bool intimateActive, bool askThread = false,
+            string knowledge = null)
         {
             var name = string.IsNullOrWhiteSpace(herName) ? "the companion" : herName.Trim();
             var system = SystemPrompt;
+            // JUH-141: today's date, and the memories she already has with ids to update or resolve.
+            if (!string.IsNullOrWhiteSpace(knowledge))
+                system += "\n" + knowledge;
             if (askThread)
                 system += "\n" + ThreadRule + " " + WorldThreads.Instruction;
             return new ChatRequest
@@ -234,6 +248,9 @@ namespace AICompanion.Memory
             var lines = WithoutObject(reply).Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
             for (var i = 0; i < lines.Length && result.Count < MaxMemories; i++)
             {
+                // JUH-141: "update m1: …" and "resolved m2" are changes, not new memories.
+                if (SessionKnowledge.IsChangeLine(lines[i]))
+                    continue;
                 var parsed = ParseLine(lines[i]);
                 if (parsed == null || !parsed.IsValid)
                     continue;
@@ -252,6 +269,12 @@ namespace AICompanion.Memory
             }
 
             return result;
+        }
+
+        /// <summary>JUH-141: the sentence of an "update m1: …" line, with its optional [type|importance|confidence] tag.</summary>
+        public static SessionMemory ParseLineForUpdate(string raw)
+        {
+            return ParseLine(raw);
         }
 
         static SessionMemory ParseLine(string raw)
@@ -354,7 +377,8 @@ namespace AICompanion.Memory
             MemoryStore store,
             float timeoutSeconds,
             CancellationToken cancellation,
-            bool askThread = false)
+            bool askThread = false,
+            DateTime? sessionLocalDate = null)
         {
             var capture = new SessionCapture();
             var stored = capture.Memories;
@@ -363,12 +387,18 @@ namespace AICompanion.Memory
             if (provider == null || !provider.IsConfigured || !PisaraReader.MayUse(provider, keepsLocal))
                 return capture;
 
+            // JUH-141: show the summary what she already remembers about this talk (a cloud
+            // summary sees only entries that are not private) and today's date.
+            var timeline = RelationshipTimeline.ForStore(store);
+            capture.Known.AddRange(SessionKnowledge.For(timeline.Entries, transcript, keepsLocal, DateTime.UtcNow));
+            var knowledge = SessionKnowledge.PromptBlock(capture.Known, sessionLocalDate ?? DateTime.Now);
+
             ChatResult reply;
             using (var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
             {
                 try
                 {
-                    var call = provider.StreamChat(BuildRequest(transcript, herName, keepsLocal, intimateActive, askThread), _ => { }, linked.Token);
+                    var call = provider.StreamChat(BuildRequest(transcript, herName, keepsLocal, intimateActive, askThread, knowledge), _ => { }, linked.Token);
                     var limit = Task.Delay(TimeSpan.FromSeconds(Math.Max(1f, timeoutSeconds)), linked.Token);
                     var first = await Task.WhenAny(call, limit);
                     if (first != call)
@@ -396,6 +426,7 @@ namespace AICompanion.Memory
             }
 
             capture.Answered = true;
+            SessionKnowledge.ParseChanges(reply.Text, capture.Known, capture.Updates, capture.Resolved);
             var memories = ParseDetailed(reply.Text);
             var now = DateTime.UtcNow;
             for (var i = 0; i < memories.Count; i++)
