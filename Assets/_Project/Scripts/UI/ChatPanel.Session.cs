@@ -16,7 +16,8 @@ namespace AICompanion.UI
     /// <item>A session is the messages since the last pause. When it ends (the persona is
     /// switched, ten minutes pass without a message, or the app quits) the model is asked once
     /// for one to three memories of it (<see cref="SessionMemories"/>). Sessions with fewer
-    /// than four user messages are skipped. Quitting waits a few seconds at most.</item>
+    /// than four user messages are skipped. Quitting writes an encrypted handoff first, so a
+    /// slow local model is retried on the next start instead of losing the session.</item>
     /// </list>
     /// </summary>
     public sealed partial class ChatPanel
@@ -27,6 +28,7 @@ namespace AICompanion.UI
         float _sessionLastMessageAt;
         bool _quitHooked;
         bool _quitAnswered;
+        bool _resumeStarted;
 
         /// <summary>
         /// The persona text for a request: her mood line, then the lines about her own life.
@@ -97,6 +99,66 @@ namespace AICompanion.UI
             {
                 _landingCueSerial = _exchange.CueSerial;
                 RelationshipNow.ReportReply(_exchange.LastCue);
+            }
+        }
+
+        /// <summary>
+        /// Finishes a session that the previous process had to hand over. The raw transcript
+        /// is already encrypted on disk; a local model can take its time now, and a timeout
+        /// leaves the handoff for the next start.
+        /// </summary>
+        async void ResumePendingSession()
+        {
+            if (_resumeStarted)
+                return;
+            _resumeStarted = true;
+
+            PendingSession pending;
+            try
+            {
+                pending = SessionHandoff.Load();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Session handoff: load failed (" + e.GetType().Name + ")");
+                return;
+            }
+
+            if (pending == null)
+                return;
+
+            if (_registry == null || !_registry.TryGet(pending.providerId, out var provider))
+            {
+                Debug.Log("Session handoff: waiting for provider " + pending.providerId);
+                return;
+            }
+
+            if (!PisaraReader.MayUse(provider, pending.keepsLocal))
+            {
+                Debug.Log("Session handoff: provider is not allowed for this private session; keeping it pending.");
+                return;
+            }
+
+            try
+            {
+                var store = MemoryStore.Load(pending.memoryPath);
+                var stored = await SessionMemories.CaptureAsync(
+                    provider, pending.transcript, pending.herName, pending.userMessages,
+                    pending.keepsLocal, pending.intimateActive, store,
+                    SessionMemories.DefaultTimeoutSeconds, CancellationToken.None, false);
+
+                Debug.Log("Session handoff: finished " + pending.why + " with " + stored.Memories.Count + " memories");
+                var timeline = RelationshipTimeline.ForStore(store);
+                var added = timeline.AddSession(stored.Memories, pending.keepsLocal, DateTime.UtcNow, store);
+                if (added > 0)
+                    Debug.Log("Relationship timeline: " + added + " entry recovered from the handoff");
+
+                if (stored.Answered)
+                    SessionHandoff.Clear(pending);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Session handoff: finish failed (" + e.GetType().Name + "); keeping it pending.");
             }
         }
 
@@ -189,13 +251,19 @@ namespace AICompanion.UI
             if (transcript.Length == 0)
                 return false;
 
+            // Write the handoff before the model call. A local model or a quit can miss the
+            // four-second window; the next start retries this exact session.
+            var pending = SessionHandoff.Save(
+                transcript, WorldPromptNow.HerName, provider.ProviderId, MemoryRuntime.Store,
+                why, userMessages, keepsLocal, IntimateExpressions.Active);
+
             // The store of the persona this session belongs to: after a switch MemoryRuntime.Store is another one.
-            CaptureSession(provider, transcript, WorldPromptNow.HerName, userMessages, keepsLocal, MemoryRuntime.Store, timeoutSeconds, why, done);
+            CaptureSession(provider, transcript, WorldPromptNow.HerName, userMessages, keepsLocal, MemoryRuntime.Store, timeoutSeconds, why, pending, done);
             return true;
         }
 
         async void CaptureSession(IChatProvider provider, string transcript, string herName, int userMessages, bool keepsLocal,
-            MemoryStore store, float timeoutSeconds, string why, Action done)
+            MemoryStore store, float timeoutSeconds, string why, PendingSession pending, Action done)
         {
             try
             {
@@ -209,9 +277,13 @@ namespace AICompanion.UI
                 // JUH-134: the session summary is not enough on its own; keep a dated
                 // relationship entry that Pisara reseeding and the short-term fade cannot remove.
                 var timeline = RelationshipTimeline.ForStore(store);
-                var timelineAdded = timeline.AddSession(stored.Memories, keepsLocal, DateTime.UtcNow);
+                var timelineAdded = timeline.AddSession(stored.Memories, keepsLocal, DateTime.UtcNow, store);
                 if (timelineAdded > 0)
                     Debug.Log("Relationship timeline: " + timelineAdded + " entry added after " + why);
+
+                // Only a real answer clears the handoff. A timeout stays pending for startup.
+                if (stored.Answered)
+                    SessionHandoff.Clear(pending);
             }
             catch (Exception e)
             {

@@ -13,6 +13,9 @@ namespace AICompanion.Memory
     {
         public readonly List<string> Memories = new List<string>();
 
+        /// <summary>True when the provider returned a usable reply, even if every line was filtered.</summary>
+        public bool Answered;
+
         /// <summary>A new open thread in her own life (JUH-117 <see cref="WorldThreads"/>), or null.</summary>
         public MemoryEntry Thread;
     }
@@ -73,7 +76,7 @@ namespace AICompanion.Memory
         /// <summary>A session ends after this long without a message.</summary>
         public const float IdleSeconds = 600f;
 
-        /// <summary>On quit the model gets this long; after that the memories are skipped.</summary>
+        /// <summary>On quit the model gets this long; if it misses, the handoff is retried on the next start.</summary>
         public const float QuitTimeoutSeconds = 4f;
         public const float DefaultTimeoutSeconds = 90f;
 
@@ -83,8 +86,10 @@ namespace AICompanion.Memory
             "Rules:\n" +
             "- Put each memory on its own line. Each line is one full sentence in the third person about what happened, starting with \"The user\" or with her name. Past tense.\n" +
             "- Call the user \"the user\" and \"they\". Never guess their gender or name.\n" +
-            "- Keep what she would still care about next week: something the user told her about their life, something they did or decided together, a promise, a joke they shared, how the talk left her feeling.\n" +
-            "- One line when little happened, three only when three different things matter. No greetings, no small talk, nothing about how she speaks, and nothing about the user arriving, leaving or coming back.\n" +
+            "- Keep only what she would still care about next week: something the user told her about their life, something they did or decided together, a promise, a joke they shared, or a lasting change in how close they are.\n" +
+            "- Do not write a passing feeling, a physical reaction, a gesture, or a description of the scene. \"She trembled\" and \"the room went quiet\" are not memories. A feeling is allowed only when it reveals a lasting trigger, preference or boundary.\n" +
+            "- Do not repeat something already known about the user or already in her memories. One clear durable line is better than three overlapping ones.\n" +
+            "- No greetings, no small talk, nothing about how she speaks, and nothing about the user arriving, leaving or coming back.\n" +
             "- Only what the user actually said or did. A question she asked is not something the user did.\n" +
             "- Only what is in the conversation. Invent nothing: no trips, plans or reasons the user did not mention. If she guessed something about the user, it is not a memory.\n" +
             "- No numbering, no bullets, no quotes, no tags, no text before or after the lines.";
@@ -274,10 +279,13 @@ namespace AICompanion.Memory
             if (!reply.Ok)
                 return capture;
 
+            capture.Answered = true;
             var memories = Parse(reply.Text);
             var now = DateTime.UtcNow;
             for (var i = 0; i < memories.Count; i++)
             {
+                if (!MemoryDurability.IsDurable(memories[i]))
+                    continue;
                 var before = store.Count;
                 WorldMemory.AddShortTerm(store, memories[i], now, keepsLocal);
                 if (store.Count > before)

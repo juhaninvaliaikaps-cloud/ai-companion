@@ -48,6 +48,7 @@ namespace AICompanion.Settings
                 // JUH-134: the relationship timeline is a separate file, so Start over
                 // must clear it explicitly as well.
                 RelationshipTimeline.ForStore(store).Clear();
+                SessionHandoff.ClearAll();
             }
             catch (Exception e)
             {

@@ -175,6 +175,7 @@ namespace AICompanion.UI
             _visible = PlayerPrefs.GetInt(OpenPref, 1) != 0;
             BuildUi();
             SetVisible(_visible, false);
+            ResumePendingSession();
         }
 
         void Start()

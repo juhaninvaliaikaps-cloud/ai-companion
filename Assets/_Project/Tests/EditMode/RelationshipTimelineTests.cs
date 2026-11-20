@@ -76,16 +76,55 @@ namespace AICompanion.Tests.EditMode
         {
             var path = TempFile();
             var timeline = RelationshipTimeline.Load(path);
-            timeline.AddSession(new[] { "Older entry." }, false, new DateTime(2026, 11, 18, 10, 0, 0, DateTimeKind.Utc));
-            timeline.AddSession(new[] { "Newer entry." }, true, new DateTime(2026, 11, 20, 10, 0, 0, DateTimeKind.Utc));
+            timeline.AddSession(new[] { "The user's sister is called Anna." }, false, new DateTime(2026, 11, 18, 10, 0, 0, DateTimeKind.Utc));
+            timeline.AddSession(new[] { "The user promised to visit on Sunday." }, true, new DateTime(2026, 11, 20, 10, 0, 0, DateTimeKind.Utc));
 
             var page = timeline.Page(10);
             Assert.AreEqual(2, page.Count);
-            Assert.AreEqual("Newer entry.", page[0].summary);
+            Assert.AreEqual("The user promised to visit on Sunday.", page[0].summary);
             Assert.IsTrue(page[0].isPrivate);
-            Assert.AreEqual("Older entry.", page[1].summary);
+            Assert.AreEqual("The user's sister is called Anna.", page[1].summary);
             Assert.AreEqual(2, timeline.Clear());
             Assert.AreEqual(0, RelationshipTimeline.Load(path).Count);
+        }
+
+        [Test]
+        public void AddSession_DropsSceneState_AndKeepsTheDurablePart()
+        {
+            var path = TempFile();
+            var timeline = RelationshipTimeline.Load(path);
+            var added = timeline.AddSession(new[]
+            {
+                "She trembled when he touched her neck.",
+                "The user's sister is called Anna.",
+                "The room went quiet after the kiss.",
+                "She does not want her neck touched without warning.",
+            }, false, DateTime.UtcNow);
+
+            Assert.AreEqual(2, added);
+            var page = timeline.Page(10);
+            Assert.AreEqual(2, page.Count);
+            var kinds = new List<string>();
+            for (var i = 0; i < page.Count; i++)
+                kinds.Add(page[i].kind);
+            CollectionAssert.Contains(kinds, MemoryDurability.Boundary);
+            CollectionAssert.Contains(kinds, MemoryDurability.Fact);
+            for (var i = 0; i < page.Count; i++)
+                Assert.IsFalse(string.IsNullOrEmpty(page[i].why));
+        }
+
+        [Test]
+        public void AddSession_SkipsAnEntryAlreadyCoveredByAStoredFact()
+        {
+            var path = TempFile();
+            var memory = MemoryStore.Load(Path.Combine(Path.GetTempPath(), "memory-" + Guid.NewGuid().ToString("N") + ".json"));
+            _cleanup.Add(memory.Path);
+            memory.AddFact("The user's sister is called Anna.", false);
+            var timeline = RelationshipTimeline.Load(path);
+
+            var added = timeline.AddSession(new[] { "The user's sister is called Anna." }, false, DateTime.UtcNow, memory);
+            Assert.AreEqual(0, added);
+            Assert.AreEqual(0, timeline.Count);
         }
 
         [Test]

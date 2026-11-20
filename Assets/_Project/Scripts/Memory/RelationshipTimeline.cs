@@ -20,6 +20,9 @@ namespace AICompanion.Memory
         public string title = string.Empty;
         public string summary = string.Empty;
         public int importance = 2;
+        public string kind = "event";
+        public string why = string.Empty;
+        public string canonicalKey = string.Empty;
         public string tags = string.Empty;
         public string source = "session";
         public bool isPrivate;
@@ -112,7 +115,7 @@ namespace AICompanion.Memory
         /// were added. Existing identical summaries are skipped, so a retry cannot duplicate
         /// a session.
         /// </summary>
-        public int AddSession(IReadOnlyList<string> summaries, bool privateMode, DateTime nowUtc)
+        public int AddSession(IReadOnlyList<string> summaries, bool privateMode, DateTime nowUtc, MemoryStore existingFacts = null)
         {
             if (summaries == null || summaries.Count == 0 || string.IsNullOrEmpty(_path))
                 return 0;
@@ -121,9 +124,10 @@ namespace AICompanion.Memory
             for (var i = 0; i < summaries.Count; i++)
             {
                 var clean = Clean(summaries[i]);
-                if (clean.Length == 0 || Duplicate(clean))
+                if (clean.Length == 0 || !MemoryDurability.IsDurable(clean) || Duplicate(clean, existingFacts))
                     continue;
 
+                var kind = MemoryDurability.KindOf(clean);
                 _file.entries.Add(new TimelineEntry
                 {
                     id = Guid.NewGuid().ToString("N"),
@@ -131,8 +135,11 @@ namespace AICompanion.Memory
                     happenedAtUtc = nowUtc.ToString("o"),
                     title = TitleOf(clean),
                     summary = clean.Length > SummaryLength ? clean.Substring(0, SummaryLength).TrimEnd() : clean,
-                    importance = ImportanceOf(clean),
-                    tags = "session",
+                    importance = ImportanceOf(clean, kind),
+                    kind = kind,
+                    why = MemoryDurability.Why(kind),
+                    canonicalKey = MemoryDurability.CanonicalKey(clean),
+                    tags = kind,
                     source = "session",
                     isPrivate = privateMode,
                 });
@@ -207,13 +214,23 @@ namespace AICompanion.Memory
             }
         }
 
-        bool Duplicate(string summary)
+        bool Duplicate(string summary, MemoryStore existingFacts)
         {
             for (var i = 0; i < _file.entries.Count; i++)
             {
                 var entry = _file.entries[i];
-                if (entry != null && string.Equals(entry.summary, summary, StringComparison.OrdinalIgnoreCase))
+                if (entry != null && MemoryDurability.Similar(entry.summary, summary))
                     return true;
+            }
+
+            if (existingFacts != null)
+            {
+                for (var i = 0; i < existingFacts.Count; i++)
+                {
+                    var fact = existingFacts.Entries[i];
+                    if (fact != null && fact.kind == MemoryKind.Fact && MemoryDurability.Similar(fact.text, summary))
+                        return true;
+                }
             }
 
             return false;
@@ -243,15 +260,12 @@ namespace AICompanion.Memory
             return line.Substring(0, cut).TrimEnd() + "…";
         }
 
-        static int ImportanceOf(string summary)
+        static int ImportanceOf(string summary, string kind)
         {
-            var lower = summary.ToLowerInvariant();
-            if (lower.IndexOf("promise", StringComparison.Ordinal) >= 0
-                || lower.IndexOf("remember", StringComparison.Ordinal) >= 0
-                || lower.IndexOf("boundary", StringComparison.Ordinal) >= 0
-                || lower.IndexOf("family", StringComparison.Ordinal) >= 0
-                || lower.IndexOf("never forget", StringComparison.Ordinal) >= 0)
+            if (kind == MemoryDurability.Boundary || kind == MemoryDurability.Promise)
                 return 4;
+            if (kind == MemoryDurability.RelationshipChange || kind == MemoryDurability.OpenThread)
+                return 3;
             return summary.Length > 140 ? 3 : 2;
         }
     }

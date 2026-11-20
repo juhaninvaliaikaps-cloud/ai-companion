@@ -596,7 +596,9 @@ namespace AICompanion.NewUI.Wheel
                 var when = DateTime.TryParse(entry.happenedAtUtc, out at)
                     ? at.ToLocalTime().ToString("d.M.yyyy")
                     : string.Empty;
-                data.Timeline.Add((when.Length > 0 ? when + " — " : string.Empty) + entry.summary);
+                var kind = MemoryDurability.KindLabel(entry.kind);
+                data.Timeline.Add((when.Length > 0 ? when + " — " : string.Empty)
+                    + "[" + kind + "] " + entry.summary);
             }
             return data;
         }
