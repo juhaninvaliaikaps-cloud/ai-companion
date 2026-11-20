@@ -35,6 +35,7 @@ namespace AICompanion.Core
                 || IsMemoryName(rel)
                 || IsTimelineName(rel)
                 || IsPendingSessionName(rel)
+                || IsBackupName(rel)
                 || IsHistoryName(rel)
                 || IsMoodName(rel)
                 || IsRelationshipName(rel)
@@ -92,6 +93,12 @@ namespace AICompanion.Core
         public static bool IsPendingSessionName(string fileName)
         {
             return string.Equals(Normalize(fileName), "pending-session.json", StringComparison.Ordinal);
+        }
+
+        /// <summary>A pre-cleanup copy of a private file (JUH-134).</summary>
+        public static bool IsBackupName(string fileName)
+        {
+            return Normalize(fileName).EndsWith(".before-cleanup", StringComparison.Ordinal);
         }
 
         /// <summary>Her mood per persona (JUH-103): mood.json and mood-&lt;persona&gt;.json.</summary>

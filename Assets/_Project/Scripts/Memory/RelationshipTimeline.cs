@@ -454,6 +454,28 @@ namespace AICompanion.Memory
             return removed;
         }
 
+        /// <summary>
+        /// Explicit old-data cleanup: drops entries that are only vague scene summaries and
+        /// merges near-duplicates. Returns the number removed.
+        /// </summary>
+        public int Cleanup()
+        {
+            var removed = 0;
+            for (var i = _file.entries.Count - 1; i >= 0; i--)
+            {
+                var entry = _file.entries[i];
+                if (entry == null || MemoryDurability.IsVague(entry.summary))
+                {
+                    _file.entries.RemoveAt(i);
+                    removed++;
+                }
+            }
+
+            if (removed > 0)
+                Save();
+            return removed + Consolidate();
+        }
+
         static bool CoveredByFact(string summary, MemoryStore store)
         {
             if (store == null)

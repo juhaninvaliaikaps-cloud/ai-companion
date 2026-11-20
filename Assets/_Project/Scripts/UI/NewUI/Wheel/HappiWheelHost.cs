@@ -597,8 +597,12 @@ namespace AICompanion.NewUI.Wheel
                     ? at.ToLocalTime().ToString("d.M.yyyy")
                     : string.Empty;
                 var kind = MemoryDurability.KindLabel(entry.kind);
-                data.Timeline.Add((when.Length > 0 ? when + " — " : string.Empty)
-                    + "[" + kind + "] " + entry.summary);
+                data.Timeline.Add(new ProfileTimelineItem
+                {
+                    Id = entry.id,
+                    Label = (when.Length > 0 ? when + " — " : string.Empty)
+                        + "[" + kind + "] " + entry.summary,
+                });
             }
             return data;
         }
