@@ -907,7 +907,7 @@ namespace AICompanion.NewUI
             });
             Note("The words light up warmly as she says them. Narration glows only when Voice narration is on.");
             if (S.SpokenGlow)
-                Slider(v => "Glow intensity: " + (v < 0.34f ? "subtle" : v < 0.67f ? "medium" : "strong"), S.SpokenGlowIntensity, 0f, 1f, false,
+                Slider(v => "Spoken text glow intensity: " + (v < 0.34f ? "subtle" : v < 0.67f ? "medium" : "strong"), S.SpokenGlowIntensity, 0f, 1f, false,
                     v => _settings.SaveLayoutSetting(s => s.SpokenGlowIntensity = v));
 
             // JUH-122: floating pieces near her when how your message landed moves the relationship.
@@ -920,9 +920,12 @@ namespace AICompanion.NewUI
                 Change(s => s.ChatFontFamily = v);
                 ApplyChatFont();
             });
-            Slider(v => "Chat text size: " + Mathf.RoundToInt(v) + " px", S.ChatFontSize, 10f, 24f, true, v =>
+            Dropdown("Chat text size", Mathf.RoundToInt(S.ChatFontSize).ToString(), ChatFontSizes(), v => v + " px", v =>
             {
-                Change(s => s.ChatFontSize = v);
+                int size;
+                if (!int.TryParse(v, out size))
+                    return;
+                Change(s => s.ChatFontSize = size);
                 ApplyChatFont();
             });
             Note("Applies to the dialogue, transcript and message box. The rest of the UI keeps its own font.");
@@ -1586,6 +1589,14 @@ namespace AICompanion.NewUI
         static IReadOnlyList<string> ChatFontFamilies()
         {
             return new[] { "Segoe UI", "Georgia", "Trebuchet MS", "Consolas" };
+        }
+
+        static IReadOnlyList<string> ChatFontSizes()
+        {
+            var sizes = new List<string>();
+            for (var size = 10; size <= 24; size++)
+                sizes.Add(size.ToString(CultureInfo.InvariantCulture));
+            return sizes;
         }
 
         void ApplyChatFont()
