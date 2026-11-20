@@ -4,6 +4,15 @@ The panel is the session transcript for the companion. It sits to the left of th
 
 The full transcript stays on screen for the session. Each request sends the system prompt plus the earlier user and companion turns, dropping the oldest turns once there are more than 12 messages or about 4000 characters. System notes (errors, an empty reply, a saved key) stay on screen and are not sent back to the model.
 
+**Long scenes (JUH-129).** Dropping old turns loses the setup of a long roleplay, and a small local model then invents a new place or outfit. Two things keep it:
+
+- Every chat send carries one continuity line (`SceneDigest.ContinuityRule`): keep the place, the time of day, what each of them wears, holds and does, and what just happened, unless the story clearly moves on.
+- Once the session no longer fits the window, the chat model writes a short digest of the scene (at most about 120 words: place and time, clothes and what each is doing, what happened so far, anything planned) every 10 user messages, after a reply. It is added to the system prompt under "The scene so far…" until the next digest replaces it. The request gets the previous digest and the end of the session transcript (about 9000 characters), with no memories, and a 120-second limit.
+- Privacy is the same as the session-end summary: the digest is asked of the model the session must use (local when the session had private or 18+ turns), adult lines never reach a cloud request, and a digest of a session that stayed local is only added to a local or private server's prompt, never to a cloud one.
+- It lives in memory for the running session only. A new session, a cleared transcript or a persona switch starts without one. With a local model the next reply may wait a few seconds while a digest is written.
+
+The logic is in `SceneDigest` (plain C#, `SceneDigestTests`); `ChatPanel.Scene.cs` wires it in.
+
 The system prompt lives on `ChatSettings.systemPrompt`. A persona selected in Settings replaces it. With no persona, it is the setup name and relationship, and the default with no name is a short, friendly, PG desktop companion. `ChatPanel` then appends the director cue instructions. Adult or private mode is a later local-model feature and is not part of this panel.
 
 ## Hotkeys

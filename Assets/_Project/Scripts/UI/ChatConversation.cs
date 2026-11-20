@@ -88,6 +88,10 @@ namespace AICompanion.UI
         }
 
         public IReadOnlyList<ChatLine> Lines => _lines;
+
+        /// <summary>How many messages and characters of history a request carries (JUH-129).</summary>
+        public int MaxMessages => _maxMessages;
+        public int MaxCharacters => _maxCharacters;
         public bool IsBusy { get; private set; }
         public int Revision { get; private set; }
 

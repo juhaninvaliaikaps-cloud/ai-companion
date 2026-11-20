@@ -591,6 +591,9 @@ namespace AICompanion.UI
                 CompanionMoodInputs.ReportUserMood(mood);
             }
 
+            // JUH-129: keep the scene (place, time, clothes, who does what) once it is older than the window.
+            prompt = WithScene(prompt, privateMode, provider);
+
             var temperature = settings.temperature;
             var maxTokens = settings.maxTokens;
             ChatTurnOptions options = null;
@@ -685,6 +688,7 @@ namespace AICompanion.UI
                 {
                     SessionReplyFinished();
                     SaveRollingCheckpoint();
+                    MaybeUpdateSceneDigest();
                     CaptureMemory(provider, text, result.Text, keepsLocal);
                 }
                 if (remember && ScreenLookCue.Requests(result.Text))
