@@ -47,18 +47,6 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(expected, UserMoodDetector.Detect(text).Emotion);
         }
 
-        [TestCase("Olen tosi iloinen", UserEmotion.Happy)]
-        [TestCase("Kiitos!", UserEmotion.Happy)]
-        [TestCase("Olen väsynyt ja surullinen", UserEmotion.Sad)]
-        [TestCase("Minua vituttaa", UserEmotion.Angry)]
-        [TestCase("Minua pelottaa", UserEmotion.Anxious)]
-        [TestCase("Rakastan sinua", UserEmotion.Affectionate)]
-        [TestCase("En ymmärrä", UserEmotion.Confused)]
-        public void Detect_FinnishMessage_FindsTheEmotion(string text, UserEmotion expected)
-        {
-            Assert.AreEqual(expected, UserMoodDetector.Detect(text).Emotion);
-        }
-
         [TestCase("great :)", UserEmotion.Happy)]
         [TestCase("that hurt :(", UserEmotion.Sad)]
         [TestCase("<3", UserEmotion.Affectionate)]

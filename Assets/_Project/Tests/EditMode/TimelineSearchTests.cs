@@ -45,7 +45,7 @@ namespace AICompanion.Tests.EditMode
                 Entry("boundary", "She does not want to be called childish; it hurts her.", MemoryDurability.Boundary, 5, 40),
                 Entry("dog", "The user's dog Ruffe turned ten years old.", MemoryDurability.Event, 2, 8),
                 Entry("trip", "The user planned a trip to Lapland in March.", MemoryDurability.Event, 3, 15),
-                Entry("isa", "Käyttäjän isä asuu Tampereella.", MemoryDurability.Fact, 3, 10),
+                Entry("mom", "The user's mom lives in Tampere.", MemoryDurability.Fact, 3, 10),
                 Entry("secret", "The user told her a private story about his first love.", MemoryDurability.Event, 4, 6, isPrivate: true),
             };
         }
@@ -67,7 +67,7 @@ namespace AICompanion.Tests.EditMode
         [TestCase("You're being so childish", "boundary")]
         [TestCase("Guess how old Ruffe is now", "dog")]
         [TestCase("Have you ever been to Lapland?", "trip")]
-        [TestCase("Muistatko missä isäni asuu?", "isa")]
+        [TestCase("Where does my mom live these days?", "mom")]
         public void Probe_FindsTheRightEntryFirst(string question, string expected)
         {
             Assert.AreEqual(expected, Top(question));
@@ -187,21 +187,11 @@ namespace AICompanion.Tests.EditMode
         [Test]
         public void Stemming_MakesAWordMeetItself()
         {
-            Assert.AreEqual(TimelineSearch.Stem("promise", false), TimelineSearch.Stem("promised", false));
-            Assert.AreEqual(TimelineSearch.Stem("visit", false), TimelineSearch.Stem("visited", false));
-            Assert.AreEqual(TimelineSearch.Stem("sister", false), TimelineSearch.Stem("sisters", false));
-            Assert.AreEqual(TimelineSearch.Stem("family", false), TimelineSearch.Stem("families", false));
-            Assert.AreEqual(TimelineSearch.Stem("sisko", true), TimelineSearch.Stem("siskosta", true));
-            Assert.AreEqual(TimelineSearch.Stem("sisko", true), TimelineSearch.Stem("siskon", true));
-        }
-
-        [Test]
-        public void Language_IsGuessedPerText()
-        {
-            Assert.IsTrue(TimelineSearch.LooksFinnish("muistatko mitä sanoin"));
-            Assert.IsTrue(TimelineSearch.LooksFinnish("isä"));
-            Assert.IsFalse(TimelineSearch.LooksFinnish("call me on sunday"));
-            Assert.IsFalse(TimelineSearch.LooksFinnish("the user promised to visit"));
+            Assert.AreEqual(TimelineSearch.Stem("promise"), TimelineSearch.Stem("promised"));
+            Assert.AreEqual(TimelineSearch.Stem("visit"), TimelineSearch.Stem("visited"));
+            Assert.AreEqual(TimelineSearch.Stem("sister"), TimelineSearch.Stem("sisters"));
+            Assert.AreEqual(TimelineSearch.Stem("family"), TimelineSearch.Stem("families"));
+            Assert.AreEqual(TimelineSearch.Stem("live"), TimelineSearch.Stem("lives"));
         }
     }
 }

@@ -22,8 +22,8 @@ namespace AICompanion.Memory
     /// JUH-141: which timeline entries fit this turn. Plain C#, no scene, so the tests can run
     /// the whole ranking.
     ///
-    /// Words are split on whole-word boundaries, English and Finnish stop words are dropped, and
-    /// a light stemmer folds endings (talked/talking, siskosta/siskon). Entries are ranked with
+    /// Words are split on whole-word boundaries, stop words are dropped, and a light stemmer
+    /// folds endings (talked/talking, promise/promised). The app is English only. Entries are ranked with
     /// BM25: a word that is rare in this persona's timeline counts for more than one in every
     /// entry. Concept groups (family, work, fear, …) let "my family" find "her sister" at a
     /// lower weight than a direct word match. The query is the latest user message plus, at
@@ -277,7 +277,6 @@ namespace AICompanion.Memory
             if (string.IsNullOrWhiteSpace(text))
                 return result;
             var lower = text.ToLowerInvariant();
-            var finnish = LooksFinnish(lower);
             var word = new StringBuilder(16);
             for (var i = 0; i <= lower.Length; i++)
             {
@@ -290,7 +289,7 @@ namespace AICompanion.Memory
 
                 if (word.Length > 0)
                 {
-                    AddWord(result, word.ToString(), finnish);
+                    AddWord(result, word.ToString());
                     word.Length = 0;
                 }
             }
@@ -298,11 +297,11 @@ namespace AICompanion.Memory
             return result;
         }
 
-        static void AddWord(List<string> result, string word, bool finnish)
+        static void AddWord(List<string> result, string word)
         {
             if (word.Length < 3 || Stop.Contains(word))
                 return;
-            var stem = Stem(word, finnish);
+            var stem = Stem(word);
             if (stem.Length < 3 || Stop.Contains(stem))
                 return;
             result.Add(stem);
@@ -316,72 +315,20 @@ namespace AICompanion.Memory
             return term.Length > 1 && term[0] == '#';
         }
 
-        /// <summary>Finnish when it has ä/ö/å, or more Finnish than English stop words.</summary>
-        public static bool LooksFinnish(string lower)
-        {
-            if (string.IsNullOrEmpty(lower))
-                return false;
-            if (lower.IndexOf('ä') >= 0 || lower.IndexOf('ö') >= 0 || lower.IndexOf('å') >= 0)
-                return true;
-            var fi = 0;
-            var en = 0;
-            var start = -1;
-            for (var i = 0; i <= lower.Length; i++)
-            {
-                var letter = i < lower.Length && char.IsLetter(lower[i]);
-                if (letter && start < 0)
-                    start = i;
-                else if (!letter && start >= 0)
-                {
-                    var w = lower.Substring(start, i - start);
-                    if (FinnishStop.Contains(w))
-                        fi++;
-                    else if (EnglishStop.Contains(w))
-                        en++;
-                    start = -1;
-                }
-            }
-
-            return fi > en;
-        }
-
         /// <summary>
-        /// A light stemmer. English: -ing, -ed, -es, -s, a final -e. Finnish: the common case and
-        /// possessive endings (siskosta → sisko, töissä → tö… kept at 3+ letters). Crude on
-        /// purpose: it only has to make the same word meet itself, not be linguistically right.
+        /// A light English stemmer: -ing, -ed, -es, -s, a final -e. Crude on purpose: it only has
+        /// to make the same word meet itself, not be linguistically right.
         /// </summary>
-        public static string Stem(string word, bool finnish)
+        public static string Stem(string word)
         {
             if (string.IsNullOrEmpty(word))
                 return string.Empty;
-            if (finnish)
-                return StemFinnish(word);
 
             var english = StemEnglish(word);
             // A final -e goes too, so promise/promised, live/lived and move/moved meet.
             if (english.Length > 4 && english.EndsWith("e", StringComparison.Ordinal))
                 english = english.Substring(0, english.Length - 1);
             return english;
-        }
-
-        static string StemFinnish(string word)
-        {
-            // Possessive endings first, down to 3 letters (isäni → isä, siskoni → sisko).
-            for (var i = 0; i < FinnishPossessive.Length; i++)
-            {
-                var ending = FinnishPossessive[i];
-                if (word.Length - ending.Length >= 3 && word.EndsWith(ending, StringComparison.Ordinal))
-                    return word.Substring(0, word.Length - ending.Length);
-            }
-
-            for (var i = 0; i < FinnishEndings.Length; i++)
-            {
-                var ending = FinnishEndings[i];
-                if (word.Length - ending.Length >= 4 && word.EndsWith(ending, StringComparison.Ordinal))
-                    return word.Substring(0, word.Length - ending.Length);
-            }
-
-            return word;
         }
 
         static string StemEnglish(string word)
@@ -403,21 +350,6 @@ namespace AICompanion.Memory
             return word;
         }
 
-        static readonly string[] FinnishPossessive = { "mme", "nne", "nsa", "nsä", "ni", "si" };
-
-        // Longest first, so "-ssa" is not cut as "-a". No vowel+n endings (-on, -an…): they
-        // collide with the plain genitive -n (siskon → sisko, not sisk).
-        static readonly string[] FinnishEndings =
-        {
-            "iltaan", "issaan", "issään", "istaan", "istään", "illaan", "illään",
-            "ssaan", "ssään", "staan", "stään", "llaan", "llään", "ltaan", "ltään", "lleen",
-            "issa", "issä", "ista", "istä", "illa", "illä", "ilta", "iltä", "ille", "iksi",
-            "ssa", "ssä", "sta", "stä", "lla", "llä", "lta", "ltä", "lle", "ksi", "tta", "ttä",
-            "mme", "nne", "nsa", "nsä", "ani", "äni", "asi", "äsi",
-            "na", "nä", "ja", "jä", "ni", "si",
-            "n", "t", "a", "ä",
-        };
-
         static readonly HashSet<string> EnglishStop = new HashSet<string>(StringComparer.Ordinal)
         {
             "the", "and", "for", "with", "that", "this", "those", "these", "was", "were", "are", "is", "be", "been", "being",
@@ -433,42 +365,23 @@ namespace AICompanion.Memory
             "let", "make", "made", "take", "took", "come", "came", "see", "saw", "look", "want", "wanted",
         };
 
-        static readonly HashSet<string> FinnishStop = new HashSet<string>(StringComparer.Ordinal)
-        {
-            // Two-letter words that are also English ("on", "me", "he") are left out: they would make
-            // an English line look Finnish, and words under 3 letters are never searched anyway.
-            "ja", "oli", "ole", "olen", "olet", "olla", "ovat", "ollut", "olisi", "ei", "tämä",
-            "tuo", "että", "kun", "jos", "mutta", "tai", "niin", "myös", "vain", "kuin", "mitä", "mikä", "miksi", "miten",
-            "missä", "minä", "mä", "sinä", "sä", "hän", "minun", "sinun", "hänen", "meidän", "teidän",
-            "heidän", "tässä", "siinä", "siitä", "nyt", "joo", "kyllä", "ihan", "vähän", "sitten", "jo", "vielä",
-            "muista", "muistatko", "muistan", "sanoin", "kerroin", "kerro", "sano", "mun", "sun", "mulla", "sulla",
-            "mulle", "sulle", "mitään", "jotain", "joka", "jonka", "joita", "kanssa", "tänään", "aina",
-        };
+        static readonly HashSet<string> Stop = EnglishStop;
 
-        static readonly HashSet<string> Stop = Union(EnglishStop, FinnishStop);
-
-        static HashSet<string> Union(HashSet<string> a, HashSet<string> b)
-        {
-            var all = new HashSet<string>(a, StringComparer.Ordinal);
-            all.UnionWith(b);
-            return all;
-        }
-
-        /// <summary>Concept groups, English and Finnish, stored by stem.</summary>
+        /// <summary>Concept groups, stored by stem.</summary>
         static readonly Dictionary<string, string[]> Concepts = new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
-            { "#family", new[] { "family", "sister", "brother", "mother", "father", "mom", "dad", "mum", "parent", "relative", "sibling", "grandma", "grandpa", "aunt", "uncle", "cousin", "perhe", "sisko", "sisar", "veli", "äiti", "isä", "vanhemma", "mummo", "ukki", "serkku" } },
-            { "#work", new[] { "work", "job", "career", "office", "boss", "colleague", "coworker", "project", "shift", "interview", "työ", "töissä", "työpaikka", "pomo", "kollega", "duuni", "haastattelu" } },
-            { "#fear", new[] { "afraid", "scared", "fear", "anxious", "anxiety", "nervous", "worried", "worry", "panic", "pelko", "pelkää", "pelottaa", "jännittää", "ahdistaa", "huolissaan" } },
-            { "#anger", new[] { "angry", "annoyed", "mad", "furious", "upset", "irritated", "vihainen", "suuttunut", "ärsyttää" } },
-            { "#joy", new[] { "happy", "glad", "joy", "cheerful", "delighted", "excited", "iloinen", "onnellinen", "innoissaan" } },
-            { "#promise", new[] { "promise", "promised", "vow", "agreed", "commitment", "lupaus", "lupasi", "lupaan", "lupasin", "sovittiin" } },
-            { "#boundary", new[] { "boundary", "limit", "trigger", "uncomfortable", "dislike", "hate", "raja", "rajat", "inhoaa", "vihaa" } },
-            { "#home", new[] { "home", "house", "apartment", "flat", "move", "moved", "koti", "kotona", "asunto", "muutti", "muutto" } },
-            { "#travel", new[] { "travel", "trip", "visit", "holiday", "vacation", "flight", "matka", "reissu", "loma", "lento", "vierailu" } },
-            { "#health", new[] { "health", "sick", "ill", "illness", "doctor", "hospital", "pain", "surgery", "sairas", "lääkäri", "sairaala", "kipu", "leikkaus" } },
-            { "#loss", new[] { "loss", "died", "death", "grief", "funeral", "passed", "kuoli", "kuolema", "suru", "hautajaiset" } },
-            { "#pet", new[] { "pet", "dog", "cat", "puppy", "kitten", "lemmikki", "koira", "kissa" } },
+            { "#family", new[] { "family", "sister", "brother", "mother", "father", "mom", "dad", "mum", "parent", "relative", "sibling", "grandma", "grandpa", "aunt", "uncle", "cousin" } },
+            { "#work", new[] { "work", "job", "career", "office", "boss", "colleague", "coworker", "project", "shift", "interview" } },
+            { "#fear", new[] { "afraid", "scared", "fear", "anxious", "anxiety", "nervous", "worried", "worry", "panic" } },
+            { "#anger", new[] { "angry", "annoyed", "mad", "furious", "upset", "irritated" } },
+            { "#joy", new[] { "happy", "glad", "joy", "cheerful", "delighted", "excited" } },
+            { "#promise", new[] { "promise", "promised", "vow", "agreed", "commitment" } },
+            { "#boundary", new[] { "boundary", "limit", "trigger", "uncomfortable", "dislike", "hate" } },
+            { "#home", new[] { "home", "house", "apartment", "flat", "move", "moved" } },
+            { "#travel", new[] { "travel", "trip", "visit", "holiday", "vacation", "flight" } },
+            { "#health", new[] { "health", "sick", "ill", "illness", "doctor", "hospital", "pain", "surgery" } },
+            { "#loss", new[] { "loss", "died", "death", "grief", "funeral", "passed" } },
+            { "#pet", new[] { "pet", "dog", "cat", "puppy", "kitten" } },
         };
 
         static readonly Dictionary<string, string> ConceptOf = BuildConceptIndex();
@@ -481,37 +394,14 @@ namespace AICompanion.Memory
                 for (var i = 0; i < pair.Value.Length; i++)
                 {
                     var word = pair.Value[i];
-                    var finnish = word.IndexOf('ä') >= 0 || word.IndexOf('ö') >= 0 || IsFinnishConcept(word);
                     index[word] = pair.Key;
-                    var stem = Stem(word, finnish);
+                    var stem = Stem(word);
                     if (stem.Length >= 3)
                         index[stem] = pair.Key;
-                    // The other language's stem too, since a word is stemmed by its sentence's language.
-                    var other = Stem(word, !finnish);
-                    if (other.Length >= 3 && !index.ContainsKey(other))
-                        index[other] = pair.Key;
                 }
             }
 
             return index;
-        }
-
-        static bool IsFinnishConcept(string word)
-        {
-            // Finnish concept words without ä/ö; a short list beats a language guess here.
-            switch (word)
-            {
-                case "perhe": case "sisko": case "sisar": case "veli": case "vanhemma": case "mummo": case "ukki": case "serkku":
-                case "pomo": case "kollega": case "duuni": case "haastattelu": case "pelko": case "vihainen": case "suuttunut":
-                case "iloinen": case "onnellinen": case "innoissaan": case "lupaus": case "lupasi": case "lupaan": case "lupasin":
-                case "sovittiin": case "raja": case "rajat": case "inhoaa": case "vihaa": case "koti": case "kotona": case "asunto":
-                case "muutti": case "muutto": case "matka": case "reissu": case "loma": case "lento": case "vierailu": case "sairas":
-                case "sairaala": case "kipu": case "leikkaus": case "kuoli": case "kuolema": case "suru": case "hautajaiset":
-                case "lemmikki": case "koira": case "kissa": case "huolissaan": case "ahdistaa":
-                    return true;
-                default:
-                    return false;
-            }
         }
     }
 }

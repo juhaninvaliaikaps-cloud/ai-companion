@@ -141,9 +141,8 @@ animation, so that cue changes state directly.
 off without writing `reaction="strip"`. While the gate is open and she is dressed,
 `ChatPanel.ApplyForcedStrip` plays the strip reaction when **her reply** narrates it:
 `ClothingIntent.ReplyRemovesClothing` looks for a sentence with a clothing word and a
-removal word (whole words: "top" is not "stop" or "laptop"; Finnish stems like
-`paita`, `mekko`, `riisu`), and skips any sentence that refuses or asks ("I won't",
-"not yet", "keeps it on", "en riisu", a question). The user asking is not enough: if
+removal word (whole words: "top" is not "stop" or "laptop"), and skips any sentence
+that refuses or asks ("I won't", "not yet", "keeps it on", a question). The user asking is not enough: if
 she says no, the video stays clothed (JUH-134 review, Jussi 2026-11-20). Interaction
 menu turns are left to their own cues. Nothing is added to her reply or the prompt.
 

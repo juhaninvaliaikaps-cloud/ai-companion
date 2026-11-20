@@ -9,7 +9,7 @@ namespace AICompanion.Memory
     /// </summary>
     public static class MemoryCommands
     {
-        // JUH-134 review: no bare "remember " or "muista ". "Remember when we went to the
+        // JUH-134 review: no bare "remember ". "Remember when we went to the
         // beach" is a recollection, not a request. Longest prefix first.
         static readonly string[] Prefixes =
         {
@@ -18,18 +18,15 @@ namespace AICompanion.Memory
             "don't forget that ", "don't forget to ", "don't forget ",
             "do not forget that ", "do not forget to ", "do not forget ",
             "keep in mind that ", "keep in mind ",
-            "muista että ", "muista tämä: ", "muista tämä, ",
-            "älä unohda että ", "älä unohda ",
         };
 
         // What follows these is a shared moment or a plea, not a fact to store:
-        // "remember that time we...", "don't forget me", "älä unohda minua".
+        // "remember that time we...", "don't forget me".
         static readonly string[] Recollections =
         {
             "when ", "how ", "what ", "where ", "who ", "why ", "the time", "that time", "time ",
             "the day", "that day", "day ", "the night", "that night", "night ", "the moment", "moment ",
             "last time", "yesterday", "me", "us", "our ", "about me", "about us",
-            "kun ", "miten ", "mitä ", "milloin ", "missä ", "minua", "minut", "meitä", "meidät",
         };
 
         /// <summary>The words her memory keeps, so "I" and "my" stay the user's and are never read as hers.</summary>
@@ -78,7 +75,7 @@ namespace AICompanion.Memory
                 var marker = Recollections[i];
                 if (!lower.StartsWith(marker, StringComparison.Ordinal))
                     continue;
-                // "me", "us", "minua": the whole remainder or a whole first word, not "meeting".
+                // "me", "us": the whole remainder or a whole first word, not "meeting".
                 if (marker.EndsWith(" ", StringComparison.Ordinal) || lower.Length == marker.Length
                     || !char.IsLetter(lower[marker.Length]))
                     return true;
