@@ -24,6 +24,87 @@ namespace AICompanion.Memory
             "Skip small talk, questions, and anything the assistant said about itself. " +
             "Return [] when there is nothing durable.";
 
+        /// <summary>JUH-141: how many stored facts the request may see and correct.</summary>
+        public const int MaxKnownFacts = 6;
+        public const int MaxUpdatesPerCapture = 3;
+
+        /// <summary>Added after <see cref="SystemPrompt"/> when stored facts are listed.</summary>
+        public const string CorrectionRule =
+            "Facts already stored are listed below with ids like [f1]. Do not repeat one that is still true. " +
+            "If the exchange shows that one has changed or was wrong, put \"update f1: \" and the full corrected " +
+            "sentence in the array instead of a new fact, for example [\"update f1: The user's sister moved to Oulu\"]. " +
+            "Use only the ids listed.";
+
+        static readonly Regex UpdateItem = new Regex(@"^\s*update\s*\[?\s*f(\d{1,2})\s*\]?\s*[:\-–]\s*(.+)$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        /// <summary>One "update fN: ..." item: which listed fact (1-based) and the corrected sentence.</summary>
+        public struct FactUpdate
+        {
+            public int Index;
+            public string Text;
+        }
+
+        /// <summary>The extraction prompt, with the stored facts the exchange is about when there are any.</summary>
+        public static string PromptWith(IReadOnlyList<MemoryEntry> known)
+        {
+            if (known == null || known.Count == 0)
+                return SystemPrompt;
+            var builder = new StringBuilder(SystemPrompt.Length + 400);
+            builder.Append(SystemPrompt).Append(' ').Append(CorrectionRule).Append("\n\nStored facts:");
+            for (var i = 0; i < known.Count && i < MaxKnownFacts; i++)
+            {
+                if (known[i] != null)
+                    builder.Append("\n[f").Append(i + 1).Append("] ").Append(known[i].text.Trim());
+            }
+
+            return builder.ToString();
+        }
+
+        /// <summary>
+        /// The "update fN: ..." items of the reply. An index outside 1..<paramref name="knownCount"/>
+        /// is dropped, and so is a second update of the same fact.
+        /// </summary>
+        public static List<FactUpdate> ParseUpdates(string reply, int knownCount)
+        {
+            var updates = new List<FactUpdate>();
+            if (string.IsNullOrWhiteSpace(reply) || knownCount <= 0)
+                return updates;
+            var start = reply.IndexOf('[');
+            var end = reply.LastIndexOf(']');
+            if (start < 0 || end <= start)
+                return updates;
+
+            foreach (Match match in Quoted.Matches(reply.Substring(start, end - start + 1)))
+            {
+                var item = UpdateItem.Match(Unescape(match.Groups[1].Value));
+                if (!item.Success)
+                    continue;
+                int index;
+                if (!int.TryParse(item.Groups[1].Value, out index) || index < 1 || index > knownCount)
+                    continue;
+                var text = item.Groups[2].Value.Trim();
+                if (text.Length < MinFactLength || text.Length > MaxFactLength || HasUpdate(updates, index))
+                    continue;
+                updates.Add(new FactUpdate { Index = index, Text = text });
+                if (updates.Count >= MaxUpdatesPerCapture)
+                    break;
+            }
+
+            return updates;
+        }
+
+        static bool HasUpdate(List<FactUpdate> updates, int index)
+        {
+            for (var i = 0; i < updates.Count; i++)
+            {
+                if (updates[i].Index == index)
+                    return true;
+            }
+
+            return false;
+        }
+
         static readonly Regex Quoted = new Regex("\"((?:[^\"\\\\]|\\\\.)*)\"", RegexOptions.CultureInvariant);
 
         static readonly string[] CoreMarkers =
@@ -66,6 +147,9 @@ namespace AICompanion.Memory
             {
                 var fact = Unescape(match.Groups[1].Value).Trim();
                 if (fact.Length < MinFactLength || fact.Length > MaxFactLength)
+                    continue;
+                // JUH-141: a correction is not a new fact.
+                if (UpdateItem.IsMatch(fact))
                     continue;
                 if (!seen.Add(fact))
                     continue;

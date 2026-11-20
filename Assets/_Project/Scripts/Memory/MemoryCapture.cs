@@ -41,12 +41,17 @@ namespace AICompanion.Memory
             if (exchange.Length < MinExchangeCharacters)
                 return 0;
 
+            // JUH-141: the stored facts this exchange is about, so a change ("my sister moved to
+            // Oulu") corrects the old fact instead of living next to it. The request carries its
+            // own list, so it skips the memory layer. Private facts only go to the local model.
+            var known = KnownFacts(store, userText, assistantText, local);
             var request = new ChatRequest
             {
-                SystemPrompt = MemoryFactExtractor.SystemPrompt,
+                SystemPrompt = MemoryFactExtractor.PromptWith(known),
                 Messages = new List<ChatMessage> { new ChatMessage(ChatRole.User, exchange) },
                 Temperature = Temperature,
                 MaxTokens = MaxTokens,
+                NoMemory = true,
             };
 
             ChatResult result;
@@ -63,6 +68,18 @@ namespace AICompanion.Memory
             if (result.Ok == false)
                 return 0;
 
+            var corrected = 0;
+            var updates = MemoryFactExtractor.ParseUpdates(result.Text, known.Count);
+            for (var i = 0; i < updates.Count; i++)
+            {
+                var fact = known[updates[i].Index - 1];
+                if (store.Correct(fact.id, updates[i].Text, privateMode, MemoryFactExtractor.IsCoreFact(updates[i].Text), DateTime.UtcNow))
+                    corrected++;
+            }
+
+            if (corrected > 0)
+                Debug.Log("Memory: corrected " + corrected + " fact(s)");
+
             var facts = MemoryFactExtractor.Parse(result.Text);
             var saved = 0;
             for (var i = 0; i < facts.Count; i++)
@@ -77,6 +94,55 @@ namespace AICompanion.Memory
                 Debug.Log("Memory: saved " + saved + " fact(s)");
 
             return saved;
+        }
+
+        /// <summary>
+        /// The user's own stored facts (not her life, not session summaries) that fit this
+        /// exchange, best first: identity facts, then the ones the user's words are about,
+        /// ranked like the timeline (BM25, stemming, Finnish). At most
+        /// <see cref="MemoryFactExtractor.MaxKnownFacts"/>.
+        /// </summary>
+        public static List<MemoryEntry> KnownFacts(MemoryStore store, string userText, string assistantText, bool includePrivate)
+        {
+            var known = new List<MemoryEntry>(MemoryFactExtractor.MaxKnownFacts);
+            if (store == null)
+                return known;
+
+            var candidates = new List<TimelineEntry>();
+            var byId = new Dictionary<string, MemoryEntry>(StringComparer.Ordinal);
+            var entries = store.Entries;
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry == null || !entry.IsValid || entry.kind != MemoryKind.Fact || entry.origin != MemoryOrigins.Lived)
+                    continue;
+                if (entry.isPrivate && !includePrivate)
+                    continue;
+                if (entry.isCore && known.Count < 2)
+                {
+                    known.Add(entry);
+                    continue;
+                }
+
+                byId[entry.id] = entry;
+                candidates.Add(new TimelineEntry
+                {
+                    id = entry.id, summary = entry.text, title = string.Empty, kind = MemoryDurability.KindOf(entry.text),
+                    importance = 3, confidence = 100, evidenceCount = 1, createdAtUtc = entry.createdAtUtc,
+                    happenedAtUtc = entry.createdAtUtc, isPrivate = entry.isPrivate,
+                });
+            }
+
+            var hits = TimelineSearch.Rank(candidates, userText, assistantText, true, DateTime.UtcNow,
+                MemoryFactExtractor.MaxKnownFacts - known.Count);
+            for (var i = 0; i < hits.Count && known.Count < MemoryFactExtractor.MaxKnownFacts; i++)
+            {
+                MemoryEntry entry;
+                if (byId.TryGetValue(hits[i].Entry.id, out entry))
+                    known.Add(entry);
+            }
+
+            return known;
         }
     }
 }
