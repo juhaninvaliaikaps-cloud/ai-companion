@@ -600,7 +600,7 @@ namespace AICompanion.NewUI
             tagline.overflowMode = TextOverflowModes.Ellipsis;
             HappiUiKit.Place(tagline.rectTransform, pad, pad + size + 22f * _s, width - 2f * pad, height - size - 26f * _s - pad);
 
-            var more = HappiUiKit.Button(button.Rect, "More", "⋯", _theme.FontBody * _s, () =>
+            var more = HappiUiKit.Button(button.Rect, "More", "\u2699", _theme.FontBody * _s, () =>
             {
                 if (_building)
                     return;
@@ -610,6 +610,30 @@ namespace AICompanion.NewUI
             });
             var moreSize = 24f * _s;
             HappiUiKit.Place(more.Rect, width - moreSize - 3f * _s, 3f * _s, moreSize, moreSize);
+            var gearFont = HappiFonts.For("Segoe UI Symbol");
+            if (gearFont != null)
+            {
+                more.Label.font = gearFont;
+                more.Label.fontStyle = FontStyles.Normal;
+            }
+            else
+            {
+                more.Label.text = "...";
+            }
+
+            // JUH-153: deletion is one click from the card, with the same confirmation the menu uses.
+            if ((card.Actions & PersonaCardActions.Delete) != 0)
+            {
+                var delete = HappiUiKit.Button(button.Rect, "Delete", "\u00d7", _theme.FontBody * _s, () =>
+                {
+                    if (_building)
+                        return;
+                    _gridMenuId = id;
+                    _gridDeleteId = id;
+                    _rebuild = true;
+                });
+                HappiUiKit.Place(delete.Rect, width - moreSize * 2f - 7f * _s, 3f * _s, moreSize, moreSize);
+            }
         }
 
         /// <summary>The "⋯" menu of one card, shown under its row: Open in Studio, Duplicate, Delete.</summary>
