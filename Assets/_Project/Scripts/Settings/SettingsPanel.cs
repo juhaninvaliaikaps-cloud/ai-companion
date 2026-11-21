@@ -155,6 +155,7 @@ namespace AICompanion.Settings
                 SettingsApplicator.Apply(_settings, this);
                 if (_settings.ChatHistory)
                     LoadHistory();
+                GreetIfEmpty();
             }
             finally
             {
@@ -1171,6 +1172,7 @@ namespace AICompanion.Settings
             var chat = GetComponent<ChatPanel>();
             if (chat != null)
                 chat.ClearTranscript();
+            GreetIfEmpty();
             _historyRevision = chat != null ? chat.TranscriptRevision : 0;
             _confirmClear = false;
             SetStatus("Chat history cleared. The API key was kept.");

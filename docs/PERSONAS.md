@@ -139,6 +139,13 @@ It edits a draft and saves the whole persona on **Save**. Closing with unsaved c
 
   On **Save**, the sheet is stored for her id with the hash of her chat prompt, so the background reader uses it and doesn't read her again. Skipping the step leaves it to the background reader, as before.
 
+- **4 · Voice (JUH-152):** her Piper, Kokoro (drop-down), Chatterbox and xAI voice ids. **Hear her** saves first if needed, then speaks her greeting or a short hello in the voice chat uses (`ChatPanel.SpeakSample`). For a persona who isn't the active one, the Studio offers **Save and use her** first, because otherwise you'd hear the active persona's voice.
+- **5 · Look:** her 3D avatar source (same as the Look tab, Auto, local prefab, VRM, FBX) and her portrait folder. The 2D video avatar is set for all personas on the Look tab.
+- **6 · Review:**
+  - a summary: picture, name, tagline, the description meter, Pisara's temperament and relationship lines
+  - **First greeting:** shown, not spoken, when the chat is empty, at launch with no history, after a persona switch, or after clearing the history (`SettingsPanel.GreetIfEmpty` → `ChatPanel.ShowGreeting`)
+  - **Test chat:** talk to the draft before saving. It uses the chat model under the usual privacy rule, with `NoMemory`, and adds nothing to the real chat or history (`ChatPanel.RequestTestReply`). The last 20 messages are shown.
+
 ### Character cards (JUH-153)
 
 **Import a character card (PNG or JSON)…** on the Studio's Start step reads SillyTavern and Chub cards: V2 (`chara_card_v2`, a PNG `tEXt` chunk named `chara` with base64 JSON), V3 (`chara_card_v3`, chunk `ccv3`; it wins when a PNG has both) and old flat V1 JSON. The card becomes a draft on the Identity step; a PNG card's picture becomes her picture (centre square, 512 px). Nothing is saved until **Save**.
@@ -165,5 +172,5 @@ The PNG is read chunk by chunk (signature, length, type, data, CRC). No length i
 
 Her 18+ notes are **never** exported unless **Include 18+ notes** is ticked (shown only when she has some). Ticked, a card carries them in `scenario` and is tagged `nsfw`, so importing it again routes them back into the 18+ notes. The save dialog asks before overwriting a file.
 
-Still to come: Voice, Look, the review step and test chat (JUH-152), and the picture grid, describe-from-picture and version history (JUH-154).
+Still to come: the picture grid, describe-from-picture and version history (JUH-154).
 
