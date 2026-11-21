@@ -1325,7 +1325,11 @@ namespace AICompanion.NewUI
         void BuildWindow()
         {
             Toggle("Always on top", S.AlwaysOnTop, v => Change(s => s.AlwaysOnTop = v));
-            Note("F8 toggles this too. Windows can't draw over a game's exclusive fullscreen; use borderless or windowed fullscreen to see her over the game.");
+            Note("On top of every window on the desktop. F8 toggles this too.");
+            // JUH-164: games keep her on top even with "Always on top" off.
+            Toggle("Stay above games", S.StayAboveGames, v => Change(s => s.StayAboveGames = v));
+            Note("While a game is in front (borderless or windowed fullscreen, or a game she's watching), she stays on top of it, even with Always on top off. "
+                 + "Windows can't draw anything over a game's exclusive fullscreen, so pick borderless or windowed fullscreen in the game.");
             Slider(v => "Size " + Mathf.RoundToInt(v * 100f) + "%", S.Scale, OverlayWindowSize.MinScale, OverlayWindowSize.MaxScale, false, v => P.Change(s => s.Scale = v));
             Button("Click-through: " + SettingsPresenter.ClickThroughLabel(S.ClickThrough), () => { P.CycleClickThrough(); _rebuild = true; });
             Note(SettingsPresenter.ClickThroughHelp(S.ClickThrough));

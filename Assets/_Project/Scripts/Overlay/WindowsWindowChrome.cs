@@ -103,6 +103,37 @@ namespace AICompanion.Overlay
                 SwpNoMove | SwpNoSize | SwpNoActivate | SwpShowWindow);
         }
 
+        public long ForegroundWindow()
+        {
+            return GetForegroundWindow().ToInt64();
+        }
+
+        readonly System.Text.StringBuilder _className = new System.Text.StringBuilder(64);
+        static readonly int OwnProcessId = Process.GetCurrentProcess().Id;
+
+        public bool DescribeWindow(long hwnd, out bool ownProcess, out bool shell, out bool coversMonitor)
+        {
+            ownProcess = false;
+            shell = false;
+            coversMonitor = false;
+            if (hwnd == 0)
+                return false;
+            var handle = new IntPtr(hwnd);
+            GetWindowThreadProcessId(handle, out var pid);
+            ownProcess = pid == OwnProcessId;
+            _className.Length = 0;
+            if (GetClassName(handle, _className, _className.Capacity) > 0)
+                shell = GameAbove.IsShellClass(_className);
+            if (!GetWindowRect(handle, out var rect))
+                return true;
+            var monitor = MonitorFromWindow(handle, MonitorDefaultToNearest);
+            var info = new MonitorInfo { Size = Marshal.SizeOf(typeof(MonitorInfo)) };
+            if (monitor != IntPtr.Zero && GetMonitorInfo(monitor, ref info))
+                coversMonitor = GameAbove.Covers(rect.left, rect.top, rect.right, rect.bottom,
+                    info.Monitor.left, info.Monitor.top, info.Monitor.right, info.Monitor.bottom);
+            return true;
+        }
+
         public void SetClickThrough(bool clickThrough)
         {
             if (!TryGetHwnd())
@@ -392,6 +423,33 @@ namespace AICompanion.Overlay
 
         [DllImport("user32.dll")]
         static extern IntPtr SetFocus(IntPtr hWnd);
+
+        // JUH-164: the window in front, and whether it fills its monitor.
+        [StructLayout(LayoutKind.Sequential)]
+        struct MonitorInfo
+        {
+            public int Size;
+            public WinRect Monitor;
+            public WinRect Work;
+            public uint Flags;
+        }
+
+        const uint MonitorDefaultToNearest = 2;
+
+        [DllImport("user32.dll")]
+        static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        static extern uint GetWindowThreadProcessId(IntPtr hWnd, out int processId);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder className, int maxCount);
+
+        [DllImport("user32.dll")]
+        static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
+
+        [DllImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
+        static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
     }
 }
 #endif

@@ -70,6 +70,7 @@ The taskbar button is hidden after the player HWND has been stable for a short t
 
 1. **Transparency.** The desktop shows through around the model. The model, the debug label, and the open chat panel are visible. There is no title bar. MToon or URP Lit should not turn the whole window into a solid plate.
 2. **Topmost.** The window stays above other apps. Click the model so the window has focus, then press **F8**. The label switches between `Topmost on` and `Topmost off`. F8 again turns always-on-top back on.
+   - **Stay above games (JUH-164):** with **Always on top** off, start a game in borderless or windowed fullscreen. She should still sit over it, and Player.log says `Overlay: a game is in front, staying above it`. Alt-tab to the desktop and she follows the Always on top setting again.
 3. **Drag.** Press the left button on the model or on the debug label and move the mouse. The window follows. Release to drop it. This stays the case while rotate mode is off. While rotate mode is on, a left-drag that starts on her visible pixels yaws her instead, and a left-drag on the debug label still moves the window.
 4. **Click-through.** Click the desktop in the empty part of the window, including the space close to the model but not on a visible pixel. The click reaches the app behind it. Click the model on her body, hair, or clothes. The window focuses, and a drag can start. The invisible box around the mesh must not catch clicks.
 5. **Frame rate.** The label shows about 60 fps while the pointer is inside the window. Move the pointer off the window, wait about 3 seconds, and the label should fall to about 15 fps. Move back onto the window and it returns to about 60.
@@ -103,3 +104,23 @@ Gravity moves the window, but the window edge is not her soles. FootGrounding pr
 The offset is measured every 0.15 s and smoothed with a half-life of 0.35 s, so breathing and idle sway cannot bob her. The lower of the two feet wins, so a walk cycle does not lift her. AvatarSelection.groundOffsetPx is a per-avatar fine-tune for a model whose bones sit off the sole; it is local to the machine, like the rest of that asset.
 
 Contact shadow and two-bone foot IK are deliberately not in this change.
+
+## Staying above games (JUH-164)
+
+Happi has to sit over the game she watches, so on-top has two settings in the Window tab:
+
+- **Always on top** (`alwaysOnTop`, F8): above every window on the desktop.
+- **Stay above games** (`stayAboveGames`, default on): above the window in front whenever that window is a game, even with Always on top off. A game here is either of these:
+  - another program's window that fills its monitor (borderless or windowed fullscreen), as long as it isn't the desktop, the taskbar or Alt+Tab (`GameAbove.IsShellClass`)
+  - the game window the game companion found (`GameWindowNow`, for example a windowed Genshin or Endfield)
+
+**How it works**
+- `OverlayWindow.EffectiveTopmost` is `GameAbove.Want(alwaysOnTop, stayAboveGames, gameInFront)`.
+- Every topmost call uses it: moving, resizing, walking (`DesktopPresence`), showing, the start-up warm-up and the reassert. Before this, a move with the plain setting dropped her back down.
+- The window in front is checked when it changes and once a second, with no allocation (`IWindowChrome.ForegroundWindow`, `DescribeWindow`). Clicking Happi to chat mid-game keeps the last answer.
+- When it changes she is put back on top at once, then every 0.75 s, without activating her or restoring a minimized window.
+
+Windows can't draw any window over **exclusive fullscreen**, so pick borderless or windowed fullscreen in the game.
+
+Before this, on-top over games depended only on Always on top. With that off (F8 or the Window tab), she went under the game. A build that always reasserted (`deepseek/controller-ptt` 0b2195d) hid that by ignoring the setting.
+

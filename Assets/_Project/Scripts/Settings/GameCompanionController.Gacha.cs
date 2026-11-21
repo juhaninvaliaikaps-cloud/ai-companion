@@ -81,6 +81,7 @@ namespace AICompanion.Settings
             if (!AnyGacha(settings))
             {
                 _gachaWindow = null;
+                GameWindowNow.Clear();
                 KeepPulls(settings);
                 return;
             }
@@ -188,6 +189,11 @@ namespace AICompanion.Settings
             var before = GachaGame;
             _gachaWindow = found;
             _gachaGame = game;
+            // JUH-164: the overlay stays above this window even when it isn't full-screen.
+            if (found != null)
+                GameWindowNow.Set(found.Hwnd);
+            else
+                GameWindowNow.Clear();
             if (before != GachaGame)
                 Touch(found != null ? CommentaryPrompt.GameName(game) + " is open." : "The gacha game closed.");
         }
@@ -363,6 +369,7 @@ namespace AICompanion.Settings
             }
 
             _gachaWindow = null;
+            GameWindowNow.Clear();
             _looking = false;
             ResetPulls(GameTitle.Unknown);
         }
