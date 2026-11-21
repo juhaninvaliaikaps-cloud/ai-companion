@@ -10,7 +10,10 @@ She watches the user's game and says a short line now and then, like a friend on
 - **It is off in private mode and while the 18+ gate is open.** Neither allows the cloud.
 - **Only official, read-only feeds are used.** That means CS2 and Dota 2 Game State Integration and Riot's official API. The app never reads or writes game memory, injects code, or hooks the game's renderer. Her overlay is a separate window, not something inside the game.
 - **Fair play.** She reacts to what already happened and what the player saw. She never gives hidden information, timers, cooldowns, enemy positions or advice that would be an unfair advantage.
-- **World of Warcraft is skipped for now.** Blizzard limits real-time use of the combat log, and the log is buffered for minutes (JUH-48).
+- **World of Warcraft is its own feature (JUH-145).** Blizzard limits real-time use of the combat log, and the log is buffered for minutes (JUH-48). Comments after fights are not enough: she should follow the zone, the questing and what you're doing.
+- **Her reactions come from her personality, through Pisara (JUH-49).** The temperament sliders and the relationship role decide how she sounds. A bratty persona laughs when you die and says "You suck!". The model goes first; pre-written lines in the same personality are the fallback.
+- **The app installs the game's config file itself (JUH-146),** when the user presses Set up.
+- **The settings get their own Games section (JUH-47).**
 
 ## The commentary engine (JUH-46)
 
@@ -21,11 +24,37 @@ The engine is plain C# in `Scripts/GameCompanion` (assembly `AICompanion.GameCom
 - **`CommentaryPacer`** decides when she speaks:
   - The cooldown between comments depends on the frequency: rare is 90 s, normal is 40 s, chatty is 15 s.
   - A big moment (a match won, an ace, a bomb defused, a triple kill, a 5-kill streak) can break the cooldown. It still never comes sooner than 8 seconds after the last comment.
-  - Each frequency has an hourly budget (rare 8, normal 20, chatty 40), and big moments count against it. This keeps cloud calls rare.
+  - Each frequency has an hourly budget of model comments (rare 8, normal 20, chatty 40), and big moments count against it. This keeps cloud calls rare. Once it is used up she still reacts, with pre-written lines only (`CommentDecision.UseModel` is false). They cost nothing and don't count against the budget, but they do start the cooldown.
   - Minor moments (a single kill, an assist, a level-up, low health) are never spoken about on their own. They are kept as context for the next comment, for up to 90 seconds and 6 events.
   - Quiet mode and push-to-mute (`MuteFor`) stop everything.
-- **`CommentaryGate`** allows a comment only when the feature is on, the cloud opt-in is given, and neither private mode nor the 18+ gate is on.
-- **`CommentaryPrompt`** writes the fair-play rules and the turn ("The user is playing Counter-Strike 2. Just now: their team won the round. Before that: they got a kill.").
+- **`CommentaryGate.Decide`** gives the mode:
+  - **Off:** the feature is off, or private mode or the 18+ gate is on.
+  - **Pre-written only:** no cloud opt-in, or no cloud AI API set up. Nothing about the game is sent.
+  - **Model first:** everything is allowed.
+- **`CommentaryRoute`** picks the source of one line. It uses the model when the mode and the pacer allow it, and a pre-written line otherwise. A model reply that failed, came back empty or took longer than 6 seconds is replaced by a pre-written line, because the moment has passed.
+- **`CommentaryPrompt`** writes the model's instructions and the turn:
+  - `SystemText(personaPrompt, voice)` is her persona prompt, then her game style, then the fair-play rules.
+  - The turn says what happened: "The user is playing Counter-Strike 2. Just now: their team won the round. Before that: they got a kill."
+
+## Her personality in games (JUH-49)
+
+`GameVoices.For(axes, relationshipRole)` turns her Pisara temperament sliders into a game voice. The first rule that matches wins:
+
+| Voice | When | Sounds like |
+|---|---|---|
+| Tsundere | warmth ≥ 65, directness ≤ 30, volatility ≥ 50 | "Idiot! Be more careful!" |
+| Shy | confidence ≤ 35, assertiveness ≤ 40 | "Ah! Oh no..." |
+| Teasing (bratty) | playfulness ≥ 55, assertiveness ≥ 55 or directness ≥ 60, warmth ≤ 65; or a rival with playfulness ≥ 45 | "You suck! Ha!" and a laugh |
+| Grumpy | warmth ≤ 40, volatility ≥ 60 or playfulness ≤ 35 | "And you're dead. Great." |
+| Hype | energy ≥ 65, warmth ≥ 55 | "Noo! Get back in there!" |
+| Sweet | warmth ≥ 60 | "Oh no, are you okay?" |
+| Cool | everything else, including the middle of every slider | "Ouch." |
+
+With the presets: Calm is Cool, Cheerful is Hype, Shy is Shy, Tsundere is Tsundere, Moody is Grumpy.
+
+- **Model lines.** `GameVoices.StyleLine(voice)` goes into the model's instructions, so a model comment sounds like the same girl.
+- **Pre-written lines.** `GameReactionCatalog` has at least three lines for each voice and moment: match start, win, loss, death, kill, big play, objective taken or lost, a tense moment, level-up. Each line comes with a face and a gesture (Laugh, Nod, Shrug or Wave) that the animator has today. New game animations can be added as Jussi makes them (JUH-50).
+- **`GameReactionLines.Pick`** chooses a line and never says the same one twice in a row for a moment. A bomb defused or exploded gets no pre-written line, because the feed doesn't say whose bomb it was.
 
 ## The game readers (JUH-48)
 
@@ -51,11 +80,9 @@ Then restart the game.
 
 - The League poller: a request every second or so to the local API, accepting only Riot's certificate on 127.0.0.1:2999.
 - Starting and stopping the GSI listener with the app.
-- The glue that sends a comment through the cloud AI API with her persona, shows it in chat and speaks it.
-- The settings: the feature switch, the opt-in, the frequency, quiet mode and the push-to-mute key.
+- The glue that sends a comment through the cloud AI API with her persona, or falls back to a pre-written line, then shows it in chat, speaks it and plays the face and gesture (JUH-47).
+- The Games settings section: the feature switch, the opt-in, the frequency, quiet mode and the push-to-mute key (JUH-47).
 
 ## Open decisions for Jussi
 
-- **Reactions without a model.** Should she react to game events with an animation and a short pre-written line through the local voice? This would need no model at all, and would also work in private mode.
-- **Installing the game's config file.** Should the app write the GSI config file into the user's game folder itself, or should the user copy it in? Until this is decided, copying it is a manual, documented step.
-- **WoW after-fight comments.** These could be based on encounter start and end, which don't need real-time data.
+- **Pre-written lines in private mode.** They run entirely on this PC, but the earlier decision turns the game companion off in private mode and while the 18+ gate is open. They stay off there until Jussi decides.
