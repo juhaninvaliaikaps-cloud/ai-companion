@@ -116,6 +116,26 @@ The weight is **not** in git. The default is multilingual `ggml-base.bin` (about
 
 Language defaults to `auto`. Set `language` on the asset to `fi` or `en` to force one. `translateToEnglish` stays off, so Finnish stays Finnish.
 
+### Talk while gaming (JUH-162)
+
+The **V** key is read through Unity's input, so it works only while Happi's own window has the focus. While a game has the focus, Happi reads these instead:
+
+| Button | How Happi reads it | Default |
+| --- | --- | --- |
+| Mouse 4 or Mouse 5 (side buttons) | `GetAsyncKeyState(VK_XBUTTON1 / VK_XBUTTON2)`, the same way as the gacha look hotkey | Mouse 4 |
+| Xbox button | `XInputGetStateEx` (xinput1_4 ordinal 100); the standard `XInputGetState` hides the Guide button | on |
+| PS button (DualSense, DualSense Edge) | The controller's HID input reports, read on a background thread. The device is opened read-only and shared, so the game and Steam keep their input. PS is bit 0 of byte 10 over USB, byte 11 in Bluetooth report 0x31, and byte 7 in the short Bluetooth report | on |
+
+- **Settings:** Voice tab → **Talk while gaming**. The values are `talkMouseButton` (4, 5 or 0 for off), `talkXboxButton` and `talkPsButton`. Nothing is read while push-to-talk is off.
+- Happi only reads whether a button is held. She doesn't take it from the game, so the game sees the press too. No keyboard hook and no `RegisterHotKey` are used.
+- These buttons count like the on-screen talk button (`PushToTalkGate`), so a focused text field doesn't block them.
+- **Recognition:** still local Whisper on the CPU. The GPU backend is off (`UseGpu = false`, Vulkan stubbed), so speech-to-text never competes with the game for the GPU. Whisper works only for the second or two after you let go.
+- **Known clashes:**
+  - The Xbox button also opens the Xbox Game Bar (turn that off in Windows Settings > Gaming > Game Bar).
+  - With Steam running, the PS button can open the Steam overlay (turn off its Guide button in Steam's controller settings).
+  - A game running as administrator hides its input from a program that isn't, so then Happi must run as administrator too.
+- A DualSense under Steam Input or DS4Windows may also show up as an Xbox controller. Then the Xbox button setting catches the PS button too.
+
 ### Get the model
 
 In the Editor, with the project open:

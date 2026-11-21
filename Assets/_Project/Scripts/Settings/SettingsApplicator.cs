@@ -97,6 +97,12 @@ namespace AICompanion.Settings
                 }
 
                 listener.ApplyRecognitionSettings();
+                // JUH-162: the gaming talk buttons; nothing is read while push-to-talk is off.
+                var talk = settings.SttEnabled;
+                listener.ConfigureGameTalk(
+                    talk ? GameTalkButtons.Normalize(settings.TalkMouseButton) : TalkMouseButton.Off,
+                    talk && settings.TalkXboxButton,
+                    talk && settings.TalkPsButton);
             }
 
             var window = host.GetComponent<OverlayWindow>();

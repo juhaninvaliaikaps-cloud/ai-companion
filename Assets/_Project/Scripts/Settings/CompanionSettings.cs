@@ -69,6 +69,11 @@ namespace AICompanion.Settings
         public string PushToTalkKey = "V";
         public string WhisperModel = SttSettings.DefaultModelFile;
         public string SttLanguage = "auto";
+
+        // JUH-162: talk while a game has the focus. 4 or 5 is a mouse side button, 0 is off.
+        public int TalkMouseButton = 4;
+        public bool TalkXboxButton = true;
+        public bool TalkPsButton = true;
         public bool AlwaysOnTop = true;
         public float Scale = 1f;
         public string ClickThrough = OverlayClickThroughPolicy.SilhouetteName;
@@ -354,6 +359,7 @@ namespace AICompanion.Settings
             PushToTalkKey = PushToTalkKeyName.Normalize(PushToTalkKey);
             WhisperModel = SttSettings.SanitizeModelFile(WhisperModel);
             SttLanguage = CleanToken(string.IsNullOrWhiteSpace(SttLanguage) ? "auto" : SttLanguage, "auto", 16).ToLowerInvariant();
+            TalkMouseButton = (int)GameTalkButtons.Normalize(TalkMouseButton);
             if (float.IsNaN(Scale) || float.IsInfinity(Scale))
                 Scale = 1f;
             if (Scale < OverlayWindowSize.MinScale)
@@ -773,6 +779,12 @@ namespace AICompanion.Settings
                 settings.WhisperModel = text;
             if (TryString(json, "sttLanguage", out text))
                 settings.SttLanguage = text;
+            if (TryNumber(json, "talkMouseButton", out number))
+                settings.TalkMouseButton = (int)Math.Round(number);
+            if (TryBool(json, "talkXboxButton", out flag))
+                settings.TalkXboxButton = flag;
+            if (TryBool(json, "talkPsButton", out flag))
+                settings.TalkPsButton = flag;
             if (TryBool(json, "alwaysOnTop", out flag))
                 settings.AlwaysOnTop = flag;
             if (TryNumber(json, "scale", out number) || TryNumber(json, "windowScale", out number))
@@ -981,6 +993,9 @@ namespace AICompanion.Settings
             String(sb, "pushToTalkKey", source.PushToTalkKey);
             String(sb, "whisperModel", source.WhisperModel);
             String(sb, "sttLanguage", source.SttLanguage);
+            Number(sb, "talkMouseButton", source.TalkMouseButton, true);
+            Bool(sb, "talkXboxButton", source.TalkXboxButton);
+            Bool(sb, "talkPsButton", source.TalkPsButton);
             Bool(sb, "alwaysOnTop", source.AlwaysOnTop);
             Number(sb, "scale", source.Scale, false);
             String(sb, "clickThrough", source.ClickThrough);
