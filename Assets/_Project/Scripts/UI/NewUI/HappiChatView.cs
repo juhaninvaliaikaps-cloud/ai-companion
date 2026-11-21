@@ -92,6 +92,8 @@ namespace AICompanion.NewUI
         string _avatarPersona;
         int _avatarPersonaRevision = -1;
         int _avatarPictureRevision = -1;
+        // JUH-166: her picture at full size while the mouse rests on the small one.
+        PictureHoverPreview _picturePreview;
         float _layoutHeight = -1f;
         float _layoutScale = -1f;
         float _layoutChatHeight = -1f;
@@ -282,6 +284,8 @@ namespace AICompanion.NewUI
                 _resizePending = ResizeEdges.None;
                 _middleScrolling = false;
                 ClearPortraitHooks();
+                if (_picturePreview != null)
+                    _picturePreview.Hide();
                 ReleaseFocus();
                 if (_micHeld)
                 {
@@ -307,6 +311,11 @@ namespace AICompanion.NewUI
 
             HandleKeys();
             RefreshControls();
+            if (_picturePreview != null)
+            {
+                var overPicture = _avatarShown && !_dragging && !_resizing && _avatarFrame != null && Contains(_avatarFrame.rectTransform);
+                _picturePreview.Tick(overPicture, _avatar != null ? _avatar.texture : null, _avatarFrame != null ? _avatarFrame.rectTransform : null, Time.unscaledTime);
+            }
             RefreshDialogue();
             ApplyGlow(settings);
             RefreshHistory();
@@ -926,6 +935,7 @@ namespace AICompanion.NewUI
 
             _avatar = PersonaPictureCache.Frame(_box, "Avatar", _theme, out _avatarFrame);
             _avatarFrame.gameObject.SetActive(false);
+            _picturePreview = new PictureHoverPreview((RectTransform)_canvasObject.transform, _theme);
             _name = HappiUiKit.Text(_box, "Name", "Leia", _theme.FontTitle, _theme.Text, TextAlignmentOptions.MidlineLeft, true);
             _name.textWrappingMode = TextWrappingModes.NoWrap;
             _badge = HappiUiKit.Text(_box, "Badge", string.Empty, _theme.FontSmall, _theme.BadgeCloud, TextAlignmentOptions.MidlineLeft, false);
