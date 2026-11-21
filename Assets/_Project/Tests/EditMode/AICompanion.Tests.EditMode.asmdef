@@ -13,6 +13,7 @@
         "AICompanion.Settings",
         "AICompanion.ScreenLook",
         "AICompanion.NewUI",
+        "AICompanion.GameCompanion",
         "UnityEngine.UI",
         "Unity.TextMeshPro",
         "UnityEngine.TestRunner",

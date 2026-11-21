@@ -1,0 +1,16 @@
+{
+    "name": "AICompanion.GameCompanion",
+    "rootNamespace": "AICompanion.GameCompanion",
+    "references": [
+        "AICompanion.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
