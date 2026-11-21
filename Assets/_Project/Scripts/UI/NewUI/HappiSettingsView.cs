@@ -1335,6 +1335,11 @@ namespace AICompanion.NewUI
             Note(games.GachaGame != GameTitle.Unknown ? CommentaryPrompt.GameName(games.GachaGame) + " is open." : "No gacha game is open.");
             if (S.GameScreenLooks && games.GachaGame != GameTitle.Unknown)
                 Button("Look now", () => { games.LookNow(); _rebuild = true; });
+            Toggle("React to my pulls (Genshin, Star Rail, ZZZ)", S.GamePullHistory, v => Change(s => s.GamePullHistory = v));
+            Note("She reads the pull history link the game saves when you open your history in the game, and asks HoYoverse's own server for your newest pulls. "
+                 + "The link is never sent anywhere else or saved. Endfield and NTE don't offer a safe way to do this.");
+            if (S.GamePullHistory && GachaHistoryLink.Supports(games.GachaGame))
+                Note(games.FollowingPulls ? "Following your pulls." : GameCompanionController.PullLinkMissing);
 
             Section("Status");
             Note(string.IsNullOrEmpty(games.StatusLine) ? "Ready." : games.StatusLine);

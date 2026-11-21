@@ -231,8 +231,18 @@ namespace AICompanion.GameCompanion
                 case GameEventKind.BombExploded: return "the bomb exploded";
                 case GameEventKind.LowHealth: return "they are low on health";
                 case GameEventKind.LevelUp: return "they reached level " + e.Count;
+                case GameEventKind.GachaTopPull:
+                    return "they pulled " + (e.Game == GameTitle.ZenlessZoneZero ? "an " : "a ") + TopRarity(e.Game) + (e.Detail.Length > 0 ? ": " + e.Detail : string.Empty)
+                           + (e.Count > 0 ? ", after " + e.Count + " pulls" : string.Empty);
+                case GameEventKind.GachaNoTop: return "they did " + e.Count + " pulls and got no " + TopRarity(e.Game);
                 default: return e.Kind.ToString();
             }
+        }
+
+        /// <summary>What the game calls its top rarity.</summary>
+        public static string TopRarity(GameTitle game)
+        {
+            return game == GameTitle.ZenlessZoneZero ? "S-rank" : "5-star";
         }
 
         static string MultiName(int count)
