@@ -35,6 +35,7 @@ namespace AICompanion.NewUI
             Voice,
             Look,
             Chat,
+            Tools,
             Screen,
             Window,
             Data,
@@ -43,7 +44,7 @@ namespace AICompanion.NewUI
             Developer,
         }
 
-        static readonly string[] TabLabels = { "Persona", "AI", "Voice", "Look", "Chat", "Screen", "Window", "Data", "18+", "Keys", "Developer" };
+        static readonly string[] TabLabels = { "Persona", "AI", "Voice", "Look", "Chat", "Tools", "Screen", "Window", "Data", "18+", "Keys", "Developer" };
         const float PlaneDistance = 0.36f;
 
         SettingsPanel _settings;
@@ -372,6 +373,7 @@ namespace AICompanion.NewUI
                         case Tab.Voice: BuildVoice(); break;
                         case Tab.Look: BuildLook(); break;
                         case Tab.Chat: BuildChat(); break;
+                        case Tab.Tools: BuildTools(); break;
                         case Tab.Screen: BuildScreen(); break;
                         case Tab.Window: BuildWindow(); break;
                         case Tab.Data: BuildData(); break;
@@ -900,6 +902,56 @@ namespace AICompanion.NewUI
         }
 
         // ---- Chat: the chat box and its history ----------------------------------------------
+
+        // ---- Tools: desktop permissions (JUH-27) -----------------------------------------
+
+        void BuildTools()
+        {
+            Section("Desktop tools");
+            Note("Every capability is off until you grant it. A tool asks the first time it is used, and you can revoke it here at any time.");
+
+            for (var i = 0; i < DesktopToolCatalog.All.Length; i++)
+            {
+                var kind = DesktopToolCatalog.All[i];
+                var state = DesktopToolPermissions.State(S, kind);
+                Note(DesktopToolCatalog.Label(kind) + " — " + DesktopToolPermissions.StateLabel(state));
+                Note(DesktopToolCatalog.Description(kind));
+                Button("Allow " + DesktopToolCatalog.Label(kind), () => SetToolPermission(kind, DesktopToolPermissions.Allowed));
+                Button("Ask on first use", () => SetToolPermission(kind, DesktopToolPermissions.Ask));
+                Button("Block", () => SetToolPermission(kind, DesktopToolPermissions.Denied));
+                Button("Preview first-use prompt", () => DesktopToolPermissions.Request(_settings, kind, "preview", _ => { _rebuild = true; }));
+            }
+
+            Section("Tool action log");
+            var recent = DesktopToolAuditLog.Recent(8);
+            if (recent.Count == 0)
+            {
+                Note("No tool actions yet.");
+            }
+            else
+            {
+                for (var i = 0; i < recent.Count; i++)
+                {
+                    var entry = recent[i];
+                    DateTime at;
+                    var when = DateTime.TryParse(entry.atUtc, out at) ? at.ToLocalTime().ToString("g") : string.Empty;
+                    Note((when.Length > 0 ? when + " — " : string.Empty)
+                        + entry.tool + ": " + entry.action + " — " + (entry.allowed ? "allowed" : "blocked")
+                        + (string.IsNullOrEmpty(entry.reason) ? string.Empty : " (" + entry.reason + ")"));
+                }
+            }
+
+            Button("Clear tool action log", () =>
+            {
+                DesktopToolAuditLog.Clear();
+                _rebuild = true;
+            }, true);
+        }
+
+        void SetToolPermission(DesktopToolKind kind, int state)
+        {
+            Change(s => DesktopToolPermissions.SetState(s, kind, state));
+        }
 
         void BuildChat()
         {

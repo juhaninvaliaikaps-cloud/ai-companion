@@ -33,6 +33,7 @@ namespace AICompanion.Core
             return rel == "settings.json"
                 || rel == "personality.json"
                 || IsMemoryName(rel)
+                || IsDesktopToolLogName(rel)
                 || IsTimelineName(rel)
                 || IsPendingSessionName(rel)
                 || IsHistoryName(rel)
@@ -77,6 +78,12 @@ namespace AICompanion.Core
             if (name == "memory.json")
                 return true;
             return name.StartsWith("memory-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
+        }
+
+        /// <summary>Encrypted local audit of desktop tool requests (JUH-27).</summary>
+        public static bool IsDesktopToolLogName(string fileName)
+        {
+            return string.Equals(Normalize(fileName), "desktop-tool-actions.json", StringComparison.Ordinal);
         }
 
         /// <summary>Her relationship timeline per persona (JUH-134): timeline.json and timeline-&lt;persona&gt;.json.</summary>
