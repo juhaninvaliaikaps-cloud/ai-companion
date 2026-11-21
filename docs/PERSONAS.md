@@ -161,6 +161,7 @@ It edits a draft and saves the whole persona on **Save**. Closing with unsaved c
 | `name` | Display name |
 | `description`, `personality` | Description, as labelled paragraphs ("Description:", "Personality:") |
 | `scenario` | Scenario (JUH-155) |
+| `character_book` | Her lorebook (JUH-156), see below |
 | `first_mes` | Greeting |
 | `mes_example` | Example lines: `{{char}}` and `<BOT>` become "Her", `{{user}}` and `<USER>` become "You", `<START>` separators go |
 | `creator_notes`, `system_prompt`, `post_history_instructions` | Not imported (Happi writes its own instructions); the status line says so |
@@ -178,6 +179,24 @@ The PNG is read chunk by chunk (signature, length, type, data, CRC). No length i
 - **a zip:** her Happi persona file (`<id>.json`) and her picture (`<id>.png`).
 
 Her 18+ notes are **never** exported unless **Include 18+ notes** is ticked (shown only when she has some). Ticked, a card carries them in `scenario`, after her scenario, and is tagged `nsfw`, so importing it again routes them back into the 18+ notes. The save dialog asks before overwriting a file.
+
+### Lorebooks (JUH-156)
+
+A lorebook is a set of short entries about her world (places, people, things). When an entry's key comes up in the chat, its text is added to what she knows for that message.
+
+- **Import:** the Studio's Description step, **Lorebook → Import lorebook JSON…**. It reads:
+  - SillyTavern World Info (`entries` keyed by number, with `key`, `keysecondary`, `comment`, `content`, `constant`, `selective`, `order`, `disable`)
+  - a card's `character_book` (V2/V3, Chub, Character Tavern: `keys`, `secondary_keys`, `name`, `content`, `enabled`, `insertion_order`, `constant`, `selective`), on its own or inside a card
+  - NovelAI (`text`, `displayName`) and Agnaistic (`entry`, `keywords`) entries
+  - Parsing is `JsonTree`, then `LorebookImport`. `{{char}}` and `{{user}}` become her name and "the user". Entries that look like an API key are dropped, and each entry is capped at 4,000 characters, 500 entries a book.
+- **Cards bring theirs:** importing a card, PNG or JSON, also imports its `character_book`, and the status line says so. Character Tavern's PNG download carries the whole card, lorebook included.
+- **Matching** (`LoreMatcher`):
+  - Happi scans the new message and the last 4 chat lines for keys: whole words, case-insensitive unless the entry says otherwise.
+  - A selective entry also needs one of its secondary keys. Constant entries are always on.
+  - Entries go in constant first, then by insertion order, up to about 3,000 characters a message, under "What you know about this world…". This happens in `ChatPanel.WithLore`, right after the scene tracker.
+- **Storage:** `<id>.lorebook`, encrypted beside her persona file (`LorebookStore`), in V2 `character_book` shape. Duplicating her copies it, and deleting her deletes it. Saving the Studio with **Remove lorebook** removes it.
+- **18+:** a lorebook from a card tagged 18+ is marked 18+. With 18+ turned on in settings, the Studio also has an **18+ lorebook** switch. An 18+ lorebook is used only while the 18+ gate is open, and the gate keeps chat local (`LoreNow`, like the 18+ notes). Any other lorebook goes to the chat model like her description.
+- **Not yet:** editing entries one by one, exporting her lorebook inside an exported card, and Pisara reading the lorebook.
 
 ### Persona grid, her picture, describing it, history (JUH-154)
 

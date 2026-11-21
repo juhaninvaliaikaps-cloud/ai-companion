@@ -82,6 +82,10 @@ namespace AICompanion.NewUI
         bool _isNew;
         bool _dirty;
         bool _showScenario;
+
+        // JUH-156: her lorebook, saved with her.
+        Lorebook _lore;
+        bool _loreChanged;
         bool _pictureChanged;
         byte[] _picturePng;
         Texture2D _pictureTexture;
@@ -157,6 +161,8 @@ namespace AICompanion.NewUI
             _isNew = true;
             _dirty = false;
             _showScenario = false;
+            _lore = null;
+            _loreChanged = false;
             SetPicture(null, false);
             ResetSheet(null);
             ClearTest();
@@ -180,6 +186,8 @@ namespace AICompanion.NewUI
             _draft = persona;
             _isNew = false;
             _dirty = false;
+            _lore = _settings.StudioLore(persona.Id);
+            _loreChanged = false;
             SetPicture(persona.HasPicture ? _settings.StudioPicture(persona.Id) : null, false);
             ResetSheet(_settings.StudioSheet(persona.Id));
             ClearTest();
@@ -653,6 +661,145 @@ namespace AICompanion.NewUI
             return line.Length <= max ? line : line.Substring(0, max).TrimEnd() + "…";
         }
 
+        // ---- Lorebook (JUH-156) ---------------------------------------------------------------
+
+        const int LorePreviewEntries = 8;
+        const long MaxLoreFileBytes = JsonTree.MaxLength;
+
+        void BuildLorebook()
+        {
+            _form.Section("Lorebook");
+            if (_lore == null)
+            {
+                _form.Note("A lorebook adds facts about her world when they come up in chat: places, people, things. "
+                           + "Import one from SillyTavern, Chub or Character Tavern (World Info or a card's lorebook, as JSON).");
+                _form.Button("Import lorebook JSON…", ImportLore);
+                return;
+            }
+
+            _form.Note((string.IsNullOrWhiteSpace(_lore.Name) ? "Her lorebook" : _lore.Name) + ": " + LoreSummary(_lore));
+            var shown = Math.Min(LorePreviewEntries, _lore.Entries.Count);
+            var list = new System.Text.StringBuilder();
+            for (var i = 0; i < shown; i++)
+            {
+                var entry = _lore.Entries[i];
+                if (i > 0)
+                    list.Append('\n');
+                list.Append("• ").Append(entry.Label);
+                if (entry.Constant)
+                    list.Append(" (always on)");
+                else if (entry.Keys.Count > 0)
+                    list.Append(" (when: ").Append(string.Join(", ", entry.Keys.GetRange(0, Math.Min(4, entry.Keys.Count)).ToArray())).Append(')');
+                if (!entry.Enabled)
+                    list.Append(" (off)");
+            }
+
+            if (_lore.Entries.Count > shown)
+                list.Append("\n…and ").Append(_lore.Entries.Count - shown).Append(" more.");
+            _form.Note(list.ToString());
+            _form.Note("When a key comes up in the chat, that entry is added to what she knows, up to about "
+                       + LoreMatcher.Budget.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " characters a message. Always-on entries come first.");
+
+            if (_settings.CurrentSettings != null && _settings.CurrentSettings.IntimateExpressions)
+            {
+                _form.Toggle("18+ lorebook: use it only while the 18+ gate is open (then chat stays on this PC)", _lore.Adult, v =>
+                {
+                    _lore.Adult = v;
+                    _loreChanged = true;
+                    _dirty = true;
+                    _form.Rebuild = true;
+                });
+            }
+            else if (_lore.Adult)
+            {
+                _form.Note("This is an 18+ lorebook. It's used only while the 18+ gate is open.");
+            }
+
+            _form.Buttons(
+                new KeyValuePair<string, Action>("Replace with another…", ImportLore),
+                new KeyValuePair<string, Action>("Remove lorebook", () =>
+                {
+                    _lore = null;
+                    _loreChanged = true;
+                    _dirty = true;
+                    _form.Rebuild = true;
+                    Status("Her lorebook will be removed when you save.");
+                }));
+        }
+
+        static string LoreSummary(Lorebook book)
+        {
+            var count = book.Entries.Count;
+            var always = book.ConstantCount;
+            var text = count.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + (count == 1 ? " entry" : " entries");
+            if (always > 0)
+                text += ", " + always.ToString(System.Globalization.CultureInfo.InvariantCulture) + " always on";
+            return text + (book.Adult ? ", 18+." : ".");
+        }
+
+        void ImportLore()
+        {
+            if (_draft == null)
+                return;
+            string path;
+            if (!AICompanion.Settings.OpenFileDialog.TryPick("Import a lorebook", AICompanion.Settings.OpenFileDialog.Lorebooks, out path))
+                return;
+            LoreImport import;
+            try
+            {
+                if (!File.Exists(path))
+                {
+                    Status("That file wasn't found.");
+                    return;
+                }
+
+                if (new FileInfo(path).Length > MaxLoreFileBytes)
+                {
+                    Status("That lorebook is larger than 8 MB.");
+                    return;
+                }
+
+                import = LorebookImport.FromJson(File.ReadAllText(path), _draft.DisplayName);
+            }
+            catch (Exception ex)
+            {
+                Status("Couldn't read that lorebook (" + ex.GetType().Name + ").");
+                return;
+            }
+
+            if (!import.Ok)
+            {
+                Status(import.Error);
+                return;
+            }
+
+            // An 18+ flag the user set stays when the lorebook is replaced.
+            if (_lore != null && _lore.Adult)
+                import.Book.Adult = true;
+            _lore = import.Book;
+            _loreChanged = true;
+            _dirty = true;
+            _form.Rebuild = true;
+            var message = "Imported " + LoreSummary(_lore) + " Save to keep it.";
+            if (import.Notes.Count > 0)
+                message += " " + string.Join(" ", import.Notes.ToArray());
+            Status(message);
+        }
+
+        static bool LooksLikeLorebook(string path)
+        {
+            try
+            {
+                if (!path.EndsWith(".json", StringComparison.OrdinalIgnoreCase) || new FileInfo(path).Length > MaxLoreFileBytes)
+                    return false;
+                return LorebookImport.FromJson(File.ReadAllText(path), null).Ok;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
         void BuildDescription()
         {
             _form.Section("Description");
@@ -685,6 +832,8 @@ namespace AICompanion.NewUI
                     _form.Rebuild = true;
                 });
             }
+
+            BuildLorebook();
 
             _form.Section("Example lines");
             _form.Area("A few short exchanges", _draft.ExampleLines, 100f, PersonaDefinition.MaxExampleLinesLength, v => Edit(p => p.ExampleLines = v, false));
@@ -807,6 +956,7 @@ namespace AICompanion.NewUI
                 _form.Note(_draft.Tagline);
             _form.Note(_draft.Condensed ? "Description: condensed by Pisara for the chat model." : PersonaDescription.Meter(_draft.Description));
             _form.Note(string.IsNullOrWhiteSpace(_draft.Scenario) ? "Scenario: Pisara makes it up." : "Scenario: " + Preview(_draft.Scenario, 140));
+            _form.Note(_lore == null ? "Lorebook: none." : "Lorebook: " + LoreSummary(_lore));
             if (_sheet != null)
             {
                 var choice = PisaraReading.Choose(_draft.TemperamentMode, _draft.Temperament, false, _sheet);
@@ -1363,6 +1513,8 @@ namespace AICompanion.NewUI
             _dirty = true;
             PersonaDescription.FoldStyle(_draft);
             _showScenario = _draft != null && !string.IsNullOrWhiteSpace(_draft.Scenario);
+            _lore = null;
+            _loreChanged = false;
             if (!_pictureChanged)
                 SetPicture(null, false);
             ResetSheet(null);
@@ -1380,6 +1532,7 @@ namespace AICompanion.NewUI
 
             var picture = copy.HasPicture ? _settings.StudioPicture(copy.Id) : null;
             var sheet = _settings.StudioSheet(copy.Id);
+            var lore = _settings.StudioLore(copy.Id);
             copy.Id = string.Empty;
             copy.DisplayName = (string.IsNullOrWhiteSpace(copy.DisplayName) ? "Persona" : copy.DisplayName) + " copy";
             copy.HasPicture = false;
@@ -1388,6 +1541,8 @@ namespace AICompanion.NewUI
             _dirty = true;
             PersonaDescription.FoldStyle(_draft);
             _showScenario = !string.IsNullOrWhiteSpace(_draft.Scenario);
+            _lore = lore;
+            _loreChanged = lore != null;
             SetPicture(picture, picture != null);
             ResetSheet(sheet);
             _sheetChanged = sheet != null;
@@ -1439,6 +1594,14 @@ namespace AICompanion.NewUI
             {
                 Status(message);
                 return;
+            }
+
+            if (_loreChanged)
+            {
+                if (_settings.StudioSaveLore(savedId, _lore))
+                    _loreChanged = false;
+                else
+                    message += " Her lorebook couldn't be saved.";
             }
 
             // Keep editing what was saved: the id is now known.
@@ -1572,7 +1735,10 @@ namespace AICompanion.NewUI
 
             if (!card.Ok)
             {
-                Status(card.Error);
+                // JUH-156: a lorebook picked by mistake gets a pointer to the right place.
+                Status(LooksLikeLorebook(path)
+                    ? "That's a lorebook, not a character card. Make or open her first, then import it in step 2, under Lorebook."
+                    : card.Error);
                 return;
             }
 
@@ -1582,6 +1748,11 @@ namespace AICompanion.NewUI
                 png = null;
             SetPicture(png, png != null);
             Begin(card.Persona, Step.Identity);
+            if (card.Lorebook != null)
+            {
+                _lore = card.Lorebook;
+                _loreChanged = true;
+            }
             var message = "Imported " + (string.IsNullOrWhiteSpace(card.Persona.DisplayName) ? Path.GetFileName(path) : card.Persona.DisplayName) + ".";
             if (card.Notes.Count > 0)
                 message += " " + string.Join(" ", card.Notes.ToArray());

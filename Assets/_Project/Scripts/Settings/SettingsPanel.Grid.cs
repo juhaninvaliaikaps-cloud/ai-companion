@@ -33,11 +33,14 @@ namespace AICompanion.Settings
             }
 
             var picture = copy.HasPicture ? StudioPicture(copy.Id) : null;
+            var lore = LorebookStore.Load(PersonasFolderPath, copy.Id);
             copy.DisplayName = PersonaGrid.CopyName(copy.DisplayName, names.Contains);
             copy.Id = PersonaIds.Unique(copy.DisplayName, catalog.Contains);
             copy.HasPicture = false;
             if (picture != null && PersonaPictureStore.Save(PersonasFolderPath, copy.Id, picture))
                 copy.HasPicture = true;
+            if (lore != null)
+                LorebookStore.Save(PersonasFolderPath, copy.Id, lore);
             if (!PersonaStore.Save(PersonasFolderPath, copy))
             {
                 message = "Couldn't save the copy on this PC.";
@@ -69,12 +72,14 @@ namespace AICompanion.Settings
             if (string.Equals(_settings.PersonaId, entry.Persona.Id, StringComparison.OrdinalIgnoreCase))
             {
                 PersonaPictureStore.Delete(PersonasFolderPath, entry.Persona.Id);
+                LorebookStore.Delete(PersonasFolderPath, entry.Persona.Id);
                 DeleteActivePersona();
             }
             else
             {
                 PersonaStore.Delete(PersonasFolderPath, entry.Persona.Id);
                 PersonaPictureStore.Delete(PersonasFolderPath, entry.Persona.Id);
+                LorebookStore.Delete(PersonasFolderPath, entry.Persona.Id);
             }
 
             message = (entry.BuiltIn ? "Deleted your saved copy of " : "Deleted ") + name + ".";

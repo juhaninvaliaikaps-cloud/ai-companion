@@ -51,6 +51,26 @@ namespace AICompanion.Settings
             return PersonaPictureStore.Load(PersonasFolderPath, id);
         }
 
+        /// <summary>JUH-156: her saved lorebook, or null.</summary>
+        public Lorebook StudioLore(string id)
+        {
+            return string.IsNullOrWhiteSpace(id) ? null : LorebookStore.Load(PersonasFolderPath, id);
+        }
+
+        /// <summary>
+        /// JUH-156: saves her lorebook (null or empty removes it). The active persona's chat uses
+        /// the new one at once.
+        /// </summary>
+        public bool StudioSaveLore(string id, Lorebook book)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                return false;
+            var saved = LorebookStore.Save(PersonasFolderPath, id, book);
+            if (saved && string.Equals(_settings.PersonaId, PersonaIds.Normalize(id), StringComparison.OrdinalIgnoreCase))
+                LoreNow.Set(book);
+            return saved;
+        }
+
         /// <summary>
         /// Saves the whole draft. The chat text comes from the description
         /// (<see cref="PersonaDescription.ModelText"/>). A changed picture is saved or removed.
