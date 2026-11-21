@@ -6,6 +6,7 @@ using AICompanion.AI;
 using AICompanion.Core;
 using AICompanion.Overlay;
 using AICompanion.Settings;
+using AICompanion.UI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -556,6 +557,8 @@ namespace AICompanion.NewUI
         {
             var chat = GetComponent<ChatPanel>();
             if (chat == null)
+                chat = FindFirstObjectByType<ChatPanel>();
+            if (chat == null)
             {
                 Status("The chat isn't running, so she can't speak.");
                 return;
@@ -655,6 +658,8 @@ namespace AICompanion.NewUI
             if (_testing || _draft == null || string.IsNullOrWhiteSpace(_testInput))
                 return;
             var chat = GetComponent<ChatPanel>();
+            if (chat == null)
+                chat = FindFirstObjectByType<ChatPanel>();
             if (chat == null)
             {
                 Status("The chat isn't running.");
