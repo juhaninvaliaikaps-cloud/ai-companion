@@ -69,7 +69,8 @@ namespace AICompanion.Tests.EditMode
             for (var i = 0; i < 60; i++)
             {
                 var at = T0.AddSeconds(i * 20);
-                if (pacer.Consider(E(GameEventKind.Ace, i * 20), at).Speak)
+                var decision = pacer.Consider(E(GameEventKind.Ace, i * 20), at);
+                if (decision.Speak && decision.UseModel)
                 {
                     pacer.MarkSpoken(at);
                     spoken++;
