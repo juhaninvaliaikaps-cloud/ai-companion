@@ -989,8 +989,21 @@ namespace AICompanion.NewUI
             });
             Field("Speech language", S.SttLanguage, false, v => Change(s => s.SttLanguage = v));
 
-            // JUH-165: where the Whisper model is, and a download when it's missing.
+            // JUH-165: where the Whisper model is, a file of your own, and a download when it's missing.
             Note(_settings.SpeechModelStatus());
+            Field("Speech model file (optional)", S.WhisperModelPath, false, v => Change(s => s.WhisperModelPath = v));
+            Button("Browse for the speech model…", () =>
+            {
+                string picked;
+                if (OpenFileDialog.TryPick("Choose the Whisper model (.bin)", OpenFileDialog.WhisperModels, out picked))
+                {
+                    Change(s => s.WhisperModelPath = picked);
+                    _rebuild = true;
+                }
+            });
+            if (!string.IsNullOrEmpty(S.WhisperModelPath))
+                Button("Clear the chosen file", () => { Change(s => s.WhisperModelPath = string.Empty); _rebuild = true; });
+            Note("Pick a ggml-….bin you already have anywhere on this PC. Empty looks in the build, then in your data folder.");
             if (_settings.SpeechModelDownloading)
             {
                 Note("Downloading the speech model… The status line says when it's ready.");

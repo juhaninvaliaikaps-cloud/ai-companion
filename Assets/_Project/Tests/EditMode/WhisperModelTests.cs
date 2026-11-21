@@ -51,6 +51,33 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void AFileTheUserChose_ComesFirst_AndAMissingOneFallsBack()
+        {
+            var build = Path.Combine(_root, "build");
+            var buildModel = MakeModel("build", 2000000);
+            var mine = MakeModel("mine", 2000000);
+            Assert.AreEqual(Path.GetFullPath(mine), WhisperModelFiles.Find(build, null, "ggml-base.bin", mine));
+            Assert.AreEqual(Path.GetFullPath(mine), WhisperModelFiles.Find(build, null, "ggml-base.bin", "\"" + mine + "\""), "pasted with quotes");
+            Assert.AreEqual(buildModel, WhisperModelFiles.Find(build, null, "ggml-base.bin", Path.Combine(_root, "gone", "ggml-base.bin")), "a file that's gone falls back");
+        }
+
+        [Test]
+        public void OnlyAFullPathToABinCounts()
+        {
+            Assert.IsNull(WhisperModelFiles.ChosenPath("ggml-base.bin"), "a bare name isn't a path");
+            Assert.IsNull(WhisperModelFiles.ChosenPath(Path.Combine(_root, "model.txt")));
+            Assert.IsNull(WhisperModelFiles.ChosenPath(null));
+            Assert.IsNotNull(WhisperModelFiles.ChosenPath(Path.Combine(_root, "ggml-small-q5_1.bin")));
+
+            var settings = new AICompanion.Settings.CompanionSettings { WhisperModelPath = "not a path" };
+            settings.Normalize();
+            Assert.AreEqual(string.Empty, settings.WhisperModelPath);
+            settings.WhisperModelPath = Path.Combine(_root, "ggml-base.bin");
+            var back = AICompanion.Settings.CompanionSettingsJson.Parse(AICompanion.Settings.CompanionSettingsJson.Write(settings), AICompanion.Settings.SettingsLegacyPrefs.None);
+            Assert.AreEqual(Path.GetFullPath(Path.Combine(_root, "ggml-base.bin")), back.WhisperModelPath);
+        }
+
+        [Test]
         public void Find_IgnoresAStubOrAnEmptyFile()
         {
             MakeModel("build", 1000);

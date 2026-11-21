@@ -18,6 +18,9 @@ namespace AICompanion.Settings
         /// <summary>JUH-156: lorebook and World Info files.</summary>
         public const string Lorebooks = "Lorebooks (*.json)\0*.json\0All files (*.*)\0*.*\0\0";
 
+        /// <summary>JUH-165: a Whisper model file.</summary>
+        public const string WhisperModels = "Whisper models (*.bin)\0*.bin\0All files (*.*)\0*.*\0\0";
+
         public static bool TryPick(string title, string filter, out string path)
         {
             path = null;

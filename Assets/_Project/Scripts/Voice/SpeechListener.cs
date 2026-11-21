@@ -62,6 +62,17 @@ namespace AICompanion.Voice
 
         public string DataFolder => _dataFolder;
 
+        // JUH-165: a model file the user picked in Settings; it comes first.
+        string _chosenModel = string.Empty;
+
+        public void SetChosenModel(string path)
+        {
+            if (string.Equals(path ?? string.Empty, _chosenModel, StringComparison.Ordinal))
+                return;
+            _chosenModel = path ?? string.Empty;
+            _reloadModel = true;
+        }
+
         public void SetDataFolder(string folder)
         {
             if (string.Equals(folder ?? string.Empty, _dataFolder, StringComparison.Ordinal))
@@ -74,7 +85,7 @@ namespace AICompanion.Voice
         public string FindModel()
         {
             var settings = RuntimeStt;
-            return WhisperModelFiles.Find(Application.streamingAssetsPath, _dataFolder, settings != null ? settings.ModelFileName : SttSettings.DefaultModelFile);
+            return WhisperModelFiles.Find(Application.streamingAssetsPath, _dataFolder, settings != null ? settings.ModelFileName : SttSettings.DefaultModelFile, _chosenModel);
         }
 
         /// <summary>Which buttons talk while a game has the focus. Safe to call on every settings change.</summary>
@@ -177,7 +188,7 @@ namespace AICompanion.Voice
         {
             CancelSpeech();
             var modelFile = sttSettings.ModelFileName;
-            var modelPath = WhisperModelFiles.Find(Application.streamingAssetsPath, _dataFolder, modelFile);
+            var modelPath = WhisperModelFiles.Find(Application.streamingAssetsPath, _dataFolder, modelFile, _chosenModel);
             if (modelPath == null)
             {
                 _gate.Abort();
@@ -242,7 +253,7 @@ namespace AICompanion.Voice
                 if (_provider == null)
                 {
                     var modelFile = sttSettings.ModelFileName;
-                    var modelPath = WhisperModelFiles.Find(Application.streamingAssetsPath, _dataFolder, modelFile)
+                    var modelPath = WhisperModelFiles.Find(Application.streamingAssetsPath, _dataFolder, modelFile, _chosenModel)
                                     ?? WhisperModelFiles.BuildPath(Application.streamingAssetsPath, modelFile);
                     _provider = new WhisperSttProvider(modelPath, modelFile);
                 }

@@ -68,6 +68,9 @@ namespace AICompanion.Settings
         public bool SttEnabled = true;
         public string PushToTalkKey = "V";
         public string WhisperModel = SttSettings.DefaultModelFile;
+
+        // JUH-165: a Whisper model file anywhere on the PC (full path); empty uses the usual places.
+        public string WhisperModelPath = string.Empty;
         public string SttLanguage = "auto";
 
         // JUH-162: talk while a game has the focus. 4 or 5 is a mouse side button, 0 is off.
@@ -361,6 +364,7 @@ namespace AICompanion.Settings
                 Volume = 1f;
             PushToTalkKey = PushToTalkKeyName.Normalize(PushToTalkKey);
             WhisperModel = SttSettings.SanitizeModelFile(WhisperModel);
+            WhisperModelPath = WhisperModelFiles.ChosenPath(WhisperModelPath) ?? string.Empty;
             SttLanguage = CleanToken(string.IsNullOrWhiteSpace(SttLanguage) ? "auto" : SttLanguage, "auto", 16).ToLowerInvariant();
             TalkMouseButton = (int)GameTalkButtons.Normalize(TalkMouseButton);
             if (float.IsNaN(Scale) || float.IsInfinity(Scale))
@@ -780,6 +784,8 @@ namespace AICompanion.Settings
                 settings.PushToTalkKey = text;
             if (TryString(json, "whisperModel", out text))
                 settings.WhisperModel = text;
+            if (TryString(json, "whisperModelPath", out text))
+                settings.WhisperModelPath = text;
             if (TryString(json, "sttLanguage", out text))
                 settings.SttLanguage = text;
             if (TryNumber(json, "talkMouseButton", out number))
@@ -997,6 +1003,7 @@ namespace AICompanion.Settings
             Bool(sb, "sttEnabled", source.SttEnabled);
             String(sb, "pushToTalkKey", source.PushToTalkKey);
             String(sb, "whisperModel", source.WhisperModel);
+            String(sb, "whisperModelPath", source.WhisperModelPath);
             String(sb, "sttLanguage", source.SttLanguage);
             Number(sb, "talkMouseButton", source.TalkMouseButton, true);
             Bool(sb, "talkXboxButton", source.TalkXboxButton);

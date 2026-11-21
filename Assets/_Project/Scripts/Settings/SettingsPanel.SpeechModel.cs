@@ -26,10 +26,14 @@ namespace AICompanion.Settings
             if (listener == null)
                 return "Speech input isn't set up in this build.";
             var path = listener.FindModel();
+            var chosen = WhisperModelFiles.ChosenPath(_settings != null ? _settings.WhisperModelPath : null);
+            if (chosen != null && string.Equals(path, chosen, StringComparison.OrdinalIgnoreCase))
+                return "Speech model: " + System.IO.Path.GetFileName(chosen) + ", the file you chose.";
+            var lost = chosen != null ? "The file you chose isn't there or isn't a model. " : string.Empty;
             if (path == null)
-                return "Speech model " + file + ": missing. Download it below.";
+                return lost + "Speech model " + file + ": missing. Choose the file or download it below.";
             var inBuild = path.StartsWith(Application.streamingAssetsPath, StringComparison.OrdinalIgnoreCase);
-            return "Speech model " + file + ": " + (inBuild ? "included in this build." : "in your data folder.");
+            return lost + "Speech model " + file + ": " + (inBuild ? "included in this build." : "in your data folder.");
         }
 
         public bool SpeechModelFound()

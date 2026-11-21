@@ -139,8 +139,9 @@ The **V** key is read through Unity's input, so it works only while Happi's own 
 ### Get the model
 
 **Where Happi looks (JUH-165):**
-1. `Happi_Data\StreamingAssets\Whisper\<model>` in the build.
-2. `%APPDATA%\ProjectLeia\Whisper\<model>`, her data folder (`WhisperModelFiles.Find`).
+1. The **Speech model file** chosen in Settings → Voice → Speech input (`whisperModelPath`), a full path to a `.bin` anywhere on the PC. **Browse…** picks it. A file that's gone or too small is skipped.
+2. `Happi_Data\StreamingAssets\Whisper\<model>` in the build.
+3. `%APPDATA%\ProjectLeia\Whisper\<model>`, her data folder (`WhisperModelFiles.Find`).
 
 The weight isn't in git, so a build made from a **git worktree** ships without it. Such a build still finds the data-folder copy.
 

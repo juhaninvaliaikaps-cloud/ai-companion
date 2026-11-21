@@ -37,14 +37,39 @@ namespace AICompanion.Voice
             return Path.Combine(streamingAssets, FolderName, SttSettings.SanitizeModelFile(modelFile));
         }
 
-        /// <summary>The first usable model: the build's, then the data folder's. Null when neither is there.</summary>
-        public static string Find(string streamingAssets, string dataFolder, string modelFile)
+        /// <summary>
+        /// The first usable model: the file the user chose in Settings, then the build's, then the
+        /// data folder's. Null when none is there.
+        /// </summary>
+        public static string Find(string streamingAssets, string dataFolder, string modelFile, string chosenFile = null)
         {
+            var chosen = ChosenPath(chosenFile);
+            if (Usable(chosen))
+                return chosen;
             var build = BuildPath(streamingAssets, modelFile);
             if (Usable(build))
                 return build;
             var data = DataPath(dataFolder, modelFile);
             return Usable(data) ? data : null;
+        }
+
+        /// <summary>
+        /// JUH-165: a model file the user picked anywhere on the PC. Only a full path to a .bin
+        /// counts; anything else is ignored.
+        /// </summary>
+        public static string ChosenPath(string chosenFile)
+        {
+            var path = (chosenFile ?? string.Empty).Trim().Trim('"');
+            if (path.Length == 0 || path.Length > 1024 || !path.EndsWith(".bin", StringComparison.OrdinalIgnoreCase))
+                return null;
+            try
+            {
+                return Path.IsPathRooted(path) ? Path.GetFullPath(path) : null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         public static bool Usable(string path)
