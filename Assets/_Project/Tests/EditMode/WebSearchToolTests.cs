@@ -1,5 +1,7 @@
+using System.IO;
 using AICompanion.Settings;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace AICompanion.Tests.EditMode
 {
@@ -34,6 +36,17 @@ namespace AICompanion.Tests.EditMode
             var response = WebSearchTool.Parse("nothing", string.Empty);
             Assert.IsFalse(response.Ok);
             StringAssert.Contains("no results", response.Error);
+        }
+
+        [Test]
+        public void SearchResults_DoNotCarryIntoTheNextMessage()
+        {
+            var source = File.ReadAllText(Path.Combine(Application.dataPath, "_Project/Scripts/UI/ChatPanel.cs"));
+            var send = source.IndexOf("TrySend(cleaned);", System.StringComparison.Ordinal);
+            Assert.Greater(send, 0);
+            var clear = source.IndexOf("_webSearchContext = null;", send, System.StringComparison.Ordinal);
+            Assert.Greater(clear, send);
+            Assert.Less(clear - send, 200, "The results are cleared right after the send.");
         }
     }
 }

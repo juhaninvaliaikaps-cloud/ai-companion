@@ -82,6 +82,14 @@ namespace AICompanion.NewUI
         int _appendedSerial = -1;
         int _shownLineCount = -1;
         float _layoutWidth = -1f;
+
+        // JUH-154: her picture left of her name, reloaded only when she or her picture changes.
+        Image _avatarFrame;
+        RawImage _avatar;
+        bool _avatarShown;
+        string _avatarPersona;
+        int _avatarPersonaRevision = -1;
+        int _avatarPictureRevision = -1;
         float _layoutHeight = -1f;
         float _layoutScale = -1f;
         float _layoutChatHeight = -1f;
@@ -911,6 +919,8 @@ namespace AICompanion.NewUI
             _dragHandle.Rect = handle;
             _dragHandle.Pressed = () => _dragPending = true;
 
+            _avatar = PersonaPictureCache.Frame(_box, "Avatar", _theme, out _avatarFrame);
+            _avatarFrame.gameObject.SetActive(false);
             _name = HappiUiKit.Text(_box, "Name", "Leia", _theme.FontTitle, _theme.Text, TextAlignmentOptions.MidlineLeft, true);
             _name.textWrappingMode = TextWrappingModes.NoWrap;
             _badge = HappiUiKit.Text(_box, "Badge", string.Empty, _theme.FontSmall, _theme.BadgeCloud, TextAlignmentOptions.MidlineLeft, false);
@@ -1122,8 +1132,15 @@ namespace AICompanion.NewUI
             right -= lookW + gap;
             HappiUiKit.Place(_mute.Rect, right - muteW, y, muteW, row);
             right -= muteW + gap;
-            var nameW = Mathf.Max(40f, right - pad);
-            HappiUiKit.Place(_name.rectTransform, pad, y, nameW, row);
+            var nameX = pad;
+            if (_avatarShown)
+            {
+                HappiUiKit.Place(_avatarFrame.rectTransform, pad, y, row, row);
+                nameX += row + gap;
+            }
+
+            var nameW = Mathf.Max(40f, right - nameX);
+            HappiUiKit.Place(_name.rectTransform, nameX, y, nameW, row);
             HappiUiKit.Place(_dragHandle.Rect, 0f, 0f, width, pad + row + gap * 0.5f);
             _badge.gameObject.SetActive(false);
             y += row + gap;
@@ -1302,8 +1319,38 @@ namespace AICompanion.NewUI
 
         // ---- Refresh -----------------------------------------------------------------------
 
+        /// <summary>
+        /// Her picture in the header. Compares a reference and two ints each frame (no allocation);
+        /// loads only after a persona switch, an edit of her, or a picture save.
+        /// </summary>
+        void RefreshAvatar()
+        {
+            if (_avatar == null || _settings == null)
+                return;
+            var current = _settings.CurrentSettings;
+            var id = current != null ? current.PersonaId ?? string.Empty : string.Empty;
+            if (string.Equals(id, _avatarPersona, StringComparison.Ordinal) && _settings.PersonaRevision == _avatarPersonaRevision
+                && PersonaPictureStore.Revision == _avatarPictureRevision)
+                return;
+            _avatarPersona = id;
+            _avatarPersonaRevision = _settings.PersonaRevision;
+            _avatarPictureRevision = PersonaPictureStore.Revision;
+
+            var persona = id.Length == 0 ? null : _settings.PersonaCatalogNow().Find(id);
+            var texture = PersonaPictureCache.Get(_settings.PersonasFolderPath, persona);
+            var round = persona == null || PersonaPictureShapes.Normalize(persona.PictureShape) == PersonaPictureShapes.Round;
+            PersonaPictureCache.Show(_avatarFrame, _avatar, texture, round);
+            var shown = texture != null;
+            if (shown != _avatarShown)
+            {
+                _avatarShown = shown;
+                _layoutWidth = -1f;
+            }
+        }
+
         void RefreshControls()
         {
+            RefreshAvatar();
             var presenter = _chat.Presenter;
             _send.Text = presenter.ActionLabel;
             _mute.Text = presenter.MuteLabel;

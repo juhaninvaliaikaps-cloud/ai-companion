@@ -3,6 +3,7 @@
     "rootNamespace": "AICompanion.NewUI",
     "references": [
         "AICompanion.Core",
+        "AICompanion.GameCompanion",
         "AICompanion.AI",
         "AICompanion.AnimationDirector",
         "AICompanion.Memory",
@@ -13,6 +14,7 @@
         "AICompanion.ScreenLook",
         "AICompanion.Settings",
         "UnityEngine.UI",
+        "UnityEngine.ImageConversionModule",
         "Unity.TextMeshPro"
     ],
     "includePlatforms": [],

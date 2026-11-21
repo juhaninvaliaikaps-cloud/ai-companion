@@ -16,14 +16,25 @@ namespace AICompanion.GameCompanion
         public bool Speak;
         public string Reason;
 
+        /// <summary>
+        /// True when the line may come from the model. False when she may only say a
+        /// pre-written line, because the hourly model cap is used up (JUH-49).
+        /// </summary>
+        public bool UseModel;
+
         public static CommentDecision No(string reason)
         {
-            return new CommentDecision { Speak = false, Reason = reason };
+            return new CommentDecision { Speak = false, Reason = reason, UseModel = false };
         }
 
         public static CommentDecision Yes(string reason)
         {
-            return new CommentDecision { Speak = true, Reason = reason };
+            return new CommentDecision { Speak = true, Reason = reason, UseModel = true };
+        }
+
+        public static CommentDecision PreWritten(string reason)
+        {
+            return new CommentDecision { Speak = true, Reason = reason, UseModel = false };
         }
     }
 
@@ -34,7 +45,9 @@ namespace AICompanion.GameCompanion
     /// * A cooldown between comments, set by the frequency.
     /// * A big moment (a match won, an ace, a triple kill) may break the cooldown, but never
     ///   comes sooner than <see cref="BigMomentGapSeconds"/> after the last comment.
-    /// * At most <see cref="HourlyBudget"/> comments in any hour, big moments included.
+    /// * At most <see cref="HourlyBudget"/> model comments in any hour, big moments included.
+    ///   After that she only says pre-written lines in her personality (JUH-49), which cost
+    ///   nothing; the cooldown still applies to them.
     /// * Minor moments (a single kill, a level-up) are never spoken alone; they are only
     ///   context for the next comment.
     /// * Quiet mode and push-to-mute stop everything.
@@ -48,6 +61,7 @@ namespace AICompanion.GameCompanion
         public const double ContextSeconds = 90;
 
         readonly List<DateTime> _spoken = new List<DateTime>();
+        DateTime _lastSpokenUtc = DateTime.MinValue;
         readonly List<GameEvent> _context = new List<GameEvent>();
         DateTime _mutedUntilUtc = DateTime.MinValue;
 
@@ -126,18 +140,31 @@ namespace AICompanion.GameCompanion
                 return CommentDecision.No("minor moment");
 
             PruneSpoken(nowUtc);
-            if (_spoken.Count >= HourlyBudget)
-                return CommentDecision.No("hourly budget used");
+            var since = _lastSpokenUtc == DateTime.MinValue ? double.MaxValue : (nowUtc - _lastSpokenUtc).TotalSeconds;
+            var gap = e.Moment == GameMoment.Big ? BigMomentGapSeconds : CooldownSeconds;
+            if (since < gap)
+                return CommentDecision.No(e.Moment == GameMoment.Big ? "just spoke" : "cooldown");
 
-            var since = _spoken.Count == 0 ? double.MaxValue : (nowUtc - _spoken[_spoken.Count - 1]).TotalSeconds;
-            if (e.Moment == GameMoment.Big)
-                return since >= BigMomentGapSeconds ? CommentDecision.Yes("big moment") : CommentDecision.No("just spoke");
-            return since >= CooldownSeconds ? CommentDecision.Yes("cooldown over") : CommentDecision.No("cooldown");
+            if (_spoken.Count >= HourlyBudget)
+                return CommentDecision.PreWritten("hourly budget used");
+            return CommentDecision.Yes(e.Moment == GameMoment.Big ? "big moment" : "cooldown over");
         }
 
+        /// <summary>A model comment was spoken: it counts against the hourly cap.</summary>
         public void MarkSpoken(DateTime nowUtc)
         {
-            _spoken.Add(nowUtc);
+            MarkSpoken(nowUtc, true);
+        }
+
+        /// <summary>
+        /// A line was spoken. Every line starts the cooldown; only a model line counts against
+        /// the hourly cap.
+        /// </summary>
+        public void MarkSpoken(DateTime nowUtc, bool fromModel)
+        {
+            if (fromModel)
+                _spoken.Add(nowUtc);
+            _lastSpokenUtc = nowUtc;
             _context.Clear();
         }
 

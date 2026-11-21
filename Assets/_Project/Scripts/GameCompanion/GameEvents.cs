@@ -2,13 +2,21 @@ using System;
 
 namespace AICompanion.GameCompanion
 {
-    /// <summary>The games with an official, read-only feed (JUH-48).</summary>
+    /// <summary>The games she follows: official feeds (JUH-48) and gacha games seen through screen looks (JUH-147).</summary>
     public enum GameTitle
     {
         Unknown = 0,
         CounterStrike2 = 1,
         Dota2 = 2,
         LeagueOfLegends = 3,
+
+        // JUH-147: gacha games. No official feed: screen looks, and pull history for the
+        // HoYoverse three (JUH-148).
+        GenshinImpact = 4,
+        HonkaiStarRail = 5,
+        ZenlessZoneZero = 6,
+        ArknightsEndfield = 7,
+        NevernessToEverness = 8,
     }
 
     /// <summary>
@@ -36,6 +44,12 @@ namespace AICompanion.GameCompanion
         BombExploded = 16,
         LowHealth = 17,
         LevelUp = 18,
+
+        /// <summary>JUH-148: a top-rarity pull (5-star, S-rank). Count is the pity, Detail the name.</summary>
+        GachaTopPull = 19,
+
+        /// <summary>JUH-148: a batch of pulls (Count of them) with no top-rarity result.</summary>
+        GachaNoTop = 20,
     }
 
     /// <summary>How much a moment matters. Only Normal and Big can be spoken about.</summary>
@@ -94,7 +108,10 @@ namespace AICompanion.GameCompanion
                 case GameEventKind.MatchLost:
                 case GameEventKind.Ace:
                 case GameEventKind.BombDefused:
+                case GameEventKind.GachaTopPull:
                     return GameMoment.Big;
+                case GameEventKind.GachaNoTop:
+                    return count >= 10 ? GameMoment.Normal : GameMoment.Minor;
                 case GameEventKind.MultiKill:
                     return count >= 3 ? GameMoment.Big : GameMoment.Normal;
                 case GameEventKind.KillStreak:

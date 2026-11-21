@@ -667,6 +667,8 @@ namespace AICompanion.UI
                 _conversation.AddSystem("Web search: " + result.Count + " result(s).");
                 RefreshTranscript(true);
                 TrySend(cleaned);
+                // A send that stopped early (busy, no key) must not carry the results into the next message.
+                _webSearchContext = null;
             });
             return true;
         }

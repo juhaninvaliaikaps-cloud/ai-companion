@@ -552,6 +552,14 @@ namespace AICompanion.NewUI.Wheel
         ProfileData BuildProfileData()
         {
             var data = new ProfileData { Name = HappiNames.Companion(_settings) };
+            // JUH-154: her picture, from the shared cache (loaded once per persona or picture change).
+            var personaId = _settings != null && _settings.CurrentSettings != null ? _settings.CurrentSettings.PersonaId : string.Empty;
+            if (!string.IsNullOrEmpty(personaId))
+            {
+                var persona = _settings.PersonaCatalogNow().Find(personaId);
+                data.Picture = PersonaPictureCache.Get(_settings.PersonasFolderPath, persona);
+                data.PictureRound = persona == null || PersonaPictureShapes.Normalize(persona.PictureShape) == PersonaPictureShapes.Round;
+            }
             var reading = GetComponent<PisaraReadingKeeper>();
             var sheet = reading != null ? reading.Sheet : null;
             data.RoleLine = sheet != null ? ProfileHeader.RoleLine(sheet.relationship) : string.Empty;

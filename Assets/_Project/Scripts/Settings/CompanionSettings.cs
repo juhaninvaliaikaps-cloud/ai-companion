@@ -84,6 +84,12 @@ namespace AICompanion.Settings
         public string PrivateBaseUrl = string.Empty;
         public string PrivateModel = string.Empty;
 
+        /// <summary>
+        /// JUH-149: whether the cloud AI API's model reads pictures: "auto" (the known list),
+        /// "on" (any model) or "off" (never send a picture).
+        /// </summary>
+        public string CloudVision = VisionCapability.ModeAuto;
+
         /// <summary>Manual window capture. Off until the user turns it on.</summary>
         public bool ScreenLookEnabled;
 
@@ -184,6 +190,51 @@ namespace AICompanion.Settings
         /// </summary>
         public bool MemoryEmbeddings;
 
+        /// <summary>
+        /// JUH-47: the game companion (Games section). Off until the user turns it on. Comments
+        /// are written by the cloud AI API only with <see cref="GameCloudConsent"/>; otherwise
+        /// she uses pre-written lines in her personality (JUH-49). Private mode and 18+ allow
+        /// pre-written lines only.
+        /// </summary>
+        public bool GameCompanion;
+
+        /// <summary>JUH-47: consent to send what happens in a game to the cloud AI API.</summary>
+        public bool GameCloudConsent;
+
+        /// <summary>"rare", "normal" or "chatty" (JUH-46 pacing).</summary>
+        public string GameFrequency = GameFrequencyNames.Normal;
+
+        public bool GameCs2 = true;
+        public bool GameDota2 = true;
+        public bool GameLeague = true;
+
+        /// <summary>
+        /// JUH-147: screen looks at gacha games (every 2 minutes and on Ctrl+Shift+G) go to the
+        /// cloud vision model. Off until the user turns it on; needs <see cref="GameCloudConsent"/>.
+        /// </summary>
+        public bool GameScreenLooks;
+
+        /// <summary>
+        /// JUH-148: react to new pulls in Genshin, Star Rail and ZZZ, using the history link the
+        /// game caches. The link goes only to HoYoverse's own server. Off by default.
+        /// </summary>
+        public bool GamePullHistory;
+
+        public bool GameGenshin = true;
+        public bool GameStarRail = true;
+        public bool GameZzz = true;
+        public bool GameEndfield = true;
+        public bool GameNte = true;
+
+        /// <summary>The loopback port CS2 and Dota 2 post to (JUH-48). 39271 unless it clashes.</summary>
+        public int GsiPort = GameFrequencyNames.DefaultGsiPort;
+
+        /// <summary>
+        /// The token in the game config files for this install, so only our own files are
+        /// accepted. Not an API key; it stays on this PC. Made when the user first sets up a game.
+        /// </summary>
+        public string GsiToken = string.Empty;
+
         /// <summary>JUH-122: floating pieces near her when the relationship moves. On by default.</summary>
         public bool ShowRelationshipFeedback = true;
 
@@ -267,6 +318,10 @@ namespace AICompanion.Settings
             BaseUrl = CleanUrl(BaseUrl, ChatDefaults.BaseUrl);
             LocalModel = CleanToken(LocalModel, ChatDefaults.LocalModel, MaxModelLength);
             LocalVisionModel = CleanToken(LocalVisionModel, string.Empty, MaxModelLength);
+            GameFrequency = GameFrequencyNames.Normalize(GameFrequency);
+            CloudVision = VisionCapability.NormalizeMode(CloudVision);
+            GsiPort = GameFrequencyNames.NormalizePort(GsiPort);
+            GsiToken = GameFrequencyNames.NormalizeToken(GsiToken);
             ScreenMonitorDevice = CleanToken(ScreenMonitorDevice, string.Empty, 64);
             LocalBaseUrl = CleanUrl(LocalBaseUrl, ChatDefaults.LocalBaseUrl);
             PrivateEndpointType = PrivateEndpointTypes.Normalize(PrivateEndpointType);
@@ -439,6 +494,44 @@ namespace AICompanion.Settings
             if (string.Equals(name, Fbx, StringComparison.OrdinalIgnoreCase))
                 return AICompanion.Avatar.AvatarPreference.FbxSample;
             return AICompanion.Avatar.AvatarPreference.Auto;
+        }
+    }
+
+    /// <summary>JUH-47: the stored names for the game companion settings.</summary>
+    public static class GameFrequencyNames
+    {
+        public const string Rare = "rare";
+        public const string Normal = "normal";
+        public const string Chatty = "chatty";
+        public const int DefaultGsiPort = 39271;
+        public const int MaxTokenLength = 64;
+
+        public static string Normalize(string name)
+        {
+            var n = (name ?? string.Empty).Trim().ToLowerInvariant();
+            return n == Rare || n == Chatty ? n : Normal;
+        }
+
+        /// <summary>A port above the well-known range; anything else is the default.</summary>
+        public static int NormalizePort(int port)
+        {
+            return port >= 1024 && port <= 65535 ? port : DefaultGsiPort;
+        }
+
+        /// <summary>Letters and digits only, at most 64; anything else is dropped.</summary>
+        public static string NormalizeToken(string token)
+        {
+            if (string.IsNullOrEmpty(token))
+                return string.Empty;
+            var sb = new StringBuilder(token.Length);
+            for (var i = 0; i < token.Length && sb.Length < MaxTokenLength; i++)
+            {
+                var c = token[i];
+                if (c < 128 && char.IsLetterOrDigit(c))
+                    sb.Append(c);
+            }
+
+            return sb.ToString();
         }
     }
 
@@ -698,6 +791,8 @@ namespace AICompanion.Settings
                 settings.ChatHistory = flag;
             if (TryBool(json, "privateMode", out flag))
                 settings.PrivateMode = flag;
+            if (TryString(json, "cloudVision", out text))
+                settings.CloudVision = text;
             if (TryBool(json, "screenLookEnabled", out flag))
                 settings.ScreenLookEnabled = flag;
             if (TryBool(json, "screenCloudConsent", out flag))
@@ -760,6 +855,36 @@ namespace AICompanion.Settings
                 settings.PisaraCloudModel = text;
             if (TryBool(json, "memoryEmbeddings", out flag))
                 settings.MemoryEmbeddings = flag;
+            if (TryBool(json, "gameCompanion", out flag))
+                settings.GameCompanion = flag;
+            if (TryBool(json, "gameCloudConsent", out flag))
+                settings.GameCloudConsent = flag;
+            if (TryString(json, "gameFrequency", out text))
+                settings.GameFrequency = text;
+            if (TryBool(json, "gameCs2", out flag))
+                settings.GameCs2 = flag;
+            if (TryBool(json, "gameDota2", out flag))
+                settings.GameDota2 = flag;
+            if (TryBool(json, "gameLeague", out flag))
+                settings.GameLeague = flag;
+            if (TryBool(json, "gameScreenLooks", out flag))
+                settings.GameScreenLooks = flag;
+            if (TryBool(json, "gamePullHistory", out flag))
+                settings.GamePullHistory = flag;
+            if (TryBool(json, "gameGenshin", out flag))
+                settings.GameGenshin = flag;
+            if (TryBool(json, "gameStarRail", out flag))
+                settings.GameStarRail = flag;
+            if (TryBool(json, "gameZzz", out flag))
+                settings.GameZzz = flag;
+            if (TryBool(json, "gameEndfield", out flag))
+                settings.GameEndfield = flag;
+            if (TryBool(json, "gameNte", out flag))
+                settings.GameNte = flag;
+            if (TryNumber(json, "gsiPort", out number))
+                settings.GsiPort = (int)Math.Round(number);
+            if (TryString(json, "gsiToken", out text))
+                settings.GsiToken = text;
             if (TryBool(json, "showRelationshipFeedback", out flag))
                 settings.ShowRelationshipFeedback = flag;
             if (TryBool(json, "voiceNarration", out flag))
@@ -865,6 +990,7 @@ namespace AICompanion.Settings
             Bool(sb, "paused", source.Paused);
             Bool(sb, "chatHistory", source.ChatHistory);
             Bool(sb, "privateMode", source.PrivateMode);
+            String(sb, "cloudVision", source.CloudVision);
             Bool(sb, "screenLookEnabled", source.ScreenLookEnabled);
             Bool(sb, "screenCloudConsent", source.ScreenCloudConsent);
             String(sb, "localVisionModel", source.LocalVisionModel);
@@ -896,6 +1022,21 @@ namespace AICompanion.Settings
             String(sb, "pisaraCloudBaseUrl", source.PisaraCloudBaseUrl);
             String(sb, "pisaraCloudModel", source.PisaraCloudModel);
             Bool(sb, "memoryEmbeddings", source.MemoryEmbeddings);
+            Bool(sb, "gameCompanion", source.GameCompanion);
+            Bool(sb, "gameCloudConsent", source.GameCloudConsent);
+            String(sb, "gameFrequency", source.GameFrequency);
+            Bool(sb, "gameCs2", source.GameCs2);
+            Bool(sb, "gameDota2", source.GameDota2);
+            Bool(sb, "gameLeague", source.GameLeague);
+            Bool(sb, "gameScreenLooks", source.GameScreenLooks);
+            Bool(sb, "gamePullHistory", source.GamePullHistory);
+            Bool(sb, "gameGenshin", source.GameGenshin);
+            Bool(sb, "gameStarRail", source.GameStarRail);
+            Bool(sb, "gameZzz", source.GameZzz);
+            Bool(sb, "gameEndfield", source.GameEndfield);
+            Bool(sb, "gameNte", source.GameNte);
+            Number(sb, "gsiPort", source.GsiPort, true);
+            String(sb, "gsiToken", source.GsiToken);
             Bool(sb, "showRelationshipFeedback", source.ShowRelationshipFeedback);
             Bool(sb, "voiceNarration", source.VoiceNarration);
             Bool(sb, "showDeveloperSettings", source.ShowDeveloperSettings);

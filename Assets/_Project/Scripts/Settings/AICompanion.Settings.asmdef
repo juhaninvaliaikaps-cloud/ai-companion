@@ -3,6 +3,7 @@
     "rootNamespace": "AICompanion.Settings",
     "references": [
         "AICompanion.Core",
+        "AICompanion.GameCompanion",
         "AICompanion.AI",
         "AICompanion.Overlay",
         "AICompanion.UI",
