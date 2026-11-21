@@ -310,14 +310,55 @@ namespace AICompanion.Voice
             public uint Reserved;
         }
 
-        // XInputGetState hides the Guide button; the ordinal-100 export (XInputGetStateEx) reports it.
-        [DllImport("xinput1_4.dll", EntryPoint = "#100")]
-        static extern int XInputGetStateEx(int userIndex, out XInputStateEx state);
+        // XInputGetState hides the Guide button; the ordinal-100 export (XInputGetStateEx) reports
+        // it. JUH-167: Unity's Mono can't bind a DllImport by ordinal ("#100" threw
+        // EntryPointNotFoundException), so the export is looked up by number with GetProcAddress
+        // once, and called through a delegate made once.
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        delegate int XInputGetStateExFn(int userIndex, out XInputStateEx state);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        static extern IntPtr LoadLibrary(string fileName);
+
+        // lpProcName as an ordinal: the low word is the number and the high word is zero.
+        [DllImport("kernel32.dll", EntryPoint = "GetProcAddress", SetLastError = true)]
+        static extern IntPtr GetProcAddressOrdinal(IntPtr module, IntPtr ordinal);
+
+        public const int XInputGetStateExOrdinal = 100;
+        static XInputGetStateExFn _getStateEx;
+        static bool _getStateExLoaded;
+
+        /// <summary>XInputGetStateEx from xinput1_4 (Windows 8+) or xinput1_3, or an exception when neither has it.</summary>
+        static XInputGetStateExFn GetStateEx()
+        {
+            if (_getStateExLoaded)
+            {
+                if (_getStateEx == null)
+                    throw new EntryPointNotFoundException("XInputGetStateEx (ordinal 100)");
+                return _getStateEx;
+            }
+
+            _getStateExLoaded = true;
+            foreach (var dll in new[] { "xinput1_4.dll", "xinput1_3.dll" })
+            {
+                var module = LoadLibrary(dll);
+                if (module == IntPtr.Zero)
+                    continue;
+                var function = GetProcAddressOrdinal(module, new IntPtr(XInputGetStateExOrdinal));
+                if (function == IntPtr.Zero)
+                    continue;
+                _getStateEx = (XInputGetStateExFn)Marshal.GetDelegateForFunctionPointer(function, typeof(XInputGetStateExFn));
+                Debug.Log("Talk while gaming: the Xbox button is read through " + dll);
+                return _getStateEx;
+            }
+
+            throw new EntryPointNotFoundException("XInputGetStateEx (ordinal 100)");
+        }
 
         static bool XInputButtons(int slot, out ushort buttons)
         {
             XInputStateEx state;
-            var result = XInputGetStateEx(slot, out state);
+            var result = GetStateEx()(slot, out state);
             buttons = state.Buttons;
             return result == 0;
         }

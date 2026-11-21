@@ -113,7 +113,8 @@ namespace AICompanion.Tests.EditMode
 
             var input = Source("Voice/GameTalkInput.cs");
             StringAssert.Contains("CreateFile(path, GenericRead, FileShareRead | FileShareWrite,", input, "opened shared and read-only, so the game keeps its input");
-            StringAssert.Contains("EntryPoint = \"#100\"", input, "XInputGetStateEx, which reports the Guide button");
+            StringAssert.Contains("GetProcAddressOrdinal(module, new IntPtr(XInputGetStateExOrdinal))", input, "XInputGetStateEx by its ordinal, which reports the Guide button");
+            StringAssert.DoesNotContain("EntryPoint = \"#100\"", input, "JUH-167: Unity's Mono can't bind an ordinal DllImport");
             StringAssert.DoesNotContain("SetWindowsHookEx", input, "no keyboard hooks");
             StringAssert.DoesNotContain("RegisterHotKey", input, "the button isn't taken from the game");
         }
