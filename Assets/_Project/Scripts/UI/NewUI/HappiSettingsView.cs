@@ -1288,16 +1288,14 @@ namespace AICompanion.NewUI
                 return;
             }
 
-            if (games.Mode == CommentaryMode.Off && games.ModeReason.Length > 0)
-                Note(games.ModeReason);
 
             Section("Her lines");
             Toggle("Let the cloud AI write her lines", S.GameCloudConsent, v => Change(s => s.GameCloudConsent = v));
             Note(S.GameCloudConsent
                 ? "What just happened in your game (a kill, a death, a win) is sent to the cloud AI API with her persona, and she answers in her own words. If that fails, is slow or the hourly cap is used up, she says a pre-written line instead."
                 : "She says pre-written lines in her personality. Nothing about your game leaves this PC.");
-            if (games.Mode == CommentaryMode.PreWrittenOnly && games.ModeReason == CommentaryGate.NoCloud)
-                Note(CommentaryGate.NoCloud);
+            if (games.Mode != CommentaryMode.ModelFirst && games.ModeReason.Length > 0 && games.ModeReason != CommentaryGate.NoConsent)
+                Note(games.ModeReason);
             Note("Her style in games: " + GameVoices.Name(games.Voice) + ". It comes from her personality sliders and her relationship to you.");
 
             Section("How often");

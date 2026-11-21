@@ -106,7 +106,7 @@ Rules:
 ## The Games section (JUH-47)
 
 Settings → **Games**:
-- **Game companion** on or off. It is off by default, and nothing is read while it is off.
+- **Game companion** on or off. It is off by default, and nothing is read while it is off. In private mode and with 18+ open it keeps running with pre-written lines only, and the section says so.
 - **Let the cloud AI write her lines.** This is the game's own cloud consent. Without it, she uses pre-written lines only.
 - **Her style in games:** her voice, shown so the user can see where it comes from.
 - **How often:** Rare, Normal or Chatty, with the cooldown and the hourly cap spelled out.

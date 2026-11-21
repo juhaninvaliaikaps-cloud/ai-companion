@@ -187,7 +187,8 @@ namespace AICompanion.Settings
         /// <summary>
         /// JUH-47: the game companion (Games section). Off until the user turns it on. Comments
         /// are written by the cloud AI API only with <see cref="GameCloudConsent"/>; otherwise
-        /// she uses pre-written lines in her personality (JUH-49). Off in private mode and 18+.
+        /// she uses pre-written lines in her personality (JUH-49). Private mode and 18+ allow
+        /// pre-written lines only.
         /// </summary>
         public bool GameCompanion;
 
