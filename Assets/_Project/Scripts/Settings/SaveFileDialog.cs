@@ -13,6 +13,9 @@ namespace AICompanion.Settings
         public const string CardJson = "Character card JSON (*.json)\0*.json\0All files (*.*)\0*.*\0\0";
         public const string Zip = "Zip (*.zip)\0*.zip\0All files (*.*)\0*.*\0\0";
 
+        /// <summary>JUH-159: a lorebook JSON.</summary>
+        public const string Lorebook = "Lorebook JSON (*.json)\0*.json\0All files (*.*)\0*.*\0\0";
+
         public static string FilterFor(CardExportFormat format)
         {
             switch (format)
