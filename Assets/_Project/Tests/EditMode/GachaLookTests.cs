@@ -18,6 +18,7 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(GameTitle.HonkaiStarRail, GachaGames.Match("StarRail", null));
             Assert.AreEqual(GameTitle.ZenlessZoneZero, GachaGames.Match("ZenlessZoneZero", "ZenlessZoneZero"));
             Assert.AreEqual(GameTitle.ArknightsEndfield, GachaGames.Match("", "Arknights: Endfield"));
+            Assert.AreEqual(GameTitle.ArknightsEndfield, GachaGames.Match("", "Endfield"), "the shipped window title is just Endfield");
             Assert.AreEqual(GameTitle.NevernessToEverness, GachaGames.Match("", "Neverness to Everness"));
             Assert.AreEqual(GameTitle.HonkaiStarRail, GachaGames.Match(null, "honkai: star rail"), "titles ignore case");
         }

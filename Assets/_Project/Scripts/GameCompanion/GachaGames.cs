@@ -49,7 +49,7 @@ namespace AICompanion.GameCompanion
                 case GameTitle.GenshinImpact: return new[] { "Genshin Impact", "原神" };
                 case GameTitle.HonkaiStarRail: return new[] { "Honkai: Star Rail", "崩坏：星穹铁道" };
                 case GameTitle.ZenlessZoneZero: return new[] { "ZenlessZoneZero", "Zenless Zone Zero", "绝区零" };
-                case GameTitle.ArknightsEndfield: return new[] { "Arknights: Endfield", "Arknights Endfield", "明日方舟：终末地" };
+                case GameTitle.ArknightsEndfield: return new[] { "Arknights: Endfield", "Arknights Endfield", "Endfield", "明日方舟：终末地" };
                 case GameTitle.NevernessToEverness: return new[] { "Neverness to Everness", "NTE", "异环" };
                 default: return new string[0];
             }

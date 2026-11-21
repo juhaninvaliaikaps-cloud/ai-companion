@@ -92,7 +92,10 @@ namespace AICompanion.Settings
             }
 
             var now = DateTime.UtcNow;
-            var inFront = _gachaWindow != null && !_gachaWindow.Minimized && ForegroundIs(_gachaWindow.Hwnd);
+            // The overlay is often topmost, so the game can be covered yet still be the scene
+            // the user is playing. A full-monitor game window counts as in front too.
+            var inFront = _gachaWindow != null && !_gachaWindow.Minimized
+                && (_gachaWindow.CoversMonitor || ForegroundIs(_gachaWindow.Hwnd));
             _look.Front(inFront, now);
 
             var hotkey = HotkeyHeld();

@@ -959,7 +959,7 @@ namespace AICompanion.NewUI
             Field("Chatterbox voices folder", S.ChatterboxVoices, false, v => Change(s => s.ChatterboxVoices = v));
             Dropdown("Chatterbox voice", S.ChatterboxVoice, ChatterboxVoiceOptions(false, S.ChatterboxVoice), v => v, v => Change(s => s.ChatterboxVoice = v));
             Field("Chatterbox device (auto/cuda/cpu)", S.ChatterboxDevice, false, v => Change(s => s.ChatterboxDevice = v));
-            Note("Piper, Kokoro and Chatterbox speak offline with no API key. Chatterbox is slower but more expressive; it uses the GPU when device is cuda or auto.");
+            Note("Piper, Kokoro and Chatterbox speak offline with no API key. Chatterbox is slower but more expressive; it uses the GPU when device is cuda or auto. If a game is using most of the GPU, switch Chatterbox device to cpu or use Kokoro.");
             Field("TTS language", S.TtsLanguage, false, v => Change(s => s.TtsLanguage = v));
 
             // Moved here from the persona editor (JUH-121).

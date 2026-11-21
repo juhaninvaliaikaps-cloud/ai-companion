@@ -153,6 +153,7 @@ namespace AICompanion.Voice
         Process _process;
         StreamWriter _input;
         StreamReader _output;
+        readonly StringBuilder _stderr = new StringBuilder();
         int _stop;
 
         public ChatterboxProcessSession(
@@ -215,7 +216,17 @@ namespace AICompanion.Voice
             _input = _process.StandardInput;
             _input.AutoFlush = true;
             _output = _process.StandardOutput;
-            _process.ErrorDataReceived += (sender, args) => { };
+            _process.ErrorDataReceived += (sender, args) =>
+            {
+                if (string.IsNullOrEmpty(args.Data))
+                    return;
+                lock (_stderr)
+                {
+                    _stderr.AppendLine(args.Data);
+                    if (_stderr.Length > 6000)
+                        _stderr.Remove(0, _stderr.Length - 6000);
+                }
+            };
             _process.BeginErrorReadLine();
         }
 
@@ -261,8 +272,10 @@ namespace AICompanion.Voice
                         }
                         if (DateTime.UtcNow > deadline)
                         {
+                            var detail = StderrTail();
                             Close();
-                            throw new TimeoutException("Chatterbox timed out after " + _timeoutSeconds.ToString("0") + " s.");
+                            throw new TimeoutException("Chatterbox timed out after " + _timeoutSeconds.ToString("0") + " s."
+                                + (detail.Length == 0 ? string.Empty : " Server said: " + detail));
                         }
                     }
 
@@ -271,7 +284,8 @@ namespace AICompanion.Voice
 
                     var line = read.Result;
                     if (line == null)
-                        throw new InvalidOperationException("Chatterbox closed its output.");
+                        throw new InvalidOperationException("Chatterbox closed its output."
+                            + (StderrTail().Length == 0 ? string.Empty : " Server said: " + StderrTail()));
 
                     // The model loader and Perth may print a line to stdout before the first
                     // JSON reply. Skip those lines instead of treating them as JSON.
@@ -292,13 +306,23 @@ namespace AICompanion.Voice
             }
         }
 
+        string StderrTail()
+        {
+            lock (_stderr)
+            {
+                var text = _stderr.ToString().Trim();
+                if (text.Length > 700)
+                    text = text.Substring(text.Length - 700);
+                return text.Replace('\r', ' ').Replace('\n', ' ');
+            }
+        }
+
         public void Close()
         {
             try
             {
                 if (_input != null)
-                    _input.Close();
-            }
+                    _input.Close();            }
             catch (IOException)
             {
             }
