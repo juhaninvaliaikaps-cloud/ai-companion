@@ -41,11 +41,21 @@ Each reader turns one game's own official feed into `GameEvent`s. They are in `S
 - **`GsiConfig`** writes the config file for CS2 and Dota 2, named `gamestate_integration_happi.cfg`. It points at `http://127.0.0.1:39271/` and carries a token for this install. It asks only for the user's own data, never `allplayers`.
 - **`GsiListener`** receives those posts on 127.0.0.1 only. It drops any post without the token, and caps the body size and the queue. The bodies wait in a queue for the main thread, and nothing in it touches Unity.
 
-**Installing the config (manual for now).** Copy the generated file to:
-- CS2: `…\steamapps\common\Counter-Strike Global Offensive\game\csgo\cfg\`
-- Dota 2: `…\steamapps\common\dota 2 beta\game\dota\cfg\gamestate_integration\` (create the folder if it doesn't exist)
+**Installing the config (JUH-146, automatic).** When the user presses **Set up** for CS2 or Dota 2, `GsiInstaller.Install` does the following:
+1. Finds Steam. It tries the registry value `HKCU\Software\Valve\Steam\SteamPath` first (`WindowsSteamPath`), then `C:\Program Files (x86)\Steam` and `C:\Program Files\Steam`.
+2. Reads `steamapps\libraryfolders.vdf` to list every library. Both the current and the old format work (`VdfReader`, `SteamLibraries`).
+3. Finds the game's `appmanifest_730.acf` (CS2) or `appmanifest_570.acf` (Dota 2) and takes its `installdir`. A name that could leave the library (`..`, a slash, a drive) is refused.
+4. Writes `gamestate_integration_happi.cfg` to:
+   - CS2: `…\steamapps\common\Counter-Strike Global Offensive\game\csgo\cfg\`
+   - Dota 2: `…\steamapps\common\dota 2 beta\game\dota\cfg\gamestate_integration\`. Only this last folder is created, and only when the game's own `cfg` folder is there.
+5. Reports the result: written, already set up, game not found, or couldn't write (with the reason).
 
-Then restart the game.
+Rules:
+- It writes only on a button press, never in the background.
+- **Remove** deletes the file only if its first line is ours (`"Happi game companion"`), so a file Happi didn't write is left alone.
+- Dota 2 also needs `-gamestateintegration` in its Steam launch options. Happi tells the user how to add it and doesn't edit Steam's own config, because that is fragile.
+- The game reads the file at start, so restart the game after setup.
+- League needs no file.
 
 ## Still to build
 
@@ -57,5 +67,4 @@ Then restart the game.
 ## Open decisions for Jussi
 
 - **Reactions without a model.** Should she react to game events with an animation and a short pre-written line through the local voice? This would need no model at all, and would also work in private mode.
-- **Installing the game's config file.** Should the app write the GSI config file into the user's game folder itself, or should the user copy it in? Until this is decided, copying it is a manual, documented step.
 - **WoW after-fight comments.** These could be based on encounter start and end, which don't need real-time data.
