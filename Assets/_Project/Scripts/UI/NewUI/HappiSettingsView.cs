@@ -1325,7 +1325,7 @@ namespace AICompanion.NewUI
         void BuildWindow()
         {
             Toggle("Always on top", S.AlwaysOnTop, v => Change(s => s.AlwaysOnTop = v));
-            Note("F8 toggles this too.");
+            Note("F8 toggles this too. Windows can't draw over a game's exclusive fullscreen; use borderless or windowed fullscreen to see her over the game.");
             Slider(v => "Size " + Mathf.RoundToInt(v * 100f) + "%", S.Scale, OverlayWindowSize.MinScale, OverlayWindowSize.MaxScale, false, v => P.Change(s => s.Scale = v));
             Button("Click-through: " + SettingsPresenter.ClickThroughLabel(S.ClickThrough), () => { P.CycleClickThrough(); _rebuild = true; });
             Note(SettingsPresenter.ClickThroughHelp(S.ClickThrough));

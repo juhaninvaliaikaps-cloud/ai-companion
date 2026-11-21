@@ -61,6 +61,7 @@ namespace AICompanion.Overlay
         int _shownSizePct = -1;
         int _shownZoomPct = -1;
         int _warmup;
+        float _nextTopmostAssert;
         float _idleFor;
         int _appliedRate = -1;
         WindowDrag _drag;
@@ -354,6 +355,16 @@ namespace AICompanion.Overlay
                 _warmup--;
                 if (_warmup == 0 && !_dragging)
                     ApplySizedWindow(false);
+            }
+
+            // A borderless/windowed-fullscreen game can create its own topmost window after
+            // Happi starts. Reassert without activating so she stays above it; a minimized
+            // window stays minimized because SetWindowPos never restores it.
+            if (_topmost && _companionVisible && _chrome != null && _chrome.IsSupported
+                && Time.unscaledTime >= _nextTopmostAssert)
+            {
+                _nextTopmostAssert = Time.unscaledTime + 2f;
+                _chrome.SetTopmost(true);
             }
 
             if (_repositionFrames > 0 && !_dragging && _chrome != null && _chrome.IsSupported)
