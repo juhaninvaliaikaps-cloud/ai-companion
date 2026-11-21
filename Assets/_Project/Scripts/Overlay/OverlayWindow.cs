@@ -363,8 +363,8 @@ namespace AICompanion.Overlay
             if (_topmost && _companionVisible && _chrome != null && _chrome.IsSupported
                 && Time.unscaledTime >= _nextTopmostAssert)
             {
-                _nextTopmostAssert = Time.unscaledTime + 2f;
-                _chrome.SetTopmost(true);
+                _nextTopmostAssert = Time.unscaledTime + 0.75f;
+                _chrome.ReassertTopmost();
             }
 
             if (_repositionFrames > 0 && !_dragging && _chrome != null && _chrome.IsSupported)

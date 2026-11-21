@@ -41,6 +41,7 @@ namespace AICompanion.Overlay
         const int WsExAppWindow = 0x00040000;
         const int SwHide = 0;
         const int SwShow = 5;
+        const int SwShowNoActivate = 4;
 
         static readonly IntPtr HwndTopMost = new IntPtr(-1);
         static readonly IntPtr HwndNoTopMost = new IntPtr(-2);
@@ -86,6 +87,20 @@ namespace AICompanion.Overlay
 
             var after = topmost ? HwndTopMost : HwndNoTopMost;
             SetWindowPos(_hwnd, after, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | ShownFlag());
+        }
+
+        /// <summary>
+        /// A game can hide or demote the overlay when it enters fullscreen. Re-show it without
+        /// activation, but leave a genuinely minimized window minimized.
+        /// </summary>
+        public void ReassertTopmost()
+        {
+            if (!TryGetHwnd() || !_windowShown || IsIconic(_hwnd))
+                return;
+            if (!IsWindowVisible(_hwnd))
+                ShowWindow(_hwnd, SwShowNoActivate);
+            SetWindowPos(_hwnd, HwndTopMost, 0, 0, 0, 0,
+                SwpNoMove | SwpNoSize | SwpNoActivate | SwpShowWindow);
         }
 
         public void SetClickThrough(bool clickThrough)
@@ -368,6 +383,12 @@ namespace AICompanion.Overlay
 
         [DllImport("user32.dll")]
         static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        static extern bool IsIconic(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        static extern bool IsWindowVisible(IntPtr hWnd);
 
         [DllImport("user32.dll")]
         static extern IntPtr SetFocus(IntPtr hWnd);
