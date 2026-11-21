@@ -107,10 +107,10 @@ namespace AICompanion.AI
             if (_config.Transport == null)
                 return ChatResult.Fail(ChatErrorKind.Unreachable, ChatErrors.Unreachable(DisplayName));
 
-            string body;
+            string requestBody;
             try
             {
-                body = BuildBody(model, request, _config.Stream, jpeg);
+                requestBody = BuildBody(model, request, _config.Stream, jpeg);
             }
             finally
             {
@@ -121,7 +121,7 @@ namespace AICompanion.AI
             var http = new ChatHttpRequest
             {
                 Url = MessagesUrl(_config.BaseUrl != null ? _config.BaseUrl() : null),
-                Body = body,
+                Body = requestBody,
                 TimeoutSeconds = request.TimeoutSeconds > 0f
                     ? request.TimeoutSeconds
                     : (_config.TimeoutSeconds != null ? _config.TimeoutSeconds() : PisaraReader.RequestTimeoutSeconds),
