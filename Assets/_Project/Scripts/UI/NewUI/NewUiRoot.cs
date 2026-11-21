@@ -62,6 +62,12 @@ namespace AICompanion.NewUI
                 settingsView = gameObject.AddComponent<HappiSettingsView>();
             settingsView.Attach(settings, chat);
 
+            // JUH-150: the Persona Studio window, opened from the Persona tab.
+            var studio = GetComponent<PersonaStudioView>();
+            if (studio == null)
+                studio = gameObject.AddComponent<PersonaStudioView>();
+            studio.Attach(settings);
+
             // JUH-122: floating relationship changes near her head.
             var floating = GetComponent<FloatingFeedbackView>();
             if (floating == null)
@@ -74,6 +80,10 @@ namespace AICompanion.NewUI
             var floating = GetComponent<FloatingFeedbackView>();
             if (floating != null)
                 floating.Detach();
+
+            var studio = GetComponent<PersonaStudioView>();
+            if (studio != null)
+                studio.Detach();
 
             var settingsView = GetComponent<HappiSettingsView>();
             if (settingsView != null)

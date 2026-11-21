@@ -172,11 +172,16 @@ namespace AICompanion.Settings
             if (string.IsNullOrWhiteSpace(settings.PersonaId))
             {
                 chat.systemPrompt = CompanionPersona.Build(settings.CompanionName, settings.Relationship);
+                AdultNotesNow.Reset();
                 return;
             }
 
             var folder = string.IsNullOrEmpty(settingsFolder) ? PersonaRuntime.DefaultSettingsFolder() : settingsFolder;
-            chat.systemPrompt = PersonaRuntime.SystemPrompt(settings, PersonaCatalog.LoadDefault(folder));
+            var catalog = PersonaCatalog.LoadDefault(folder);
+            chat.systemPrompt = PersonaRuntime.SystemPrompt(settings, catalog);
+            // JUH-150: her 18+ notes reach chat only through the gate (AdultNotesNow).
+            var persona = catalog.Find(settings.PersonaId);
+            AdultNotesNow.Set(persona != null ? persona.AdultNotes : null);
         }
 
         static KeyCode ParseKey(string name)

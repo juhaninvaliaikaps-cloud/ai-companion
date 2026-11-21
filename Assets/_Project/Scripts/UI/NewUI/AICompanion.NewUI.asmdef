@@ -14,6 +14,7 @@
         "AICompanion.ScreenLook",
         "AICompanion.Settings",
         "UnityEngine.UI",
+        "UnityEngine.ImageConversionModule",
         "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
