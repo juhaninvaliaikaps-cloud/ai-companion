@@ -62,10 +62,12 @@ namespace AICompanion.GameCompanion
     {
         public const string NoCloud = "No cloud AI API is set up, so she uses her pre-written lines. Nothing about your game is sent.";
 
+        public const string PrivatePreWritten = "Private mode or 18+ is on, so she uses her pre-written lines and the local voice. Nothing about your game is sent.";
+
         /// <summary>
         /// The mode for now, and why it is not <see cref="CommentaryMode.ModelFirst"/>.
-        /// Private mode and an open 18+ gate turn game reactions off entirely, as decided for
-        /// JUH-47; whether pre-written lines may run there is still Jussi's call.
+        /// Private mode and an open 18+ gate allow pre-written lines only (Jussi, 2026-11-21):
+        /// they never leave this PC, so the cloud stays out.
         /// </summary>
         public static CommentaryMode Decide(bool featureOn, bool cloudConsent, bool cloudReady, bool privateMode, out string reason)
         {
@@ -78,8 +80,8 @@ namespace AICompanion.GameCompanion
 
             if (IntimateExpressions.KeepsLocal(privateMode))
             {
-                reason = Private;
-                return CommentaryMode.Off;
+                reason = PrivatePreWritten;
+                return CommentaryMode.PreWrittenOnly;
             }
 
             if (!cloudConsent)

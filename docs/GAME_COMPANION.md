@@ -7,7 +7,7 @@ She watches the user's game and says a short line now and then, like a friend on
 - **It is a cloud feature.** On an average PC (8 GB), the local model and a game can't share the graphics card. Commentary during play uses the cloud AI API. There is no local model while a game is running. Local chat can come back between matches.
 - **Seeing the screen is cloud too, and rare.** A local vision model next to a game needs a powerful machine.
 - **It has its own opt-in.** Game data going to the cloud needs consent of its own.
-- **It is off in private mode and while the 18+ gate is open.** Neither allows the cloud.
+- **Private mode and an open 18+ gate allow pre-written lines only (Jussi, 2026-11-21).** Neither allows the cloud, so no model lines and no game data is sent. Pre-written lines run entirely on this PC with the local voice, so they keep working.
 - **Only official, read-only feeds are used.** That means CS2 and Dota 2 Game State Integration and Riot's official API. The app never reads or writes game memory, injects code, or hooks the game's renderer. Her overlay is a separate window, not something inside the game.
 - **Fair play.** She reacts to what already happened and what the player saw. She never gives hidden information, timers, cooldowns, enemy positions or advice that would be an unfair advantage.
 - **World of Warcraft is its own feature (JUH-145).** Blizzard limits real-time use of the combat log, and the log is buffered for minutes (JUH-48). Comments after fights are not enough: she should follow the zone, the questing and what you're doing.
@@ -28,8 +28,8 @@ The engine is plain C# in `Scripts/GameCompanion` (assembly `AICompanion.GameCom
   - Minor moments (a single kill, an assist, a level-up, low health) are never spoken about on their own. They are kept as context for the next comment, for up to 90 seconds and 6 events.
   - Quiet mode and push-to-mute (`MuteFor`) stop everything.
 - **`CommentaryGate.Decide`** gives the mode:
-  - **Off:** the feature is off, or private mode or the 18+ gate is on.
-  - **Pre-written only:** no cloud opt-in, or no cloud AI API set up. Nothing about the game is sent.
+  - **Off:** the feature is off.
+  - **Pre-written only:** private mode or the 18+ gate is on, there's no cloud opt-in, or no cloud AI API is set up. Nothing about the game is sent.
   - **Model first:** everything is allowed.
 - **`CommentaryRoute`** picks the source of one line. It uses the model when the mode and the pacer allow it, and a pre-written line otherwise. A model reply that failed, came back empty or took longer than 6 seconds is replaced by a pre-written line, because the moment has passed.
 - **`CommentaryPrompt`** writes the model's instructions and the turn:
@@ -129,4 +129,4 @@ Settings saved before this have no game fields, and they load with everything of
 
 ## Open decisions for Jussi
 
-- **Pre-written lines in private mode.** They run entirely on this PC, but the earlier decision turns the game companion off in private mode and while the 18+ gate is open. They stay off there until Jussi decides.
+None for the engine right now.

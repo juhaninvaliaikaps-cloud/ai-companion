@@ -179,8 +179,8 @@ namespace AICompanion.Tests.EditMode
         {
             string reason;
             Assert.AreEqual(CommentaryMode.Off, CommentaryGate.Decide(false, true, true, false, out reason));
-            Assert.AreEqual(CommentaryMode.Off, CommentaryGate.Decide(true, true, true, true, out reason));
-            Assert.AreEqual(CommentaryGate.Private, reason);
+            Assert.AreEqual(CommentaryMode.PreWrittenOnly, CommentaryGate.Decide(true, true, true, true, out reason), "private mode: pre-written lines only");
+            Assert.AreEqual(CommentaryGate.PrivatePreWritten, reason);
             Assert.AreEqual(CommentaryMode.PreWrittenOnly, CommentaryGate.Decide(true, false, true, false, out reason));
             Assert.AreEqual(CommentaryGate.NoConsent, reason);
             Assert.AreEqual(CommentaryMode.PreWrittenOnly, CommentaryGate.Decide(true, true, false, false, out reason));
@@ -188,7 +188,8 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(CommentaryMode.ModelFirst, CommentaryGate.Decide(true, true, true, false, out reason));
 
             IntimateExpressions.Configure(true, true, true);
-            Assert.AreEqual(CommentaryMode.Off, CommentaryGate.Decide(true, true, true, false, out reason), "an open 18+ gate counts as private");
+            Assert.AreEqual(CommentaryMode.PreWrittenOnly, CommentaryGate.Decide(true, true, true, false, out reason), "an open 18+ gate counts as private");
+            Assert.AreEqual(CommentaryMode.Off, CommentaryGate.Decide(false, true, true, true, out reason), "off is off, private or not");
         }
 
         [Test]
