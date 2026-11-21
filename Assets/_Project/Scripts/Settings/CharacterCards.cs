@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
+using AICompanion.Core;
 using UnityEngine;
 
 namespace AICompanion.Settings
@@ -20,6 +22,12 @@ namespace AICompanion.Settings
 
         /// <summary>True when the card is tagged 18+ and its scenario and personality went to the 18+ notes.</summary>
         public bool Adult;
+
+        /// <summary>
+        /// JUH-156: the card's own lorebook (<c>character_book</c>), or null. An 18+ card's book is
+        /// marked 18+, so it is used only while the 18+ gate is open.
+        /// </summary>
+        public Lorebook Lorebook;
 
         /// <summary>Things the user should know: fields that were left out, trimmed or moved.</summary>
         public readonly List<string> Notes = new List<string>();
@@ -169,7 +177,18 @@ namespace AICompanion.Settings
 
             result.Spec = spec;
             result.Persona = Map(data, result);
+            result.Lorebook = LorebookImport.FromCardJson(json, result.Persona.DisplayName, result.Adult);
+            if (result.Lorebook != null)
+                result.Notes.Add(LorebookNote(result.Lorebook));
             return result;
+        }
+
+        /// <summary>JUH-156: the status line for a card that brought its lorebook.</summary>
+        public static string LorebookNote(Lorebook book)
+        {
+            var count = book.Entries.Count;
+            return "Her lorebook came too: " + count.ToString(CultureInfo.InvariantCulture) + (count == 1 ? " entry" : " entries")
+                   + (book.Adult ? ", used only while the 18+ gate is open." : ".");
         }
 
         /// <summary>Parses V2/V3 (fields under <c>data</c>) or flat V1 JSON.</summary>

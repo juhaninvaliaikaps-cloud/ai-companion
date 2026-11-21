@@ -173,6 +173,7 @@ namespace AICompanion.Settings
             {
                 chat.systemPrompt = CompanionPersona.Build(settings.CompanionName, settings.Relationship);
                 AdultNotesNow.Reset();
+                LoreNow.Reset();
                 return;
             }
 
@@ -182,6 +183,8 @@ namespace AICompanion.Settings
             // JUH-150: her 18+ notes reach chat only through the gate (AdultNotesNow).
             var persona = catalog.Find(settings.PersonaId);
             AdultNotesNow.Set(persona != null ? persona.AdultNotes : null);
+            // JUH-156: her lorebook; an 18+ one is used only through the gate (LoreNow).
+            LoreNow.Set(persona != null ? LorebookStore.Load(SettingsLocations.PersonasFolder(folder), persona.Id) : null);
         }
 
         static KeyCode ParseKey(string name)
