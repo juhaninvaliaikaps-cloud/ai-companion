@@ -429,6 +429,7 @@ namespace AICompanion.NewUI
             var id = persona.Id;
             Section("Edit " + (string.IsNullOrEmpty(persona.DisplayName) ? id : persona.DisplayName));
             Button("Open in Persona Studio", () => OpenStudio(id));
+            BuildExport(persona);
             if (current.BuiltIn)
                 Note(current.UserFile ? "Editing your saved copy." : "Editing saves a copy. The built-in file stays.");
             Field("Display name", persona.DisplayName, false, v => Save(id, p => p.DisplayName = v));
@@ -507,7 +508,6 @@ namespace AICompanion.NewUI
                 studio.OpenEdit(id);
         }
 
-        /// <summary>The active persona's catalog entry. False, with a note, for the setup name or a missing file.</summary>
         // ---- JUH-154: the persona grid ---------------------------------------------------------
 
         string _gridMenuId;
@@ -634,11 +634,41 @@ namespace AICompanion.NewUI
                     _gridMenuId = null;
                     _rebuild = true;
                 });
+            // JUH-153: export from the card, in the format chosen under the active persona; never her 18+ notes.
+            Button("Export…", () =>
+            {
+                string message;
+                _settings.ExportPersona(id, _exportFormat, false, out message);
+                _gridMenuId = null;
+                _rebuild = true;
+            });
             if ((card.Actions & PersonaCardActions.Delete) != 0)
                 Button(card.DeleteLabel, () => { _gridDeleteId = id; _rebuild = true; }, true);
             Button("Close", () => { _gridMenuId = null; _rebuild = true; });
         }
 
+        // JUH-153: export the active persona as a character card, a card JSON or a zip.
+        CardExportFormat _exportFormat = CardExportFormat.CardPng;
+        bool _exportAdult;
+
+        void BuildExport(PersonaDefinition persona)
+        {
+            Choice("Export as a character card (PNG)", _exportFormat == CardExportFormat.CardPng, () => { _exportFormat = CardExportFormat.CardPng; _rebuild = true; });
+            Choice("Export as card JSON", _exportFormat == CardExportFormat.Json, () => { _exportFormat = CardExportFormat.Json; _rebuild = true; });
+            Choice("Export as a zip (persona file + picture)", _exportFormat == CardExportFormat.Zip, () => { _exportFormat = CardExportFormat.Zip; _rebuild = true; });
+            if (!string.IsNullOrWhiteSpace(persona.AdultNotes))
+                Toggle("Include 18+ notes", _exportAdult, v => { _exportAdult = v; _rebuild = true; });
+            var id = persona.Id;
+            Button("Export…", () =>
+            {
+                string message;
+                _settings.ExportPersona(id, _exportFormat, _exportAdult, out message);
+                _rebuild = true;
+            });
+            Note("A card works in SillyTavern and Chub. Her 18+ notes are never exported unless you tick Include 18+ notes.");
+        }
+
+        /// <summary>The active persona's catalog entry. False, with a note, for the setup name or a missing file.</summary>
         bool ActivePersona(PersonaCatalog catalog, out PersonaEntry current)
         {
             current = null;

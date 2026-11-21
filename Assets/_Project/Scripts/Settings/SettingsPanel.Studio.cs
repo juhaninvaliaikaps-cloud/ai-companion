@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using AICompanion.Core;
+using AICompanion.UI;
 
 namespace AICompanion.Settings
 {
@@ -58,6 +59,15 @@ namespace AICompanion.Settings
         /// </summary>
         public bool StudioSave(PersonaDefinition draft, bool pictureChanged, byte[] picturePng, bool use, out string savedId, out string message)
         {
+            return StudioSave(draft, pictureChanged, picturePng, null, use, out savedId, out message);
+        }
+
+        /// <summary>
+        /// JUH-151: as above, and a character sheet from the Studio's Pisara step is stored for
+        /// her with the hash of her chat prompt, so the keeper uses it instead of reading again.
+        /// </summary>
+        public bool StudioSave(PersonaDefinition draft, bool pictureChanged, byte[] picturePng, CharacterSheet sheet, bool use, out string savedId, out string message)
+        {
             message = string.Empty;
             savedId = string.Empty;
             if (draft == null)
@@ -69,8 +79,7 @@ namespace AICompanion.Settings
             var copy = draft.Copy();
             if (string.IsNullOrWhiteSpace(copy.Id))
                 copy.Id = StudioNewId(copy.DisplayName);
-            if (!string.IsNullOrWhiteSpace(copy.Description))
-                copy.Personality = PersonaDescription.ModelText(copy.Description);
+            PersonaDescription.ApplyTo(copy);
 
             var folder = PersonasFolderPath;
             if (pictureChanged)
@@ -99,6 +108,8 @@ namespace AICompanion.Settings
             }
 
             savedId = PersonaIds.Normalize(copy.Id);
+            if (sheet != null)
+                SaveStudioSheet(savedId, sheet);
             var name = string.IsNullOrWhiteSpace(copy.DisplayName) ? copy.Id : copy.DisplayName;
             if (use || string.Equals(_settings.PersonaId, copy.Id, StringComparison.OrdinalIgnoreCase))
                 UsePersona(copy.Id);
@@ -106,6 +117,61 @@ namespace AICompanion.Settings
             SetStatus(message);
             _rebuild = true;
             return true;
+        }
+
+        /// <summary>The prompt the chat model gets for this persona, the same as the keeper reads.</summary>
+        string ChatPromptFor(string id)
+        {
+            var persona = PersonaCatalog.LoadDefault(Folder()).Find(id);
+            return persona == null ? null : PersonaText.Build(persona, _settings.CompanionName, _settings.Relationship);
+        }
+
+        void SaveStudioSheet(string id, CharacterSheet sheet)
+        {
+            var prompt = ChatPromptFor(id);
+            if (prompt == null)
+                return;
+            var copy = CharacterSheet.FromJson(sheet.ToJson()) ?? sheet;
+            PisaraReading.Finish(copy, prompt, CharacterSheet.SourceModel, DateTime.UtcNow);
+            if (!CharacterSheetStore.Save(CharacterSheetStore.FileFor(PersonaRuntime.DefaultSettingsFolder(), id), copy))
+                UnityEngine.Debug.LogWarning("Persona Studio: the character sheet could not be saved.");
+        }
+
+        /// <summary>Her stored character sheet for her current prompt, as a copy to edit, or null.</summary>
+        public CharacterSheet StudioSheet(string id)
+        {
+            var prompt = ChatPromptFor(id);
+            if (prompt == null)
+                return null;
+            var sheet = CharacterSheetStore.LoadFor(CharacterSheetStore.FileFor(PersonaRuntime.DefaultSettingsFolder(), id), prompt);
+            return sheet == null ? null : CharacterSheet.FromJson(sheet.ToJson());
+        }
+
+        /// <summary>
+        /// JUH-152: her first greeting in an empty chat: after launch, a persona switch, or
+        /// clearing the history. A chat that already has lines is left alone.
+        /// </summary>
+        void GreetIfEmpty()
+        {
+            var chat = GetComponent<ChatPanel>();
+            if (chat == null || _settings == null || string.IsNullOrWhiteSpace(_settings.PersonaId))
+                return;
+            var persona = PersonaCatalog.LoadDefault(Folder()).Find(_settings.PersonaId);
+            if (persona != null && !string.IsNullOrWhiteSpace(persona.Greeting))
+                chat.ShowGreeting(persona.Greeting);
+        }
+
+        /// <summary>JUH-152: switch to a saved persona from the Studio.</summary>
+        public void StudioUse(string id)
+        {
+            if (!string.IsNullOrWhiteSpace(id))
+                UsePersona(PersonaIds.Normalize(id));
+        }
+
+        /// <summary>The Pisara reader for the Studio, or null.</summary>
+        public PisaraReadingKeeper StudioReader
+        {
+            get { return GetComponent<PisaraReadingKeeper>(); }
         }
 
         /// <summary>The text of a .txt or .md file to import, at most the description limit.</summary>

@@ -69,6 +69,7 @@ Version 1. Unknown fields are ignored. A missing or broken file is skipped.
 | `greeting` | JUH-150. Her first message in a new chat. Optional. |
 | `exampleLines` | JUH-150. A few sample exchanges. They are added to her prompt under "Examples of how you talk". |
 | `adultNotes` | JUH-150. 18+ notes. They are added to the prompt only while the 18+ gate is open (`AdultNotesNow`), when chat is always local, so they never reach a cloud model. |
+| `condensed` | JUH-151. True when `personality` is Pisara's condensed version of a long `description`. |
 | `hasPicture`, `pictureShape` | JUH-150. Her picture is a 512 × 512 PNG kept encrypted beside her file as `<id>.picture`. The shape (`round` or `square`) is only how it is shown. |
 
 A local persona can point at an Ollama tag instead of Grok:
@@ -122,9 +123,54 @@ The built-in presets set Grok, `eve`, and Auto. Picking one applies those. Chang
 
 It edits a draft and saves the whole persona on **Save**. Closing with unsaved changes asks first.
 
-- **Start:** create a new persona, start from a template (one per temperament preset), duplicate one, edit the active one, import a `.txt` or `.md` file, or paste a description.
+- **Start:** create a new persona, start from a template (one per temperament preset), duplicate one, edit the active one, import a character card, import a `.txt` or `.md` file, or paste a description.
 - **1 · Identity:** her name, tagline and picture. Choose a picture or paste its path. The centre square is used, and she can be shown round or square.
 - **2 · Description:** up to 32,000 characters, with a meter showing what the chat model sees. Also her speaking style, her example lines, and the 18+ notes, which are shown only when 18+ is turned on in settings.
+
+- **3 · Pisara (JUH-151):** Pisara reads the whole description, not the cut the chat model gets. It uses the same model and privacy rule as the background reading (`PisaraReadingKeeper.ReadDraftAsync`). The step shows who reads her, a progress bar and **Skip**, and the results:
+  - **Temperament:** Auto with Pisara's line, or your own nine sliders.
+  - **How she knows you:** a role drop-down, what she calls it, and a shared past. Your correction is locked, like a correction on the Persona tab.
+  - **Her life:** backstory (one fact per line), right now, her last week, and what's going on.
+  - **What lands with her:** touchy subjects and what wins her over.
+
+  Each part has a **Redo** that reads again and replaces only that part.
+  - **Condensed description:** shown when the description is over 4,000 characters. Pisara condenses it (`PersonaCondenser`) into text you can edit, and the persona is marked `condensed`. Editing the description clears the mark, and the cut is used again until you condense once more.
+  - **18+:** innocence and the 18+ secrets are still read after you save, on the local model, while the gate is open.
+
+  On **Save**, the sheet is stored for her id with the hash of her chat prompt, so the background reader uses it and doesn't read her again. Skipping the step leaves it to the background reader, as before.
+
+- **4 · Voice (JUH-152):** her Piper, Kokoro (drop-down), Chatterbox and xAI voice ids. **Hear her** saves first if needed, then speaks her greeting or a short hello in the voice chat uses (`ChatPanel.SpeakSample`). For a persona who isn't the active one, the Studio offers **Save and use her** first, because otherwise you'd hear the active persona's voice.
+- **5 · Look:** her 3D avatar source (same as the Look tab, Auto, local prefab, VRM, FBX) and her portrait folder. The 2D video avatar is set for all personas on the Look tab.
+- **6 · Review:**
+  - a summary: picture, name, tagline, the description meter, Pisara's temperament and relationship lines
+  - **First greeting:** shown, not spoken, when the chat is empty, at launch with no history, after a persona switch, or after clearing the history (`SettingsPanel.GreetIfEmpty` → `ChatPanel.ShowGreeting`)
+  - **Test chat:** talk to the draft before saving. It uses the chat model under the usual privacy rule, with `NoMemory`, and adds nothing to the real chat or history (`ChatPanel.RequestTestReply`). The last 20 messages are shown.
+
+### Character cards (JUH-153)
+
+**Import a character card (PNG or JSON)…** on the Studio's Start step reads SillyTavern and Chub cards: V2 (`chara_card_v2`, a PNG `tEXt` chunk named `chara` with base64 JSON), V3 (`chara_card_v3`, chunk `ccv3`; it wins when a PNG has both) and old flat V1 JSON. The card becomes a draft on the Identity step; a PNG card's picture becomes her picture (centre square, 512 px). Nothing is saved until **Save**.
+
+| Card field | Persona |
+| --- | --- |
+| `name` | Display name |
+| `description`, `personality`, `scenario` | Description, as labelled paragraphs ("Description:", "Personality:", "Scenario:") |
+| `first_mes` | Greeting |
+| `mes_example` | Example lines: `{{char}}` and `<BOT>` become "Her", `{{user}}` and `<USER>` become "You", `<START>` separators go |
+| `creator_notes`, `system_prompt`, `post_history_instructions` | Not imported (Happi writes its own instructions); the status line says so |
+
+In the description and greeting, `{{char}}` becomes her name and `{{user}}` becomes "the user" (in the greeting, "you"). Only the first greeting is used; the status line says how many alternates the card had. Every field is cut to the persona's limits, and the status line names any field that was cut.
+
+**18+ cards.** A card tagged `nsfw`, `nsfl`, `adult`, `18+`, `r18`, `explicit`, `lewd`, `smut`, `erotic`, `porn`, `hentai` or `sexual` keeps only its description in the description. Its personality and scenario go into her 18+ notes, which stay on this PC and reach the prompt only while the 18+ gate is open (chat is then always local). The status line tells the user.
+
+The PNG is read chunk by chunk (signature, length, type, data, CRC). No length in the file is trusted: a chunk longer than what is left of the file, or longer than 8 MB, stops the import with a message. Files over 20 MB are refused.
+
+**Export.** Settings → Persona → the active persona → **Export…**, as:
+
+- **a character card (PNG):** her picture, or a plain blue placeholder when she has none, with a V2 `chara` chunk (correct CRC). Her description goes to `description`, her speaking style to `personality`, her greeting to `first_mes`, her example lines to `mes_example` (with `<START>`, `{{user}}` and `{{char}}`), and her tagline to `creator_notes`;
+- **card JSON:** the same card as a `.json` file;
+- **a zip:** her Happi persona file (`<id>.json`) and her picture (`<id>.png`).
+
+Her 18+ notes are **never** exported unless **Include 18+ notes** is ticked (shown only when she has some). Ticked, a card carries them in `scenario` and is tagged `nsfw`, so importing it again routes them back into the 18+ notes. The save dialog asks before overwriting a file.
 
 ### Persona grid, her picture, describing it, history (JUH-154)
 
@@ -132,6 +178,7 @@ It edits a draft and saves the whole persona on **Save**. Closing with unsaved c
 
 - **Open in Studio**;
 - **Duplicate**: a copy with her picture, named "… copy";
+- **Export…**: her character card, card JSON or zip, in the format chosen under the active persona (her 18+ notes are not included from here);
 - **Delete** for her own file, or **Delete saved copy** for an edited built-in (the built-in comes back). It asks first.
 
 A built-in persona can't be deleted. "Use setup name" stays as a row above the grid.
@@ -144,6 +191,4 @@ A built-in persona can't be deleted. "Use setup name" stays as a row above the g
 - In Private mode or with the 18+ gate open (`IntimateExpressions.KeepsLocal`), **only the local vision model** is used. Without one, nothing is sent, and the cloud is never a fallback.
 
 **Version history.** Every save of a persona keeps the version it replaces, as `history/<id>.json.<timestamp>.bak` in the personas folder. These copies are encrypted like the file itself and written again at their own path, because the encryption is bound to the path. Only the last 10 stay, and saving the same text again keeps nothing. The Studio's Identity step has **History…** to load one as the draft; **Save** keeps it, and her picture isn't part of the history.
-
-Still to come: the Pisara step with its generators, Voice, Look, the review step and test chat.
 
