@@ -26,10 +26,10 @@ namespace AICompanion.Settings
         public bool SavedCopy;
         public PersonaCardActions Actions;
 
-        /// <summary>"Delete" for her own file, "Delete saved copy" for an edited built-in.</summary>
+        /// <summary>"Delete" for every persona except the default Happi.</summary>
         public string DeleteLabel
         {
-            get { return SavedCopy ? "Delete saved copy" : "Delete"; }
+            get { return "Delete"; }
         }
     }
 
@@ -54,8 +54,8 @@ namespace AICompanion.Settings
                     continue;
                 var persona = entry.Persona;
                 var actions = PersonaCardActions.OpenInStudio | PersonaCardActions.Duplicate;
-                // A built-in file can't be deleted; a saved copy of one can (the built-in comes back).
-                if (entry.UserFile)
+                // JUH-155: only Happi is absolute. Every other persona, built-in or not, can go.
+                if (!string.Equals(persona.Id, PersonaDefaults.HappiId, StringComparison.OrdinalIgnoreCase))
                     actions |= PersonaCardActions.Delete;
                 cards.Add(new PersonaCard
                 {

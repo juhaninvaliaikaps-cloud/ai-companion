@@ -17,6 +17,8 @@ namespace AICompanion.Core
     {
         static string _firstScene = string.Empty;
         static string _away = string.Empty;
+        static string _firstSceneText = string.Empty;
+        static string _awayText = string.Empty;
         static string _herName = string.Empty;
 
         /// <summary>The active persona's display name, for the session-memory request. Empty with the setup name.</summary>
@@ -40,14 +42,38 @@ namespace AICompanion.Core
             get { return _away; }
         }
 
+        /// <summary>The readable scene line for the chat box; the prompt keeps the instruction form.</summary>
+        public static string FirstSceneText
+        {
+            get { return _firstSceneText; }
+        }
+
+        /// <summary>The readable away line for the chat box, without the prompt instruction.</summary>
+        public static string AwayText
+        {
+            get { return _awayText; }
+        }
+
         public static void SetFirstScene(string line)
         {
+            SetFirstScene(line, null);
+        }
+
+        public static void SetFirstScene(string line, string display)
+        {
             _firstScene = string.IsNullOrWhiteSpace(line) ? string.Empty : line.Trim();
+            _firstSceneText = string.IsNullOrWhiteSpace(display) ? string.Empty : display.Trim();
         }
 
         public static void SetAway(string line)
         {
+            SetAway(line, null);
+        }
+
+        public static void SetAway(string line, string display)
+        {
             _away = string.IsNullOrWhiteSpace(line) ? string.Empty : line.Trim();
+            _awayText = string.IsNullOrWhiteSpace(display) ? string.Empty : display.Trim();
         }
 
         /// <summary>
@@ -68,12 +94,15 @@ namespace AICompanion.Core
         public static void ReplyFinished()
         {
             _away = string.Empty;
+            _awayText = string.Empty;
         }
 
         public static void Reset()
         {
             _firstScene = string.Empty;
             _away = string.Empty;
+            _firstSceneText = string.Empty;
+            _awayText = string.Empty;
             _herName = string.Empty;
         }
     }

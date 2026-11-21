@@ -211,7 +211,9 @@ namespace AICompanion.Settings
                 Revision++;
             }
 
-            WorldPromptNow.SetFirstScene(WorldGuard.FirstScene(sheet));
+            var scenePrompt = WorldGuard.FirstScene(sheet);
+            WorldPromptNow.SetFirstScene(scenePrompt,
+                scenePrompt.Length == 0 || sheet.world == null ? string.Empty : WorldGuard.Sentence(sheet.world.rightNow));
         }
 
         /// <summary>
@@ -245,7 +247,7 @@ namespace AICompanion.Settings
             if (!away.Happened)
                 return;
 
-            WorldPromptNow.SetAway(away.PromptLine);
+            WorldPromptNow.SetAway(away.PromptLine, away.Text);
             _awayPushes = away.MoodPushes;
             _awayPushesFor = _personaId;
             Debug.Log("Away: " + PersonaLogId(_personaId) + " = " + away.Text);

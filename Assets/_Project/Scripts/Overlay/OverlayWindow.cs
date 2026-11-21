@@ -61,6 +61,7 @@ namespace AICompanion.Overlay
         int _shownSizePct = -1;
         int _shownZoomPct = -1;
         int _warmup;
+        float _nextTopmostAssert;
         float _idleFor;
         int _appliedRate = -1;
         WindowDrag _drag;
@@ -356,14 +357,36 @@ namespace AICompanion.Overlay
                     ApplySizedWindow(false);
             }
 
+            // A borderless/windowed-fullscreen game can create its own topmost window after
+            // Happi starts. Reassert without activating so she stays above it; a minimized
+            // window stays minimized because SetWindowPos never restores it.
+            if (_topmost && _companionVisible && _chrome != null && _chrome.IsSupported
+                && Time.unscaledTime >= _nextTopmostAssert)
+            {
+                _nextTopmostAssert = Time.unscaledTime + 0.75f;
+                _chrome.ReassertTopmost();
+            }
+
             if (_repositionFrames > 0 && !_dragging && _chrome != null && _chrome.IsSupported)
             {
                 ApplySizedWindow(false);
                 _repositionFrames--;
             }
+        }
 
-            if (!_companionVisible && _chrome != null && _chrome.IsHandleLocked)
-                _chrome.SetWindowVisible(false);
+        /// <summary>
+        /// A taskbar click on a hidden overlay brings the window back. The tray state is the
+        /// authority, so route it through the tray when it is present.
+        /// </summary>
+        void OnApplicationFocus(bool hasFocus)
+        {
+            if (!hasFocus || _companionVisible || _chrome == null)
+                return;
+            var tray = GetComponent<CompanionTray>();
+            if (tray != null)
+                tray.ShowCompanion();
+            else
+                SetCompanionVisible(true);
         }
 
         void OnGUI()

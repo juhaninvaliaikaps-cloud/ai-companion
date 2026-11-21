@@ -115,6 +115,8 @@ namespace AICompanion.UI
             if (_conversation == null)
                 return;
             _conversation.ClearTranscript();
+            _shownWorldScene = string.Empty;
+            _shownAwayText = string.Empty;
             DropSession();
             RefreshTranscript(true);
         }
@@ -126,6 +128,8 @@ namespace AICompanion.UI
             if (_conversation == null)
                 return;
             _conversation.ClearTranscript();
+            _shownWorldScene = string.Empty;
+            _shownAwayText = string.Empty;
             ChatHistoryCodec.ReadInto(json, _conversation);
             _sessionStartLine = 0;
             // The saved adult lines are part of this session. A later session-end request stays local.
@@ -228,6 +232,7 @@ namespace AICompanion.UI
             if (!_started)
                 return;
             TickSession();
+            SyncWorldLines();
 
             EnsureCamera();
             if (Input.GetKeyDown(KeyCode.F10))

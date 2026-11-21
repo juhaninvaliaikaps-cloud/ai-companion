@@ -493,10 +493,10 @@ namespace AICompanion.NewUI
 
             BuildMemories();
 
-            if (current.UserFile)
+            if (!string.Equals(current.Persona.Id, PersonaDefaults.HappiId, StringComparison.OrdinalIgnoreCase))
             {
                 Section("Delete");
-                Button(current.BuiltIn ? "Delete saved copy" : "Delete persona", () => { _settings.DeletePersona(); _rebuild = true; }, true);
+                Button("Delete persona", () => { _settings.DeletePersonaById(current.Persona.Id, out _); _rebuild = true; }, true);
             }
         }
 
@@ -600,7 +600,7 @@ namespace AICompanion.NewUI
             tagline.overflowMode = TextOverflowModes.Ellipsis;
             HappiUiKit.Place(tagline.rectTransform, pad, pad + size + 22f * _s, width - 2f * pad, height - size - 26f * _s - pad);
 
-            var more = HappiUiKit.Button(button.Rect, "More", "⋯", _theme.FontBody * _s, () =>
+            var more = HappiUiKit.Button(button.Rect, "More", "\u2699", _theme.FontBody * _s, () =>
             {
                 if (_building)
                     return;
@@ -610,6 +610,30 @@ namespace AICompanion.NewUI
             });
             var moreSize = 24f * _s;
             HappiUiKit.Place(more.Rect, width - moreSize - 3f * _s, 3f * _s, moreSize, moreSize);
+            var gearFont = HappiFonts.For("Segoe UI Symbol");
+            if (gearFont != null)
+            {
+                more.Label.font = gearFont;
+                more.Label.fontStyle = FontStyles.Normal;
+            }
+            else
+            {
+                more.Label.text = "...";
+            }
+
+            // JUH-153: deletion is one click from the card, with the same confirmation the menu uses.
+            if ((card.Actions & PersonaCardActions.Delete) != 0)
+            {
+                var delete = HappiUiKit.Button(button.Rect, "Delete", "\u00d7", _theme.FontBody * _s, () =>
+                {
+                    if (_building)
+                        return;
+                    _gridMenuId = id;
+                    _gridDeleteId = id;
+                    _rebuild = true;
+                });
+                HappiUiKit.Place(delete.Rect, width - moreSize * 2f - 7f * _s, 3f * _s, moreSize, moreSize);
+            }
         }
 
         /// <summary>The "⋯" menu of one card, shown under its row: Open in Studio, Duplicate, Delete.</summary>
@@ -618,8 +642,7 @@ namespace AICompanion.NewUI
             var id = card.Id;
             if (string.Equals(_gridDeleteId, id, StringComparison.OrdinalIgnoreCase))
             {
-                Note((card.SavedCopy ? "Delete your saved copy of " : "Delete ") + card.Name + "? This can't be undone."
-                     + (card.SavedCopy ? " The built-in comes back as it shipped." : string.Empty));
+                Note("Delete " + card.Name + "? This can't be undone.");
                 Button("Confirm delete", () =>
                 {
                     string message;
@@ -936,7 +959,7 @@ namespace AICompanion.NewUI
             Field("Chatterbox voices folder", S.ChatterboxVoices, false, v => Change(s => s.ChatterboxVoices = v));
             Dropdown("Chatterbox voice", S.ChatterboxVoice, ChatterboxVoiceOptions(false, S.ChatterboxVoice), v => v, v => Change(s => s.ChatterboxVoice = v));
             Field("Chatterbox device (auto/cuda/cpu)", S.ChatterboxDevice, false, v => Change(s => s.ChatterboxDevice = v));
-            Note("Piper, Kokoro and Chatterbox speak offline with no API key. Chatterbox is slower but more expressive; it uses the GPU when device is cuda or auto.");
+            Note("Piper, Kokoro and Chatterbox speak offline with no API key. Chatterbox is slower but more expressive; it uses the GPU when device is cuda or auto. If a game is using most of the GPU, switch Chatterbox device to cpu or use Kokoro.");
             Field("TTS language", S.TtsLanguage, false, v => Change(s => s.TtsLanguage = v));
 
             // Moved here from the persona editor (JUH-121).
@@ -1302,7 +1325,7 @@ namespace AICompanion.NewUI
         void BuildWindow()
         {
             Toggle("Always on top", S.AlwaysOnTop, v => Change(s => s.AlwaysOnTop = v));
-            Note("F8 toggles this too.");
+            Note("F8 toggles this too. Windows can't draw over a game's exclusive fullscreen; use borderless or windowed fullscreen to see her over the game.");
             Slider(v => "Size " + Mathf.RoundToInt(v * 100f) + "%", S.Scale, OverlayWindowSize.MinScale, OverlayWindowSize.MaxScale, false, v => P.Change(s => s.Scale = v));
             Button("Click-through: " + SettingsPresenter.ClickThroughLabel(S.ClickThrough), () => { P.CycleClickThrough(); _rebuild = true; });
             Note(SettingsPresenter.ClickThroughHelp(S.ClickThrough));

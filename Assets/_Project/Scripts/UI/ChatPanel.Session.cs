@@ -29,6 +29,8 @@ namespace AICompanion.UI
         bool _quitHooked;
         bool _quitAnswered;
         bool _resumeRunning;
+        string _shownWorldScene = string.Empty;
+        string _shownAwayText = string.Empty;
 
         // JUH-134 review: each session has its own handoff file. The rolling checkpoint and
         // the final save share the id; a new session gets a new one.
@@ -76,6 +78,39 @@ namespace AICompanion.UI
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Puts the readable first scene and any away event in the transcript, so the user can
+        /// read what happened even though the model prompt is where the instruction lives.
+        /// </summary>
+        void SyncWorldLines()
+        {
+            if (_conversation == null)
+                return;
+
+            var scene = WorldPromptNow.FirstSceneText;
+            if (string.IsNullOrEmpty(scene))
+                _shownWorldScene = string.Empty;
+            else if (!string.Equals(scene, _shownWorldScene, StringComparison.Ordinal))
+            {
+                _shownWorldScene = scene;
+                if (ConversationIsEmpty())
+                {
+                    _conversation.AddSystem("Scene: " + scene);
+                    RefreshTranscript(true);
+                }
+            }
+
+            var away = WorldPromptNow.AwayText;
+            if (string.IsNullOrEmpty(away))
+                _shownAwayText = string.Empty;
+            else if (!string.Equals(away, _shownAwayText, StringComparison.Ordinal))
+            {
+                _shownAwayText = away;
+                _conversation.AddSystem("While you were away: " + away);
+                RefreshTranscript(true);
+            }
         }
 
         /// <summary>Called just before a user message is sent, with that send's private flag.</summary>

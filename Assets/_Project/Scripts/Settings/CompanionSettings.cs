@@ -73,7 +73,7 @@ namespace AICompanion.Settings
         public float Scale = 1f;
         public string ClickThrough = OverlayClickThroughPolicy.SilhouetteName;
         public int IdleFrameRate = OverlayFrameRate.Idle;
-        public bool HideTaskbarButton = true;
+        public bool HideTaskbarButton = false;
         public bool StartWithWindows;
         public bool Paused;
         public bool ChatHistory;

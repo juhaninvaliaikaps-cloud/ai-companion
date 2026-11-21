@@ -64,6 +64,7 @@ namespace AICompanion.Settings
 
             order.Sort(CompareIds);
             var users = ReadUserFiles(userDirectory);
+            var hidden = PersonaHiding.HiddenIds(userDirectory);
             var entries = new List<PersonaEntry>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             for (var i = 0; i < order.Count; i++)
@@ -72,6 +73,10 @@ namespace AICompanion.Settings
                 seen.Add(id);
                 PersonaDefinition user;
                 var hasUser = users.TryGetValue(id, out user);
+                // JUH-155: every built-in except Happi can be deleted. A marker keeps a deleted
+                // built-in out of the catalog, while its repository JSON stays untouched.
+                if (!hasUser && hidden.Contains(id))
+                    continue;
                 entries.Add(new PersonaEntry(hasUser ? user : builtIns[id], true, hasUser));
             }
 
@@ -243,6 +248,91 @@ namespace AICompanion.Settings
         }
     }
 
+    /// <summary>
+    /// Deleted built-ins are hidden with a small marker beside the user persona files. The
+    /// shipped JSON is never modified, so a future update can still read it and an export/wipe
+    /// naturally restores the built-in set.
+    /// </summary>
+    public static class PersonaHiding
+    {
+        public const string Suffix = ".deleted";
+
+        public static bool IsHidden(string directory, string id)
+        {
+            var key = PersonaIds.Normalize(id);
+            if (key.Length == 0 || string.IsNullOrWhiteSpace(directory))
+                return false;
+            try
+            {
+                return File.Exists(Path.Combine(directory, key + Suffix));
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        public static HashSet<string> HiddenIds(string directory)
+        {
+            var hidden = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+                return hidden;
+            try
+            {
+                var files = Directory.GetFiles(directory, "*" + Suffix);
+                for (var i = 0; i < files.Length; i++)
+                {
+                    var name = Path.GetFileName(files[i]);
+                    if (name.Length <= Suffix.Length)
+                        continue;
+                    var id = PersonaIds.Normalize(name.Substring(0, name.Length - Suffix.Length));
+                    if (id.Length > 0)
+                        hidden.Add(id);
+                }
+            }
+            catch (Exception)
+            {
+            }
+
+            return hidden;
+        }
+
+        public static bool Hide(string directory, string id)
+        {
+            var key = PersonaIds.Normalize(id);
+            if (key.Length == 0 || string.Equals(key, PersonaDefaults.HappiId, StringComparison.OrdinalIgnoreCase))
+                return false;
+            if (string.IsNullOrWhiteSpace(directory))
+                return false;
+            try
+            {
+                Directory.CreateDirectory(directory);
+                File.WriteAllText(Path.Combine(directory, key + Suffix), "deleted");
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        public static void Reveal(string directory, string id)
+        {
+            var key = PersonaIds.Normalize(id);
+            if (key.Length == 0 || string.IsNullOrWhiteSpace(directory))
+                return;
+            try
+            {
+                var marker = Path.Combine(directory, key + Suffix);
+                if (File.Exists(marker))
+                    File.Delete(marker);
+            }
+            catch (Exception)
+            {
+            }
+        }
+    }
+
     public static class PersonaStore
     {
         /// <summary>JUH-154: goes up on every saved persona file, so cached pictures and cards know to refresh.</summary>
@@ -271,6 +361,9 @@ namespace AICompanion.Settings
                 var json = PersonaJson.Write(copy);
                 if (CompanionSettingsSecrets.ContainsForbiddenSecretField(json))
                     return false;
+
+                // A saved copy revives a built-in that was deleted earlier.
+                PersonaHiding.Reveal(directory, copy.Id);
 
                 // JUH-154: keep the previous version (the last 10) before overwriting it.
                 PersonaHistory.KeepPrevious(directory, copy.Id, json, DateTime.UtcNow);

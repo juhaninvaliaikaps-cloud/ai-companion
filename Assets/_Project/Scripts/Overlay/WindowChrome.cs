@@ -7,6 +7,9 @@ namespace AICompanion.Overlay
         bool IsSupported { get; }
         bool TryApplyTransparentPopup();
         void SetTopmost(bool topmost);
+
+        /// <summary>Re-applies topmost without activating or restoring a minimized window.</summary>
+        void ReassertTopmost();
         void SetClickThrough(bool clickThrough);
         bool IsLeftButtonHeld();
         bool IsRightButtonHeld();
@@ -51,6 +54,10 @@ namespace AICompanion.Overlay
         public bool TryApplyTransparentPopup() => false;
 
         public void SetTopmost(bool topmost)
+        {
+        }
+
+        public void ReassertTopmost()
         {
         }
 

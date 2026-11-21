@@ -138,19 +138,41 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void Menu_BuiltInsCantBeDeleted_SavedCopiesCan()
+        public void Menu_OnlyHappiIsProtected_EveryOtherPersonaCanBeDeleted()
         {
             var cards = PersonaGrid.Cards(new List<PersonaEntry>
             {
                 Entry("happi", "Happi", true, false),
-                Entry("friend", "Leia", true, true),
+                Entry("friend", "Leia", true, false),
+                Entry("calm", "Calm", true, true),
                 Entry("mira", "Mira", false, true),
             }, string.Empty);
 
             CollectionAssert.AreEqual(new[] { "Open in Studio", "Duplicate" }, PersonaGrid.MenuLabels(cards[0]));
-            CollectionAssert.AreEqual(new[] { "Open in Studio", "Duplicate", "Delete saved copy" }, PersonaGrid.MenuLabels(cards[1]));
+            CollectionAssert.AreEqual(new[] { "Open in Studio", "Duplicate", "Delete" }, PersonaGrid.MenuLabels(cards[1]));
             CollectionAssert.AreEqual(new[] { "Open in Studio", "Duplicate", "Delete" }, PersonaGrid.MenuLabels(cards[2]));
+            CollectionAssert.AreEqual(new[] { "Open in Studio", "Duplicate", "Delete" }, PersonaGrid.MenuLabels(cards[3]));
             Assert.AreEqual(0, PersonaGrid.MenuLabels(null).Count);
+        }
+
+        [Test]
+        public void PersonaHiding_HidesAndRevealsBuiltIns_ButNeverHappi()
+        {
+            var dir = Path.Combine(Path.GetTempPath(), "happi-hidden-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                Assert.IsTrue(PersonaHiding.Hide(dir, "friend"));
+                Assert.IsTrue(PersonaHiding.IsHidden(dir, "friend"));
+                Assert.IsFalse(PersonaHiding.Hide(dir, "happi"));
+                Assert.IsFalse(PersonaHiding.IsHidden(dir, "happi"));
+                PersonaHiding.Reveal(dir, "friend");
+                Assert.IsFalse(PersonaHiding.IsHidden(dir, "friend"));
+            }
+            finally
+            {
+                Directory.Delete(dir, true);
+            }
         }
 
         [Test]

@@ -437,6 +437,7 @@ namespace AICompanion.Settings
         void Touch(string status)
         {
             _status = status ?? string.Empty;
+            Debug.Log("Game companion: " + _status);
             Revision++;
         }
     }

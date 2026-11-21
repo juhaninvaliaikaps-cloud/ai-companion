@@ -55,34 +55,37 @@ namespace AICompanion.Settings
         }
 
         /// <summary>
-        /// Deletes her own file (and picture). A built-in comes back as it shipped. Deleting the
-        /// active persona switches as "Delete persona" does today.
+        /// Deletes a persona. Happi is the one absolute default and cannot be deleted. Any other
+        /// built-in is hidden with a marker, so it disappears until the user saves a copy again.
         /// </summary>
         public bool DeletePersonaById(string id, out string message)
         {
             var entry = PersonaCatalog.LoadDefault(Folder()).FindEntry(id);
-            if (entry == null || !entry.UserFile)
+            if (entry == null)
             {
-                message = "A built-in persona can't be deleted.";
+                message = "That persona could not be found.";
                 SetStatus(message);
                 return false;
             }
 
-            var name = string.IsNullOrWhiteSpace(entry.Persona.DisplayName) ? entry.Persona.Id : entry.Persona.DisplayName;
-            if (string.Equals(_settings.PersonaId, entry.Persona.Id, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(entry.Persona.Id, PersonaDefaults.HappiId, StringComparison.OrdinalIgnoreCase))
             {
-                PersonaPictureStore.Delete(PersonasFolderPath, entry.Persona.Id);
-                LorebookStore.Delete(PersonasFolderPath, entry.Persona.Id);
-                DeleteActivePersona();
-            }
-            else
-            {
-                PersonaStore.Delete(PersonasFolderPath, entry.Persona.Id);
-                PersonaPictureStore.Delete(PersonasFolderPath, entry.Persona.Id);
-                LorebookStore.Delete(PersonasFolderPath, entry.Persona.Id);
+                message = "Happi is the default persona and can't be deleted.";
+                SetStatus(message);
+                return false;
             }
 
-            message = (entry.BuiltIn ? "Deleted your saved copy of " : "Deleted ") + name + ".";
+            var wasActive = string.Equals(_settings.PersonaId, entry.Persona.Id, StringComparison.OrdinalIgnoreCase);
+            PersonaStore.Delete(PersonasFolderPath, entry.Persona.Id);
+            PersonaPictureStore.Delete(PersonasFolderPath, entry.Persona.Id);
+            LorebookStore.Delete(PersonasFolderPath, entry.Persona.Id);
+            if (entry.BuiltIn)
+                PersonaHiding.Hide(PersonasFolderPath, entry.Persona.Id);
+
+            var name = string.IsNullOrWhiteSpace(entry.Persona.DisplayName) ? entry.Persona.Id : entry.Persona.DisplayName;
+            message = "Deleted " + name + ".";
+            if (wasActive)
+                UsePersona(PersonaDefaults.HappiId);
             SetStatus(message);
             _rebuild = true;
             return true;

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using AICompanion.Core;
 using AICompanion.NewUI.VisualNovel;
 using AICompanion.Overlay;
@@ -52,6 +53,7 @@ namespace AICompanion.NewUI
         HappiButton _look;
         HappiButton _close;
         GameObject _chatMenu;
+        HappiButton _menuCopy;
         HappiButton _menuSettings;
         HappiButton _menuClose;
         HappiButton _menuProgram;
@@ -327,6 +329,9 @@ namespace AICompanion.NewUI
             }
 
             var typing = (_input != null && _input.isFocused) || (_keyInput != null && _keyInput.isFocused);
+            var control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            if (!typing && control && Input.GetKeyDown(KeyCode.C) && Contains(_box))
+                CopyTranscript();
             if (!typing && _player.Mode == VnMode.Step && Input.GetKeyDown(KeyCode.Space))
                 _player.Next();
             if (Input.GetKeyDown(KeyCode.Escape))
@@ -940,6 +945,7 @@ namespace AICompanion.NewUI
 
             var menuPanel = HappiUiKit.Panel(_box, "ChatMenu", _theme.PanelBackground, true);
             _chatMenu = menuPanel.gameObject;
+            _menuCopy = HappiUiKit.Button(_chatMenu.transform, "MenuCopy", "Copy chat", _theme.FontSmall, CopyTranscriptFromMenu);
             _menuSettings = HappiUiKit.Button(_chatMenu.transform, "MenuSettings", "Settings", _theme.FontSmall, OpenSettingsFromMenu);
             _menuClose = HappiUiKit.Button(_chatMenu.transform, "MenuClose", "Close chat", _theme.FontSmall, CloseChatFromMenu);
             _menuProgram = HappiUiKit.Button(_chatMenu.transform, "MenuProgram", "Close program", _theme.FontSmall, CloseProgramFromMenu);
@@ -1229,6 +1235,8 @@ namespace AICompanion.NewUI
             var buttons = _fontButtons;
             for (var i = 0; i < buttons.Length; i++)
                 buttons[i].Label.fontSize = _theme.FontSmall * s;
+            if (_menuCopy != null)
+                _menuCopy.Label.fontSize = _theme.FontSmall * s;
             if (_menuSettings != null)
                 _menuSettings.Label.fontSize = _theme.FontSmall * s;
             if (_menuClose != null)
@@ -1712,6 +1720,41 @@ namespace AICompanion.NewUI
                 _settings.Open();
         }
 
+        void CopyTranscriptFromMenu()
+        {
+            CloseChatMenu();
+            CopyTranscript();
+        }
+
+        /// <summary>
+        /// Copies the whole conversation as plain text, with the speaker label and without the
+        /// VN rich-text tags. Ctrl+C over the box does the same unless the input field has focus.
+        /// </summary>
+        void CopyTranscript()
+        {
+            if (_chat == null)
+                return;
+            var lines = _chat.TranscriptLines;
+            var sb = new StringBuilder();
+            var her = _name != null && !string.IsNullOrWhiteSpace(_name.text) ? _name.text : "Happi";
+            for (var i = 0; i < lines.Count; i++)
+            {
+                var line = lines[i];
+                if (line == null || string.IsNullOrWhiteSpace(line.Text))
+                    continue;
+                if (line.Kind == ChatLineKind.Assistant && line.Streaming && line.Text.Length == 0)
+                    continue;
+                if (sb.Length > 0)
+                    sb.Append("\n\n");
+                sb.Append(line.Kind == ChatLineKind.User ? "You" : line.Kind == ChatLineKind.Assistant ? her : "Note");
+                sb.Append('\n');
+                sb.Append(line.Text.Trim());
+            }
+
+            GUIUtility.systemCopyBuffer = sb.ToString();
+            Debug.Log("Chat: copied " + lines.Count + " messages to the clipboard");
+        }
+
         void CloseChatFromMenu()
         {
             CloseChatMenu();
@@ -1734,12 +1777,13 @@ namespace AICompanion.NewUI
             rect.anchorMax = new Vector2(1f, 1f);
             rect.pivot = new Vector2(1f, 1f);
             var width = 170f * s;
-            var height = row * 3f + gap * 4f;
+            var height = row * 4f + gap * 5f;
             rect.sizeDelta = new Vector2(width, height);
             rect.anchoredPosition = new Vector2(-pad, -(pad + row + gap));
             HappiUiKit.Place(_menuSettings.Rect, gap, gap, width - 2f * gap, row);
             HappiUiKit.Place(_menuClose.Rect, gap, gap * 2f + row, width - 2f * gap, row);
             HappiUiKit.Place(_menuProgram.Rect, gap, gap * 3f + row * 2f, width - 2f * gap, row);
+            HappiUiKit.Place(_menuCopy.Rect, gap, gap * 4f + row * 3f, width - 2f * gap, row);
         }
 
         /// <summary>The Windows resize cursor while over an edge or corner, or while resizing.</summary>
