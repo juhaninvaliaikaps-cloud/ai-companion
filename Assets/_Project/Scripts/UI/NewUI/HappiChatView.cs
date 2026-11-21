@@ -1231,6 +1231,17 @@ namespace AICompanion.NewUI
             return settings != null && settings.ChatFontSize >= 10f ? settings.ChatFontSize : _theme.FontBody;
         }
 
+        /// <summary>
+        /// History is the same paragraph, so it must use the live line's resolved size rather
+        /// than applying its own scale or a smaller transcript multiplier.
+        /// </summary>
+        float HistoryFontSize()
+        {
+            if (_dialogue != null && _dialogue.fontSize > 0.1f)
+                return _dialogue.fontSize;
+            return Mathf.Max(9f, ChatFontSize()) * (_layoutScale > 0f ? _layoutScale : 1f);
+        }
+
         /// <summary>Applies the chosen font to the dialogue, transcript and input.</summary>
         public void ApplyChatFont()
         {
@@ -1247,13 +1258,14 @@ namespace AICompanion.NewUI
                     _dialogue.font = font;
                 _dialogue.fontSize = size;
             }
+            var historySize = HistoryFontSize();
             for (var i = 0; i < _historyTexts.Count; i++)
             {
                 if (_historyTexts[i] == null)
                     continue;
                 if (font != null)
                     _historyTexts[i].font = font;
-                _historyTexts[i].fontSize = Mathf.Max(9f, size * 0.86f);
+                _historyTexts[i].fontSize = historySize;
             }
             if (_input != null && _input.textComponent != null)
             {
@@ -1452,7 +1464,7 @@ namespace AICompanion.NewUI
             _historyWidth = width;
             _liveDirty = false;
             var count = _transcript.Count;
-            var historySize = Mathf.Max(9f, ChatFontSize() * 0.86f) * _layoutScale;
+            var historySize = HistoryFontSize();
             while (_historyTexts.Count < count)
             {
                 var text = HappiUiKit.Text(_historyContent, "Message", string.Empty, historySize, _theme.Text, TextAlignmentOptions.TopLeft, false);
@@ -1494,7 +1506,7 @@ namespace AICompanion.NewUI
                 {
                     // JUH-132: the transcript used the old History tab's small font after a
                     // reply finished, while the live reply was body size. Keep one size.
-                    text.fontSize = Mathf.Max(9f, ChatFontSize() * 0.86f) * _layoutScale;
+                    text.fontSize = HistoryFontSize();
                     text.text = HistoryEntry(_transcript.Entry(i));
                     _historyHeights[i] = Mathf.Max(8f, text.GetPreferredValues(text.text, width - 4f, 0f).y);
                 }
