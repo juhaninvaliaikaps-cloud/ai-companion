@@ -185,3 +185,7 @@ With the same Notepad selected, and after each step, ask for a new preview. The 
 Cloud analysis stays off for this pass. If the still-window preview worked, turn cloud analysis on once and press **What do you see?** on the restored Notepad. One description in chat is enough. The log should not contain `data:image`.
 
 If it still dies, the useful artifact is the debugger exception line (module and message, as with the `LIST_ENTRY` report) plus the last few `Screen capture:` lines from Player.log. A screenshot and the chat history are not needed.
+
+## Other cloud APIs (JUH-143)
+
+The cloud slot takes any cloud API (Claude, DeepSeek, OpenAI…), but only xAI's vision models (`grok-4.7`, `grok-4`) get the window image. With another cloud API, the screen look uses the local vision model when one is set, even with cloud screen consent on; its description stays on the local chat model. Without a local vision model the look is refused and nothing is sent.

@@ -60,22 +60,18 @@ namespace AICompanion.AI
                     return key;
                 return PrivateApiKeyStore.TryLoad(out key) ? key : null;
             };
-            registry.Register(Wrap(decorator, new OpenAiCompatibleChatProvider(new OpenAiProviderConfig
-            {
-                ProviderId = ChatDefaults.GrokId,
-                DisplayName = "Grok",
-                RequiresKey = true,
-                BaseUrl = () => Value(settings != null ? settings.baseUrl : null, ChatDefaults.BaseUrl),
-                Model = () => Value(settings != null ? settings.model : null, ChatDefaults.Model),
-                TimeoutSeconds = () => settings != null ? settings.timeoutSeconds : ChatDefaults.TimeoutSeconds,
-                ApiKey = () =>
+            // JUH-143: the cloud slot takes any cloud API; the base URL decides which one.
+            registry.Register(Wrap(decorator, new CloudChatProvider(
+                () => Value(settings != null ? settings.baseUrl : null, ChatDefaults.BaseUrl),
+                () => Value(settings != null ? settings.model : null, ChatDefaults.Model),
+                () => settings != null ? settings.timeoutSeconds : ChatDefaults.TimeoutSeconds,
+                () =>
                 {
                     if (keys != null && keys.TryGet(out var key))
                         return key;
                     return null;
                 },
-                Transport = transport
-            })));
+                transport)));
             Func<string> localBase = () => Value(settings != null ? settings.localBaseUrl : null, ChatDefaults.LocalBaseUrl);
             Func<string> localModel = () => Value(settings != null ? settings.localModel : null, ChatDefaults.LocalModel);
             Func<float> localTimeout = () => settings != null ? settings.timeoutSeconds : ChatDefaults.TimeoutSeconds;

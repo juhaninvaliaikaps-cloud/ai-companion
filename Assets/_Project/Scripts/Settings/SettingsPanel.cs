@@ -759,7 +759,7 @@ namespace AICompanion.Settings
             if (!privateMode)
             {
                 var localActive = !VoiceRoute.UsesCloudTts(privateMode, _settings.ProviderId, _settings.BaseUrl);
-                AddButton(ProviderButton("Grok", grok, localActive), () =>
+                AddButton(ProviderButton(ChatDefaults.CloudName, grok, localActive), () =>
                 {
                     _settings.ProviderId = ChatDefaults.GrokId;
                     ApplyLive();
@@ -771,7 +771,7 @@ namespace AICompanion.Settings
                     ApplyLive();
                     _rebuild = true;
                 });
-                AddField("Grok model", _settings.Model, false, value =>
+                AddField("Cloud AI model", _settings.Model, false, value =>
                 {
                     _settings.Model = value;
                     ApplyLive();
@@ -784,7 +784,7 @@ namespace AICompanion.Settings
             }
             else
             {
-                Note("Private mode is on. Chat and voice use the private endpoint below. Grok settings are kept for when Private mode is off.");
+                Note("Private mode is on. Chat and voice use the private endpoint below. Cloud AI API settings are kept for when Private mode is off.");
             }
 
             if (!custom)
@@ -821,12 +821,12 @@ namespace AICompanion.Settings
                 if (grok)
                 {
                     Note(ApiKeyMask.Label(FileHasKey()) + ".");
-                    _keyInput = AddField("Paste a new Grok API key", string.Empty, true, _ => { });
+                    _keyInput = AddField("Paste a new API key for this service", string.Empty, true, _ => { });
                     AddButton("Save key", SaveKey);
                     AddButton("Remove saved key", RemoveKey);
                     if (EnvOverrides())
                         Note("XAI_API_KEY is set and overrides the saved key. Restart the app without that variable to use the saved key.");
-                    AddButton(_probeBusy ? "Testing..." : "Test Grok connection", () =>
+                    AddButton(_probeBusy ? "Testing..." : "Test connection", () =>
                     {
                         if (!_probeBusy)
                             TestConnection();
@@ -871,10 +871,10 @@ namespace AICompanion.Settings
             AddLabel("Active now: " + ActiveModelText());
             var cloudVoice = VoiceRoute.UsesCloudTts(_settings.PrivateMode, _settings.ProviderId, _settings.BaseUrl);
             Note(cloudVoice
-                ? "Voice follows chat. Grok replies use the cloud voice."
+                ? "Voice follows chat. Cloud replies from xAI use the xAI cloud voice."
                 : "Voice follows chat. Local and private replies use Piper and are not sent to cloud TTS.");
             AddToggle("Speak replies", _settings.TtsEnabled, value => _settings.TtsEnabled = value);
-            AddField("Cloud voice (Grok)", _settings.VoiceId, false, value =>
+            AddField("Cloud voice (xAI)", _settings.VoiceId, false, value =>
             {
                 _settings.VoiceId = value;
                 ApplyLive();
@@ -1211,7 +1211,7 @@ namespace AICompanion.Settings
                 string resolved;
                 if (!source.TryGet(out resolved) || string.IsNullOrWhiteSpace(resolved))
                 {
-                    SetStatus(ApiKeyMask.MissingLabel + ". Save a key before testing Grok.");
+                    SetStatus(ApiKeyMask.MissingLabel + ". Save a key before testing the cloud AI API.");
                     FinishProbe();
                     yield break;
                 }
@@ -1222,8 +1222,9 @@ namespace AICompanion.Settings
             using (var request = UnityWebRequest.Get(plan.Url))
             {
                 request.timeout = 20;
-                if (plan.SendAuthorization && !string.IsNullOrEmpty(key))
-                    request.SetRequestHeader("Authorization", "Bearer " + key);
+                var headers = ConnectionProbe.AuthHeaders(plan, key);
+                for (var h = 0; h < headers.Count; h++)
+                    request.SetRequestHeader(headers[h].Key, headers[h].Value);
                 key = null;
                 yield return request.SendWebRequest();
                 if (serial != _probeSerial)

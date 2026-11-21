@@ -20,7 +20,7 @@ namespace AICompanion.Settings
             Note("Built-ins ship with the app. Edits save outside the repo.");
             AddLabel("Active now: " + ActiveModelText());
             Note(VoiceRoute.UsesCloudTts(_settings.PrivateMode, _settings.ProviderId, _settings.BaseUrl)
-                ? "Cloud voice is used while chat is Grok."
+                ? "The xAI cloud voice is used while chat is the cloud AI API on xAI."
                 : "A local voice is used while chat is local or private: Piper, or Kokoro when you picked it. That audio stays on this PC.");
             Note("Cue instructions are added after the persona on every reply.");
             Note("Each persona keeps its own chat history, so switching characters starts a different conversation.");
@@ -55,13 +55,13 @@ namespace AICompanion.Settings
             AddArea("Speaking style", persona.SpeakingStyle, 52f, PersonaDefinition.MaxSpeakingStyleLength, value => SaveActive(idFixed, item => item.SpeakingStyle = value));
             AddField("Piper voice id (local)", persona.PiperVoiceId, false, value => SaveActive(idFixed, item => item.PiperVoiceId = value));
             AddField("Kokoro voice id (local)", persona.KokoroVoiceId, false, value => SaveActive(idFixed, item => item.KokoroVoiceId = value));
-            AddField("Cloud voice id (Grok)", persona.CloudVoiceId, false, value => SaveActive(idFixed, item => item.CloudVoiceId = value));
+            AddField("Cloud voice id (xAI)", persona.CloudVoiceId, false, value => SaveActive(idFixed, item => item.CloudVoiceId = value));
             Note("Blank voice, model, or avatar keeps the current one.");
-            AddButton(PersonaChoiceLabel("Grok", persona.ProviderId, ChatDefaults.GrokId), () => SaveActive(idFixed, item => item.ProviderId = ChatDefaults.GrokId));
+            AddButton(PersonaChoiceLabel(ChatDefaults.CloudName, persona.ProviderId, ChatDefaults.GrokId), () => SaveActive(idFixed, item => item.ProviderId = ChatDefaults.GrokId));
             AddButton(PersonaChoiceLabel("Local Ollama", persona.ProviderId, ChatDefaults.LocalId), () => SaveActive(idFixed, item => item.ProviderId = ChatDefaults.LocalId));
             AddButton(string.IsNullOrEmpty(persona.ProviderId) ? "Leave provider unchanged (selected)" : "Leave provider unchanged", () => SaveActive(idFixed, item => item.ProviderId = string.Empty));
             AddField("Model name", persona.Model, false, value => SaveActive(idFixed, item => item.Model = value));
-            Note("That name is the Grok model, or the local Ollama tag, for the provider above.");
+            Note("That name is the cloud AI API model, or the local Ollama tag, for the provider above.");
             AddButton(PersonaChoiceLabel("Avatar auto", persona.AvatarSource, AvatarSourceNames.Auto), () => SaveActive(idFixed, item => item.AvatarSource = AvatarSourceNames.Auto));
             AddButton(PersonaChoiceLabel("Avatar local", persona.AvatarSource, AvatarSourceNames.Local), () => SaveActive(idFixed, item => item.AvatarSource = AvatarSourceNames.Local));
             AddButton(PersonaChoiceLabel("Avatar VRM", persona.AvatarSource, AvatarSourceNames.Vrm), () => SaveActive(idFixed, item => item.AvatarSource = AvatarSourceNames.Vrm));

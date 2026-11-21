@@ -304,7 +304,7 @@ namespace AICompanion.Settings
                 string resolved;
                 if (!source.TryGet(out resolved) || string.IsNullOrWhiteSpace(resolved))
                 {
-                    SetStatus(ApiKeyMask.MissingLabel + ". Save a key before testing Grok.");
+                    SetStatus(ApiKeyMask.MissingLabel + ". Save a key before testing the cloud AI API.");
                     FinishProbe(serial);
                     yield break;
                 }
@@ -315,8 +315,9 @@ namespace AICompanion.Settings
             using (var request = UnityWebRequest.Get(plan.Url))
             {
                 request.timeout = 20;
-                if (plan.SendAuthorization && !string.IsNullOrEmpty(key))
-                    request.SetRequestHeader("Authorization", "Bearer " + key);
+                var headers = ConnectionProbe.AuthHeaders(plan, key);
+                for (var h = 0; h < headers.Count; h++)
+                    request.SetRequestHeader(headers[h].Key, headers[h].Value);
                 key = null;
                 yield return request.SendWebRequest();
                 if (serial != _probeSerial || !_open)

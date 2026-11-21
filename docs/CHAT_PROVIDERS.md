@@ -6,14 +6,14 @@ Two ids ship today:
 
 | Id | What it calls |
 | --- | --- |
-| `grok` | `https://api.x.ai/v1/chat/completions` (OpenAI-compatible, SSE). Default model `grok-4.7`, checked against the xAI streaming docs on 2026-10-21. |
+| `grok` | The **Cloud AI API** slot (JUH-143): any cloud API, chosen by the base URL. xAI by default: `https://api.x.ai/v1/chat/completions` (OpenAI-compatible, SSE), model `grok-4.7`. The id stays `grok` so saved settings keep working. |
 | `local` | The same protocol at `localBaseUrl`. The default is Ollama's OpenAI endpoint, `http://127.0.0.1:11434/v1`. LM Studio is usually `http://127.0.0.1:1234/v1`. This id does not send an API key. |
 
 Change the id, model, base URL, timeout, temperature, max tokens, or system prompt on `Assets/_Project/Settings/ChatSettings.asset`. That asset holds no secret.
 
 The endpoint is the legacy Chat Completions API, which is what xAI documents as OpenAI-compatible. Visible reply text is `delta.content`. Reasoning text (`reasoning_content`) is not shown.
 
-A one-frame window look is the exception. When chat is Grok and cloud screen consent is on, that request uses the Responses API (`/v1/responses`) because that is the image path the current xAI image-understanding guide shows for `grok-4.7`. It sends one JPEG, sets `store` to false, and does not keep the image in the transcript. When chat is local, or private mode is on, the JPEG goes only to a separate Ollama vision model on loopback. Rocinante then receives the description as text. Details and the opt-in are in [SCREEN_LOOK.md](SCREEN_LOOK.md).
+A one-frame window look is the exception. When the cloud AI API is xAI Grok and cloud screen consent is on, that request uses the Responses API (`/v1/responses`) because that is the image path the current xAI image-understanding guide shows for `grok-4.7`. It sends one JPEG, sets `store` to false, and does not keep the image in the transcript. When chat is local, or private mode is on, the JPEG goes only to a separate Ollama vision model on loopback. Rocinante then receives the description as text. Details and the opt-in are in [SCREEN_LOOK.md](SCREEN_LOOK.md).
 
 ## Set the xAI key
 
@@ -49,7 +49,26 @@ The chat panel is documented in [CHAT_UI.md](CHAT_UI.md). Short version:
 2. Press **F10** if the panel is hidden. Type a message and press **Enter**. **F9** cycles the expression portrait and does not send the draft.
 3. The reply streams into the panel. The Console logs `Chat reply:` when it finishes. It does not log each chunk.
 4. **Esc** or **Stop** cancels the request that is in flight.
-5. A failure is a **Note** in the panel. The Console gets a warning with the HTTP status and the provider's message (`Chat error: HTTP 403 from Grok: ...`). The note shows a shorter line, or a hint when the cause is clear: `Invalid API key`, `xAI account has no API credits or billing is not set up (console.x.ai > Billing)`, `Model grok-4.7 not available for this key; change ChatSettings.model`, `Rate limited, try again shortly`, `Couldn't reach Grok`, or `Grok took too long to answer`. The log never includes the API key.
+5. A failure is a **Note** in the panel. The Console gets a warning with the HTTP status and the provider's message (`Chat error: HTTP 403 from Cloud AI: ...`). The note shows a shorter line, or a hint when the cause is clear: `Invalid API key`, `xAI account has no API credits or billing is not set up (console.x.ai > Billing)`, `Model grok-4.7 not available for this key; change ChatSettings.model`, `Rate limited, try again shortly`, `Couldn't reach Cloud AI`, or `Cloud AI took too long to answer`. The log never includes the API key.
+
+## The Cloud AI API slot (JUH-143)
+
+Jussi (2026-11-21): the user can use whatever cloud API they want, and the interface calls the slot **"Cloud AI API (Grok, Claude, DeepSeek etc.)"** (`ChatDefaults.CloudName`). `CloudChatProvider` reads the base URL on every request and picks the API:
+
+| Base URL host | API | Notes |
+| --- | --- | --- |
+| `api.anthropic.com` | Claude's Messages API, streamed (`AnthropicChatProvider` with `Stream`) | `x-api-key` and `anthropic-version` headers; `"stream": true`; text from each `content_block_delta` / `text_delta`. Set a Claude model name, such as `claude-sonnet-5-5`. |
+| `*.deepseek.com` | OpenAI-compatible | Thinking is switched off (`"thinking":{"type":"disabled"}`), as for the Pisara reading. |
+| anything else (xAI by default, OpenAI, OpenRouter, Groq…) | OpenAI-compatible Chat Completions | `Authorization: Bearer`. |
+
+- **One key.** The saved cloud key (and `XAI_API_KEY`) is sent only to the host in the base URL. The key file did not move.
+- **Voice.** The xAI cloud voice is only used when the base URL is xAI (`VoiceRoute.HasXaiVoice`), so a Claude or DeepSeek key is never sent to xAI. With any other cloud API she speaks with the local voice.
+- **Screen look.** Only xAI's vision models get the window image (Grok's Responses API). With a cloud API that can't read pictures, the screen look uses the local vision model when one is set (`ScreenLookPolicy.UseLocalVision`); without one it is refused and nothing is sent. `CloudChatProvider` also wipes and refuses any image for a non-xAI host.
+- **Backstop.** A request marked `BlockCloud` (private, 18+ and observation turns) is refused by the cloud slot before any provider sees it. Routing already keeps those requests local; this only catches a mistake.
+- **Connection test.** `ConnectionProbe.AuthHeaders` sends Claude's headers to `api.anthropic.com/v1/models` and a Bearer token everywhere else.
+- **Usage policies.** Each provider has its own. Anthropic's usage policy forbids erotic chat. That is already the app's rule: 18+ content only runs on the local model, and private mode never reaches any cloud provider.
+
+Error messages name the slot "Cloud AI" ("Cloud AI took too long to answer").
 
 ## Add a provider
 

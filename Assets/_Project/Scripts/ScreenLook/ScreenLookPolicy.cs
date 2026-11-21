@@ -147,6 +147,10 @@ namespace AICompanion.ScreenLook
                 return true;
             if (string.Equals(input.EffectiveProviderId, ChatDefaults.LocalId, System.StringComparison.OrdinalIgnoreCase))
                 return true;
+            // JUH-143: a cloud API that cannot read pictures (Claude, DeepSeek) uses the local
+            // vision model when one is set, instead of refusing. Its description stays local.
+            if (!VisionCapability.CloudModelAcceptsImages(input.CloudModel) && HasVisionModel(input.LocalVisionModel))
+                return true;
             return !input.CloudConsent && HasVisionModel(input.LocalVisionModel);
         }
 

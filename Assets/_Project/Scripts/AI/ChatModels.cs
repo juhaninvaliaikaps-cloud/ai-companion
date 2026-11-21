@@ -4,7 +4,17 @@ namespace AICompanion.AI
 {
     public static class ChatDefaults
     {
+        /// <summary>
+        /// The cloud slot. The id stays "grok" so saved settings keep working (JUH-143); the slot
+        /// itself takes any cloud API: xAI Grok, Claude, DeepSeek, OpenAI, OpenRouter…
+        /// </summary>
         public const string GrokId = "grok";
+
+        /// <summary>What the interface calls the cloud slot (JUH-143, Jussi 2026-11-21).</summary>
+        public const string CloudName = "Cloud AI API (Grok, Claude, DeepSeek etc.)";
+
+        /// <summary>The short form for labels and messages.</summary>
+        public const string CloudShortName = "Cloud AI";
         public const string LocalId = "local";
         public const string CustomId = "custom";
 

@@ -51,7 +51,7 @@ namespace AICompanion.Voice
                 Private = privateMode,
                 ProviderLabel = string.Equals(chatId, ChatDefaults.CustomId, StringComparison.OrdinalIgnoreCase)
                     ? "Custom"
-                    : (local ? "Local" : "Grok"),
+                    : (local ? "Local" : "Cloud"),
                 Model = model,
                 Engine = local ? "Piper" : "xAI",
                 EngineId = local ? VoiceRoute.Local : VoiceRoute.Cloud

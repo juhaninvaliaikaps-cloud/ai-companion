@@ -50,7 +50,7 @@ namespace AICompanion.Settings
                 return;
             }
 
-            NoteBlock("Preview stays on this PC. Allowing cloud screen analysis sends the selected window image to the configured cloud vision provider (Grok, at the Base URL on the AI tab). The image is not saved. Private mode never sends it and does not switch to a cloud model.");
+            NoteBlock("Preview stays on this PC. Allowing cloud screen analysis sends the selected window image to the configured cloud vision provider (xAI Grok at the Base URL on the AI tab; other cloud APIs do not get the image). The image is not saved. Private mode never sends it and does not switch to a cloud model.");
             AddToggle("Allow cloud screen analysis", _settings.ScreenCloudConsent, value =>
             {
                 _settings.ScreenCloudConsent = value;
@@ -130,9 +130,9 @@ namespace AICompanion.Settings
             var visionEngine = plansLocal
                 ? (string.IsNullOrEmpty(_settings.LocalVisionModel) ? "not set" : _settings.LocalVisionModel + " on this PC")
                 : decision.Route == ScreenLookRoute.Cloud
-                    ? "Grok after cloud consent"
+                    ? "xAI Grok after cloud consent"
                     : "not sending";
-            NoteBlock("Chat engine: " + (localChat ? "local text (" + _settings.LocalModel + ")" : "Grok (" + _settings.Model + ")")
+            NoteBlock("Chat engine: " + (localChat ? "local text (" + _settings.LocalModel + ")" : ChatDefaults.CloudShortName + " (" + _settings.Model + ")")
                 + ". Vision engine: " + visionEngine + ".");
             AddField("Local vision model", _settings.LocalVisionModel, false, value =>
             {

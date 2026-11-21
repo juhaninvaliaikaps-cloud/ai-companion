@@ -23,11 +23,11 @@ namespace AICompanion.Tests.EditMode
         [Test]
         public void ActiveLabel_NamesTheModelThatActuallyRuns()
         {
-            Assert.AreEqual("Grok · grok-4.7", ActiveChatLabel.Format(ChatDefaults.GrokId, false, "grok-4.7", "llama3.2"));
+            Assert.AreEqual("Cloud AI · grok-4.7", ActiveChatLabel.Format(ChatDefaults.GrokId, false, "grok-4.7", "llama3.2"));
             Assert.AreEqual("Local · " + ExampleLocalModel, ActiveChatLabel.Format(ChatDefaults.LocalId, false, "grok-4.7", ExampleLocalModel));
             Assert.AreEqual("Local · llama3.2 · private", ActiveChatLabel.Format(ChatDefaults.GrokId, true, "grok-4.7", "llama3.2"));
             Assert.AreEqual("Local · llama3.2", ActiveChatLabel.Format("  LOCAL  ", false, "grok-4.7", "  llama3.2  "));
-            Assert.AreEqual("Grok · " + ChatDefaults.Model, ActiveChatLabel.Format(ChatDefaults.GrokId, false, "  ", null));
+            Assert.AreEqual("Cloud AI · " + ChatDefaults.Model, ActiveChatLabel.Format(ChatDefaults.GrokId, false, "  ", null));
         }
 
         [Test]
@@ -181,7 +181,7 @@ namespace AICompanion.Tests.EditMode
             try
             {
                 speaker.StartCompanion();
-                var grok = "Voice route: provider=Grok model=grok-4.7 private=false engine=xAI voice=eve";
+                var grok = "Voice route: provider=Cloud model=grok-4.7 private=false engine=xAI voice=eve";
                 LogAssert.Expect(LogType.Log, grok);
                 speaker.BeginUtterance(new SpeechOrigin
                 {

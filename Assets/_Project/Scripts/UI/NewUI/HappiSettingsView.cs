@@ -576,7 +576,7 @@ namespace AICompanion.NewUI
             {
                 Field("Pisara base URL", S.PisaraCloudBaseUrl, false, v => Change(s => s.PisaraCloudBaseUrl = v));
                 Field("Pisara model", S.PisaraCloudModel, false, v => Change(s => s.PisaraCloudModel = v));
-                Note("Empty uses the Grok chat base URL and model. The Pisara key is on the Keys tab.");
+                Note("Empty uses the cloud AI API's base URL and model. The Pisara key is on the Keys tab.");
                 Note("Her description goes to this cloud service for the reading. That includes the normal world and seeded memories. The request is built with 18+ off; innocence, 18+ secrets and everything else 18+ stay on the local model.");
                 if (S.PrivateMode)
                     Note("Private mode does not move this reading: it still uses the Pisara cloud service when it is on. Chat, voice, session memories and the 18+ parts stay local.");
@@ -586,24 +586,25 @@ namespace AICompanion.NewUI
             {
                 Section("Chat provider");
                 var grok = S.ProviderId == ChatDefaults.GrokId;
-                Choice(ProviderLabel("Grok", grok, false), grok, () => { P.SetProvider(ChatDefaults.GrokId); _rebuild = true; });
+                Choice(ProviderLabel(ChatDefaults.CloudName, grok, false), grok, () => { P.SetProvider(ChatDefaults.GrokId); _rebuild = true; });
                 Choice(ProviderLabel("Local Ollama", !grok, false), !grok, () => { P.SetProvider(ChatDefaults.LocalId); _rebuild = true; });
-                Note("Grok is the cloud provider. Local Ollama runs on this PC.");
+                Note("The cloud AI API runs on the provider's servers: xAI Grok by default, or Claude, DeepSeek or any OpenAI-compatible service. Local Ollama runs on this PC.");
 
                 if (grok)
                 {
-                    Section("Grok");
-                    Field("Grok model", S.Model, false, v => Change(s => s.Model = v));
+                    Section(ChatDefaults.CloudName);
+                    Field("Model", S.Model, false, v => Change(s => s.Model = v));
                     Field("Base URL", S.BaseUrl, false, v => Change(s => s.BaseUrl = v));
-                    Note("Any OpenAI-compatible API works: xAI by default, or DeepSeek, OpenRouter, Groq.");
-                    Section("Grok API key");
+                    Note("xAI Grok by default (https://api.x.ai/v1). Claude: https://api.anthropic.com/v1 with a Claude model name. DeepSeek: https://api.deepseek.com/v1. Any other OpenAI-compatible API works too (OpenAI, OpenRouter, Groq).");
+                    Note("Her cloud voice and the screen look are xAI features: with another API she speaks with the local voice, and the screen look stays off.");
+                    Section("Cloud AI API key");
                     Note(ApiKeyMask.Label(_settings.ApiKeySaved) + ".");
-                    var key = Field("Paste a new Grok API key", string.Empty, true, null);
+                    var key = Field("Paste a new API key for this service", string.Empty, true, null);
                     Button("Save key", () => { _settings.SaveApiKey(key != null ? key.text : string.Empty); if (key != null) key.text = string.Empty; _rebuild = true; });
                     Button("Remove saved key", () => { _settings.RemoveApiKey(); _rebuild = true; });
                     if (_settings.ApiKeyFromEnvironment)
                         Note("XAI_API_KEY is set and overrides the saved key. Restart the app without that variable to use the saved key.");
-                    Button(_settings.ConnectionTestRunning ? "Testing..." : "Test Grok connection", () => { _settings.TestConnectionNow(); _rebuild = true; });
+                    Button(_settings.ConnectionTestRunning ? "Testing..." : "Test connection", () => { _settings.TestConnectionNow(); _rebuild = true; });
                 }
                 else
                 {
@@ -676,7 +677,7 @@ namespace AICompanion.NewUI
             var id = persona.Id;
             Section("Model for this persona");
             Note("Overrides the choice above while " + (string.IsNullOrEmpty(persona.DisplayName) ? id : persona.DisplayName) + " is active.");
-            Choice("Grok", Same(persona.ProviderId, ChatDefaults.GrokId), () => Save(id, p => p.ProviderId = ChatDefaults.GrokId));
+            Choice(ChatDefaults.CloudName, Same(persona.ProviderId, ChatDefaults.GrokId), () => Save(id, p => p.ProviderId = ChatDefaults.GrokId));
             Choice("Local Ollama", Same(persona.ProviderId, ChatDefaults.LocalId), () => Save(id, p => p.ProviderId = ChatDefaults.LocalId));
             Choice("Same as above", string.IsNullOrEmpty(persona.ProviderId), () => Save(id, p => p.ProviderId = string.Empty));
             Field("Model name (empty: same as above)", persona.Model, false, v => Save(id, p => p.Model = v));
@@ -703,7 +704,7 @@ namespace AICompanion.NewUI
         void BuildVoice()
         {
             Note(VoiceRoute.UsesCloudTts(S.PrivateMode, S.ProviderId, S.BaseUrl)
-                ? "Voice follows chat. Grok replies use the cloud voice."
+                ? "Voice follows chat. Cloud replies from xAI use the xAI cloud voice."
                 : "Voice follows chat. Local and private replies use Piper, Kokoro or Chatterbox and are not sent to cloud TTS.");
             Toggle("Speak replies", S.TtsEnabled, v => Change(s => s.TtsEnabled = v));
             Toggle("Voice narration", S.VoiceNarration, v => Change(s => s.VoiceNarration = v));
@@ -713,7 +714,7 @@ namespace AICompanion.NewUI
             Note("The same switch as F6.");
 
             Section("Voice engine");
-            Field("Cloud voice (Grok)", S.VoiceId, false, v => Change(s => s.VoiceId = v));
+            Field("Cloud voice (xAI)", S.VoiceId, false, v => Change(s => s.VoiceId = v));
             var piper = string.Equals(S.TtsProvider, "piper", StringComparison.OrdinalIgnoreCase);
             var kokoro = string.Equals(S.TtsProvider, "kokoro", StringComparison.OrdinalIgnoreCase);
             var chatterbox = string.Equals(S.TtsProvider, "chatterbox", StringComparison.OrdinalIgnoreCase);
@@ -747,7 +748,7 @@ namespace AICompanion.NewUI
                 Dropdown("Chatterbox voice id (local)", persona.ChatterboxVoiceId, ChatterboxVoiceOptions(true, persona.ChatterboxVoiceId),
                     v => string.IsNullOrEmpty(v) ? "(same as above)" : v,
                     v => Save(id, p => p.ChatterboxVoiceId = v));
-                Field("Cloud voice id (Grok)", persona.CloudVoiceId, false, v => Save(id, p => p.CloudVoiceId = v));
+                Field("Cloud voice id (xAI)", persona.CloudVoiceId, false, v => Save(id, p => p.CloudVoiceId = v));
                 Note("Empty keeps the voice engine's voice above.");
             }
 
@@ -1085,7 +1086,7 @@ namespace AICompanion.NewUI
             Button("Remove Pisara key", () => { _settings.RemovePisaraApiKey(); _rebuild = true; });
             if (_settings.PisaraApiKeyFromEnvironment)
                 Note("PISARA_API_KEY is set and overrides the saved Pisara key.");
-            Note("If no Pisara key is set, the Grok key is used for Pisara readings.");
+            Note("If no Pisara key is set, the cloud AI API key is used for Pisara readings when both use the same service.");
             Note("Set the Pisara base URL too when this key is for another service.");
 
             Note(HotkeyCatalog.RebindNote);
@@ -1276,7 +1277,7 @@ namespace AICompanion.NewUI
                 return;
             }
 
-            Note("Preview stays on this PC. Allowing cloud screen analysis sends the selected window image to the configured cloud vision provider (Grok, at the Base URL on the AI tab). The image is not saved. Private mode never sends it and does not switch to a cloud model.");
+            Note("Preview stays on this PC. Allowing cloud screen analysis sends the selected window image to the configured cloud vision provider (xAI Grok at the Base URL on the AI tab; other cloud APIs do not get the image). The image is not saved. Private mode never sends it and does not switch to a cloud model.");
             Toggle("Allow cloud screen analysis", S.ScreenCloudConsent, v => Change(s => s.ScreenCloudConsent = v));
             if (look != null)
                 look.RefreshMonitors();

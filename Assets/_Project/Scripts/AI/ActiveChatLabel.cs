@@ -3,7 +3,7 @@ using System;
 namespace AICompanion.AI
 {
     /// <summary>
-    /// The model that will actually answer. Private mode is local even when Grok is remembered.
+    /// The model that will actually answer. Private mode is local even when the cloud AI API is remembered.
     /// </summary>
     public static class ActiveChatLabel
     {
@@ -26,7 +26,7 @@ namespace AICompanion.AI
                 return privateMode ? "Local · " + name + " · private" : "Local · " + name;
             }
 
-            return "Grok · " + Display(grokModel, ChatDefaults.Model);
+            return ChatDefaults.CloudShortName + " · " + Display(grokModel, ChatDefaults.Model);
         }
 
         static string Display(string value, string fallback)
