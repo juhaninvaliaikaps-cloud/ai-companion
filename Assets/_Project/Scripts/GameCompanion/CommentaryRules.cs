@@ -172,6 +172,11 @@ namespace AICompanion.GameCompanion
                 case GameTitle.CounterStrike2: return "Counter-Strike 2";
                 case GameTitle.Dota2: return "Dota 2";
                 case GameTitle.LeagueOfLegends: return "League of Legends";
+                case GameTitle.GenshinImpact: return "Genshin Impact";
+                case GameTitle.HonkaiStarRail: return "Honkai: Star Rail";
+                case GameTitle.ZenlessZoneZero: return "Zenless Zone Zero";
+                case GameTitle.ArknightsEndfield: return "Arknights: Endfield";
+                case GameTitle.NevernessToEverness: return "Neverness to Everness";
                 default: return "a game";
             }
         }

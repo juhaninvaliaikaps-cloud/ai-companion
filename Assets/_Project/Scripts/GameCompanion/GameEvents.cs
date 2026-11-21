@@ -2,13 +2,21 @@ using System;
 
 namespace AICompanion.GameCompanion
 {
-    /// <summary>The games with an official, read-only feed (JUH-48).</summary>
+    /// <summary>The games she follows: official feeds (JUH-48) and gacha games seen through screen looks (JUH-147).</summary>
     public enum GameTitle
     {
         Unknown = 0,
         CounterStrike2 = 1,
         Dota2 = 2,
         LeagueOfLegends = 3,
+
+        // JUH-147: gacha games. No official feed: screen looks, and pull history for the
+        // HoYoverse three (JUH-148).
+        GenshinImpact = 4,
+        HonkaiStarRail = 5,
+        ZenlessZoneZero = 6,
+        ArknightsEndfield = 7,
+        NevernessToEverness = 8,
     }
 
     /// <summary>

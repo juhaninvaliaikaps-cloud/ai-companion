@@ -1320,6 +1320,22 @@ namespace AICompanion.NewUI
                 Note("No setup needed. She reads Riot's Live Client Data API on this PC during a match. "
                      + (games.LeagueConnected ? "A match is on." : "Waiting for a match."));
 
+            Section("Gacha games");
+            Note("These games have no official data feed, and they ban tools that touch the game. Happi only sees the game window, the way OBS or Discord does.");
+            Toggle("Watch Genshin Impact", S.GameGenshin, v => Change(s => s.GameGenshin = v));
+            Toggle("Watch Honkai: Star Rail", S.GameStarRail, v => Change(s => s.GameStarRail = v));
+            Toggle("Watch Zenless Zone Zero", S.GameZzz, v => Change(s => s.GameZzz = v));
+            Toggle("Watch Arknights: Endfield", S.GameEndfield, v => Change(s => s.GameEndfield = v));
+            Toggle("Watch Neverness to Everness", S.GameNte, v => Change(s => s.GameNte = v));
+            Toggle("Let her look at the game", S.GameScreenLooks, v => Change(s => s.GameScreenLooks = v));
+            Note("While the game is the window you're using, she sends one picture of it to the cloud vision model every 2 minutes, and when you press "
+                 + GameCompanionController.LookHotkey + ". That is about 30 pictures an hour. They are not saved. This needs \"Let the cloud AI write her lines\" above, and she never looks in private mode or with 18+ on.");
+            if (S.GameScreenLooks && _chat != null && !_chat.CloudSeesImages)
+                Note(ChatPanel.GameLineNoVision);
+            Note(games.GachaGame != GameTitle.Unknown ? CommentaryPrompt.GameName(games.GachaGame) + " is open." : "No gacha game is open.");
+            if (S.GameScreenLooks && games.GachaGame != GameTitle.Unknown)
+                Button("Look now", () => { games.LookNow(); _rebuild = true; });
+
             Section("Status");
             Note(string.IsNullOrEmpty(games.StatusLine) ? "Ready." : games.StatusLine);
             Field("Port for CS2 and Dota 2", S.GsiPort.ToString(CultureInfo.InvariantCulture), false, v =>
