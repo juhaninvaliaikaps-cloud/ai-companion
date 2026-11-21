@@ -122,12 +122,15 @@ Settings saved before this have no game fields, and they load with everything of
 
 ## Gacha games (JUH-147)
 
-Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, Arknights: Endfield and Neverness to Everness have no official data feed. They all ban third-party tools that touch the game: HoYoverse bans for third-party software, and Endfield uses ACE anti-cheat. So Happi never reads the game's memory or touches the game process. She has two sources, both decided by Jussi on 2026-11-21:
+Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, Arknights: Endfield and Neverness to Everness have no official data feed. They all ban third-party tools that touch the game: HoYoverse bans for third-party software, and Endfield uses ACE anti-cheat. So Happi never reads the game's memory or input. The only thing she asks Windows about the game process is its file name, with the same light query Task Manager and Discord's game detection use (JUH-161). She has two sources, both decided by Jussi on 2026-11-21:
 
 - **Screen looks (all five games).**
   - `GachaGames.Match(process, title)` finds the game window, checking every 3 seconds. The process name wins, and a title must match exactly, so a browser tab about the game doesn't count. The Endfield and NTE names are best guesses, so their window titles back them up.
+    - **JUH-161, the process name:** anti-cheat games refuse what .NET's `Process.ProcessName` needs. When it comes back empty, Happi asks for the file path with `PROCESS_QUERY_LIMITED_INFORMATION` (`QueryFullProcessImageName`), which those games allow. Endfield's program is `Endfield.exe`.
+    - **JUH-161, the title:** the shipped Endfield window is titled just "Endfield". Title matches skip Explorer and browsers, so the game's install folder open in Explorer, also called Endfield, isn't taken for the game.
   - `GachaLookSchedule` decides when to look:
     - **every 2 minutes** while the game is the window in front, after 20 seconds there, so a quick alt-tab is not a look
+    - **"In front" (JUH-161, `GachaGames.InFront`):** either the game is the foreground window, or Happi's own overlay is while the game fills its monitor. The overlay sits on top, so talking to her takes the focus from the game. A full-screen game behind a browser you switched to doesn't count.
     - on **Ctrl+Shift+G**, read with `GetAsyncKeyState` so it works while the game has focus
     - never twice within 10 seconds
   - The window is captured with Windows Graphics Capture, the way OBS does. It is downscaled to 768 px, sent once as a JPEG with her persona, her game style, the fair-play rules and `GachaLookPrompt.Rules`, then wiped. She says one short line, or `SILENT` and nothing.
