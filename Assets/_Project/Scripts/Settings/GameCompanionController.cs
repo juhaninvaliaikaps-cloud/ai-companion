@@ -18,7 +18,7 @@ namespace AICompanion.Settings
     /// GameCompanion and tested there.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class GameCompanionController : MonoBehaviour
+    public sealed partial class GameCompanionController : MonoBehaviour
     {
         public const float LeaguePollSeconds = 1f;
         public const float LeagueIdlePollSeconds = 5f;
@@ -126,6 +126,7 @@ namespace AICompanion.Settings
                 return;
 
             DrainListener(settings);
+            KeepGacha(settings, chat);
         }
 
         // ---- The feeds ---------------------------------------------------------------------
@@ -430,6 +431,7 @@ namespace AICompanion.Settings
 
             _session.Cancel();
             _leagueConnected = false;
+            StopGacha();
         }
 
         void Touch(string status)

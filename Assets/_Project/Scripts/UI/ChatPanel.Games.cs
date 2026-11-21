@@ -16,6 +16,7 @@ namespace AICompanion.UI
     {
         public const string GameLineRefusedPrivate = "Private mode or 18+ is on, so nothing about the game was sent.";
         public const string GameLineNoCloud = "No cloud AI API is set up.";
+        public const string GameLineNoVision = "Screen looks need xAI (Grok) as the cloud AI API. Nothing was sent.";
 
         /// <summary>True when a game line may go into the chat now: she isn't answering the user.</summary>
         public bool CanSayGameLine
@@ -34,12 +35,22 @@ namespace AICompanion.UI
         }
 
         /// <summary>
+        /// True when the cloud AI API can take a picture: images go only to xAI (JUH-143), so a
+        /// screen look at a game needs Grok there.
+        /// </summary>
+        public bool CloudSeesImages
+        {
+            get { return CloudReady && settings != null && CloudChatProvider.IsXai(settings.baseUrl); }
+        }
+
+        /// <summary>
         /// One cloud request for a game line. The system text is her persona prompt, then
         /// <paramref name="gameText"/> (her game style and the fair-play rules), then the
         /// closed 18+ gate rule. It never runs in private mode or with the 18+ gate open, and
         /// it adds nothing to the conversation, memory or history.
         /// </summary>
-        public async Task<ChatResult> RequestGameLine(string gameText, string turn, int maxTokens, float temperature, float timeoutSeconds, CancellationToken token)
+        public async Task<ChatResult> RequestGameLine(string gameText, string turn, int maxTokens, float temperature, float timeoutSeconds, CancellationToken token,
+            ChatImageAttachment image = null)
         {
             var privacy = GetComponent<IPrivacyMode>();
             if (IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode))
@@ -49,8 +60,15 @@ namespace AICompanion.UI
             if (_registry == null || !_registry.TryGet(ChatDefaults.GrokId, out provider) || provider == null || !provider.IsConfigured)
                 return new ChatResult(false, string.Empty, ChatErrorKind.MissingApiKey, GameLineNoCloud, "game line: no cloud");
 
+            if (image != null && !CloudSeesImages)
+            {
+                image.Wipe();
+                return new ChatResult(false, string.Empty, ChatErrorKind.None, GameLineNoVision, "game look: cloud can't see");
+            }
+
             var request = new ChatRequest
             {
+                Image = image,
                 SystemPrompt = PersonaPrompt(false) + "\n\n" + (gameText ?? string.Empty) + "\n" + IntimateBoundaries.PromptLine(false),
                 Messages = new List<ChatMessage> { new ChatMessage(ChatRole.User, turn ?? string.Empty) },
                 Temperature = temperature,
@@ -69,6 +87,11 @@ namespace AICompanion.UI
             catch (Exception ex)
             {
                 return new ChatResult(false, string.Empty, ChatErrorKind.Unreachable, string.Empty, "game line failed: " + ex.GetType().Name);
+            }
+            finally
+            {
+                if (image != null)
+                    image.Wipe();
             }
         }
 

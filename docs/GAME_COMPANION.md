@@ -120,9 +120,28 @@ Settings → **Games**:
 
 Settings saved before this have no game fields, and they load with everything off. The new keys are `gameCompanion`, `gameCloudConsent`, `gameFrequency`, `gameCs2`, `gameDota2`, `gameLeague`, `gsiPort` and `gsiToken`. The token is made on the first **Set up**, and it is letters and digits only.
 
+## Gacha games (JUH-147)
+
+Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, Arknights: Endfield and Neverness to Everness have no official data feed. They all ban third-party tools that touch the game: HoYoverse bans for third-party software, and Endfield uses ACE anti-cheat. So Happi never reads the game's memory or touches the game process. She has two sources, both decided by Jussi on 2026-11-21:
+
+- **Screen looks (all five games).**
+  - `GachaGames.Match(process, title)` finds the game window, checking every 3 seconds. The process name wins, and a title must match exactly, so a browser tab about the game doesn't count. The Endfield and NTE names are best guesses, so their window titles back them up.
+  - `GachaLookSchedule` decides when to look:
+    - **every 2 minutes** while the game is the window in front, after 20 seconds there, so a quick alt-tab is not a look
+    - on **Ctrl+Shift+G**, read with `GetAsyncKeyState` so it works while the game has focus
+    - never twice within 10 seconds
+  - The window is captured with Windows Graphics Capture, the way OBS does. It is downscaled to 768 px, sent once as a JPEG with her persona, her game style, the fair-play rules and `GachaLookPrompt.Rules`, then wiped. She says one short line, or `SILENT` and nothing.
+  - **It needs all of these:**
+    - the Games section's cloud consent
+    - its own switch, **Let her look at the game**, which is off by default
+    - xAI (Grok) as the cloud AI API, because images go only to xAI
+  - It never runs in private mode or with 18+ on.
+- **Pull history (Genshin, Star Rail, ZZZ):** JUH-148.
+
 ## Still to build
 
 - A quick mute on her wheel.
+- By hand on Windows: whether capture works when a HoYoverse game runs as administrator (the picture may be black), and whether Ctrl+Shift+G reaches Happi while such a game has focus.
 - Pinning Riot's root certificate for the League poller.
 - Game reaction animations as Jussi makes them (JUH-50). Today's lines use the faces and the Laugh, Nod, Shrug and Wave gestures.
 - The old settings panel (the IMGUI fallback) has no Games section. The new settings view is the one with it.

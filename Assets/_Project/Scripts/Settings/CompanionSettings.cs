@@ -202,6 +202,18 @@ namespace AICompanion.Settings
         public bool GameDota2 = true;
         public bool GameLeague = true;
 
+        /// <summary>
+        /// JUH-147: screen looks at gacha games (every 2 minutes and on Ctrl+Shift+G) go to the
+        /// cloud vision model. Off until the user turns it on; needs <see cref="GameCloudConsent"/>.
+        /// </summary>
+        public bool GameScreenLooks;
+
+        public bool GameGenshin = true;
+        public bool GameStarRail = true;
+        public bool GameZzz = true;
+        public bool GameEndfield = true;
+        public bool GameNte = true;
+
         /// <summary>The loopback port CS2 and Dota 2 post to (JUH-48). 39271 unless it clashes.</summary>
         public int GsiPort = GameFrequencyNames.DefaultGsiPort;
 
@@ -823,6 +835,18 @@ namespace AICompanion.Settings
                 settings.GameDota2 = flag;
             if (TryBool(json, "gameLeague", out flag))
                 settings.GameLeague = flag;
+            if (TryBool(json, "gameScreenLooks", out flag))
+                settings.GameScreenLooks = flag;
+            if (TryBool(json, "gameGenshin", out flag))
+                settings.GameGenshin = flag;
+            if (TryBool(json, "gameStarRail", out flag))
+                settings.GameStarRail = flag;
+            if (TryBool(json, "gameZzz", out flag))
+                settings.GameZzz = flag;
+            if (TryBool(json, "gameEndfield", out flag))
+                settings.GameEndfield = flag;
+            if (TryBool(json, "gameNte", out flag))
+                settings.GameNte = flag;
             if (TryNumber(json, "gsiPort", out number))
                 settings.GsiPort = (int)Math.Round(number);
             if (TryString(json, "gsiToken", out text))
@@ -959,6 +983,12 @@ namespace AICompanion.Settings
             Bool(sb, "gameCs2", source.GameCs2);
             Bool(sb, "gameDota2", source.GameDota2);
             Bool(sb, "gameLeague", source.GameLeague);
+            Bool(sb, "gameScreenLooks", source.GameScreenLooks);
+            Bool(sb, "gameGenshin", source.GameGenshin);
+            Bool(sb, "gameStarRail", source.GameStarRail);
+            Bool(sb, "gameZzz", source.GameZzz);
+            Bool(sb, "gameEndfield", source.GameEndfield);
+            Bool(sb, "gameNte", source.GameNte);
             Number(sb, "gsiPort", source.GsiPort, true);
             String(sb, "gsiToken", source.GsiToken);
             Bool(sb, "showRelationshipFeedback", source.ShowRelationshipFeedback);
