@@ -172,5 +172,23 @@ The PNG is read chunk by chunk (signature, length, type, data, CRC). No length i
 
 Her 18+ notes are **never** exported unless **Include 18+ notes** is ticked (shown only when she has some). Ticked, a card carries them in `scenario` and is tagged `nsfw`, so importing it again routes them back into the 18+ notes. The save dialog asks before overwriting a file.
 
-Still to come: the picture grid, describe-from-picture and version history (JUH-154).
+### Persona grid, her picture, describing it, history (JUH-154)
+
+**Persona tab.** The plain list is now a grid of cards: her picture (round or square, or her initial when she has none), her name and her tagline. The active one is highlighted. Click a card to use her. The **⋯** button on a card opens a small menu under its row:
+
+- **Open in Studio**;
+- **Duplicate**: a copy with her picture, named "… copy";
+- **Export…**: her character card, card JSON or zip, in the format chosen under the active persona (her 18+ notes are not included from here);
+- **Delete** for her own file, or **Delete saved copy** for an edited built-in (the built-in comes back). It asks first.
+
+A built-in persona can't be deleted. "Use setup name" stays as a row above the grid.
+
+**Her picture everywhere.** Her picture is shown left of her name in the new chat's header and in the wheel's Profile panel, round or square as chosen. It is loaded once per persona (`PersonaPictureCache`) and again only after a persona switch, an edit of her, or a picture save, never per frame.
+
+**Describe her from the picture.** On the Studio's Identity step, **Describe her from the picture** asks a vision model for a short appearance paragraph. The paragraph is shown with **Add to her description** and **Discard**; only Add changes the description (under "Appearance:").
+
+- Outside Private mode, the cloud AI API is used when its model reads pictures (`VisionCapability.CloudModelAcceptsImages`), else the local vision model (Screen tab).
+- In Private mode or with the 18+ gate open (`IntimateExpressions.KeepsLocal`), **only the local vision model** is used. Without one, nothing is sent, and the cloud is never a fallback.
+
+**Version history.** Every save of a persona keeps the version it replaces, as `history/<id>.json.<timestamp>.bak` in the personas folder. These copies are encrypted like the file itself and written again at their own path, because the encryption is bound to the path. Only the last 10 stay, and saving the same text again keeps nothing. The Studio's Identity step has **History…** to load one as the draft; **Save** keeps it, and her picture isn't part of the history.
 

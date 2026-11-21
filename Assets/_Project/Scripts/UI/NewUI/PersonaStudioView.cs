@@ -483,6 +483,153 @@ namespace AICompanion.NewUI
                 new KeyValuePair<string, Action>((round ? "✓ " : string.Empty) + "Round", () => Edit(p => p.PictureShape = PersonaPictureShapes.Round)),
                 new KeyValuePair<string, Action>((!round ? "✓ " : string.Empty) + "Square", () => Edit(p => p.PictureShape = PersonaPictureShapes.Square)));
             _form.Note("The centre of the picture is used. Happi keeps a copy, encrypted on this PC; the original file isn't needed afterwards.");
+            BuildDescribeFromPicture();
+            BuildHistory();
+        }
+
+        // ---- JUH-154: describe her from the picture --------------------------------------------
+
+        string _described = string.Empty;
+        bool _describing;
+        System.Threading.CancellationTokenSource _describeCancel;
+
+        void BuildDescribeFromPicture()
+        {
+            if (_pictureTexture == null)
+                return;
+            _form.Button(_describing ? "Describing her picture…" : "Describe her from the picture", DescribePicture);
+            if (_described.Length == 0)
+            {
+                _form.Note("A vision model writes a short appearance paragraph. You decide whether it goes into her description. In Private mode or with 18+ open, only the local vision model is used.");
+                return;
+            }
+
+            _form.Note(_described);
+            _form.Buttons(
+                new KeyValuePair<string, Action>("Add to her description", () =>
+                {
+                    var text = _described;
+                    _described = string.Empty;
+                    Edit(p => p.Description = PictureDescribeGate.Append(p.Description, text));
+                    Status("Added her appearance to the description. Save to keep it.");
+                }),
+                new KeyValuePair<string, Action>("Discard", () =>
+                {
+                    _described = string.Empty;
+                    _form.Rebuild = true;
+                }));
+        }
+
+        async void DescribePicture()
+        {
+            if (_describing || _pictureTexture == null)
+                return;
+            var privacy = GetComponent<IPrivacyMode>();
+            var keepsLocal = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+            var chat = GetComponent<AICompanion.UI.ChatPanel>();
+            var settings = _settings != null ? _settings.CurrentSettings : null;
+            var localVision = settings != null ? (settings.LocalVisionModel ?? string.Empty).Trim() : string.Empty;
+            var choice = PictureDescribeGate.Choose(keepsLocal, chat != null && chat.CloudSeesImages, localVision.Length > 0);
+            if (choice.Route == PictureDescribeRoute.None)
+            {
+                Status(choice.Reason);
+                return;
+            }
+
+            byte[] jpeg;
+            try
+            {
+                jpeg = _pictureTexture.EncodeToJPG(85);
+            }
+            catch (Exception ex)
+            {
+                Status("Couldn't prepare her picture (" + ex.GetType().Name + ").");
+                return;
+            }
+
+            _describing = true;
+            _described = string.Empty;
+            _form.Rebuild = true;
+            Status(choice.Route == PictureDescribeRoute.Cloud ? "Asking the cloud model to describe her…" : "Asking the local vision model to describe her…");
+            if (_describeCancel != null)
+                _describeCancel.Dispose();
+            _describeCancel = new System.Threading.CancellationTokenSource();
+            var token = _describeCancel.Token;
+            string text = string.Empty;
+            string failure = string.Empty;
+            try
+            {
+                if (choice.Route == PictureDescribeRoute.Cloud)
+                {
+                    var result = await chat.RequestPictureDescription(jpeg, _pictureTexture.width, _pictureTexture.height, PictureDescribeGate.Prompt, 60f, token);
+                    if (result.Ok)
+                        text = result.Text;
+                    else
+                        failure = result.UserMessage.Length > 0 ? result.UserMessage : "The cloud model didn't answer.";
+                }
+                else
+                {
+                    var result = await AICompanion.ScreenLook.LocalVisionExchange.Run(new AICompanion.AI.UnityChatTransport(this), settings.LocalBaseUrl, settings.LocalModel,
+                        localVision, jpeg, 120f, token, "0", PictureDescribeGate.Prompt);
+                    if (result.Ok)
+                        text = result.Observation;
+                    else
+                        failure = result.Message;
+                }
+            }
+            catch (Exception ex)
+            {
+                failure = "Describing failed (" + ex.GetType().Name + ").";
+            }
+
+            if (this == null)
+                return;
+            _describing = false;
+            _described = PictureDescribeGate.Clean(text);
+            Status(_described.Length > 0 ? "Here is what the model saw. Add it to her description, or discard it." : (failure.Length > 0 ? failure : "The model gave no description."));
+            _form.Rebuild = true;
+        }
+
+        // ---- JUH-154: version history --------------------------------------------------------------
+
+        void BuildHistory()
+        {
+            if (_draft == null || string.IsNullOrWhiteSpace(_draft.Id))
+                return;
+            var versions = _settings.PersonaVersions(_draft.Id);
+            if (versions.Count == 0)
+                return;
+            _form.Section("History");
+            var paths = new List<string>();
+            var labels = new Dictionary<string, string>();
+            for (var i = 0; i < versions.Count; i++)
+            {
+                paths.Add(versions[i].Path);
+                labels[versions[i].Path] = versions[i].Label;
+            }
+
+            _form.Dropdown("History…", "restore an earlier version", paths, p => labels[p], null, RestoreVersion);
+            _form.Note("Each save keeps the version before it (the last 10). Restoring loads it here; Save to keep it. Her picture isn't part of the history.");
+        }
+
+        void RestoreVersion(string path)
+        {
+            var restored = PersonaHistory.Restore(path);
+            if (restored == null || _draft == null)
+            {
+                Status("That version couldn't be read.");
+                return;
+            }
+
+            // Keep her id and picture; everything else comes from the version.
+            restored.Id = _draft.Id;
+            restored.HasPicture = _draft.HasPicture;
+            _draft = restored;
+            if (string.IsNullOrWhiteSpace(_draft.Description))
+                _draft.Description = _draft.Personality;
+            _dirty = true;
+            _form.Rebuild = true;
+            Status("Restored the version from " + System.IO.Path.GetFileName(path) + ". Save to keep it.");
         }
 
         void BuildDescription()

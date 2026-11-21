@@ -14,6 +14,10 @@ namespace AICompanion.NewUI.Wheel
     {
         public string Name = string.Empty;
         public string RoleLine = string.Empty;
+
+        /// <summary>JUH-154: her picture, or null; shown round or square.</summary>
+        public Texture Picture;
+        public bool PictureRound = true;
         public ProfileFeelings Feelings;
         public ProfilePersonality Personality;
 
@@ -87,6 +91,8 @@ namespace AICompanion.NewUI.Wheel
             var outline = panel.gameObject.AddComponent<Outline>();
             outline.effectColor = theme.Border;
             outline.effectDistance = new Vector2(1f, -1f);
+            _picture = PersonaPictureCache.Frame(_root, "Picture", theme, out _pictureFrame);
+            _pictureFrame.gameObject.SetActive(false);
             _name = HappiUiKit.Text(_root, "Name", string.Empty, theme.FontTitle, theme.Text, TextAlignmentOptions.TopLeft, true);
             _role = HappiUiKit.Text(_root, "Role", string.Empty, theme.FontSmall, theme.Text, TextAlignmentOptions.TopLeft, false);
             _close = HappiUiKit.Button(_root, "Close", "X", theme.FontTitle, () => { if (OnClose != null) OnClose(); });
@@ -130,6 +136,30 @@ namespace AICompanion.NewUI.Wheel
 
         public bool Visible => _root.gameObject.activeSelf;
 
+        // JUH-154: her picture left of her name and role line.
+        Image _pictureFrame;
+        RawImage _picture;
+        float _headerPad;
+        float _headerGap;
+        float _headerNameH;
+        float _headerRoleH;
+        float _headerClose;
+
+        void PlaceHeader(bool picture)
+        {
+            var size = _headerNameH + _headerRoleH;
+            var x = _headerPad;
+            if (picture)
+            {
+                HappiUiKit.Place(_pictureFrame.rectTransform, _headerPad, _headerPad, size, size);
+                x += size + _headerGap;
+            }
+
+            var width = _inner - _headerClose - _headerGap - (x - _headerPad);
+            HappiUiKit.Place(_name.rectTransform, x, _headerPad, width, _headerNameH);
+            HappiUiKit.Place(_role.rectTransform, x, _headerPad + _headerNameH, width, _headerRoleH);
+        }
+
         public void Show(Func<ProfileData> source, Vector2 center, float scale, Vector2 screen)
         {
             _source = source;
@@ -153,8 +183,12 @@ namespace AICompanion.NewUI.Wheel
             _role.fontSize = _theme.FontSmall * s;
             var nameH = _theme.FontTitle * s * 1.35f;
             var roleH = _theme.FontSmall * s * 1.4f;
-            HappiUiKit.Place(_name.rectTransform, pad, pad, _inner - closeSize - gap, nameH);
-            HappiUiKit.Place(_role.rectTransform, pad, pad + nameH, _inner - closeSize - gap, roleH);
+            _headerPad = pad;
+            _headerGap = gap;
+            _headerNameH = nameH;
+            _headerRoleH = roleH;
+            _headerClose = closeSize;
+            PlaceHeader(false);
 
             var tabsY = pad + nameH + roleH + gap;
             var rowH = _theme.ButtonHeight * s;
@@ -196,6 +230,8 @@ namespace AICompanion.NewUI.Wheel
                 _data = new ProfileData();
             _name.text = HappiUiKit.Literal(_data.Name);
             _role.text = HappiUiKit.Literal(_data.RoleLine);
+            PersonaPictureCache.Show(_pictureFrame, _picture, _data.Picture, _data.PictureRound);
+            PlaceHeader(_data.Picture != null);
             for (var i = 0; i < _tabs.Count; i++)
             {
                 var colors = _tabs[i].Button.colors;
