@@ -360,7 +360,7 @@ namespace AICompanion.Overlay
             // A borderless/windowed-fullscreen game can create its own topmost window after
             // Happi starts. Reassert without activating so she stays above it; a minimized
             // window stays minimized because SetWindowPos never restores it.
-            if (_topmost && _companionVisible && _chrome != null && _chrome.IsSupported
+            if (_companionVisible && _chrome != null && _chrome.IsSupported
                 && Time.unscaledTime >= _nextTopmostAssert)
             {
                 _nextTopmostAssert = Time.unscaledTime + 0.75f;
