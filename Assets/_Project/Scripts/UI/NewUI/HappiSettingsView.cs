@@ -493,10 +493,10 @@ namespace AICompanion.NewUI
 
             BuildMemories();
 
-            if (current.UserFile)
+            if (!string.Equals(current.Persona.Id, PersonaDefaults.HappiId, StringComparison.OrdinalIgnoreCase))
             {
                 Section("Delete");
-                Button(current.BuiltIn ? "Delete saved copy" : "Delete persona", () => { _settings.DeletePersona(); _rebuild = true; }, true);
+                Button("Delete persona", () => { _settings.DeletePersonaById(current.Persona.Id, out _); _rebuild = true; }, true);
             }
         }
 
@@ -642,8 +642,7 @@ namespace AICompanion.NewUI
             var id = card.Id;
             if (string.Equals(_gridDeleteId, id, StringComparison.OrdinalIgnoreCase))
             {
-                Note((card.SavedCopy ? "Delete your saved copy of " : "Delete ") + card.Name + "? This can't be undone."
-                     + (card.SavedCopy ? " The built-in comes back as it shipped." : string.Empty));
+                Note("Delete " + card.Name + "? This can't be undone.");
                 Button("Confirm delete", () =>
                 {
                     string message;

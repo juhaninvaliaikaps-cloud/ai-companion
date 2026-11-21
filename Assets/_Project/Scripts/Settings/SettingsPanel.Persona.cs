@@ -70,8 +70,8 @@ namespace AICompanion.Settings
             AddField("Portrait folder", persona.PortraitFolder, false, value => SaveActive(idFixed, item => item.PortraitFolder = value));
             Note("A missing portrait folder uses the standard portraits folder.");
             AddTemperamentPicker(idFixed);
-            if (current.UserFile)
-                AddButton(current.BuiltIn ? "Delete saved copy" : "Delete persona", DeleteActivePersona);
+            if (current.UserFile || !string.Equals(current.Persona.Id, PersonaDefaults.HappiId, StringComparison.OrdinalIgnoreCase))
+                AddButton("Delete persona", DeleteActivePersona);
         }
 
         /// <summary>
@@ -274,20 +274,7 @@ namespace AICompanion.Settings
 
         void DeleteActivePersona()
         {
-            var id = _settings.PersonaId;
-            var entry = PersonaCatalog.LoadDefault(Folder()).FindEntry(id);
-            if (entry == null || !entry.UserFile)
-                return;
-
-            PersonaStore.Delete(SettingsLocations.PersonasFolder(Folder()), id);
-            var restored = PersonaCatalog.LoadDefault(Folder()).Find(id);
-            if (restored != null)
-            {
-                UsePersona(id);
-                return;
-            }
-
-            ClearActivePersona();
+            DeletePersonaById(_settings.PersonaId, out _);
         }
 
         /// <summary>
