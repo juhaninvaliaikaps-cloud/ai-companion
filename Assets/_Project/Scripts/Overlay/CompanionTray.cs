@@ -13,7 +13,7 @@ namespace AICompanion.Overlay
     [DisallowMultipleComponent]
     public sealed class CompanionTray : MonoBehaviour, ICompanionStartup, ICompanionPause
     {
-        [SerializeField] bool hideTaskbarButton = true;
+        [SerializeField] bool hideTaskbarButton = false;
 
         readonly TrayMenuState _menu = new TrayMenuState();
         readonly ConcurrentQueue<TrayCommand> _commands = new ConcurrentQueue<TrayCommand>();
@@ -27,7 +27,7 @@ namespace AICompanion.Overlay
 
         public bool HideTaskbarButton => _hideTaskbar;
         string _executable = string.Empty;
-        bool _hideTaskbar = true;
+        bool _hideTaskbar = false;
         bool _started;
         bool _quitStarted;
 
