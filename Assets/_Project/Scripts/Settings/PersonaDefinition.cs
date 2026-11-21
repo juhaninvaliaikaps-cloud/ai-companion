@@ -84,6 +84,12 @@ namespace AICompanion.Settings
         /// </summary>
         public string AdultNotes = string.Empty;
 
+        /// <summary>
+        /// JUH-151: true when <see cref="Personality"/> is Pisara's condensed version of a
+        /// description too long for the chat model. Editing the description clears it.
+        /// </summary>
+        public bool Condensed;
+
         /// <summary>JUH-150: true when she has a picture (stored encrypted beside her file).</summary>
         public bool HasPicture;
 
@@ -128,7 +134,8 @@ namespace AICompanion.Settings
                 ExampleLines = ExampleLines,
                 AdultNotes = AdultNotes,
                 HasPicture = HasPicture,
-                PictureShape = PictureShape
+                PictureShape = PictureShape,
+                Condensed = Condensed
             };
         }
 
@@ -430,6 +437,8 @@ namespace AICompanion.Settings
             bool flag;
             if (TryBool(json, "hasPicture", out flag))
                 persona.HasPicture = flag;
+            if (TryBool(json, "condensed", out flag))
+                persona.Condensed = flag;
             if (TryString(json, "pictureShape", out text))
                 persona.PictureShape = text;
 
@@ -468,6 +477,7 @@ namespace AICompanion.Settings
             String(sb, "adultNotes", source.AdultNotes);
             sb.Append("  \"hasPicture\": ").Append(source.HasPicture ? "true" : "false").Append(",\n");
             String(sb, "pictureShape", source.PictureShape);
+            sb.Append("  \"condensed\": ").Append(source.Condensed ? "true" : "false").Append(",\n");
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;
@@ -700,6 +710,26 @@ namespace AICompanion.Settings
             if (cut < ModelBudget / 2)
                 cut = ModelBudget;
             return text.Substring(0, cut).TrimEnd();
+        }
+
+        /// <summary>
+        /// JUH-151: sets the chat text from the description before a save. A description that
+        /// fits is used whole; a long one keeps Pisara's condensed text when there is one,
+        /// otherwise it is cut. A persona with no description keeps its personality.
+        /// </summary>
+        public static void ApplyTo(PersonaDefinition persona)
+        {
+            if (persona == null || string.IsNullOrWhiteSpace(persona.Description))
+                return;
+            if (Fits(persona.Description) || !persona.Condensed || string.IsNullOrWhiteSpace(persona.Personality))
+            {
+                persona.Personality = ModelText(persona.Description);
+                persona.Condensed = false;
+                return;
+            }
+
+            if (persona.Personality.Length > ModelBudget)
+                persona.Personality = ModelText(persona.Personality);
         }
 
         /// <summary>"1,234 / 32,000 characters" and what the local model sees.</summary>

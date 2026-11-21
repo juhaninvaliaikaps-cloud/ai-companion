@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using AICompanion.AI;
 using AICompanion.Core;
 using AICompanion.Memory;
@@ -459,6 +460,54 @@ namespace AICompanion.Settings
                 _reading = false;
                 Revision++;
             }
+        }
+
+        // ---- JUH-151: the Persona Studio's Pisara step reads a draft the same way -----------
+
+        bool DraftKeepsLocal(PisaraModelChoice choice)
+        {
+            var privacy = GetComponent<IPrivacyMode>();
+            return choice.UseCloud ? false : IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+        }
+
+        /// <summary>Who reads a Studio draft, such as "deepseek-flash (chat, cloud)", or why no one can.</summary>
+        public string DraftReaderLabel(out bool ready)
+        {
+            var choice = Choice();
+            var keepsLocal = DraftKeepsLocal(choice);
+            var provider = Provider(choice, keepsLocal);
+            ready = provider != null && provider.IsConfigured && PisaraReader.MayUse(provider, keepsLocal);
+            return ready ? ReadBy(choice, keepsLocal) : "no model is ready";
+        }
+
+        /// <summary>
+        /// Reads a draft that isn't saved yet. Same model, privacy rule and parser as a normal
+        /// reading; nothing is stored here (the Studio saves the sheet with the persona).
+        /// </summary>
+        public async Task<PisaraReadResult> ReadDraftAsync(string name, string text, CancellationToken token)
+        {
+            var choice = Choice();
+            var keepsLocal = DraftKeepsLocal(choice);
+            var intimateActive = choice.UseCloud ? false : IntimateExpressions.Active;
+            var result = await PisaraReader.ReadAsync(Provider(choice, keepsLocal), name, text, keepsLocal, intimateActive,
+                PisaraKeywords.Temperament, token);
+            if (result != null && result.Sheet != null && result.Sheet.source == CharacterSheet.SourceModel)
+            {
+                result.Sheet.readInCloud = PisaraModelChoice.ReadInCloud(choice, keepsLocal);
+                result.Sheet.readBy = ReadBy(choice, keepsLocal);
+            }
+
+            return result;
+        }
+
+        /// <summary>Condenses a long draft description with the same model and privacy rule.</summary>
+        public Task<PersonaCondenseResult> CondenseDraftAsync(string name, string description, CancellationToken token)
+        {
+            var choice = Choice();
+            var keepsLocal = DraftKeepsLocal(choice);
+            var intimateActive = choice.UseCloud ? false : IntimateExpressions.Active;
+            return PersonaCondenser.CondenseAsync(Provider(choice, keepsLocal), name, description, PersonaDescription.ModelBudget,
+                keepsLocal, intimateActive, token);
         }
 
         /// <summary>What the chat path and the separate Pisara cloud setting say for this read.</summary>

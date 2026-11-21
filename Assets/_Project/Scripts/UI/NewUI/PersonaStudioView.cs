@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
+using AICompanion.AI;
 using AICompanion.Core;
 using AICompanion.Overlay;
 using AICompanion.Settings;
@@ -15,8 +17,8 @@ namespace AICompanion.NewUI
     /// window, so this is a movable panel with its own frame). New and Import open it from the
     /// Persona tab. It edits a draft and saves the whole persona on Save.
     ///
-    /// Steps in this version: Start, Identity, Description. Pisara, Voice, Look and Review come
-    /// in the following PRs (see JUH-150).
+    /// Steps in this version: Start, Identity, Description and Pisara (JUH-151). Voice, Look and
+    /// Review come in the following PRs (see JUH-150).
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PersonaStudioView : MonoBehaviour, IOverlayKeepAwake
@@ -26,9 +28,15 @@ namespace AICompanion.NewUI
             Start = 0,
             Identity = 1,
             Description = 2,
+            Pisara = 3,
         }
 
-        static readonly string[] StepLabels = { "Start", "1 · Identity", "2 · Description" };
+        const Step LastStep = Step.Pisara;
+
+        static readonly string[] StepLabels = { "Start", "1 · Identity", "2 · Description", "3 · Pisara" };
+
+        /// <summary>The model may take a minute or two locally; the bar fills over this long.</summary>
+        const float ExpectedReadSeconds = 90f;
 
         const float PlaneDistance = 0.35f;
         const float WindowWidth = 600f;
@@ -67,6 +75,19 @@ namespace AICompanion.NewUI
         byte[] _picturePng;
         Texture2D _pictureTexture;
         string _paste = string.Empty;
+
+        // JUH-151: the Pisara step.
+        CharacterSheet _sheet;
+        bool _sheetChanged;
+        TemperamentAxes _axes;
+        bool _reading;
+        bool _condensing;
+        string _readPart;
+        float _workStarted;
+        CancellationTokenSource _work;
+        TextMeshProUGUI _progressText;
+        RectTransform _progressFill;
+        int _shownSeconds = -1;
         string _statusText = string.Empty;
         Action _afterDiscard;
 
@@ -97,6 +118,7 @@ namespace AICompanion.NewUI
             if (!_attached)
                 return;
             _attached = false;
+            CancelWork();
             ReleaseFocus();
             ClearPicture();
             if (_canvasObject != null)
@@ -119,6 +141,7 @@ namespace AICompanion.NewUI
             _isNew = true;
             _dirty = false;
             SetPicture(null, false);
+            ResetSheet(null);
             _step = Step.Start;
             Show();
         }
@@ -140,6 +163,7 @@ namespace AICompanion.NewUI
             _isNew = false;
             _dirty = false;
             SetPicture(persona.HasPicture ? _settings.StudioPicture(persona.Id) : null, false);
+            ResetSheet(_settings.StudioSheet(persona.Id));
             _step = Step.Identity;
             Show();
         }
@@ -161,6 +185,7 @@ namespace AICompanion.NewUI
         public void Close()
         {
             _open = false;
+            CancelWork();
             _popup = DestroyPopup();
             _form.BlurFields();
             ReleaseFocus();
@@ -194,6 +219,7 @@ namespace AICompanion.NewUI
             }
 
             SyncFocus();
+            TickProgress();
             var shown = HappiUiKit.Literal(_statusText);
             if (_status.text != shown)
                 _status.text = shown;
@@ -311,7 +337,7 @@ namespace AICompanion.NewUI
 
         void GoTo(Step step)
         {
-            if (step < Step.Start || step > Step.Description)
+            if (step < Step.Start || step > LastStep)
                 return;
             if (step != Step.Start && _draft == null)
             {
@@ -331,6 +357,9 @@ namespace AICompanion.NewUI
                 return;
             _popup = DestroyPopup();
             _meter = null;
+            _progressText = null;
+            _progressFill = null;
+            _shownSeconds = -1;
             for (var i = 0; i < _steps.Count; i++)
             {
                 var colors = _steps[i].Button.colors;
@@ -342,7 +371,7 @@ namespace AICompanion.NewUI
             var name = _draft != null && !string.IsNullOrWhiteSpace(_draft.DisplayName) ? _draft.DisplayName : (_isNew ? "New persona" : "Persona");
             _title.text = HappiUiKit.Literal("Happi · Persona Studio · " + name + (_dirty ? " •" : string.Empty));
             _back.Button.interactable = _step > Step.Start && !(_step == Step.Identity && !_isNew);
-            _next.Button.interactable = _step < Step.Description && _draft != null;
+            _next.Button.interactable = _step < LastStep && _draft != null;
             _save.Button.interactable = _draft != null;
             _save.Label.text = _isNew ? "Save and use her" : "Save";
 
@@ -353,6 +382,7 @@ namespace AICompanion.NewUI
                 {
                     case Step.Identity: BuildIdentity(); break;
                     case Step.Description: BuildDescription(); break;
+                    case Step.Pisara: BuildPisara(); break;
                     default: BuildStart(); break;
                 }
             }
@@ -439,7 +469,12 @@ namespace AICompanion.NewUI
         {
             _form.Section("Description");
             _form.Area("Who she is, her life, how she acts (up to 32,000 characters)", _draft.Description, 230f, PersonaDefinition.MaxDescriptionLength,
-                v => Edit(p => p.Description = v, false), UpdateMeter);
+                v => Edit(p =>
+                {
+                    if (!string.Equals(p.Description, v, StringComparison.Ordinal))
+                        p.Condensed = false;
+                    p.Description = v;
+                }, false), UpdateMeter);
             _meter = _form.Note(PersonaDescription.Meter(_draft.Description));
             _form.Area("Speaking style", _draft.SpeakingStyle, 54f, PersonaDefinition.MaxSpeakingStyleLength, v => Edit(p => p.SpeakingStyle = v, false));
 
@@ -454,7 +489,421 @@ namespace AICompanion.NewUI
                 _form.Note("These stay on this PC. They are added to her prompt only while the 18+ gate is open, and then chat is always local. They are never sent to a cloud model.");
             }
 
-            _form.Note("After you save, Pisara reads her description again, as it does today. The Pisara step with its generators comes in the next update.");
+            _form.Note("Next, Pisara reads her description and fills in who she is. You can also skip it: Pisara then reads her in the background after you save.");
+        }
+
+        // ---- 3 · Pisara (JUH-151) -----------------------------------------------------------
+
+        void BuildPisara()
+        {
+            var reader = _settings.StudioReader;
+            var ready = false;
+            var who = reader != null ? reader.DraftReaderLabel(out ready) : "no model is ready";
+
+            _form.Section("Pisara");
+            _form.Note("Pisara reads her description and fills in who she is: her temperament, how she knows you, her life and what lands with her. "
+                       + "Change anything before you save. Read by " + who + ".");
+            if (string.IsNullOrWhiteSpace(_draft.Description))
+            {
+                _form.Note("Write or paste her description first (step 2).");
+                return;
+            }
+
+            if (_reading)
+            {
+                _progressText = _form.Label(ProgressLine(_readPart == null ? "Reading her" : "Reading her " + PartName(_readPart)));
+                _progressFill = _form.Progress(0f);
+                _form.Button("Skip", CancelWork);
+            }
+            else if (ready)
+            {
+                _form.Button(_sheet == null ? "Read her" : "Read her again (everything)", () => StartRead(null));
+            }
+            else
+            {
+                _form.Note("No model can read her right now. Set one up on the AI tab, or save now and Pisara reads her in the background later.");
+            }
+
+            if (_sheet == null)
+            {
+                if (!_reading)
+                    _form.Note("Not read yet. If you skip this step, Pisara reads her in the background after you save, as before.");
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(_sheet.readBy))
+                    _form.Note("Read by " + _sheet.readBy + (_sheet.readInCloud ? " (in the cloud)." : "."));
+                BuildTemperament(ready);
+                BuildRelationship(ready);
+                BuildLife(ready);
+                BuildLanding(ready);
+            }
+
+            BuildCondense(ready);
+            if (_settings.CurrentSettings != null && _settings.CurrentSettings.IntimateExpressions)
+            {
+                _form.Section("18+", true);
+                _form.Note("Her innocence and her 18+ secrets are read on this PC, by the local model, while the 18+ gate is open. That happens after you save, as it does today. They never go to the cloud.");
+            }
+        }
+
+        void BuildTemperament(bool ready)
+        {
+            _form.Section("Temperament");
+            var manual = TemperamentModes.Normalize(_draft.TemperamentMode) == TemperamentModes.Manual;
+            var choice = PisaraReading.Choose(TemperamentModes.Auto, _draft.Temperament, false, _sheet);
+            if (!string.IsNullOrEmpty(choice.Line))
+                _form.Note(choice.Line);
+            _form.Choice("Let Pisara decide (Auto)", !manual, () => Edit(p =>
+            {
+                p.TemperamentMode = TemperamentModes.Auto;
+                p.Axes = null;
+                _axes = null;
+            }));
+            _form.Choice("Use my own sliders", manual, () => Edit(p =>
+            {
+                _axes = (choice.Axes ?? TemperamentAxes.ForPreset(p.Temperament)).Clone();
+                p.SetAxes(_axes);
+                p.TemperamentMode = TemperamentModes.Manual;
+            }));
+            if (manual)
+            {
+                if (_axes == null)
+                    _axes = (_draft.Axes ?? TemperamentAxes.ForPreset(_draft.Temperament)).Clone();
+                for (var i = 0; i < TemperamentAxes.Count; i++)
+                {
+                    var axis = i;
+                    _form.Slider(v => TemperamentAxes.Names[axis] + ": " + Mathf.RoundToInt(v), _axes.Value(axis), 0f, 100f, true, v =>
+                    {
+                        _axes.Set(axis, v);
+                        _draft.SetAxes(_axes);
+                        _draft.TemperamentMode = TemperamentModes.Manual;
+                        MarkDirty();
+                    });
+                }
+            }
+
+            if (ready && !_reading)
+                _form.Button("Redo temperament", () => StartRead(PartTemperament));
+        }
+
+        void BuildRelationship(bool ready)
+        {
+            _form.Section("How she knows you");
+            var r = _sheet.relationship ?? (_sheet.relationship = new SheetRelationship());
+            _form.Note(PisaraReading.RelationshipLine(_sheet));
+            var roles = new List<string>(RelationshipRoles.All);
+            _form.Dropdown("Role", Pretty(r.role), roles, Pretty, role => role == RelationshipRoles.Normalize(r.role),
+                role => SetRelationship(role, r.label, r.sharedHistory));
+            _form.Field("What she calls it (for example stepsister, old classmate)", r.label, CharacterSheet.MaxLabelLength,
+                v => SetRelationship(r.role, v, r.sharedHistory));
+            _form.Toggle("You share a past", r.sharedHistory, v => SetRelationship(r.role, r.label, v));
+            _form.Note("Her starting affection and familiarity follow from the role and the shared past.");
+            if (ready && !_reading)
+                _form.Button("Redo relationship", () => StartRead(PartRelationship));
+        }
+
+        void SetRelationship(string role, string label, bool sharedHistory)
+        {
+            if (_sheet == null)
+                return;
+            var r = _sheet.relationship ?? new SheetRelationship();
+            PisaraCorrections.SetRelationship(_sheet, role, label, r.affection, r.familiarity, sharedHistory);
+            SheetEdited(true);
+        }
+
+        void BuildLife(bool ready)
+        {
+            _form.Section("Her life");
+            var world = _sheet.world ?? (_sheet.world = new SheetWorld());
+            _form.Area("Backstory (one fact per line)", Lines(world.backstory), 110f, CharacterSheet.MaxBackstory * (CharacterSheet.MaxLineLength + 1),
+                v => { world.backstory = SplitLines(v, CharacterSheet.MaxBackstory, CharacterSheet.MaxLineLength); SheetEdited(false); });
+            _form.Field("Right now", world.rightNow, CharacterSheet.MaxLineLength, v => { world.rightNow = v ?? string.Empty; SheetEdited(false); });
+            if (world.lastWeek != null && world.lastWeek.Count > 0)
+            {
+                var week = new System.Text.StringBuilder();
+                for (var i = 0; i < world.lastWeek.Count; i++)
+                {
+                    var entry = world.lastWeek[i];
+                    if (entry == null)
+                        continue;
+                    week.Append(entry.daysAgo == 0 ? "Today" : entry.daysAgo == 1 ? "Yesterday" : entry.daysAgo + " days ago").Append(": ").Append(entry.text).Append('\n');
+                }
+
+                _form.Note("Her last week:\n" + week.ToString().TrimEnd());
+            }
+
+            if (world.openThreads != null && world.openThreads.Count > 0)
+            {
+                var threads = new System.Text.StringBuilder();
+                for (var i = 0; i < world.openThreads.Count; i++)
+                {
+                    if (world.openThreads[i] != null)
+                        threads.Append("• ").Append(world.openThreads[i].text).Append('\n');
+                }
+
+                _form.Note("What's going on in her life:\n" + threads.ToString().TrimEnd());
+            }
+
+            if (ready && !_reading)
+                _form.Button("Redo her life", () => StartRead(PartLife));
+        }
+
+        void BuildLanding(bool ready)
+        {
+            _form.Section("What lands with her");
+            var landing = _sheet.landing ?? (_sheet.landing = new SheetLanding());
+            _form.Area("Touchy about (one per line)", Lines(landing.touchy), 70f, CharacterSheet.MaxLandingPhrases * (CharacterSheet.MaxPhraseLength + 1),
+                v => { landing.touchy = SplitLines(v, CharacterSheet.MaxLandingPhrases, CharacterSheet.MaxPhraseLength); SheetEdited(false); });
+            _form.Area("Wins her over (one per line)", Lines(landing.winsHerOver), 70f, CharacterSheet.MaxLandingPhrases * (CharacterSheet.MaxPhraseLength + 1),
+                v => { landing.winsHerOver = SplitLines(v, CharacterSheet.MaxLandingPhrases, CharacterSheet.MaxPhraseLength); SheetEdited(false); });
+            if (ready && !_reading)
+                _form.Button("Redo what lands", () => StartRead(PartLanding));
+        }
+
+        void BuildCondense(bool ready)
+        {
+            if (PersonaDescription.Fits(_draft.Description))
+                return;
+            _form.Section("Condensed description");
+            _form.Note("Her description is longer than the chat model can take. Pisara can condense it to "
+                       + PersonaDescription.ModelBudget.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)
+                       + " characters, keeping who she is, how she talks and what matters.");
+            if (_condensing)
+            {
+                _progressText = _form.Label(ProgressLine("Condensing"));
+                _progressFill = _form.Progress(0f);
+                _form.Button("Skip", CancelWork);
+            }
+            else if (ready && !_reading)
+            {
+                _form.Button(_draft.Condensed ? "Condense again" : "Condense her description", StartCondense);
+            }
+
+            if (_draft.Condensed)
+                _form.Area("What the chat model sees", _draft.Personality, 160f, PersonaDescription.ModelBudget, v => Edit(p => p.Personality = v, false));
+            else
+                _form.Note("Until then the chat model sees the first "
+                           + PersonaDescription.ModelText(_draft.Description).Length.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)
+                           + " characters.");
+        }
+
+        const string PartTemperament = "temperament";
+        const string PartRelationship = "relationship";
+        const string PartLife = "life";
+        const string PartLanding = "landing";
+
+        static string PartName(string part)
+        {
+            switch (part)
+            {
+                case PartTemperament: return "temperament";
+                case PartRelationship: return "relationship";
+                case PartLife: return "life";
+                case PartLanding: return "likes and dislikes";
+                default: return string.Empty;
+            }
+        }
+
+        async void StartRead(string part)
+        {
+            var reader = _settings.StudioReader;
+            if (_reading || _condensing || reader == null || _draft == null)
+                return;
+            _reading = true;
+            _readPart = part;
+            _workStarted = Time.unscaledTime;
+            var cancel = new CancellationTokenSource();
+            _work = cancel;
+            _form.Rebuild = true;
+
+            // Pisara reads the whole description, not the cut the chat model gets.
+            var input = _draft.Copy();
+            input.Personality = _draft.Description;
+            var name = string.IsNullOrWhiteSpace(_draft.DisplayName) ? "her" : _draft.DisplayName;
+            PisaraReadResult result = null;
+            try
+            {
+                result = await reader.ReadDraftAsync(name, PersonaText.Build(input, name, RelationshipRoles.Friend), cancel.Token);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("Persona Studio: Pisara reading failed (" + ex.GetType().Name + ")");
+            }
+
+            var cancelled = cancel.IsCancellationRequested;
+            if (ReferenceEquals(_work, cancel))
+                _work = null;
+            cancel.Dispose();
+            _reading = false;
+            if (this == null || !_attached)
+                return;
+            _form.Rebuild = true;
+            if (cancelled)
+            {
+                Status("Skipped.");
+                return;
+            }
+
+            if (result == null || result.Sheet == null || result.Sheet.source != CharacterSheet.SourceModel)
+            {
+                var why = result != null && !string.IsNullOrEmpty(result.Failure) ? result.Failure : "no usable reply";
+                Status("Pisara couldn't read her (" + why + "). Nothing was changed.");
+                return;
+            }
+
+            MergeReading(result.Sheet, part);
+            Status(part == null ? "Pisara read her. Check it, then save." : "Pisara read her " + PartName(part) + " again.");
+        }
+
+        void MergeReading(CharacterSheet read, string part)
+        {
+            if (_sheet == null || part == null)
+            {
+                _sheet = read;
+            }
+            else
+            {
+                switch (part)
+                {
+                    case PartTemperament: _sheet.temperament = read.temperament; break;
+                    case PartRelationship:
+                        _sheet.relationship = read.relationship;
+                        _sheet.relationshipLocked = false;
+                        break;
+                    case PartLife: _sheet.world = read.world; break;
+                    case PartLanding: _sheet.landing = read.landing; break;
+                }
+
+                _sheet.readBy = read.readBy;
+                _sheet.readInCloud = _sheet.readInCloud || read.readInCloud;
+            }
+
+            if (part == null || part == PartTemperament)
+                _axes = null;
+            SheetEdited(true);
+        }
+
+        async void StartCondense()
+        {
+            var reader = _settings.StudioReader;
+            if (_reading || _condensing || reader == null || _draft == null)
+                return;
+            _condensing = true;
+            _workStarted = Time.unscaledTime;
+            var cancel = new CancellationTokenSource();
+            _work = cancel;
+            _form.Rebuild = true;
+            PersonaCondenseResult result = null;
+            try
+            {
+                result = await reader.CondenseDraftAsync(string.IsNullOrWhiteSpace(_draft.DisplayName) ? "her" : _draft.DisplayName, _draft.Description, cancel.Token);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("Persona Studio: condensing failed (" + ex.GetType().Name + ")");
+            }
+
+            var cancelled = cancel.IsCancellationRequested;
+            if (ReferenceEquals(_work, cancel))
+                _work = null;
+            cancel.Dispose();
+            _condensing = false;
+            if (this == null || !_attached)
+                return;
+            _form.Rebuild = true;
+            if (cancelled)
+            {
+                Status("Skipped.");
+                return;
+            }
+
+            if (result == null || !result.Ok)
+            {
+                Status("Couldn't condense her description" + (result != null && result.Failure.Length > 0 ? ": " + result.Failure : "."));
+                return;
+            }
+
+            _draft.Personality = result.Text;
+            _draft.Condensed = true;
+            MarkDirty();
+            Status("Condensed. Check the text, then save.");
+        }
+
+        void CancelWork()
+        {
+            if (_work != null)
+            {
+                try
+                {
+                    _work.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+        }
+
+        void ResetSheet(CharacterSheet sheet)
+        {
+            CancelWork();
+            _sheet = sheet;
+            _sheetChanged = false;
+            _axes = null;
+        }
+
+        void SheetEdited(bool rebuild)
+        {
+            _sheetChanged = true;
+            MarkDirty();
+            if (rebuild)
+                _form.Rebuild = true;
+        }
+
+        string ProgressLine(string what)
+        {
+            var seconds = Mathf.Max(0, Mathf.FloorToInt(Time.unscaledTime - _workStarted));
+            return what + "… " + seconds + " s. A local model can take a minute or two.";
+        }
+
+        void TickProgress()
+        {
+            if ((!_reading && !_condensing) || _progressText == null)
+                return;
+            var seconds = Mathf.FloorToInt(Time.unscaledTime - _workStarted);
+            if (seconds == _shownSeconds)
+                return;
+            _shownSeconds = seconds;
+            var what = _condensing ? "Condensing" : _readPart == null ? "Reading her" : "Reading her " + PartName(_readPart);
+            _progressText.text = HappiUiKit.Literal(ProgressLine(what));
+            if (_progressFill != null)
+                _progressFill.anchorMax = new Vector2(Mathf.Clamp01(seconds / ExpectedReadSeconds) * 0.95f, 1f);
+        }
+
+        static string Pretty(string role)
+        {
+            var r = RelationshipRoles.Normalize(role).Replace('_', ' ');
+            return r.Length == 0 ? r : char.ToUpperInvariant(r[0]) + r.Substring(1);
+        }
+
+        static string Lines(List<string> lines)
+        {
+            return lines == null ? string.Empty : string.Join("\n", lines);
+        }
+
+        static List<string> SplitLines(string text, int max, int maxLength)
+        {
+            var list = new List<string>();
+            var parts = (text ?? string.Empty).Replace("\r\n", "\n").Split('\n');
+            for (var i = 0; i < parts.Length && list.Count < max; i++)
+            {
+                var line = parts[i].Trim();
+                if (line.Length == 0)
+                    continue;
+                list.Add(line.Length > maxLength ? line.Substring(0, maxLength) : line);
+            }
+
+            return list;
         }
 
         void UpdateMeter(string text)
@@ -482,6 +931,7 @@ namespace AICompanion.NewUI
             _dirty = true;
             if (!_pictureChanged)
                 SetPicture(null, false);
+            ResetSheet(null);
             GoTo(step);
         }
 
@@ -495,6 +945,7 @@ namespace AICompanion.NewUI
             }
 
             var picture = copy.HasPicture ? _settings.StudioPicture(copy.Id) : null;
+            var sheet = _settings.StudioSheet(copy.Id);
             copy.Id = string.Empty;
             copy.DisplayName = (string.IsNullOrWhiteSpace(copy.DisplayName) ? "Persona" : copy.DisplayName) + " copy";
             copy.HasPicture = false;
@@ -502,6 +953,8 @@ namespace AICompanion.NewUI
             _isNew = true;
             _dirty = true;
             SetPicture(picture, picture != null);
+            ResetSheet(sheet);
+            _sheetChanged = sheet != null;
             GoTo(Step.Identity);
         }
 
@@ -544,7 +997,9 @@ namespace AICompanion.NewUI
 
             string message;
             string savedId;
-            if (!_settings.StudioSave(_draft, _pictureChanged, _picturePng, _isNew, out savedId, out message))
+            if (_sheet != null)
+                _sheet.Normalize();
+            if (!_settings.StudioSave(_draft, _pictureChanged, _picturePng, _sheetChanged ? _sheet : null, _isNew, out savedId, out message))
             {
                 Status(message);
                 return;
@@ -557,6 +1012,7 @@ namespace AICompanion.NewUI
             _isNew = false;
             _dirty = false;
             _pictureChanged = false;
+            _sheetChanged = false;
             Status(message);
             _form.Rebuild = true;
         }
