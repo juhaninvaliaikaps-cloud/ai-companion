@@ -70,18 +70,62 @@ Each reader turns one game's own official feed into `GameEvent`s. They are in `S
 - **`GsiConfig`** writes the config file for CS2 and Dota 2, named `gamestate_integration_happi.cfg`. It points at `http://127.0.0.1:39271/` and carries a token for this install. It asks only for the user's own data, never `allplayers`.
 - **`GsiListener`** receives those posts on 127.0.0.1 only. It drops any post without the token, and caps the body size and the queue. The bodies wait in a queue for the main thread, and nothing in it touches Unity.
 
-**Installing the config (manual for now).** Copy the generated file to:
-- CS2: `…\steamapps\common\Counter-Strike Global Offensive\game\csgo\cfg\`
-- Dota 2: `…\steamapps\common\dota 2 beta\game\dota\cfg\gamestate_integration\` (create the folder if it doesn't exist)
+**Installing the config (JUH-146, automatic).** When the user presses **Set up** for CS2 or Dota 2, `GsiInstaller.Install` does the following:
+1. Finds Steam. It tries the registry value `HKCU\Software\Valve\Steam\SteamPath` first (`WindowsSteamPath`), then `C:\Program Files (x86)\Steam` and `C:\Program Files\Steam`.
+2. Reads `steamapps\libraryfolders.vdf` to list every library. Both the current and the old format work (`VdfReader`, `SteamLibraries`).
+3. Finds the game's `appmanifest_730.acf` (CS2) or `appmanifest_570.acf` (Dota 2) and takes its `installdir`. A name that could leave the library (`..`, a slash, a drive) is refused.
+4. Writes `gamestate_integration_happi.cfg` to:
+   - CS2: `…\steamapps\common\Counter-Strike Global Offensive\game\csgo\cfg\`
+   - Dota 2: `…\steamapps\common\dota 2 beta\game\dota\cfg\gamestate_integration\`. Only this last folder is created, and only when the game's own `cfg` folder is there.
+5. Reports the result: written, already set up, game not found, or couldn't write (with the reason).
 
-Then restart the game.
+Rules:
+- It writes only on a button press, never in the background.
+- **Remove** deletes the file only if its first line is ours (`"Happi game companion"`), so a file Happi didn't write is left alone.
+- Dota 2 also needs `-gamestateintegration` in its Steam launch options. Happi tells the user how to add it and doesn't edit Steam's own config, because that is fragile.
+- The game reads the file at start, so restart the game after setup.
+- League needs no file.
+
+## At runtime (JUH-47)
+
+`GameCompanionController` (Settings assembly, on the app object) connects everything.
+- **The feeds:**
+  - The GSI listener runs while the game companion is on, CS2 or Dota 2 is ticked and a token exists. It restarts when the port or the token changes.
+  - Posts are routed by the game's app id (`GsiRouting`).
+  - The League poller asks the local API once a second during a match, and every 5 seconds while no match is on. Its certificate handler is set only on those loopback requests. Pinning Riot's root certificate is an open item.
+- **Each event** goes through `GameCommentarySession`: big-moment detection (not for League, which reports its own multi-kills), the pacer and the route. Then she does one of three things:
+  - **Model:** `ChatPanel.RequestGameLine` sends one request to the cloud AI API. The request is her persona prompt, then her game style and the fair-play rules, then the closed 18+ rule. It uses no memory and adds nothing to the history, and private mode refuses it. The reply is cleaned to one spoken line (`CleanReply`). A failed, empty or late reply becomes a pre-written line.
+  - **Pre-written:** said as it is.
+  - **Nothing:** cooldown, muted, or a minor moment.
+- **Saying it:** `ChatPanel.SayGameLine` shows the line in the chat, plays the face and gesture, and speaks it.
+  - A model line uses the cloud voice route.
+  - A pre-written line always uses the local voice, so nothing about the game leaves this PC.
+  - While she is answering the user, the game waits.
+- **Her voice** is read from the active persona's Pisara sliders and relationship role each time.
+
+## The Games section (JUH-47)
+
+Settings → **Games**:
+- **Game companion** on or off. It is off by default, and nothing is read while it is off. In private mode and with 18+ open it keeps running with pre-written lines only, and the section says so.
+- **Let the cloud AI write her lines.** This is the game's own cloud consent. Without it, she uses pre-written lines only.
+- **Her style in games:** her voice, shown so the user can see where it comes from.
+- **How often:** Rare, Normal or Chatty, with the cooldown and the hourly cap spelled out.
+- **Quiet for 10 minutes** and **Talk again.**
+- **Counter-Strike 2** and **Dota 2:**
+  - a **Watch** switch and whether the game is set up
+  - **Set up** or **Set up again**, and **Remove** (JUH-146)
+  - Dota 2 also shows the launch-option step
+- **League of Legends:** a **Watch** switch, and whether a match is on.
+- **Status:** the last thing that happened, plus the port for CS2 and Dota 2.
+
+Settings saved before this have no game fields, and they load with everything off. The new keys are `gameCompanion`, `gameCloudConsent`, `gameFrequency`, `gameCs2`, `gameDota2`, `gameLeague`, `gsiPort` and `gsiToken`. The token is made on the first **Set up**, and it is letters and digits only.
 
 ## Still to build
 
-- The League poller: a request every second or so to the local API, accepting only Riot's certificate on 127.0.0.1:2999.
-- Starting and stopping the GSI listener with the app.
-- The glue that sends a comment through the cloud AI API with her persona, or falls back to a pre-written line, then shows it in chat, speaks it and plays the face and gesture (JUH-47).
-- The Games settings section: the feature switch, the opt-in, the frequency, quiet mode and the push-to-mute key (JUH-47).
+- A quick mute on her wheel.
+- Pinning Riot's root certificate for the League poller.
+- Game reaction animations as Jussi makes them (JUH-50). Today's lines use the faces and the Laugh, Nod, Shrug and Wave gestures.
+- The old settings panel (the IMGUI fallback) has no Games section. The new settings view is the one with it.
 
 ## Open decisions for Jussi
 

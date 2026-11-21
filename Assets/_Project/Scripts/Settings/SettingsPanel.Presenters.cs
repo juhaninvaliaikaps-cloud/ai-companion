@@ -507,6 +507,9 @@ namespace AICompanion.Settings
 
         public ScreenLookController ScreenController => GetComponent<ScreenLookController>();
 
+        /// <summary>JUH-47: the game companion, for the Games section.</summary>
+        public GameCompanionController Games => GetComponent<GameCompanionController>();
+
         /// <summary>"Run setup again" for the new settings view.</summary>
         public void RequestSetupReplay()
         {

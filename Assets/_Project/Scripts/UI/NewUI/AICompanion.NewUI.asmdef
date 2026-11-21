@@ -3,6 +3,7 @@
     "rootNamespace": "AICompanion.NewUI",
     "references": [
         "AICompanion.Core",
+        "AICompanion.GameCompanion",
         "AICompanion.AI",
         "AICompanion.AnimationDirector",
         "AICompanion.Memory",

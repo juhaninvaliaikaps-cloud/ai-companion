@@ -46,7 +46,7 @@ namespace AICompanion.Tests.EditMode
         public void TheTabsAreTheJuh121Layout()
         {
             var source = ViewSource();
-            StringAssert.Contains("{ \"Persona\", \"AI\", \"Voice\", \"Look\", \"Chat\", \"Screen\", \"Window\", \"Data\", \"18+\", \"Keys\", \"Developer\" }", source);
+            StringAssert.Contains("{ \"Persona\", \"AI\", \"Voice\", \"Look\", \"Chat\", \"Screen\", \"Games\", \"Window\", \"Data\", \"18+\", \"Keys\", \"Developer\" }", source);
         }
 
         [Test]
