@@ -139,5 +139,12 @@ It edits a draft and saves the whole persona on **Save**. Closing with unsaved c
 
   On **Save**, the sheet is stored for her id with the hash of her chat prompt, so the background reader uses it and doesn't read her again. Skipping the step leaves it to the background reader, as before.
 
-Still to come: Voice, Look, the review step and test chat (JUH-152), character cards and export (JUH-153), and the picture grid, describe-from-picture and version history (JUH-154).
+- **4 · Voice (JUH-152):** her Piper, Kokoro (drop-down), Chatterbox and xAI voice ids. **Hear her** saves first if needed, then speaks her greeting or a short hello in the voice chat uses (`ChatPanel.SpeakSample`). For a persona who isn't the active one, the Studio offers **Save and use her** first, because otherwise you'd hear the active persona's voice.
+- **5 · Look:** her 3D avatar source (same as the Look tab, Auto, local prefab, VRM, FBX) and her portrait folder. The 2D video avatar is set for all personas on the Look tab.
+- **6 · Review:**
+  - a summary: picture, name, tagline, the description meter, Pisara's temperament and relationship lines
+  - **First greeting:** shown, not spoken, when the chat is empty, at launch with no history, after a persona switch, or after clearing the history (`SettingsPanel.GreetIfEmpty` → `ChatPanel.ShowGreeting`)
+  - **Test chat:** talk to the draft before saving. It uses the chat model under the usual privacy rule, with `NoMemory`, and adds nothing to the real chat or history (`ChatPanel.RequestTestReply`). The last 20 messages are shown.
+
+Still to come: character cards and export (JUH-153), and the picture grid, describe-from-picture and version history (JUH-154).
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using AICompanion.Core;
+using AICompanion.UI;
 
 namespace AICompanion.Settings
 {
@@ -144,6 +145,27 @@ namespace AICompanion.Settings
                 return null;
             var sheet = CharacterSheetStore.LoadFor(CharacterSheetStore.FileFor(PersonaRuntime.DefaultSettingsFolder(), id), prompt);
             return sheet == null ? null : CharacterSheet.FromJson(sheet.ToJson());
+        }
+
+        /// <summary>
+        /// JUH-152: her first greeting in an empty chat: after launch, a persona switch, or
+        /// clearing the history. A chat that already has lines is left alone.
+        /// </summary>
+        void GreetIfEmpty()
+        {
+            var chat = GetComponent<ChatPanel>();
+            if (chat == null || _settings == null || string.IsNullOrWhiteSpace(_settings.PersonaId))
+                return;
+            var persona = PersonaCatalog.LoadDefault(Folder()).Find(_settings.PersonaId);
+            if (persona != null && !string.IsNullOrWhiteSpace(persona.Greeting))
+                chat.ShowGreeting(persona.Greeting);
+        }
+
+        /// <summary>JUH-152: switch to a saved persona from the Studio.</summary>
+        public void StudioUse(string id)
+        {
+            if (!string.IsNullOrWhiteSpace(id))
+                UsePersona(PersonaIds.Normalize(id));
         }
 
         /// <summary>The Pisara reader for the Studio, or null.</summary>

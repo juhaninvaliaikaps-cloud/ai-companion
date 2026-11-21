@@ -6,6 +6,7 @@ using AICompanion.AI;
 using AICompanion.Core;
 using AICompanion.Overlay;
 using AICompanion.Settings;
+using AICompanion.UI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -17,8 +18,7 @@ namespace AICompanion.NewUI
     /// window, so this is a movable panel with its own frame). New and Import open it from the
     /// Persona tab. It edits a draft and saves the whole persona on Save.
     ///
-    /// Steps in this version: Start, Identity, Description and Pisara (JUH-151). Voice, Look and
-    /// Review come in the following PRs (see JUH-150).
+    /// Steps: Start, Identity, Description, Pisara (JUH-151), Voice, Look and Review (JUH-152).
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PersonaStudioView : MonoBehaviour, IOverlayKeepAwake
@@ -29,11 +29,21 @@ namespace AICompanion.NewUI
             Identity = 1,
             Description = 2,
             Pisara = 3,
+            Voice = 4,
+            Look = 5,
+            Review = 6,
         }
 
-        const Step LastStep = Step.Pisara;
+        const Step LastStep = Step.Review;
 
-        static readonly string[] StepLabels = { "Start", "1 · Identity", "2 · Description", "3 · Pisara" };
+        static readonly string[] StepLabels = { "Start", "Identity", "Description", "Pisara", "Voice", "Look", "Review" };
+
+        /// <summary>Kokoro's bundled voices, the same list as the Voice tab.</summary>
+        static readonly string[] KokoroVoices =
+        {
+            "af_heart", "af_bella", "af_nicole", "af_sky", "bf_emma", "bf_isabella", "bm_george", "bm_lewis",
+            "am_adam", "am_michael", "am_puck", "am_santa", "hm_omega", "hm_psi", "jf_alpha", "jm_kumo",
+        };
 
         /// <summary>The model may take a minute or two locally; the bar fills over this long.</summary>
         const float ExpectedReadSeconds = 90f;
@@ -75,6 +85,11 @@ namespace AICompanion.NewUI
         byte[] _picturePng;
         Texture2D _pictureTexture;
         string _paste = string.Empty;
+
+        // JUH-152: the test chat on the Review step. Nothing in it is saved.
+        readonly List<ChatMessage> _test = new List<ChatMessage>();
+        string _testInput = string.Empty;
+        bool _testing;
 
         // JUH-151: the Pisara step.
         CharacterSheet _sheet;
@@ -142,6 +157,7 @@ namespace AICompanion.NewUI
             _dirty = false;
             SetPicture(null, false);
             ResetSheet(null);
+            ClearTest();
             _step = Step.Start;
             Show();
         }
@@ -164,6 +180,7 @@ namespace AICompanion.NewUI
             _dirty = false;
             SetPicture(persona.HasPicture ? _settings.StudioPicture(persona.Id) : null, false);
             ResetSheet(_settings.StudioSheet(persona.Id));
+            ClearTest();
             _step = Step.Identity;
             Show();
         }
@@ -383,6 +400,9 @@ namespace AICompanion.NewUI
                     case Step.Identity: BuildIdentity(); break;
                     case Step.Description: BuildDescription(); break;
                     case Step.Pisara: BuildPisara(); break;
+                    case Step.Voice: BuildVoice(); break;
+                    case Step.Look: BuildLook(); break;
+                    case Step.Review: BuildReview(); break;
                     default: BuildStart(); break;
                 }
             }
@@ -490,6 +510,215 @@ namespace AICompanion.NewUI
             }
 
             _form.Note("Next, Pisara reads her description and fills in who she is. You can also skip it: Pisara then reads her in the background after you save.");
+        }
+
+        // ---- Voice, Look, Review (JUH-152) ---------------------------------------------------
+
+        void BuildVoice()
+        {
+            _form.Section("Her voice");
+            _form.Note("Each voice engine has its own voice id. Empty keeps the engine's voice from the Voice tab.");
+            _form.Field("Piper voice id (local), for example en_US-lessac-medium", _draft.PiperVoiceId, PersonaDefinition.MaxPiperVoiceIdLength, v => Edit(p => p.PiperVoiceId = v, false));
+            var kokoro = new List<string> { string.Empty };
+            kokoro.AddRange(KokoroVoices);
+            if (!string.IsNullOrEmpty(_draft.KokoroVoiceId) && !kokoro.Contains(_draft.KokoroVoiceId))
+                kokoro.Add(_draft.KokoroVoiceId);
+            _form.Dropdown("Kokoro voice (local)", VoiceLabel(_draft.KokoroVoiceId), kokoro, VoiceLabel, v => v == (_draft.KokoroVoiceId ?? string.Empty),
+                v => Edit(p => p.KokoroVoiceId = v));
+            _form.Field("Chatterbox voice id (local)", _draft.ChatterboxVoiceId, PersonaDefinition.MaxChatterboxVoiceIdLength, v => Edit(p => p.ChatterboxVoiceId = v, false));
+            _form.Field("Cloud voice id (xAI), for example eve", _draft.CloudVoiceId, PersonaDefinition.MaxCloudVoiceIdLength, v => Edit(p => p.CloudVoiceId = v, false));
+            _form.Note("The xAI voice is used only when xAI is the cloud AI API. With DeepSeek or another API she speaks with the local voice.");
+
+            _form.Section("Hear her");
+            var active = _settings.CurrentSettings != null ? _settings.CurrentSettings.PersonaId : string.Empty;
+            var isActive = !_isNew && !string.IsNullOrEmpty(_draft.Id) && string.Equals(active, _draft.Id, StringComparison.OrdinalIgnoreCase);
+            if (isActive || _isNew)
+            {
+                _form.Button(_dirty || _isNew ? (_isNew ? "Save, use her and hear her" : "Save and hear her") : "Hear her", HearHer);
+                _form.Note("She says her greeting, or a short hello, in the voice she'll use in chat.");
+            }
+            else
+            {
+                _form.Note("She isn't the active persona, so you would hear someone else's voice. Use her first.");
+                _form.Button("Save and use her", () =>
+                {
+                    if (_dirty)
+                        Save();
+                    if (!_dirty && !string.IsNullOrEmpty(_draft.Id))
+                    {
+                        _settings.StudioUse(_draft.Id);
+                        _form.Rebuild = true;
+                    }
+                });
+            }
+        }
+
+        void HearHer()
+        {
+            var chat = GetComponent<ChatPanel>();
+            if (chat == null)
+                chat = FindFirstObjectByType<ChatPanel>();
+            if (chat == null)
+            {
+                Status("The chat isn't running, so she can't speak.");
+                return;
+            }
+
+            if (_isNew || _dirty)
+            {
+                Save();
+                if (_dirty || _isNew)
+                    return;
+            }
+
+            if (!chat.SpeakSample(SampleLine()))
+                Status("She couldn't speak. Check the Voice tab.");
+        }
+
+        string SampleLine()
+        {
+            if (!string.IsNullOrWhiteSpace(_draft.Greeting))
+                return _draft.Greeting.Trim();
+            var name = string.IsNullOrWhiteSpace(_draft.DisplayName) ? "your companion" : _draft.DisplayName.Trim();
+            return "Hi, I'm " + name + ". This is how I sound.";
+        }
+
+        static string VoiceLabel(string id)
+        {
+            return string.IsNullOrEmpty(id) ? "(the Voice tab's voice)" : id;
+        }
+
+        void BuildLook()
+        {
+            _form.Section("Her 3D avatar");
+            var source = _draft.AvatarSource ?? string.Empty;
+            _form.Choice("Same as the Look tab", source.Length == 0, () => Edit(p => p.AvatarSource = string.Empty));
+            _form.Choice("Auto", SameText(source, AvatarSourceNames.Auto), () => Edit(p => p.AvatarSource = AvatarSourceNames.Auto));
+            _form.Choice("Local prefab", SameText(source, AvatarSourceNames.Local), () => Edit(p => p.AvatarSource = AvatarSourceNames.Local));
+            _form.Choice("VRM sample", SameText(source, AvatarSourceNames.Vrm), () => Edit(p => p.AvatarSource = AvatarSourceNames.Vrm));
+            _form.Choice("FBX sample", SameText(source, AvatarSourceNames.Fbx), () => Edit(p => p.AvatarSource = AvatarSourceNames.Fbx));
+
+            _form.Section("Expression portraits");
+            _form.Field("Portrait folder (empty uses %APPDATA%\\ProjectLeia\\portraits)", _draft.PortraitFolder, PersonaDefinition.MaxPathLength,
+                v => Edit(p => p.PortraitFolder = v, false));
+            _form.Note("The 2D video avatar and its folder are set for all personas on the Look tab.");
+        }
+
+        static bool SameText(string a, string b)
+        {
+            return string.Equals(a ?? string.Empty, b ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        }
+
+        void BuildReview()
+        {
+            _form.Section("Her");
+            if (_pictureTexture != null)
+                _form.Picture(_pictureTexture, 84f, PersonaPictureShapes.Normalize(_draft.PictureShape) == PersonaPictureShapes.Round);
+            _form.Label(string.IsNullOrWhiteSpace(_draft.DisplayName) ? "(no name yet)" : _draft.DisplayName);
+            if (!string.IsNullOrWhiteSpace(_draft.Tagline))
+                _form.Note(_draft.Tagline);
+            _form.Note(_draft.Condensed ? "Description: condensed by Pisara for the chat model." : PersonaDescription.Meter(_draft.Description));
+            if (_sheet != null)
+            {
+                var choice = PisaraReading.Choose(_draft.TemperamentMode, _draft.Temperament, false, _sheet);
+                if (!string.IsNullOrEmpty(choice.Line))
+                    _form.Note(choice.Line);
+                _form.Note(PisaraReading.RelationshipLine(_sheet));
+            }
+            else
+            {
+                _form.Note("Pisara hasn't read her here. It reads her in the background after you save.");
+            }
+
+            _form.Section("First greeting");
+            _form.Area("Her first message in a new chat", _draft.Greeting, 70f, PersonaDefinition.MaxGreetingLength, v => Edit(p => p.Greeting = v, false));
+            _form.Note("Shown when the chat is empty: after you switch to her, at launch with no history, or after clearing the history. It isn't spoken.");
+
+            _form.Section("Test chat");
+            _form.Note("Talk to her before you save. Nothing here is kept: no memory, no history, nothing in the real chat. It uses the chat model, and private mode keeps it local.");
+            var name = string.IsNullOrWhiteSpace(_draft.DisplayName) ? "Her" : _draft.DisplayName.Trim();
+            for (var i = 0; i < _test.Count; i++)
+                _form.Label((_test[i].Role == ChatRole.User ? "You: " : name + ": ") + _test[i].Content);
+            if (_testing)
+                _form.Note(name + " is typing…");
+            _form.Area("Say something", _testInput, 48f, 1000, v => _testInput = v, v => _testInput = v);
+            _form.Buttons(
+                new KeyValuePair<string, Action>(_testing ? "Wait…" : "Send", SendTest),
+                new KeyValuePair<string, Action>("Clear test chat", () =>
+                {
+                    ClearTest();
+                    _form.Rebuild = true;
+                }));
+        }
+
+        CancellationTokenSource _testCancel;
+
+        async void SendTest()
+        {
+            if (_testing || _draft == null || string.IsNullOrWhiteSpace(_testInput))
+                return;
+            var chat = GetComponent<ChatPanel>();
+            if (chat == null)
+                chat = FindFirstObjectByType<ChatPanel>();
+            if (chat == null)
+            {
+                Status("The chat isn't running.");
+                return;
+            }
+
+            _form.BlurFields();
+            _test.Add(new ChatMessage(ChatRole.User, _testInput.Trim()));
+            _testInput = string.Empty;
+            _testing = true;
+            _form.Rebuild = true;
+
+            var copy = _draft.Copy();
+            PersonaDescription.ApplyTo(copy);
+            var name = string.IsNullOrWhiteSpace(copy.DisplayName) ? "her" : copy.DisplayName;
+            var cancel = new CancellationTokenSource();
+            _testCancel = cancel;
+            ChatResult result;
+            try
+            {
+                result = await chat.RequestTestReply(PersonaText.Build(copy, name, RelationshipRoles.Friend), new List<ChatMessage>(_test), cancel.Token);
+            }
+            catch (Exception ex)
+            {
+                result = new ChatResult(false, string.Empty, ChatErrorKind.Unreachable, "The test chat failed.", ex.GetType().Name);
+            }
+
+            if (ReferenceEquals(_testCancel, cancel))
+                _testCancel = null;
+            var cancelled = cancel.IsCancellationRequested;
+            cancel.Dispose();
+            _testing = false;
+            if (this == null || !_attached || cancelled)
+                return;
+            if (result.Ok && !string.IsNullOrWhiteSpace(result.Text))
+                _test.Add(new ChatMessage(ChatRole.Assistant, result.Text.Trim()));
+            else
+                Status(string.IsNullOrEmpty(result.UserMessage) ? "She didn't answer." : result.UserMessage);
+            while (_test.Count > 20)
+                _test.RemoveAt(0);
+            _form.Rebuild = true;
+        }
+
+        void ClearTest()
+        {
+            if (_testCancel != null)
+            {
+                try
+                {
+                    _testCancel.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+
+            _test.Clear();
+            _testInput = string.Empty;
+            _testing = false;
         }
 
         // ---- 3 · Pisara (JUH-151) -----------------------------------------------------------
@@ -832,6 +1061,17 @@ namespace AICompanion.NewUI
 
         void CancelWork()
         {
+            if (_testCancel != null)
+            {
+                try
+                {
+                    _testCancel.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+
             if (_work != null)
             {
                 try
