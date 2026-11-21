@@ -64,6 +64,12 @@ Version 1. Unknown fields are ignored. A missing or broken file is skipped.
 | `model` | Model name for that provider. A Grok id such as `grok-4.7`, or a local Ollama tag. |
 | `avatarSource` | `auto`, `local`, `vrm`, or `fbx`. |
 | `portraitFolder` | Full path to a portrait set. Blank uses `%APPDATA%\ProjectLeia\portraits`. |
+| `tagline` | JUH-150. One line under her name, at most 120 characters. |
+| `description` | JUH-150. The full description, up to 32,000 characters, as written or imported in the Persona Studio. `personality` is filled from it: the whole text when it fits in 4,000 characters, otherwise cut at a paragraph end until Pisara condenses it. Empty on older files, which keep using `personality`. |
+| `greeting` | JUH-150. Her first message in a new chat. Optional. |
+| `exampleLines` | JUH-150. A few sample exchanges. They are added to her prompt under "Examples of how you talk". |
+| `adultNotes` | JUH-150. 18+ notes. They are added to the prompt only while the 18+ gate is open (`AdultNotesNow`), when chat is always local, so they never reach a cloud model. |
+| `hasPicture`, `pictureShape` | JUH-150. Her picture is a 512 × 512 PNG kept encrypted beside her file as `<id>.picture`. The shape (`round` or `square`) is only how it is shown. |
 
 A local persona can point at an Ollama tag instead of Grok:
 
@@ -109,3 +115,16 @@ Text that looks like an API key (`xai-…`, `api_key`, `bearer …`) is removed 
 Choosing **Use setup name** clears `personaId` and the portrait override. The setup name and relationship become the prompt again. Voice and model stay as they are until you pick another persona. Setting the name in the setup wizard does the same.
 
 The built-in presets set Grok, `eve`, and Auto. Picking one applies those. Change them in the persona editor and the copy under `personas\` is what the next launch uses.
+
+## Persona Studio (JUH-150)
+
+**New or import a persona…** and **Open in Persona Studio** on the Persona tab open the Studio. It is a window of its own inside the overlay: you can move it by its title bar, and it has its own close button. Unity has only one real window, so it can't be a separate Windows window.
+
+It edits a draft and saves the whole persona on **Save**. Closing with unsaved changes asks first.
+
+- **Start:** create a new persona, start from a template (one per temperament preset), duplicate one, edit the active one, import a `.txt` or `.md` file, or paste a description.
+- **1 · Identity:** her name, tagline and picture. Choose a picture or paste its path. The centre square is used, and she can be shown round or square.
+- **2 · Description:** up to 32,000 characters, with a meter showing what the chat model sees. Also her speaking style, her example lines, and the 18+ notes, which are shown only when 18+ is turned on in settings.
+
+Still to come: the Pisara step with its generators, Voice, Look, the review step and test chat, character cards, export, the picture grid, and version history.
+

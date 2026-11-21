@@ -420,7 +420,8 @@ namespace AICompanion.NewUI
                 Choice(choice.Label, choice.Active, () => { _settings.Personas.Choose(choice.Id); _rebuild = true; });
             }
 
-            Button("New persona", () => { _settings.NewPersona(); _rebuild = true; });
+            // JUH-150: new, template, duplicate and import open the Persona Studio.
+            Button("New or import a persona…", () => OpenStudio(null));
             PersonaEntry current;
             if (!ActivePersona(catalog, out current))
                 return;
@@ -428,10 +429,14 @@ namespace AICompanion.NewUI
             var persona = current.Persona;
             var id = persona.Id;
             Section("Edit " + (string.IsNullOrEmpty(persona.DisplayName) ? id : persona.DisplayName));
+            Button("Open in Persona Studio", () => OpenStudio(id));
             if (current.BuiltIn)
                 Note(current.UserFile ? "Editing your saved copy." : "Editing saves a copy. The built-in file stays.");
             Field("Display name", persona.DisplayName, false, v => Save(id, p => p.DisplayName = v));
-            Area("Personality", persona.Personality, 80f, PersonaDefinition.MaxPersonalityLength, v => Save(id, p => p.Personality = v));
+            if (string.IsNullOrWhiteSpace(persona.Description))
+                Area("Personality", persona.Personality, 80f, PersonaDefinition.MaxPersonalityLength, v => Save(id, p => p.Personality = v));
+            else
+                Note("Her description (" + persona.Description.Length.ToString("N0", CultureInfo.InvariantCulture) + " characters) is edited in the Persona Studio.");
             Area("Speaking style", persona.SpeakingStyle, 54f, PersonaDefinition.MaxSpeakingStyleLength, v => Save(id, p => p.SpeakingStyle = v));
             Field("Portrait folder", persona.PortraitFolder, false, v => Save(id, p => p.PortraitFolder = v));
             Note("Empty uses the standard portraits folder. Her voice, model and 3D avatar are set on the Voice, AI and Look tabs.");
@@ -484,6 +489,23 @@ namespace AICompanion.NewUI
                 Section("Delete");
                 Button(current.BuiltIn ? "Delete saved copy" : "Delete persona", () => { _settings.DeletePersona(); _rebuild = true; }, true);
             }
+        }
+
+        void OpenStudio(string id)
+        {
+            var studio = GetComponent<PersonaStudioView>();
+            if (studio == null)
+            {
+                _settings.NewPersona();
+                _rebuild = true;
+                return;
+            }
+
+            Close();
+            if (string.IsNullOrEmpty(id))
+                studio.OpenNew();
+            else
+                studio.OpenEdit(id);
         }
 
         /// <summary>The active persona's catalog entry. False, with a note, for the setup name or a missing file.</summary>
