@@ -219,6 +219,12 @@ A built-in persona can't be deleted. "Use setup name" stays as a row above the g
 
 **Her picture everywhere.** Her picture is shown left of her name in the new chat's header and in the wheel's Profile panel, round or square as chosen. It is loaded once per persona (`PersonaPictureCache`) and again only after a persona switch, an edit of her, or a picture save, never per frame.
 
+**Hover to see it whole (JUH-166):** rest the mouse on her small picture in the chat header for a quarter of a second and the whole picture opens next to it, uncropped.
+- It's shown at its own size, or smaller when it wouldn't fit in Happi's window (at most 92% of it).
+- It opens above the small picture when there's room, otherwise below, and it always stays inside the window.
+- It closes when the mouse leaves, and while the chat box is being dragged or resized.
+- It never takes clicks or hover, so click-through is unchanged (`PictureHoverPreview`, `PicturePreviewMath`).
+
 **Describe her from the picture.** On the Studio's Identity step, **Describe her from the picture** asks a vision model for a short appearance paragraph. The paragraph is shown with **Add to her description** and **Discard**; only Add changes the description (under "Appearance:").
 
 - Outside Private mode, the cloud AI API is used when its model reads pictures (`VisionCapability.CloudModelAcceptsImages`), else the local vision model (Screen tab).
