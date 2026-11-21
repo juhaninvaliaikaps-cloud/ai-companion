@@ -69,6 +69,7 @@ Version 1. Unknown fields are ignored. A missing or broken file is skipped.
 | `greeting` | JUH-150. Her first message in a new chat. Optional. |
 | `exampleLines` | JUH-150. A few sample exchanges. They are added to her prompt under "Examples of how you talk". |
 | `adultNotes` | JUH-150. 18+ notes. They are added to the prompt only while the 18+ gate is open (`AdultNotesNow`), when chat is always local, so they never reach a cloud model. |
+| `condensed` | JUH-151. True when `personality` is Pisara's condensed version of a long `description`. |
 | `hasPicture`, `pictureShape` | JUH-150. Her picture is a 512 × 512 PNG kept encrypted beside her file as `<id>.picture`. The shape (`round` or `square`) is only how it is shown. |
 
 A local persona can point at an Ollama tag instead of Grok:
@@ -126,5 +127,17 @@ It edits a draft and saves the whole persona on **Save**. Closing with unsaved c
 - **1 · Identity:** her name, tagline and picture. Choose a picture or paste its path. The centre square is used, and she can be shown round or square.
 - **2 · Description:** up to 32,000 characters, with a meter showing what the chat model sees. Also her speaking style, her example lines, and the 18+ notes, which are shown only when 18+ is turned on in settings.
 
-Still to come: the Pisara step with its generators, Voice, Look, the review step and test chat, character cards, export, the picture grid, and version history.
+- **3 · Pisara (JUH-151):** Pisara reads the whole description, not the cut the chat model gets. It uses the same model and privacy rule as the background reading (`PisaraReadingKeeper.ReadDraftAsync`). The step shows who reads her, a progress bar and **Skip**, and the results:
+  - **Temperament:** Auto with Pisara's line, or your own nine sliders.
+  - **How she knows you:** a role drop-down, what she calls it, and a shared past. Your correction is locked, like a correction on the Persona tab.
+  - **Her life:** backstory (one fact per line), right now, her last week, and what's going on.
+  - **What lands with her:** touchy subjects and what wins her over.
+
+  Each part has a **Redo** that reads again and replaces only that part.
+  - **Condensed description:** shown when the description is over 4,000 characters. Pisara condenses it (`PersonaCondenser`) into text you can edit, and the persona is marked `condensed`. Editing the description clears the mark, and the cut is used again until you condense once more.
+  - **18+:** innocence and the 18+ secrets are still read after you save, on the local model, while the gate is open.
+
+  On **Save**, the sheet is stored for her id with the hash of her chat prompt, so the background reader uses it and doesn't read her again. Skipping the step leaves it to the background reader, as before.
+
+Still to come: Voice, Look, the review step and test chat (JUH-152), character cards and export (JUH-153), and the picture grid, describe-from-picture and version history (JUH-154).
 

@@ -237,6 +237,70 @@ namespace AICompanion.NewUI
             return field;
         }
 
+        /// <summary>A labelled slider; the label follows the value while dragging.</summary>
+        public void Slider(Func<float, string> label, float value, float min, float max, bool whole, Action<float> changed)
+        {
+            var caption = HappiUiKit.Text(_body, "SliderLabel", HappiUiKit.Literal(label(value)), _theme.FontBody * _s, _theme.Text, TextAlignmentOptions.MidlineLeft, false);
+            Place(caption.rectTransform, 18f * _s);
+            var rect = HappiUiKit.Rect(_body, "Slider");
+            Place(rect, 18f * _s);
+            var background = rect.gameObject.AddComponent<Image>();
+            background.sprite = HappiUiKit.Rounded();
+            background.type = Image.Type.Sliced;
+            background.color = _theme.PanelInset;
+            var fillArea = HappiUiKit.Rect(rect, "Fill Area");
+            HappiUiKit.Stretch(fillArea, 8f * _s, 6f * _s, 8f * _s, 6f * _s);
+            var fill = HappiUiKit.Rect(fillArea, "Fill");
+            var fillImage = fill.gameObject.AddComponent<Image>();
+            fillImage.sprite = HappiUiKit.Rounded();
+            fillImage.type = Image.Type.Sliced;
+            fillImage.color = _theme.Border;
+            fill.sizeDelta = Vector2.zero;
+            var handleArea = HappiUiKit.Rect(rect, "Handle Slide Area");
+            HappiUiKit.Stretch(handleArea, 8f * _s, 0f, 8f * _s, 0f);
+            var handle = HappiUiKit.Rect(handleArea, "Handle");
+            handle.sizeDelta = new Vector2(18f * _s, 0f);
+            var handleImage = handle.gameObject.AddComponent<Image>();
+            handleImage.sprite = HappiUiKit.Circle();
+            handleImage.color = _theme.Text;
+            var slider = rect.gameObject.AddComponent<UnityEngine.UI.Slider>();
+            slider.fillRect = fill;
+            slider.handleRect = handle;
+            slider.targetGraphic = handleImage;
+            var colors = slider.colors;
+            colors.highlightedColor = _theme.Hover;
+            slider.colors = colors;
+            slider.minValue = min;
+            slider.maxValue = max;
+            slider.wholeNumbers = whole;
+            slider.value = Mathf.Clamp(value, min, max);
+            slider.onValueChanged.AddListener(next =>
+            {
+                if (Building)
+                    return;
+                caption.text = HappiUiKit.Literal(label(next));
+                if (changed != null)
+                    changed(next);
+            });
+        }
+
+        /// <summary>A thin progress bar; returns the fill so the owner can move it.</summary>
+        public RectTransform Progress(float share)
+        {
+            var track = HappiUiKit.Panel(_body, "Progress", _theme.PanelInset, false);
+            track.sprite = HappiUiKit.Rounded();
+            track.type = Image.Type.Sliced;
+            Place(track.rectTransform, 8f * _s);
+            var fill = HappiUiKit.Panel(track.rectTransform, "Fill", _theme.Hover, false);
+            fill.sprite = HappiUiKit.Rounded();
+            fill.type = Image.Type.Sliced;
+            fill.rectTransform.anchorMin = new Vector2(0f, 0f);
+            fill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(share), 1f);
+            fill.rectTransform.offsetMin = Vector2.zero;
+            fill.rectTransform.offsetMax = Vector2.zero;
+            return fill.rectTransform;
+        }
+
         /// <summary>A picture, square or round, centred on its own row.</summary>
         public RawImage Picture(Texture texture, float size, bool round)
         {
