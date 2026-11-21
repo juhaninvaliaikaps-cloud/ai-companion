@@ -20,6 +20,22 @@ One chat turn is a drop. It falls through leaves in a fixed order, and each leaf
 1. **One reading, many leaves.** The model reads the persona prompt once and writes a character sheet. Every leaf reads from that sheet. No leaf has its own detector.
 2. **The model judges meaning; code keeps the numbers.** The model decides what a message meant. Plain, tested C# decides what that does to her state over time.
 
+## What the user wrote comes first (JUH-157)
+
+Jussi (2026-11-21): Happi's readings fill only what the user left empty. When the user wrote something, it is used as written.
+
+| What the user can write | Which reading respects it, and how |
+| --- | --- |
+| Description | Every reading reads it, and "Stay inside the description" is the main rule. |
+| Scenario (JUH-155) | Pisara takes relationship, shared history and right now from it. |
+| Lorebook (JUH-156) | Pisara reads it under "Her lorebook…" as fact, using `LoreReading` (constant entries first, about 3,000 characters). An 18+ lorebook is read only on a local reading with the gate open, because Pisara may use a cloud model (JUH-126). Changing the lorebook doesn't trigger a new reading by itself; use Re-read. |
+| 18+ notes | The innocence and 18+ secrets readings get them after her prompt (`AdultNotesNow.ForReading`), and their prompts say the notes decide. Both readings run only on the local model with the gate open. A persona with notes is read again once, because the input changed; one without notes keeps the same input and hash. |
+| Relationship correction | Locked; Pisara's reading doesn't change it. |
+| Temperament (manual or sliders) | Overrides Auto. |
+| Greeting | Shown as her first line, so Pisara's first scene isn't used. |
+| Example lines | Used as written. |
+| Describe from picture | Adds text only when the user presses the button. |
+
 ## Status
 
 | Part | State | Owner |

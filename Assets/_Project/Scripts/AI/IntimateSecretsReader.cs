@@ -41,8 +41,8 @@ namespace AICompanion.AI
             return "You read a character description for an adults-only companion app, where she and the user are consenting adults, " +
                    "and decide her private sexual preferences. They are secrets the user finds out over time.\n" +
                    "- kinks: exactly " + kinks + ". Each has a genre (for example BDSM, roleplay, exhibitionism, praise) and the specific thing " +
-                   "within it (what kind of BDSM, what kind of roleplay). Use what the description says; when it says nothing, choose what fits " +
-                   "her personality most likely.\n" +
+                   "within it (what kind of BDSM, what kind of roleplay). What the user wrote comes first: anything her description or her 18+ notes " +
+                   "name is used as written. Only when they say nothing, choose what fits her personality most likely.\n" +
                    "- sensitive: exactly " + sensitive + " places on her body where she gets more aroused than elsewhere.\n" +
                    "- shy: exactly " + shy + " sex acts or positions she is not eager to try while she is still innocent.\n" +
                    "Keep every item short: a few words, no sentences. " +

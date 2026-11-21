@@ -187,6 +187,54 @@ namespace AICompanion.Core
     }
 
     /// <summary>
+    /// JUH-157: her lorebook as part of what Pisara reads, so her backstory and world agree with
+    /// what the user wrote. Constant entries first, then insertion order, within a budget. An
+    /// 18+ lorebook is added only when <paramref name="adultAllowed"/> (a local reading with the
+    /// 18+ gate open), because Pisara may read with a cloud model.
+    /// </summary>
+    public static class LoreReading
+    {
+        public const string Heading = "Her lorebook (facts about her world that the user wrote):";
+
+        public static string Append(string text, Lorebook book, bool adultAllowed, int budget = LoreMatcher.Budget)
+        {
+            var body = text ?? string.Empty;
+            if (book == null || book.Entries.Count == 0 || (book.Adult && !adultAllowed))
+                return body;
+            var entries = new List<KeyValuePair<int, LoreEntry>>();
+            for (var i = 0; i < book.Entries.Count; i++)
+            {
+                var e = book.Entries[i];
+                if (e != null && e.Enabled && !string.IsNullOrWhiteSpace(e.Content))
+                    entries.Add(new KeyValuePair<int, LoreEntry>(i, e));
+            }
+
+            entries.Sort((a, b) =>
+            {
+                if (a.Value.Constant != b.Value.Constant)
+                    return a.Value.Constant ? -1 : 1;
+                var order = a.Value.Order.CompareTo(b.Value.Order);
+                return order != 0 ? order : a.Key.CompareTo(b.Key);
+            });
+
+            var sb = new StringBuilder();
+            var used = 0;
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var content = entries[i].Value.Content.Trim();
+                if (used + content.Length + 3 > budget)
+                    continue;
+                used += content.Length + 3;
+                sb.Append("\n- ").Append(content);
+            }
+
+            if (sb.Length == 0)
+                return body;
+            return body.TrimEnd() + "\n\n" + Heading + sb;
+        }
+    }
+
+    /// <summary>
     /// JUH-156: the active persona's lorebook, handed to chat like <see cref="AdultNotesNow"/>.
     /// An 18+ lorebook adds nothing while the 18+ gate is closed; an open gate keeps chat local.
     /// </summary>
