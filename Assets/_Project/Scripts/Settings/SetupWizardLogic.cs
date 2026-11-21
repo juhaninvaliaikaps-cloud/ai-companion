@@ -294,7 +294,7 @@ namespace AICompanion.Settings
 
         public static string WelcomeCloud()
         {
-            return "Grok chat and xAI text-to-speech send what you type, and what she says, to xAI. That is the cloud path.";
+            return "The cloud AI API (xAI Grok by default, or Claude, DeepSeek and others) gets what you type, and with xAI also what she says for the cloud voice. That is the cloud path.";
         }
 
         public static string WelcomeLocal()
@@ -309,7 +309,7 @@ namespace AICompanion.Settings
 
         public static string AiSkipNote()
         {
-            return "Skip leaves any saved key where it is and switches chat to the local model. Next without a key does the same. Next after a key uses Grok. Test connection uses the same check as Settings.";
+            return "Skip leaves any saved key where it is and switches chat to the local model. Next without a key does the same. Next after a key uses the cloud AI API. Test connection uses the same check as Settings.";
         }
 
         public static string AvatarNote()

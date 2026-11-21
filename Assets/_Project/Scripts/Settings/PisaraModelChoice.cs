@@ -71,7 +71,7 @@ namespace AICompanion.Settings
             else if (sameHost && grokKeyReady)
                 keySource = PisaraKeySource.Grok;
             else if (sameHost)
-                return ChatPath(settings, privateMode, gateOpen, "No Pisara API key or Grok API key is set");
+                return ChatPath(settings, privateMode, gateOpen, "No Pisara API key or cloud AI API key is set");
             else
                 return ChatPath(settings, privateMode, gateOpen, "Set a Pisara API key for this service");
 

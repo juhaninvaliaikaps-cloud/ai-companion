@@ -16,12 +16,16 @@ namespace AICompanion.AI
         public Func<string> ApiKey;
         public Func<float> TimeoutSeconds;
         public IChatTransport Transport;
+
+        /// <summary>JUH-143: chat streams the reply (server-sent events). The Pisara reading does not.</summary>
+        public bool Stream;
     }
 
     /// <summary>
-    /// JUH-126: Claude's native Messages API for the Pisara reading. It is deliberately
-    /// non-streamed: the reading only needs the final sheet, and Anthropic's message endpoint
-    /// has a different body and headers from the OpenAI-compatible providers.
+    /// Claude's native Messages API. JUH-126: the Pisara reading uses it non-streamed, since it
+    /// only needs the final sheet. JUH-143: chat in the cloud slot streams it
+    /// (<see cref="AnthropicProviderConfig.Stream"/>), reading each <c>content_block_delta</c>.
+    /// Images are not sent: the screen look stays on xAI's vision models.
     /// </summary>
     public sealed class AnthropicChatProvider : IChatProvider
     {
@@ -69,6 +73,12 @@ namespace AICompanion.AI
                 return ChatResult.Fail(ChatErrorKind.Cancelled, ChatErrors.Cancelled);
             if (request == null)
                 return ChatResult.Fail(ChatErrorKind.Malformed, ChatErrors.Rejected(DisplayName));
+            if (request.Image != null)
+            {
+                request.Image.Wipe();
+                request.Image = null;
+                return ChatResult.Fail(ChatErrorKind.Malformed, VisionCapability.ModelRefusal);
+            }
 
             var key = ReadKey();
             if (string.IsNullOrWhiteSpace(key))
@@ -82,7 +92,7 @@ namespace AICompanion.AI
             var http = new ChatHttpRequest
             {
                 Url = MessagesUrl(_config.BaseUrl != null ? _config.BaseUrl() : null),
-                Body = BuildBody(model, request),
+                Body = BuildBody(model, request, _config.Stream),
                 TimeoutSeconds = request.TimeoutSeconds > 0f
                     ? request.TimeoutSeconds
                     : (_config.TimeoutSeconds != null ? _config.TimeoutSeconds() : PisaraReader.RequestTimeoutSeconds),
@@ -91,6 +101,9 @@ namespace AICompanion.AI
             http.Headers.Add(new KeyValuePair<string, string>("Content-Type", "application/json"));
             http.Headers.Add(new KeyValuePair<string, string>("x-api-key", key.Trim()));
             http.Headers.Add(new KeyValuePair<string, string>("anthropic-version", AnthropicVersion));
+
+            if (_config.Stream)
+                return await StreamMessages(http, onDelta, model, key, cancellationToken);
 
             var accumulated = new StringBuilder();
             ChatHttpResult result;
@@ -125,6 +138,140 @@ namespace AICompanion.AI
             return ChatResult.Success(text);
         }
 
+        /// <summary>
+        /// The streamed reply: text arrives as <c>content_block_delta</c> / <c>text_delta</c>
+        /// events and is passed on as it comes. An HTTP error has a plain JSON body.
+        /// </summary>
+        async Task<ChatResult> StreamMessages(ChatHttpRequest http, Action<string> onDelta, string model, string key,
+            CancellationToken cancellationToken)
+        {
+            var stream = new StreamState();
+            ChatHttpResult result;
+            try
+            {
+                result = await _config.Transport.PostAsync(http, chunk => stream.Push(chunk, onDelta), cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return ChatResult.Fail(ChatErrorKind.Cancelled, ChatErrors.Cancelled);
+            }
+            catch (Exception)
+            {
+                return ChatResult.Fail(ChatErrorKind.Unreachable, ChatErrors.Unreachable(DisplayName));
+            }
+
+            stream.Flush(onDelta);
+            if (result.Cancelled)
+                return ChatResult.Fail(ChatErrorKind.Cancelled, ChatErrors.Cancelled);
+            if (result.TimedOut)
+                return stream.Text.Length > 0
+                    ? ChatResult.Success(stream.Text.ToString())
+                    : ChatResult.Fail(ChatErrorKind.Timeout, ChatErrors.TimedOut(DisplayName));
+            var raw = stream.Raw.Length > 0 ? stream.Raw.ToString() : result.Body;
+            if (result.NetworkFailed || result.StatusCode == 0 || result.StatusCode >= 400)
+                return ChatErrors.FromTransport(DisplayName, result, raw, true, true, model, key);
+            if (stream.Error != null && stream.Text.Length == 0)
+                return ChatResult.Fail(ChatErrorKind.Unreachable, ChatErrors.Unreachable(DisplayName));
+            if (stream.Text.Length == 0)
+                return ChatResult.Fail(ChatErrorKind.Malformed, ChatErrors.Unreadable(DisplayName));
+            return ChatResult.Success(stream.Text.ToString());
+        }
+
+        /// <summary>The streamed events of one reply. Public for tests.</summary>
+        public sealed class StreamState
+        {
+            const int MaxRaw = 64 * 1024;
+
+            readonly SseParser _parser = new SseParser();
+            readonly List<SseEvent> _events = new List<SseEvent>();
+
+            public readonly StringBuilder Text = new StringBuilder();
+            public readonly StringBuilder Raw = new StringBuilder();
+            public bool Stopped;
+            public string Error;
+
+            public void Push(string chunk, Action<string> onDelta)
+            {
+                if (string.IsNullOrEmpty(chunk))
+                    return;
+                if (Raw.Length < MaxRaw)
+                    Raw.Append(chunk);
+                _parser.Push(chunk, _events);
+                Drain(onDelta);
+            }
+
+            public void Flush(Action<string> onDelta)
+            {
+                _parser.Flush(_events);
+                Drain(onDelta);
+            }
+
+            void Drain(Action<string> onDelta)
+            {
+                for (var i = 0; i < _events.Count; i++)
+                {
+                    var e = _events[i];
+                    if (e.Kind != SseKind.Data || string.IsNullOrEmpty(e.Data))
+                        continue;
+                    StreamEvent parsed;
+                    try
+                    {
+                        parsed = JsonUtility.FromJson<StreamEvent>(e.Data);
+                    }
+                    catch (Exception)
+                    {
+                        continue;
+                    }
+
+                    if (parsed == null || string.IsNullOrEmpty(parsed.type))
+                        continue;
+                    switch (parsed.type)
+                    {
+                        case "content_block_delta":
+                            if (parsed.delta != null && string.Equals(parsed.delta.type, "text_delta", StringComparison.Ordinal)
+                                && !string.IsNullOrEmpty(parsed.delta.text))
+                            {
+                                Text.Append(parsed.delta.text);
+                                if (onDelta != null)
+                                    onDelta(parsed.delta.text);
+                            }
+
+                            break;
+                        case "message_stop":
+                            Stopped = true;
+                            break;
+                        case "error":
+                            Error = parsed.error != null && !string.IsNullOrEmpty(parsed.error.type) ? parsed.error.type : "error";
+                            break;
+                    }
+                }
+
+                _events.Clear();
+            }
+        }
+
+        [Serializable]
+        sealed class StreamEvent
+        {
+            public string type;
+            public StreamDelta delta;
+            public StreamError error;
+        }
+
+        [Serializable]
+        sealed class StreamDelta
+        {
+            public string type;
+            public string text;
+        }
+
+        [Serializable]
+        sealed class StreamError
+        {
+            public string type;
+            public string message;
+        }
+
         string ReadKey()
         {
             return _config.ApiKey != null ? _config.ApiKey() : null;
@@ -136,7 +283,7 @@ namespace AICompanion.AI
                 sb.Append(chunk);
         }
 
-        static string BuildBody(string model, ChatRequest request)
+        static string BuildBody(string model, ChatRequest request, bool stream = false)
         {
             var sb = new StringBuilder(256);
             sb.Append("{\"model\":");
@@ -177,6 +324,8 @@ namespace AICompanion.AI
                 JsonText.AppendString(sb, system);
             }
 
+            if (stream)
+                sb.Append(",\"stream\":true");
             sb.Append(",\"messages\":[");
             sb.Append(messages);
             sb.Append("]}");

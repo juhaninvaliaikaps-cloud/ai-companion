@@ -8,6 +8,9 @@ namespace AICompanion.Settings
     {
         public string Url = string.Empty;
         public bool SendAuthorization;
+
+        /// <summary>JUH-143: Claude's /v1/models takes x-api-key and anthropic-version, not a Bearer token.</summary>
+        public bool AnthropicHeaders;
         public bool Allowed;
         public string Summary = string.Empty;
     }
@@ -34,10 +37,31 @@ namespace AICompanion.Settings
 
             plan.Allowed = true;
             plan.Url = safe.TrimEnd('/') + "/models";
+            plan.AnthropicHeaders = !local && AnthropicChatProvider.IsAnthropic(safe);
             plan.Summary = local
                 ? "Testing the local model. No API key is sent."
-                : "Testing Grok. The API key stays in the request header and is not logged.";
+                : "Testing the " + ChatDefaults.CloudShortName + " API. The API key stays in the request header and is not logged.";
             return plan;
+        }
+
+        /// <summary>The headers that carry the key for this plan; empty when no key is sent.</summary>
+        public static System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, string>> AuthHeaders(
+            ConnectionProbePlan plan, string key)
+        {
+            var headers = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, string>>(2);
+            if (plan == null || !plan.SendAuthorization || string.IsNullOrWhiteSpace(key))
+                return headers;
+            if (plan.AnthropicHeaders)
+            {
+                headers.Add(new System.Collections.Generic.KeyValuePair<string, string>("x-api-key", key.Trim()));
+                headers.Add(new System.Collections.Generic.KeyValuePair<string, string>("anthropic-version", AnthropicChatProvider.AnthropicVersion));
+            }
+            else
+            {
+                headers.Add(new System.Collections.Generic.KeyValuePair<string, string>("Authorization", "Bearer " + key.Trim()));
+            }
+
+            return headers;
         }
 
         public static string FormatResult(int status, string error, string body, string secret = null)
