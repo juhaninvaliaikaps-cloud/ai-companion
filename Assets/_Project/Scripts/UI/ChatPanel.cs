@@ -59,6 +59,8 @@ namespace AICompanion.UI
         IPushToTalk _talk;
         bool _wasRecording;
         bool _forceStrip;
+        string _webSearchContext;
+        bool _webSearchRunning;
         InputField _input;
         InputField _keyInput;
         Sprite _white;
@@ -537,6 +539,9 @@ namespace AICompanion.UI
             if (look != null && look.IsBusy)
                 return false;
 
+            if (!interactionLine && text.StartsWith("/search ", StringComparison.OrdinalIgnoreCase))
+                return TryWebSearch(text.Substring("/search ".Length));
+
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             // Adult interaction text stays on the local model even if the privacy flag is stale.
@@ -596,6 +601,11 @@ namespace AICompanion.UI
 
             // JUH-129: keep the scene (place, time, clothes, who does what) once it is older than the window.
             prompt = WithScene(prompt, privateMode, provider);
+            if (!string.IsNullOrEmpty(_webSearchContext))
+            {
+                prompt += "\n\n" + _webSearchContext;
+                _webSearchContext = null;
+            }
 
             var temperature = settings.temperature;
             var maxTokens = settings.maxTokens;
@@ -610,6 +620,54 @@ namespace AICompanion.UI
             }
 
             Dispatch(provider, text, prompt, temperature, maxTokens, _cancel.Token, options, true, privateMode);
+            return true;
+        }
+
+        /// <summary>
+        /// Explicit /search command. It asks the permission gate, fetches current public
+        /// results, then sends the query to her with that context. No background polling.
+        /// </summary>
+        bool TryWebSearch(string query)
+        {
+            var cleaned = (query ?? string.Empty).Trim();
+            if (cleaned.Length == 0)
+            {
+                _conversation.AddSystem("Type a search after /search.");
+                RefreshTranscript(true);
+                return false;
+            }
+
+            if (_webSearchRunning)
+                return false;
+            var search = GetComponent<IWebSearchContext>();
+            if (search == null)
+            {
+                _conversation.AddSystem("Web search is unavailable on this host.");
+                RefreshTranscript(true);
+                return false;
+            }
+
+            _webSearchRunning = true;
+            _conversation.AddSystem("Searching the web...");
+            RefreshTranscript(true);
+            search.Search(cleaned, result =>
+            {
+                _webSearchRunning = false;
+                if (!_alive || _conversation == null)
+                    return;
+
+                if (!result.Ok || result.Count == 0)
+                {
+                    _conversation.AddSystem(string.IsNullOrEmpty(result.Error) ? "Web search returned nothing." : result.Error);
+                    RefreshTranscript(true);
+                    return;
+                }
+
+                _webSearchContext = result.Text;
+                _conversation.AddSystem("Web search: " + result.Count + " result(s).");
+                RefreshTranscript(true);
+                TrySend(cleaned);
+            });
             return true;
         }
 

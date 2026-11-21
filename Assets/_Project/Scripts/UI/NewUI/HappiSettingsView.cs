@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Text;
 using AICompanion.AI;
 using AICompanion.Core;
 using AICompanion.Overlay;
@@ -72,6 +73,8 @@ namespace AICompanion.NewUI
         bool _focusClaimed;
         bool _framePreview;
         bool _frameFit = true;
+        string _webSearchQuery = string.Empty;
+        string _webSearchStatus = string.Empty;
         float _y;
         float _s = 1f;
         float _width;
@@ -909,6 +912,7 @@ namespace AICompanion.NewUI
         {
             Section("Desktop tools");
             Note("Every capability is off until you grant it. A tool asks the first time it is used, and you can revoke it here at any time.");
+            Note("In chat, type /search <query> to ask for current web context. The first search asks for Web search permission.");
 
             for (var i = 0; i < DesktopToolCatalog.All.Length; i++)
             {
@@ -921,6 +925,42 @@ namespace AICompanion.NewUI
                 Button("Block", () => SetToolPermission(kind, DesktopToolPermissions.Denied));
                 Button("Preview first-use prompt", () => DesktopToolPermissions.Request(_settings, kind, "preview", _ => { _rebuild = true; }));
             }
+
+            Section("Web search test");
+            Note("Use this to check the search connection and permission. Searches are cached and rate-limited; nothing runs in the background.");
+            Field("Search query", _webSearchQuery, false, v => _webSearchQuery = v ?? string.Empty);
+            Button("Search now", () =>
+            {
+                if (string.IsNullOrWhiteSpace(_webSearchQuery))
+                {
+                    _webSearchStatus = "Type a search query first.";
+                    _rebuild = true;
+                    return;
+                }
+
+                _webSearchStatus = "Searching...";
+                _rebuild = true;
+                WebSearchTool.Request(_settings, _webSearchQuery, response =>
+                {
+                    if (!response.Ok)
+                    {
+                        _webSearchStatus = response.Error;
+                    }
+                    else
+                    {
+                        var text = new StringBuilder();
+                        text.Append(response.FromCache ? "Cached results" : "Fresh results");
+                        text.Append(" for \"").Append(response.Query).Append("\":");
+                        for (var i = 0; i < response.Results.Count && i < 3; i++)
+                            text.Append("\n• ").Append(response.Results[i].Title);
+                        _webSearchStatus = text.ToString();
+                    }
+
+                    _rebuild = true;
+                });
+            });
+            if (!string.IsNullOrEmpty(_webSearchStatus))
+                Note(_webSearchStatus);
 
             Section("Tool action log");
             var recent = DesktopToolAuditLog.Recent(8);
