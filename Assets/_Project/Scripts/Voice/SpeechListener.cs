@@ -51,6 +51,18 @@ namespace AICompanion.Voice
             _buttonHeld = held;
         }
 
+        // JUH-162: talking while a game has the focus (mouse side button, Xbox and PS buttons).
+        readonly GameTalkInput _gameTalk = new GameTalkInput();
+        bool _gameTalkHeld;
+
+        public GameTalkInput GameTalk => _gameTalk;
+
+        /// <summary>Which buttons talk while a game has the focus. Safe to call on every settings change.</summary>
+        public void ConfigureGameTalk(TalkMouseButton mouse, bool xbox, bool ps)
+        {
+            _gameTalk.Configure(mouse, xbox, ps);
+        }
+
         public void StartCompanion()
         {
             if (_started)
@@ -78,6 +90,7 @@ namespace AICompanion.Voice
             _alive = false;
             _serial++;
             StopMic();
+            _gameTalk.Dispose();
         }
 
         void Update()
@@ -107,8 +120,11 @@ namespace AICompanion.Voice
 
                 var key = sttSettings.PushToTalkKey;
                 var keyHeld = Input.GetKey(key);
+                // JUH-162: the gaming buttons are read whichever window has the focus, and they
+                // aren't typing keys, so a focused text field doesn't block them.
+                _gameTalkHeld = _gameTalk.Held();
                 var listeningBlocked = !CompanionPause.ListeningAllowed(IsPaused());
-                var signal = _gate.Tick(keyHeld, _buttonHeld, DebugInputGuard.TextFieldFocused, listeningBlocked);
+                var signal = _gate.Tick(keyHeld, _buttonHeld || _gameTalkHeld, DebugInputGuard.TextFieldFocused, listeningBlocked);
                 if (signal == PushToTalkSignal.Cancelled)
                 {
                     _serial++;
@@ -268,7 +284,7 @@ namespace AICompanion.Voice
         {
             if (!_alive || sttSettings == null)
                 return false;
-            return _buttonHeld || (Input.GetKey(sttSettings.PushToTalkKey) && !DebugInputGuard.TextFieldFocused);
+            return _buttonHeld || _gameTalkHeld || (Input.GetKey(sttSettings.PushToTalkKey) && !DebugInputGuard.TextFieldFocused);
         }
 
         void CancelSpeech()

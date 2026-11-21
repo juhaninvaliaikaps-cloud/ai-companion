@@ -988,6 +988,22 @@ namespace AICompanion.NewUI
                 _settings.SetStatusMessage("The Whisper model applies on the next recording. The .bin file is not part of the app.");
             });
             Field("Speech language", S.SttLanguage, false, v => Change(s => s.SttLanguage = v));
+
+            // JUH-162: push-to-talk while a game has the focus.
+            Section("Talk while gaming");
+            Note("Hold one of these in a game, talk, and let go. Happi only reads the button, so the game still gets it.");
+            foreach (var button in new[] { TalkMouseButton.Mouse4, TalkMouseButton.Mouse5, TalkMouseButton.Off })
+            {
+                var choice = button;
+                Choice(GameTalkButtons.Label(choice), GameTalkButtons.Normalize(S.TalkMouseButton) == choice,
+                    () => Change(s => s.TalkMouseButton = (int)choice));
+            }
+
+            Toggle("Xbox button (Xbox controller)", S.TalkXboxButton, v => Change(s => s.TalkXboxButton = v));
+            Toggle("PS button (DualSense)", S.TalkPsButton, v => Change(s => s.TalkPsButton = v));
+            Note("The Xbox button also opens the Xbox Game Bar: turn that off in Windows Settings > Gaming > Game Bar. "
+                 + "With Steam running, the PS button can open the Steam overlay: turn off its Guide button in Steam's controller settings. "
+                 + "A game running as administrator hides its input from Happi, so then run Happi as administrator too.");
         }
 
         // ---- Look: the avatar ---------------------------------------------------------------
