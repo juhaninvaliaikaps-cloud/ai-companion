@@ -245,6 +245,7 @@ namespace AICompanion.Voice
                 lock (_handleLock)
                     _dualSenseHandle = handle;
                 _dualSenseFound = true;
+                Debug.Log("Talk while gaming: DualSense found (" + (bluetooth ? "Bluetooth" : "USB") + "), the PS button talks to Happi");
                 try
                 {
                     while (generation == _generation)
@@ -268,6 +269,7 @@ namespace AICompanion.Voice
                     {
                         _psHeld = false;
                         _dualSenseFound = false;
+                        Debug.Log("Talk while gaming: the DualSense was disconnected");
                     }
 
                     CloseDevice(handle);
