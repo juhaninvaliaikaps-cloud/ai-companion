@@ -152,6 +152,7 @@ Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, Arknights: Endfield and Ne
     - Each new top pull (5-star, or S-rank in ZZZ) is a big moment, with its name and pity.
     - Ten or more pulls without one is a normal moment. A single pull without one isn't spoken.
   - **Her lines** follow the mode: the model first, a pre-written line as the fallback ("Gold! Okay, your luck is better than your aim."), and pre-written lines only in private mode.
+  - **Private mode keeps reading the history** (Jussi, 2026-11-21). The request isn't an AI call: it goes only to HoYoverse, the same server the game's own history page uses, and the authkey never goes anywhere else. Private mode still stops the model, so her pull lines are pre-written there.
   - **Endfield and NTE: no.** Endfield's history needs the account's login token, which unlocks more than the history (one Endfield tracker turned out to be malware). NTE's exporter works by capturing the game's network traffic.
 
 ## Still to build
