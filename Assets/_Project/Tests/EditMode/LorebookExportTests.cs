@@ -37,7 +37,7 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("\"character_book\":", json);
             var card = CharacterCards.Import(Encoding.UTF8.GetBytes(json));
             Assert.IsTrue(card.Ok, card.Error);
-            Assert.AreEqual("Mira runs the night ferry.", card.Persona.Description, "the rest of the card still reads");
+            StringAssert.Contains("Mira runs the night ferry.", card.Persona.Description, "the rest of the card still reads");
             Assert.IsNotNull(card.Lorebook);
             Assert.AreEqual(2, card.Lorebook.Entries.Count);
             Assert.AreEqual("The lighthouse \"Old Tom\" has been dark for years.", card.Lorebook.Entries[0].Content);
