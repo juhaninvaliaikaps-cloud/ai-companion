@@ -39,10 +39,18 @@ namespace AICompanion.Settings
             try
             {
                 var picture = persona.HasPicture ? StudioPicture(persona.Id) : null;
-                var bytes = CharacterCards.Export(persona, picture, format, includeAdult);
+                // JUH-159: her lorebook goes in too (an 18+ one only with includeAdult).
+                var lore = StudioLore(persona.Id);
+                var bytes = CharacterCards.Export(persona, picture, format, includeAdult, lore);
                 File.WriteAllBytes(path, bytes);
+                var parts = new System.Collections.Generic.List<string>();
+                if (includeAdult && !string.IsNullOrWhiteSpace(persona.AdultNotes))
+                    parts.Add("her 18+ notes");
+                if (CharacterCards.ExportsLorebook(lore, includeAdult))
+                    parts.Add("her lorebook");
                 message = "Exported " + Path.GetFileName(path)
-                          + (includeAdult && !string.IsNullOrWhiteSpace(persona.AdultNotes) ? ", with her 18+ notes." : ".");
+                          + (parts.Count > 0 ? ", with " + string.Join(" and ", parts.ToArray()) + "." : ".")
+                          + (lore != null && lore.Adult && !lore.IsEmpty && !includeAdult ? " Her 18+ lorebook was left out." : string.Empty);
                 SetStatus(message);
                 return true;
             }

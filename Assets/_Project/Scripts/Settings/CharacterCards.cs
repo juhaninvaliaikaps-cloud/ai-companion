@@ -561,9 +561,25 @@ namespace AICompanion.Settings
         /// </summary>
         public static string ToCardJson(PersonaDefinition persona, bool includeAdult)
         {
+            return ToCardJson(persona, includeAdult, null);
+        }
+
+        /// <summary>
+        /// JUH-159: an 18+ lorebook goes in only when <paramref name="includeAdult"/>; any other
+        /// goes in as <c>character_book</c> whenever she has one.
+        /// </summary>
+        public static bool ExportsLorebook(Lorebook lore, bool includeAdult)
+        {
+            return lore != null && !lore.IsEmpty && (!lore.Adult || includeAdult);
+        }
+
+        /// <summary>As above, with her lorebook as the card's <c>character_book</c> (JUH-159).</summary>
+        public static string ToCardJson(PersonaDefinition persona, bool includeAdult, Lorebook lore)
+        {
             var source = persona ?? new PersonaDefinition();
             var description = string.IsNullOrWhiteSpace(source.Description) ? source.Personality : source.Description;
-            var adult = includeAdult && !string.IsNullOrWhiteSpace(source.AdultNotes);
+            var withBook = ExportsLorebook(lore, includeAdult);
+            var adult = includeAdult && (!string.IsNullOrWhiteSpace(source.AdultNotes) || (withBook && lore.Adult));
             var data = new CardData
             {
                 name = source.DisplayName ?? string.Empty,
@@ -578,7 +594,25 @@ namespace AICompanion.Settings
                 character_version = string.Empty,
             };
             var file = new CardFile { spec = SpecV2, spec_version = "2.0", data = data };
-            return JsonUtility.ToJson(file, true);
+            var json = JsonUtility.ToJson(file, true);
+            return withBook ? WithCharacterBook(json, lore) : json;
+        }
+
+        /// <summary>
+        /// Adds <c>"character_book": {…}</c> as the last field of the card's <c>data</c>: the data
+        /// object closes at the second-last brace of the file.
+        /// </summary>
+        static string WithCharacterBook(string cardJson, Lorebook lore)
+        {
+            var fileEnd = cardJson.LastIndexOf('}');
+            var dataEnd = fileEnd > 0 ? cardJson.LastIndexOf('}', fileEnd - 1) : -1;
+            if (dataEnd < 0)
+                return cardJson;
+            var at = dataEnd;
+            while (at > 0 && char.IsWhiteSpace(cardJson[at - 1]))
+                at--;
+            var book = LorebookWriter.ToJson(lore).Trim().Replace("\n", "\n        ");
+            return cardJson.Substring(0, at) + ",\n        \"character_book\": " + book + cardJson.Substring(at);
         }
 
         /// <summary>JUH-155: an 18+ export carries her scenario and then her 18+ notes.</summary>
@@ -614,18 +648,19 @@ namespace AICompanion.Settings
         }
 
         /// <summary>A V2 card PNG: her picture (or a plain placeholder) with the card in a <c>chara</c> chunk.</summary>
-        public static byte[] ToCardPng(PersonaDefinition persona, byte[] picturePng, bool includeAdult)
+        public static byte[] ToCardPng(PersonaDefinition persona, byte[] picturePng, bool includeAdult, Lorebook lore = null)
         {
             var picture = IsPng(picturePng) ? picturePng : PlaceholderPng(256, 0x3B, 0x6F, 0xB6);
-            return WithCardChunk(picture, KeywordV2, ToCardJson(persona, includeAdult))
-                   ?? WithCardChunk(PlaceholderPng(256, 0x3B, 0x6F, 0xB6), KeywordV2, ToCardJson(persona, includeAdult));
+            var json = ToCardJson(persona, includeAdult, lore);
+            return WithCardChunk(picture, KeywordV2, json)
+                   ?? WithCardChunk(PlaceholderPng(256, 0x3B, 0x6F, 0xB6), KeywordV2, json);
         }
 
         /// <summary>
         /// A zip with <c>&lt;id&gt;.json</c> (Happi's persona file) and, when she has one,
         /// <c>&lt;id&gt;.png</c>. The 18+ notes are blanked unless <paramref name="includeAdult"/>.
         /// </summary>
-        public static byte[] ToZip(PersonaDefinition persona, byte[] picturePng, bool includeAdult)
+        public static byte[] ToZip(PersonaDefinition persona, byte[] picturePng, bool includeAdult, Lorebook lore = null)
         {
             var copy = (persona ?? new PersonaDefinition()).Copy();
             if (!includeAdult)
@@ -639,6 +674,9 @@ namespace AICompanion.Settings
             };
             if (IsPng(picturePng))
                 files.Add(new KeyValuePair<string, byte[]>(id + ".png", picturePng));
+            // JUH-159: her lorebook as a V2 character_book JSON.
+            if (ExportsLorebook(lore, includeAdult))
+                files.Add(new KeyValuePair<string, byte[]>(id + ".lorebook.json", new UTF8Encoding(false).GetBytes(LorebookWriter.ToJson(lore))));
             return StoredZip.Write(files);
         }
 
@@ -660,16 +698,16 @@ namespace AICompanion.Settings
         }
 
         /// <summary>The exported bytes for a format.</summary>
-        public static byte[] Export(PersonaDefinition persona, byte[] picturePng, CardExportFormat format, bool includeAdult)
+        public static byte[] Export(PersonaDefinition persona, byte[] picturePng, CardExportFormat format, bool includeAdult, Lorebook lore = null)
         {
             switch (format)
             {
                 case CardExportFormat.Json:
-                    return new UTF8Encoding(false).GetBytes(ToCardJson(persona, includeAdult));
+                    return new UTF8Encoding(false).GetBytes(ToCardJson(persona, includeAdult, lore));
                 case CardExportFormat.Zip:
-                    return ToZip(persona, picturePng, includeAdult);
+                    return ToZip(persona, picturePng, includeAdult, lore);
                 default:
-                    return ToCardPng(persona, picturePng, includeAdult);
+                    return ToCardPng(persona, picturePng, includeAdult, lore);
             }
         }
 
