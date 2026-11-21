@@ -92,7 +92,15 @@ namespace AICompanion.Settings
             }
 
             var now = DateTime.UtcNow;
-            var inFront = _gachaWindow != null && !_gachaWindow.Minimized && ForegroundIs(_gachaWindow.Hwnd);
+            // JUH-161: Happi's overlay is often the foreground window while the game fills the screen.
+            var inFront = false;
+            if (_gachaWindow != null)
+            {
+                bool gameInFront, happiInFront;
+                Foreground(_gachaWindow.Hwnd, out gameInFront, out happiInFront);
+                inFront = GachaGames.InFront(_gachaWindow.Minimized, gameInFront, happiInFront, _gachaWindow.CoversMonitor);
+            }
+
             _look.Front(inFront, now);
 
             var hotkey = HotkeyHeld();
@@ -200,6 +208,11 @@ namespace AICompanion.Settings
             {
                 name = string.Empty;
             }
+
+            // JUH-161: anti-cheat games (Endfield, the HoYoverse games) refuse what ProcessName
+            // asks for, but allow the light query Task Manager uses.
+            if (name.Length == 0)
+                name = GachaGames.ExeName(ImagePath(pid));
 
             if (_processNames.Count > 256)
                 _processNames.Clear();
@@ -363,9 +376,51 @@ namespace AICompanion.Settings
         [DllImport("user32.dll")]
         static extern short GetAsyncKeyState(int virtualKey);
 
-        static bool ForegroundIs(long hwnd)
+        [DllImport("user32.dll")]
+        static extern uint GetWindowThreadProcessId(IntPtr hwnd, out int processId);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern IntPtr OpenProcess(uint access, bool inherit, int processId);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        static extern bool QueryFullProcessImageNameW(IntPtr process, uint flags, System.Text.StringBuilder name, ref uint size);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern bool CloseHandle(IntPtr handle);
+
+        const uint ProcessQueryLimitedInformation = 0x1000;
+
+        static readonly int OwnProcessId = System.Diagnostics.Process.GetCurrentProcess().Id;
+
+        /// <summary>Whether the game, or Happi's own window, is the foreground window. No allocation.</summary>
+        static void Foreground(long gameHwnd, out bool game, out bool happi)
         {
-            return hwnd != 0 && GetForegroundWindow().ToInt64() == hwnd;
+            var front = GetForegroundWindow();
+            game = gameHwnd != 0 && front.ToInt64() == gameHwnd;
+            happi = false;
+            if (game || front == IntPtr.Zero)
+                return;
+            int pid;
+            GetWindowThreadProcessId(front, out pid);
+            happi = pid == OwnProcessId;
+        }
+
+        /// <summary>The program's file path with only PROCESS_QUERY_LIMITED_INFORMATION, or empty.</summary>
+        static string ImagePath(int pid)
+        {
+            var handle = OpenProcess(ProcessQueryLimitedInformation, false, pid);
+            if (handle == IntPtr.Zero)
+                return string.Empty;
+            try
+            {
+                var size = 1024u;
+                var name = new System.Text.StringBuilder((int)size);
+                return QueryFullProcessImageNameW(handle, 0, name, ref size) ? name.ToString() : string.Empty;
+            }
+            finally
+            {
+                CloseHandle(handle);
+            }
         }
 
         /// <summary>Ctrl+Shift+G, read with GetAsyncKeyState so it works while the game has focus.</summary>
@@ -377,9 +432,15 @@ namespace AICompanion.Settings
             return (GetAsyncKeyState(control) & 0x8000) != 0 && (GetAsyncKeyState(shift) & 0x8000) != 0 && (GetAsyncKeyState(g) & 0x8000) != 0;
         }
 #else
-        static bool ForegroundIs(long hwnd)
+        static void Foreground(long gameHwnd, out bool game, out bool happi)
         {
-            return false;
+            game = false;
+            happi = false;
+        }
+
+        static string ImagePath(int pid)
+        {
+            return string.Empty;
         }
 
         static bool HotkeyHeld()
