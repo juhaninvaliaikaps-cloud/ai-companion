@@ -296,6 +296,13 @@ namespace AICompanion.Settings
         /// <summary>Base chat text size in pixels at 100% scaling, 10 to 24.</summary>
         public float ChatFontSize = 14f;
 
+        // 0 = ask on first use, 1 = allowed, 2 = denied.
+        public int DesktopFilesPermission;
+        public int DesktopAppsPermission;
+        public int DesktopClipboardPermission;
+        public int DesktopCalendarPermission;
+        public int DesktopWebPermission;
+
         public static CompanionSettings CreateDefault()
         {
             return new CompanionSettings();
@@ -397,6 +404,11 @@ namespace AICompanion.Settings
             if (float.IsNaN(ChatFontSize) || float.IsInfinity(ChatFontSize))
                 ChatFontSize = 14f;
             ChatFontSize = Math.Max(10f, Math.Min(24f, ChatFontSize));
+            DesktopFilesPermission = CleanPermission(DesktopFilesPermission);
+            DesktopAppsPermission = CleanPermission(DesktopAppsPermission);
+            DesktopClipboardPermission = CleanPermission(DesktopClipboardPermission);
+            DesktopCalendarPermission = CleanPermission(DesktopCalendarPermission);
+            DesktopWebPermission = CleanPermission(DesktopWebPermission);
         }
 
         /// <summary>JUH-127: a dragged chat box size, above 0, or 0 for the automatic size.</summary>
@@ -405,6 +417,11 @@ namespace AICompanion.Settings
             if (float.IsNaN(value) || float.IsInfinity(value) || value <= 0f)
                 return 0f;
             return Math.Min(10000f, value);
+        }
+
+        static int CleanPermission(int value)
+        {
+            return value < 0 || value > 2 ? 0 : value;
         }
 
         static float CleanOffset(float value)
@@ -888,6 +905,16 @@ namespace AICompanion.Settings
                 settings.ChatFontFamily = text;
             if (TryNumber(json, "chatFontSize", out number))
                 settings.ChatFontSize = (float)number;
+            if (TryNumber(json, "desktopFilesPermission", out number))
+                settings.DesktopFilesPermission = (int)Math.Round(number);
+            if (TryNumber(json, "desktopAppsPermission", out number))
+                settings.DesktopAppsPermission = (int)Math.Round(number);
+            if (TryNumber(json, "desktopClipboardPermission", out number))
+                settings.DesktopClipboardPermission = (int)Math.Round(number);
+            if (TryNumber(json, "desktopCalendarPermission", out number))
+                settings.DesktopCalendarPermission = (int)Math.Round(number);
+            if (TryNumber(json, "desktopWebPermission", out number))
+                settings.DesktopWebPermission = (int)Math.Round(number);
             if (TryNumber(json, "chatBoxSnap", out number))
                 settings.ChatBoxSnap = (int)Math.Round(number);
             if (TryNumber(json, "chatBoxOffsetX", out number))
@@ -1020,6 +1047,11 @@ namespace AICompanion.Settings
             Number(sb, "spokenGlowIntensity", source.SpokenGlowIntensity, false);
             String(sb, "chatFontFamily", source.ChatFontFamily);
             Number(sb, "chatFontSize", source.ChatFontSize, false);
+            Number(sb, "desktopFilesPermission", source.DesktopFilesPermission, true);
+            Number(sb, "desktopAppsPermission", source.DesktopAppsPermission, true);
+            Number(sb, "desktopClipboardPermission", source.DesktopClipboardPermission, true);
+            Number(sb, "desktopCalendarPermission", source.DesktopCalendarPermission, true);
+            Number(sb, "desktopWebPermission", source.DesktopWebPermission, true);
             Number(sb, "chatBoxSnap", source.ChatBoxSnap, true);
             Number(sb, "chatBoxOffsetX", source.ChatBoxOffsetX, false);
             Number(sb, "chatBoxOffsetY", source.ChatBoxOffsetY, false);

@@ -73,10 +73,20 @@ namespace AICompanion.NewUI
             if (floating == null)
                 floating = gameObject.AddComponent<FloatingFeedbackView>();
             floating.Attach(settings);
+
+            // JUH-27: first-use consent for desktop tools.
+            var consent = GetComponent<DesktopToolConsentView>();
+            if (consent == null)
+                consent = gameObject.AddComponent<DesktopToolConsentView>();
+            consent.Attach(settings);
         }
 
         void TurnOff()
         {
+            var consent = GetComponent<DesktopToolConsentView>();
+            if (consent != null)
+                consent.Detach();
+
             var floating = GetComponent<FloatingFeedbackView>();
             if (floating != null)
                 floating.Detach();

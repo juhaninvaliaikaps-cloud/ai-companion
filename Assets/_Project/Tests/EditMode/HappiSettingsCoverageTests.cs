@@ -17,6 +17,11 @@ namespace AICompanion.Tests.EditMode
             { "CompanionName", "setup wizard (Data > Run setup again)" },
             { "Relationship", "setup wizard (Data > Run setup again)" },
             { "ScreenMonitorDevice", "set by picking a display on the Screen tab (ScreenLookPresenter.SelectMonitor)" },
+            { "DesktopFilesPermission", "Tools tab uses DesktopToolPermissions.SetState" },
+            { "DesktopAppsPermission", "Tools tab uses DesktopToolPermissions.SetState" },
+            { "DesktopClipboardPermission", "Tools tab uses DesktopToolPermissions.SetState" },
+            { "DesktopCalendarPermission", "Tools tab uses DesktopToolPermissions.SetState" },
+            { "DesktopWebPermission", "Tools tab uses DesktopToolPermissions.SetState" },
         };
 
         static string ViewSource()
@@ -46,7 +51,7 @@ namespace AICompanion.Tests.EditMode
         public void TheTabsAreTheJuh121Layout()
         {
             var source = ViewSource();
-            StringAssert.Contains("{ \"Persona\", \"AI\", \"Voice\", \"Look\", \"Chat\", \"Screen\", \"Games\", \"Window\", \"Data\", \"18+\", \"Keys\", \"Developer\" }", source);
+            StringAssert.Contains("{ \"Persona\", \"AI\", \"Voice\", \"Look\", \"Chat\", \"Tools\", \"Screen\", \"Games\", \"Window\", \"Data\", \"18+\", \"Keys\", \"Developer\" }", source);
         }
 
         [Test]
