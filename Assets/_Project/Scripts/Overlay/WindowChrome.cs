@@ -10,6 +10,15 @@ namespace AICompanion.Overlay
 
         /// <summary>Re-applies topmost without activating or restoring a minimized window.</summary>
         void ReassertTopmost();
+
+        /// <summary>JUH-164: the foreground window's handle, or 0. Cheap enough for every frame.</summary>
+        long ForegroundWindow();
+
+        /// <summary>
+        /// JUH-164: whether <paramref name="hwnd"/> is Happi's own, part of the shell (desktop,
+        /// taskbar, Alt+Tab) or fills its monitor. Doesn't allocate.
+        /// </summary>
+        bool DescribeWindow(long hwnd, out bool ownProcess, out bool shell, out bool coversMonitor);
         void SetClickThrough(bool clickThrough);
         bool IsLeftButtonHeld();
         bool IsRightButtonHeld();
@@ -59,6 +68,16 @@ namespace AICompanion.Overlay
 
         public void ReassertTopmost()
         {
+        }
+
+        public long ForegroundWindow() => 0;
+
+        public bool DescribeWindow(long hwnd, out bool ownProcess, out bool shell, out bool coversMonitor)
+        {
+            ownProcess = false;
+            shell = false;
+            coversMonitor = false;
+            return false;
         }
 
         public void SetClickThrough(bool clickThrough)

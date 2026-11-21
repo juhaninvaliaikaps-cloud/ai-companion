@@ -39,6 +39,13 @@ namespace AICompanion.Overlay
         Camera _camera;
         bool _started;
         bool _topmost;
+
+        // JUH-164: "Stay above games", and whether a game is the window in front.
+        bool _stayAboveGames = true;
+        bool _gameInFront;
+        bool _appliedTopmost;
+        long _lastForeground;
+        float _nextGameCheck;
         bool _resolutionApplied;
         bool _chromeApplied;
         bool _dragging;
@@ -94,7 +101,19 @@ namespace AICompanion.Overlay
         float _lastSilhouetteClick = -1f;
         bool _companionVisible = true;
 
+        /// <summary>The desktop "Always on top" setting (F8).</summary>
         public bool IsTopmost => _topmost;
+
+        /// <summary>
+        /// JUH-164: whether her window is topmost right now: "Always on top", or "Stay above games"
+        /// while a game is in front. Every move and resize uses this, so none of them drops her.
+        /// </summary>
+        public bool EffectiveTopmost => GameAbove.Want(_topmost, _stayAboveGames, _gameInFront);
+
+        public bool StayAboveGames => _stayAboveGames;
+
+        /// <summary>True while a game (full-screen or detected) is the window in front.</summary>
+        public bool GameInFront => _gameInFront;
 
         /// <summary>
         /// The debug text top-left (topmost, fps, emotion, key hints, rotate/size/zoom). Off by
@@ -312,7 +331,7 @@ namespace AICompanion.Overlay
             if (_dragging)
             {
                 if (leftHeld && _chrome.TryGetScreenCursor(out screenCursor))
-                    _chrome.MoveWindow(_drag.PositionFor(screenCursor), _topmost);
+                    _chrome.MoveWindow(_drag.PositionFor(screenCursor), EffectiveTopmost);
                 else if (!leftHeld)
                 {
                     _dragging = false;
@@ -350,18 +369,29 @@ namespace AICompanion.Overlay
             if (_warmup > 0 && _chrome.IsSupported)
             {
                 _chrome.TryApplyTransparentPopup();
-                _chrome.SetTopmost(_topmost);
+                _chrome.SetTopmost(EffectiveTopmost);
                 _chrome.SetClickThrough(_clickThrough);
                 _warmup--;
                 if (_warmup == 0 && !_dragging)
                     ApplySizedWindow(false);
             }
 
-            // A borderless/windowed-fullscreen game can create its own topmost window after
-            // Happi starts. Reassert without activating so she stays above it; a minimized
-            // window stays minimized because SetWindowPos never restores it.
-            if (_topmost && _companionVisible && _chrome != null && _chrome.IsSupported
-                && Time.unscaledTime >= _nextTopmostAssert)
+            // JUH-164: a game in front keeps her on top even with "Always on top" off. A
+            // borderless/windowed-fullscreen game can also create its own topmost window after
+            // Happi starts, so she is put back on top at once when the window in front changes,
+            // and every 0.75 s. Reasserting never activates her or restores a minimized window.
+            var frontChanged = TrackGameInFront();
+            var wantTopmost = EffectiveTopmost;
+            if (wantTopmost != _appliedTopmost && _chrome.IsSupported)
+            {
+                _appliedTopmost = wantTopmost;
+                _chrome.SetTopmost(wantTopmost);
+                if (!_topmost)
+                    Debug.Log(wantTopmost ? "Overlay: a game is in front, staying above it" : "Overlay: the game left the front, back to the desktop setting");
+            }
+
+            if (wantTopmost && _companionVisible && _chrome.IsSupported
+                && (frontChanged || Time.unscaledTime >= _nextTopmostAssert))
             {
                 _nextTopmostAssert = Time.unscaledTime + 0.75f;
                 _chrome.ReassertTopmost();
@@ -433,7 +463,44 @@ namespace AICompanion.Overlay
         {
             _topmost = topmost;
             if (_chrome != null && _chrome.IsSupported)
-                _chrome.SetTopmost(topmost);
+            {
+                _appliedTopmost = EffectiveTopmost;
+                _chrome.SetTopmost(_appliedTopmost);
+            }
+        }
+
+        /// <summary>JUH-164: "Stay above games" (on by default).</summary>
+        public void SetStayAboveGames(bool on)
+        {
+            _stayAboveGames = on;
+        }
+
+        /// <summary>
+        /// Looks at the window in front when it changes, and once a second (a game can switch to
+        /// borderless fullscreen after it opens). Happi's own window in front keeps the last
+        /// answer, so clicking her to chat mid-game doesn't drop her. True when the window in
+        /// front changed. Doesn't allocate.
+        /// </summary>
+        bool TrackGameInFront()
+        {
+            if (_chrome == null || !_chrome.IsSupported)
+                return false;
+            var front = _chrome.ForegroundWindow();
+            var changed = front != _lastForeground;
+            if (!changed && Time.unscaledTime < _nextGameCheck)
+                return false;
+            _lastForeground = front;
+            _nextGameCheck = Time.unscaledTime + 1f;
+            bool own, shell, covers;
+            if (front == 0 || !_chrome.DescribeWindow(front, out own, out shell, out covers))
+            {
+                _gameInFront = false;
+                return changed;
+            }
+
+            if (!own)
+                _gameInFront = GameAbove.IsGameWindow(false, shell, covers, front == GameWindowNow.Hwnd);
+            return changed;
         }
 
         public void SetClickThroughMode(OverlayClickThrough mode)
@@ -470,7 +537,7 @@ namespace AICompanion.Overlay
 
             _chrome.SetWindowVisible(visible);
             if (visible && _chrome.IsSupported)
-                _chrome.SetTopmost(_topmost);
+                _chrome.SetTopmost(EffectiveTopmost);
         }
 
         void ApplyPlayerResolution()
@@ -501,7 +568,7 @@ namespace AICompanion.Overlay
 
             _chromeApplied = true;
             _warmup = 30;
-            _chrome.SetTopmost(_topmost);
+            _chrome.SetTopmost(EffectiveTopmost);
             ApplySizedWindow(true);
         }
 
@@ -673,7 +740,7 @@ namespace AICompanion.Overlay
                     _warmup = 30;
             }
 #endif
-            _chrome.PlaceWindow(new Vector2Int(x, y), width, height, _topmost);
+            _chrome.PlaceWindow(new Vector2Int(x, y), width, height, EffectiveTopmost);
         }
 
         bool TryReadWorkArea(out int left, out int top, out int right, out int bottom)

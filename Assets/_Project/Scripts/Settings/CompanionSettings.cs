@@ -70,6 +70,9 @@ namespace AICompanion.Settings
         public string WhisperModel = SttSettings.DefaultModelFile;
         public string SttLanguage = "auto";
         public bool AlwaysOnTop = true;
+
+        // JUH-164: on top of a game in front even with AlwaysOnTop off.
+        public bool StayAboveGames = true;
         public float Scale = 1f;
         public string ClickThrough = OverlayClickThroughPolicy.SilhouetteName;
         public int IdleFrameRate = OverlayFrameRate.Idle;
@@ -775,6 +778,8 @@ namespace AICompanion.Settings
                 settings.SttLanguage = text;
             if (TryBool(json, "alwaysOnTop", out flag))
                 settings.AlwaysOnTop = flag;
+            if (TryBool(json, "stayAboveGames", out flag))
+                settings.StayAboveGames = flag;
             if (TryNumber(json, "scale", out number) || TryNumber(json, "windowScale", out number))
                 settings.Scale = (float)number;
             if (TryString(json, "clickThrough", out text))
@@ -982,6 +987,7 @@ namespace AICompanion.Settings
             String(sb, "whisperModel", source.WhisperModel);
             String(sb, "sttLanguage", source.SttLanguage);
             Bool(sb, "alwaysOnTop", source.AlwaysOnTop);
+            Bool(sb, "stayAboveGames", source.StayAboveGames);
             Number(sb, "scale", source.Scale, false);
             String(sb, "clickThrough", source.ClickThrough);
             Number(sb, "idleFrameRate", source.IdleFrameRate, true);

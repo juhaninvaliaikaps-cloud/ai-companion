@@ -190,7 +190,7 @@ namespace AICompanion.Overlay
                 areaBottom,
                 _window.IsDragging);
             if (frame.Moved)
-                chrome.MoveWindow(new Vector2Int(frame.X - side, frame.Y), _window.IsTopmost);
+                chrome.MoveWindow(new Vector2Int(frame.X - side, frame.Y), _window.EffectiveTopmost);
         }
 
         /// <summary>

@@ -104,6 +104,7 @@ namespace AICompanion.Settings
             {
                 if (window.IsTopmost != settings.AlwaysOnTop)
                     window.SetTopmost(settings.AlwaysOnTop);
+                window.SetStayAboveGames(settings.StayAboveGames);
                 window.SetClickThroughMode(OverlayClickThroughPolicy.Parse(settings.ClickThrough));
                 window.SetIdleFrameRate(settings.IdleFrameRate);
                 window.ShowDebugInfo = settings.ShowDebugInfo;
