@@ -108,13 +108,14 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void AWindowImage_GoesNowhereButXai()
+        public void AWindowImage_GoesOnlyToAModelThatReadsPictures()
         {
+            // JUH-149: any API may get a picture, but only for a model that reads pictures.
             var transport = new FakeTransport(Claudes("x"));
             var request = Hello();
             request.Image = new ChatImageAttachment { JpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0x10 }, Width = 1, Height = 1 };
 
-            var result = Cloud(transport, Claude).StreamChat(request, null, CancellationToken.None).GetAwaiter().GetResult();
+            var result = Cloud(transport, "https://api.deepseek.com/v1", "deepseek-chat").StreamChat(request, null, CancellationToken.None).GetAwaiter().GetResult();
 
             Assert.IsFalse(result.Ok);
             Assert.AreEqual(VisionCapability.ModelRefusal, result.UserMessage);
@@ -220,7 +221,7 @@ namespace AICompanion.Tests.EditMode
                 CloudConsent = true,
                 AllowCloud = true,
                 EffectiveProviderId = ChatDefaults.GrokId,
-                CloudModel = "claude-sonnet-5-5",
+                CloudModel = "deepseek-chat",
                 Target = new AICompanion.ScreenLook.WindowTarget { Hwnd = 42, ProcessId = 7, Title = "Notes", ClassName = "Notepad", IsAlive = true, Width = 800, Height = 600 },
             };
 

@@ -84,6 +84,12 @@ namespace AICompanion.Settings
         public string PrivateBaseUrl = string.Empty;
         public string PrivateModel = string.Empty;
 
+        /// <summary>
+        /// JUH-149: whether the cloud AI API's model reads pictures: "auto" (the known list),
+        /// "on" (any model) or "off" (never send a picture).
+        /// </summary>
+        public string CloudVision = VisionCapability.ModeAuto;
+
         /// <summary>Manual window capture. Off until the user turns it on.</summary>
         public bool ScreenLookEnabled;
 
@@ -306,6 +312,7 @@ namespace AICompanion.Settings
             LocalModel = CleanToken(LocalModel, ChatDefaults.LocalModel, MaxModelLength);
             LocalVisionModel = CleanToken(LocalVisionModel, string.Empty, MaxModelLength);
             GameFrequency = GameFrequencyNames.Normalize(GameFrequency);
+            CloudVision = VisionCapability.NormalizeMode(CloudVision);
             GsiPort = GameFrequencyNames.NormalizePort(GsiPort);
             GsiToken = GameFrequencyNames.NormalizeToken(GsiToken);
             ScreenMonitorDevice = CleanToken(ScreenMonitorDevice, string.Empty, 64);
@@ -767,6 +774,8 @@ namespace AICompanion.Settings
                 settings.ChatHistory = flag;
             if (TryBool(json, "privateMode", out flag))
                 settings.PrivateMode = flag;
+            if (TryString(json, "cloudVision", out text))
+                settings.CloudVision = text;
             if (TryBool(json, "screenLookEnabled", out flag))
                 settings.ScreenLookEnabled = flag;
             if (TryBool(json, "screenCloudConsent", out flag))
@@ -954,6 +963,7 @@ namespace AICompanion.Settings
             Bool(sb, "paused", source.Paused);
             Bool(sb, "chatHistory", source.ChatHistory);
             Bool(sb, "privateMode", source.PrivateMode);
+            String(sb, "cloudVision", source.CloudVision);
             Bool(sb, "screenLookEnabled", source.ScreenLookEnabled);
             Bool(sb, "screenCloudConsent", source.ScreenCloudConsent);
             String(sb, "localVisionModel", source.LocalVisionModel);

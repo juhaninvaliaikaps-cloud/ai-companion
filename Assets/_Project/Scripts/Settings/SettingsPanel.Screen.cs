@@ -50,7 +50,7 @@ namespace AICompanion.Settings
                 return;
             }
 
-            NoteBlock("Preview stays on this PC. Allowing cloud screen analysis sends the selected window image to the configured cloud vision provider (xAI Grok at the Base URL on the AI tab; other cloud APIs do not get the image). The image is not saved. Private mode never sends it and does not switch to a cloud model.");
+            NoteBlock("Preview stays on this PC. Allowing cloud screen analysis sends the selected window image to the cloud AI API on the AI tab, if its model reads pictures. The image is not saved. Private mode never sends it and does not switch to a cloud model.");
             AddToggle("Allow cloud screen analysis", _settings.ScreenCloudConsent, value =>
             {
                 _settings.ScreenCloudConsent = value;
