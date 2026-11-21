@@ -67,3 +67,38 @@ Never pass raw search queries, file paths, clipboard text or calendar contents a
 - Permissions are global desktop-tool permissions, not persona permissions.
 - The consent card only asks; it does not execute a tool.
 - The actual file/app/clipboard/calendar/web implementations are tracked in JUH-29 and JUH-28.
+
+## Web search (JUH-29 start)
+
+The first web tool is a **read-only context search**, not a browser automation tool.
+
+In chat:
+
+```text
+/search Counter-Strike 2 latest patch notes
+```
+
+It asks for Web search permission on first use, fetches current public results, then sends
+the query to the companion with a dated source block. The reply can use that context but
+should cite the sources.
+
+The provider is the public Google News RSS feed: no API key, no background polling. Results
+are cached for 10 minutes and requests are rate-limited to one every 8 seconds. Only 5
+results are kept. The action log records “search the web”, never the query.
+
+For the game companion, use:
+
+```csharp
+WebSearchTool.RequestForGame(panel, "Counter-Strike 2", response => { ... });
+```
+
+or the Core contract:
+
+```csharp
+IWebSearchContext search = host.GetComponent<IWebSearchContext>();
+search.Search("Dota 2 latest patch", result => { ... });
+```
+
+Automatic game-context search is not wired into the commentary engine yet; the tool and
+permissioned context contract are ready for it.
+
