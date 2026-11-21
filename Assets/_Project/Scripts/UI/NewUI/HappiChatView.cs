@@ -972,6 +972,7 @@ namespace AICompanion.NewUI
             dialogueButton.navigation = nav;
             dialogueButton.onClick.AddListener(OnDialogueClick);
             _dialogue = HappiUiKit.Text(_dialogueHit.transform, "Text", string.Empty, _theme.FontBody, _theme.Text, TextAlignmentOptions.BottomLeft, false);
+            _dialogue.richText = true;
             _dialogue.overflowMode = TextOverflowModes.Overflow;
             HappiUiKit.Stretch(_dialogue.rectTransform, 8f, 6f, 8f, 6f);
             _note = HappiUiKit.Text(_box, "Note", string.Empty, _theme.FontSmall, _theme.TextMuted, TextAlignmentOptions.TopLeft, false);
@@ -1247,6 +1248,17 @@ namespace AICompanion.NewUI
             return settings != null && settings.ChatFontSize >= 10f ? settings.ChatFontSize : _theme.FontBody;
         }
 
+        /// <summary>
+        /// History is the same paragraph, so it must use the live line's resolved size rather
+        /// than applying its own scale or a smaller transcript multiplier.
+        /// </summary>
+        float HistoryFontSize()
+        {
+            if (_dialogue != null && _dialogue.fontSize > 0.1f)
+                return _dialogue.fontSize;
+            return Mathf.Max(9f, ChatFontSize()) * (_layoutScale > 0f ? _layoutScale : 1f);
+        }
+
         /// <summary>Applies the chosen font to the dialogue, transcript and input.</summary>
         public void ApplyChatFont()
         {
@@ -1263,13 +1275,14 @@ namespace AICompanion.NewUI
                     _dialogue.font = font;
                 _dialogue.fontSize = size;
             }
+            var historySize = HistoryFontSize();
             for (var i = 0; i < _historyTexts.Count; i++)
             {
                 if (_historyTexts[i] == null)
                     continue;
                 if (font != null)
                     _historyTexts[i].font = font;
-                _historyTexts[i].fontSize = Mathf.Max(9f, size * 0.86f);
+                _historyTexts[i].fontSize = historySize;
             }
             if (_input != null && _input.textComponent != null)
             {
@@ -1394,9 +1407,9 @@ namespace AICompanion.NewUI
             if (line == null || string.IsNullOrEmpty(line.Text))
                 return line != null ? line.Text : string.Empty;
             if (line.Kind != ChatLineKind.Assistant && line.Kind != ChatLineKind.User)
-                return line.Text;
+                return HappiUiKit.Literal(line.Text);
             var segments = VnScriptParser.Parse(line.Text, true).Segments;
-            return VnRender.Dialogue(segments, segments.Count, -1, _theme, line.HighlightFeedback);
+            return VnRender.Dialogue(segments, segments.Count, -1, _theme, false);
         }
 
         void RefreshDialogue()
@@ -1442,7 +1455,7 @@ namespace AICompanion.NewUI
             if (_player.Segments.Count > 0 && _appendedSerial != serial)
             {
                 text = VnRender.Dialogue(_player.Segments, _player.Revealed, _player.Finished ? -1 : _player.Current, _theme,
-                    _chat != null && _chat.LastAssistantHighlighted);
+                    false);
                 _glowLineStart = VnRender.LineStart(_player.Segments, _player.Current);
             }
             else if (_sink.Streaming)
@@ -1498,10 +1511,11 @@ namespace AICompanion.NewUI
             _historyWidth = width;
             _liveDirty = false;
             var count = _transcript.Count;
-            var historySize = Mathf.Max(9f, ChatFontSize() * 0.86f) * _layoutScale;
+            var historySize = HistoryFontSize();
             while (_historyTexts.Count < count)
             {
                 var text = HappiUiKit.Text(_historyContent, "Message", string.Empty, historySize, _theme.Text, TextAlignmentOptions.TopLeft, false);
+                text.richText = true;
                 text.overflowMode = TextOverflowModes.Overflow;
                 var rect = text.rectTransform;
                 rect.anchorMin = new Vector2(0f, 1f);
@@ -1513,7 +1527,10 @@ namespace AICompanion.NewUI
 
             for (var i = 0; i < _historyTexts.Count; i++)
                 if (_historyTexts[i] != null)
+                {
+                    _historyTexts[i].richText = true;
                     _historyTexts[i].fontSize = historySize;
+                }
 
             var y = 0f;
             for (var i = 0; i < _historyTexts.Count; i++)
@@ -1536,7 +1553,7 @@ namespace AICompanion.NewUI
                 {
                     // JUH-132: the transcript used the old History tab's small font after a
                     // reply finished, while the live reply was body size. Keep one size.
-                    text.fontSize = _theme.FontBody * _layoutScale;
+                    text.fontSize = HistoryFontSize();
                     text.text = HistoryEntry(_transcript.Entry(i));
                     _historyHeights[i] = Mathf.Max(8f, text.GetPreferredValues(text.text, width - 4f, 0f).y);
                 }
@@ -1610,7 +1627,7 @@ namespace AICompanion.NewUI
             var body = entry.Substring(split + 1);
             if (label == "Companion")
                 label = CompanionName();
-            return "<b>" + HappiUiKit.Literal(label) + "</b>\n" + HappiUiKit.Literal(body);
+            return "<b>" + HappiUiKit.Literal(label) + "</b>\n" + body;
         }
 
         static string Shorten(string text, int max)
