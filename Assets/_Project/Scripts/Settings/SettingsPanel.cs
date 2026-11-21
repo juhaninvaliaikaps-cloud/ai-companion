@@ -1550,6 +1550,9 @@ namespace AICompanion.Settings
                     host.AddComponent<SettingsPanel>();
                 if (host.GetComponent<ScreenLookController>() == null)
                     host.AddComponent<ScreenLookController>();
+                // JUH-47: the game companion; idle until it is turned on in the Games section.
+                if (host.GetComponent<GameCompanionController>() == null)
+                    host.AddComponent<GameCompanionController>();
                 if (host.GetComponent<SetupWizard>() == null)
                     host.AddComponent<SetupWizard>();
             }

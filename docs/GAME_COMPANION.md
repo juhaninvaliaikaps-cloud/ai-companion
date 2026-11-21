@@ -86,12 +86,46 @@ Rules:
 - The game reads the file at start, so restart the game after setup.
 - League needs no file.
 
+## At runtime (JUH-47)
+
+`GameCompanionController` (Settings assembly, on the app object) connects everything.
+- **The feeds:**
+  - The GSI listener runs while the game companion is on, CS2 or Dota 2 is ticked and a token exists. It restarts when the port or the token changes.
+  - Posts are routed by the game's app id (`GsiRouting`).
+  - The League poller asks the local API once a second during a match, and every 5 seconds while no match is on. Its certificate handler is set only on those loopback requests. Pinning Riot's root certificate is an open item.
+- **Each event** goes through `GameCommentarySession`: big-moment detection (not for League, which reports its own multi-kills), the pacer and the route. Then she does one of three things:
+  - **Model:** `ChatPanel.RequestGameLine` sends one request to the cloud AI API. The request is her persona prompt, then her game style and the fair-play rules, then the closed 18+ rule. It uses no memory and adds nothing to the history, and private mode refuses it. The reply is cleaned to one spoken line (`CleanReply`). A failed, empty or late reply becomes a pre-written line.
+  - **Pre-written:** said as it is.
+  - **Nothing:** cooldown, muted, or a minor moment.
+- **Saying it:** `ChatPanel.SayGameLine` shows the line in the chat, plays the face and gesture, and speaks it.
+  - A model line uses the cloud voice route.
+  - A pre-written line always uses the local voice, so nothing about the game leaves this PC.
+  - While she is answering the user, the game waits.
+- **Her voice** is read from the active persona's Pisara sliders and relationship role each time.
+
+## The Games section (JUH-47)
+
+Settings → **Games**:
+- **Game companion** on or off. It is off by default, and nothing is read while it is off.
+- **Let the cloud AI write her lines.** This is the game's own cloud consent. Without it, she uses pre-written lines only.
+- **Her style in games:** her voice, shown so the user can see where it comes from.
+- **How often:** Rare, Normal or Chatty, with the cooldown and the hourly cap spelled out.
+- **Quiet for 10 minutes** and **Talk again.**
+- **Counter-Strike 2** and **Dota 2:**
+  - a **Watch** switch and whether the game is set up
+  - **Set up** or **Set up again**, and **Remove** (JUH-146)
+  - Dota 2 also shows the launch-option step
+- **League of Legends:** a **Watch** switch, and whether a match is on.
+- **Status:** the last thing that happened, plus the port for CS2 and Dota 2.
+
+Settings saved before this have no game fields, and they load with everything off. The new keys are `gameCompanion`, `gameCloudConsent`, `gameFrequency`, `gameCs2`, `gameDota2`, `gameLeague`, `gsiPort` and `gsiToken`. The token is made on the first **Set up**, and it is letters and digits only.
+
 ## Still to build
 
-- The League poller: a request every second or so to the local API, accepting only Riot's certificate on 127.0.0.1:2999.
-- Starting and stopping the GSI listener with the app.
-- The glue that sends a comment through the cloud AI API with her persona, or falls back to a pre-written line, then shows it in chat, speaks it and plays the face and gesture (JUH-47).
-- The Games settings section: the feature switch, the opt-in, the frequency, quiet mode and the push-to-mute key (JUH-47).
+- A quick mute on her wheel.
+- Pinning Riot's root certificate for the League poller.
+- Game reaction animations as Jussi makes them (JUH-50). Today's lines use the faces and the Laugh, Nod, Shrug and Wave gestures.
+- The old settings panel (the IMGUI fallback) has no Games section. The new settings view is the one with it.
 
 ## Open decisions for Jussi
 

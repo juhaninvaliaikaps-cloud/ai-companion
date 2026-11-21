@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using AICompanion.AI;
 using AICompanion.Core;
+using AICompanion.GameCompanion;
 using AICompanion.Overlay;
 using AICompanion.ScreenLook;
 using AICompanion.Settings;
@@ -36,6 +37,7 @@ namespace AICompanion.NewUI
             Look,
             Chat,
             Screen,
+            Games,
             Window,
             Data,
             Adult,
@@ -43,7 +45,7 @@ namespace AICompanion.NewUI
             Developer,
         }
 
-        static readonly string[] TabLabels = { "Persona", "AI", "Voice", "Look", "Chat", "Screen", "Window", "Data", "18+", "Keys", "Developer" };
+        static readonly string[] TabLabels = { "Persona", "AI", "Voice", "Look", "Chat", "Screen", "Games", "Window", "Data", "18+", "Keys", "Developer" };
         const float PlaneDistance = 0.36f;
 
         SettingsPanel _settings;
@@ -233,7 +235,8 @@ namespace AICompanion.NewUI
                 + "|" + s.PisaraCloud + "|" + s.PisaraCloudBaseUrl + "|" + s.PisaraCloudModel + "|" + s.MemoryEmbeddings
                 + "|" + _settings.PisaraApiKeySaved + "|" + _settings.PisaraApiKeyFromEnvironment
                 + "|" + (look != null ? look.Revision : 0) + "|" + _settings.ConnectionTestRunning + "|" + s.ShowMoodDebug + "|" + s.VoiceNarration
-                + "|" + _settings.PisaraRevision + "|" + _settings.TemperamentRevision;
+                + "|" + _settings.PisaraRevision + "|" + _settings.TemperamentRevision
+                + "|" + (_tab == Tab.Games && _settings.Games != null ? _settings.Games.Revision : 0);
         }
 
         // ---- Chrome ------------------------------------------------------------------------
@@ -373,6 +376,7 @@ namespace AICompanion.NewUI
                         case Tab.Look: BuildLook(); break;
                         case Tab.Chat: BuildChat(); break;
                         case Tab.Screen: BuildScreen(); break;
+                        case Tab.Games: BuildGames(); break;
                         case Tab.Window: BuildWindow(); break;
                         case Tab.Data: BuildData(); break;
                         case Tab.Adult: BuildAdult(); break;
@@ -1263,6 +1267,98 @@ namespace AICompanion.NewUI
         static bool Same(string a, string b)
         {
             return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // ---- Games: the game companion (JUH-47) --------------------------------------------
+
+        void BuildGames()
+        {
+            var games = _settings.Games;
+            Note("She watches your game and reacts, like a friend on the couch. Only each game's official data feed is used. Nothing reads or changes the game itself.");
+            Toggle("Game companion", S.GameCompanion, v => Change(s => s.GameCompanion = v));
+            if (!S.GameCompanion)
+            {
+                Note("Off. Nothing is read from your games.");
+                return;
+            }
+
+            if (games == null)
+            {
+                Note("The game companion isn't available in this session.");
+                return;
+            }
+
+            if (games.Mode == CommentaryMode.Off && games.ModeReason.Length > 0)
+                Note(games.ModeReason);
+
+            Section("Her lines");
+            Toggle("Let the cloud AI write her lines", S.GameCloudConsent, v => Change(s => s.GameCloudConsent = v));
+            Note(S.GameCloudConsent
+                ? "What just happened in your game (a kill, a death, a win) is sent to the cloud AI API with her persona, and she answers in her own words. If that fails, is slow or the hourly cap is used up, she says a pre-written line instead."
+                : "She says pre-written lines in her personality. Nothing about your game leaves this PC.");
+            if (games.Mode == CommentaryMode.PreWrittenOnly && games.ModeReason == CommentaryGate.NoCloud)
+                Note(CommentaryGate.NoCloud);
+            Note("Her style in games: " + GameVoices.Name(games.Voice) + ". It comes from her personality sliders and her relationship to you.");
+
+            Section("How often");
+            var frequency = S.GameFrequency;
+            Choice("Rare", frequency == GameFrequencyNames.Rare, () => Change(s => s.GameFrequency = GameFrequencyNames.Rare));
+            Choice("Normal", frequency == GameFrequencyNames.Normal, () => Change(s => s.GameFrequency = GameFrequencyNames.Normal));
+            Choice("Chatty", frequency == GameFrequencyNames.Chatty, () => Change(s => s.GameFrequency = GameFrequencyNames.Chatty));
+            var pace = GameCommentarySession.FrequencyFor(frequency);
+            Note("At most one line every " + Mathf.RoundToInt((float)CommentaryPacer.CooldownFor(pace)) + " seconds, sooner for a big moment. Up to "
+                 + CommentaryPacer.BudgetFor(pace) + " cloud lines an hour.");
+            if (games.Muted)
+                Button("Talk again", () => { games.Unmute(); _rebuild = true; });
+            else
+                Button("Quiet for 10 minutes", () => { games.MuteFor(TimeSpan.FromMinutes(10)); _rebuild = true; });
+
+            GameSection(games, GameTitle.CounterStrike2, "Counter-Strike 2", S.GameCs2, v => Change(s => s.GameCs2 = v));
+            GameSection(games, GameTitle.Dota2, "Dota 2", S.GameDota2, v => Change(s => s.GameDota2 = v));
+
+            Section("League of Legends");
+            Toggle("Watch League of Legends", S.GameLeague, v => Change(s => s.GameLeague = v));
+            if (S.GameLeague)
+                Note("No setup needed. She reads Riot's Live Client Data API on this PC during a match. "
+                     + (games.LeagueConnected ? "A match is on." : "Waiting for a match."));
+
+            Section("Status");
+            Note(string.IsNullOrEmpty(games.StatusLine) ? "Ready." : games.StatusLine);
+            Field("Port for CS2 and Dota 2", S.GsiPort.ToString(CultureInfo.InvariantCulture), false, v =>
+            {
+                int port;
+                if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out port))
+                    Change(s => s.GsiPort = GameFrequencyNames.NormalizePort(port));
+            });
+            Note("Change it only if another app uses port " + GameFrequencyNames.DefaultGsiPort + ". Then press Set up again for each game.");
+        }
+
+        void GameSection(GameCompanionController games, GameTitle game, string name, bool on, Action<bool> changed)
+        {
+            Section(name);
+            Toggle("Watch " + name, on, changed);
+            if (!on)
+                return;
+            var installed = games.IsInstalled(game, S);
+            Note(installed
+                ? "Set up. Restart the game if it was running when you set it up."
+                : "Not set up yet. Set up puts a small config file in the game's own folder so the game sends its data to Happi on this PC.");
+            if (game == GameTitle.Dota2)
+                Note(GsiInstaller.Dota2LaunchHelp);
+            Button(installed ? "Set up again" : "Set up", () => SetUpGame(game));
+            if (installed)
+                Button("Remove", () => { P.SetStatus(games.Remove(game).Message); _rebuild = true; }, true);
+        }
+
+        void SetUpGame(GameTitle game)
+        {
+            var games = _settings.Games;
+            if (games == null)
+                return;
+            if (string.IsNullOrEmpty(S.GsiToken))
+                Change(s => s.GsiToken = GsiConfig.NewToken());
+            P.SetStatus(games.Install(game, S).Message);
+            _rebuild = true;
         }
 
         void BuildScreen()

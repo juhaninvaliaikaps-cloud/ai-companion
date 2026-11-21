@@ -153,8 +153,14 @@ namespace AICompanion.GameCompanion
             var sb = new StringBuilder(1024);
             if (!string.IsNullOrWhiteSpace(personaPrompt))
                 sb.Append(personaPrompt.Trim()).Append("\n\n");
-            sb.Append(GameVoices.StyleLine(voice)).Append("\n\n").Append(Rules);
+            sb.Append(GameText(voice));
             return sb.ToString();
+        }
+
+        /// <summary>Her game style and the fair-play rules, for a caller that adds the persona itself.</summary>
+        public static string GameText(GameVoice voice)
+        {
+            return GameVoices.StyleLine(voice) + "\n\n" + Rules;
         }
 
         public static string GameName(GameTitle game)

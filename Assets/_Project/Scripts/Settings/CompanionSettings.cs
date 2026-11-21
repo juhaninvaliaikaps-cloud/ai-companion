@@ -184,6 +184,32 @@ namespace AICompanion.Settings
         /// </summary>
         public bool MemoryEmbeddings;
 
+        /// <summary>
+        /// JUH-47: the game companion (Games section). Off until the user turns it on. Comments
+        /// are written by the cloud AI API only with <see cref="GameCloudConsent"/>; otherwise
+        /// she uses pre-written lines in her personality (JUH-49). Off in private mode and 18+.
+        /// </summary>
+        public bool GameCompanion;
+
+        /// <summary>JUH-47: consent to send what happens in a game to the cloud AI API.</summary>
+        public bool GameCloudConsent;
+
+        /// <summary>"rare", "normal" or "chatty" (JUH-46 pacing).</summary>
+        public string GameFrequency = GameFrequencyNames.Normal;
+
+        public bool GameCs2 = true;
+        public bool GameDota2 = true;
+        public bool GameLeague = true;
+
+        /// <summary>The loopback port CS2 and Dota 2 post to (JUH-48). 39271 unless it clashes.</summary>
+        public int GsiPort = GameFrequencyNames.DefaultGsiPort;
+
+        /// <summary>
+        /// The token in the game config files for this install, so only our own files are
+        /// accepted. Not an API key; it stays on this PC. Made when the user first sets up a game.
+        /// </summary>
+        public string GsiToken = string.Empty;
+
         /// <summary>JUH-122: floating pieces near her when the relationship moves. On by default.</summary>
         public bool ShowRelationshipFeedback = true;
 
@@ -260,6 +286,9 @@ namespace AICompanion.Settings
             BaseUrl = CleanUrl(BaseUrl, ChatDefaults.BaseUrl);
             LocalModel = CleanToken(LocalModel, ChatDefaults.LocalModel, MaxModelLength);
             LocalVisionModel = CleanToken(LocalVisionModel, string.Empty, MaxModelLength);
+            GameFrequency = GameFrequencyNames.Normalize(GameFrequency);
+            GsiPort = GameFrequencyNames.NormalizePort(GsiPort);
+            GsiToken = GameFrequencyNames.NormalizeToken(GsiToken);
             ScreenMonitorDevice = CleanToken(ScreenMonitorDevice, string.Empty, 64);
             LocalBaseUrl = CleanUrl(LocalBaseUrl, ChatDefaults.LocalBaseUrl);
             PrivateEndpointType = PrivateEndpointTypes.Normalize(PrivateEndpointType);
@@ -422,6 +451,44 @@ namespace AICompanion.Settings
             if (string.Equals(name, Fbx, StringComparison.OrdinalIgnoreCase))
                 return AICompanion.Avatar.AvatarPreference.FbxSample;
             return AICompanion.Avatar.AvatarPreference.Auto;
+        }
+    }
+
+    /// <summary>JUH-47: the stored names for the game companion settings.</summary>
+    public static class GameFrequencyNames
+    {
+        public const string Rare = "rare";
+        public const string Normal = "normal";
+        public const string Chatty = "chatty";
+        public const int DefaultGsiPort = 39271;
+        public const int MaxTokenLength = 64;
+
+        public static string Normalize(string name)
+        {
+            var n = (name ?? string.Empty).Trim().ToLowerInvariant();
+            return n == Rare || n == Chatty ? n : Normal;
+        }
+
+        /// <summary>A port above the well-known range; anything else is the default.</summary>
+        public static int NormalizePort(int port)
+        {
+            return port >= 1024 && port <= 65535 ? port : DefaultGsiPort;
+        }
+
+        /// <summary>Letters and digits only, at most 64; anything else is dropped.</summary>
+        public static string NormalizeToken(string token)
+        {
+            if (string.IsNullOrEmpty(token))
+                return string.Empty;
+            var sb = new StringBuilder(token.Length);
+            for (var i = 0; i < token.Length && sb.Length < MaxTokenLength; i++)
+            {
+                var c = token[i];
+                if (c < 128 && char.IsLetterOrDigit(c))
+                    sb.Append(c);
+            }
+
+            return sb.ToString();
         }
     }
 
@@ -743,6 +810,22 @@ namespace AICompanion.Settings
                 settings.PisaraCloudModel = text;
             if (TryBool(json, "memoryEmbeddings", out flag))
                 settings.MemoryEmbeddings = flag;
+            if (TryBool(json, "gameCompanion", out flag))
+                settings.GameCompanion = flag;
+            if (TryBool(json, "gameCloudConsent", out flag))
+                settings.GameCloudConsent = flag;
+            if (TryString(json, "gameFrequency", out text))
+                settings.GameFrequency = text;
+            if (TryBool(json, "gameCs2", out flag))
+                settings.GameCs2 = flag;
+            if (TryBool(json, "gameDota2", out flag))
+                settings.GameDota2 = flag;
+            if (TryBool(json, "gameLeague", out flag))
+                settings.GameLeague = flag;
+            if (TryNumber(json, "gsiPort", out number))
+                settings.GsiPort = (int)Math.Round(number);
+            if (TryString(json, "gsiToken", out text))
+                settings.GsiToken = text;
             if (TryBool(json, "showRelationshipFeedback", out flag))
                 settings.ShowRelationshipFeedback = flag;
             if (TryBool(json, "voiceNarration", out flag))
@@ -869,6 +952,14 @@ namespace AICompanion.Settings
             String(sb, "pisaraCloudBaseUrl", source.PisaraCloudBaseUrl);
             String(sb, "pisaraCloudModel", source.PisaraCloudModel);
             Bool(sb, "memoryEmbeddings", source.MemoryEmbeddings);
+            Bool(sb, "gameCompanion", source.GameCompanion);
+            Bool(sb, "gameCloudConsent", source.GameCloudConsent);
+            String(sb, "gameFrequency", source.GameFrequency);
+            Bool(sb, "gameCs2", source.GameCs2);
+            Bool(sb, "gameDota2", source.GameDota2);
+            Bool(sb, "gameLeague", source.GameLeague);
+            Number(sb, "gsiPort", source.GsiPort, true);
+            String(sb, "gsiToken", source.GsiToken);
             Bool(sb, "showRelationshipFeedback", source.ShowRelationshipFeedback);
             Bool(sb, "voiceNarration", source.VoiceNarration);
             Bool(sb, "showDeveloperSettings", source.ShowDeveloperSettings);
