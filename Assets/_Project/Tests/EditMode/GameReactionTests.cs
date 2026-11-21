@@ -66,7 +66,7 @@ namespace AICompanion.Tests.EditMode
             var reaction = new GameReactionLines(new Random(3)).Pick(GameVoice.Teasing, E(GameEventKind.Death, 0));
             Assert.IsFalse(reaction.IsEmpty);
             Assert.AreEqual(Emotion.Happy, reaction.Face);
-            Assert.AreEqual(AvatarAnimatorModel.Laugh, reaction.Gesture);
+            Assert.AreEqual(AvatarAnimatorStates.Laugh, reaction.Gesture);
 
             var sweet = new GameReactionLines(new Random(3)).Pick(GameVoice.Sweet, E(GameEventKind.Death, 0));
             Assert.AreEqual(Emotion.Concerned, sweet.Face, "a sweet one comforts you instead");
@@ -77,7 +77,7 @@ namespace AICompanion.Tests.EditMode
         {
             var gestures = new HashSet<string>
             {
-                string.Empty, AvatarAnimatorModel.Wave, AvatarAnimatorModel.Nod, AvatarAnimatorModel.Shrug, AvatarAnimatorModel.Laugh,
+                string.Empty, AvatarAnimatorStates.Wave, AvatarAnimatorStates.Nod, AvatarAnimatorStates.Shrug, AvatarAnimatorStates.Laugh,
             };
             foreach (GameVoice voice in Enum.GetValues(typeof(GameVoice)))
             {

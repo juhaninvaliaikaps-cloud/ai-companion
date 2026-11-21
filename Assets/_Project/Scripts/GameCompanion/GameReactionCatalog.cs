@@ -58,10 +58,10 @@ namespace AICompanion.GameCompanion
                 switch (voice)
                 {
                     case GameVoice.Hype:
-                    case GameVoice.Sweet: return new ReactionLook(Emotion.Happy, AvatarAnimatorModel.Wave);
+                    case GameVoice.Sweet: return new ReactionLook(Emotion.Happy, AvatarAnimatorStates.Wave);
                     case GameVoice.Shy: return new ReactionLook(Emotion.Shy, string.Empty);
                     case GameVoice.Teasing: return new ReactionLook(Emotion.Happy, string.Empty);
-                    default: return new ReactionLook(Emotion.Neutral, AvatarAnimatorModel.Nod);
+                    default: return new ReactionLook(Emotion.Neutral, AvatarAnimatorStates.Nod);
                 }
             }
 
@@ -79,13 +79,13 @@ namespace AICompanion.GameCompanion
             {
                 switch (voice)
                 {
-                    case GameVoice.Teasing: return new ReactionLook(Emotion.Happy, big ? AvatarAnimatorModel.Laugh : string.Empty);
-                    case GameVoice.Hype: return new ReactionLook(big ? Emotion.Surprised : Emotion.Happy, big ? AvatarAnimatorModel.Laugh : string.Empty);
-                    case GameVoice.Sweet: return new ReactionLook(Emotion.Happy, big ? AvatarAnimatorModel.Nod : string.Empty);
+                    case GameVoice.Teasing: return new ReactionLook(Emotion.Happy, big ? AvatarAnimatorStates.Laugh : string.Empty);
+                    case GameVoice.Hype: return new ReactionLook(big ? Emotion.Surprised : Emotion.Happy, big ? AvatarAnimatorStates.Laugh : string.Empty);
+                    case GameVoice.Sweet: return new ReactionLook(Emotion.Happy, big ? AvatarAnimatorStates.Nod : string.Empty);
                     case GameVoice.Shy: return new ReactionLook(Emotion.Flustered, string.Empty);
                     case GameVoice.Tsundere: return new ReactionLook(Emotion.Embarrassed, string.Empty);
-                    case GameVoice.Grumpy: return new ReactionLook(Emotion.Neutral, big ? AvatarAnimatorModel.Nod : string.Empty);
-                    default: return new ReactionLook(big ? Emotion.Surprised : Emotion.Neutral, AvatarAnimatorModel.Nod);
+                    case GameVoice.Grumpy: return new ReactionLook(Emotion.Neutral, big ? AvatarAnimatorStates.Nod : string.Empty);
+                    default: return new ReactionLook(big ? Emotion.Surprised : Emotion.Neutral, AvatarAnimatorStates.Nod);
                 }
             }
 
@@ -94,13 +94,13 @@ namespace AICompanion.GameCompanion
                 switch (voice)
                 {
                     // The bratty one laughs at you (Jussi's example).
-                    case GameVoice.Teasing: return new ReactionLook(Emotion.Happy, AvatarAnimatorModel.Laugh);
+                    case GameVoice.Teasing: return new ReactionLook(Emotion.Happy, AvatarAnimatorStates.Laugh);
                     case GameVoice.Hype: return new ReactionLook(Emotion.Surprised, string.Empty);
                     case GameVoice.Sweet:
                     case GameVoice.Shy: return new ReactionLook(Emotion.Concerned, string.Empty);
                     case GameVoice.Tsundere: return new ReactionLook(Emotion.Sad, string.Empty);
-                    case GameVoice.Grumpy: return new ReactionLook(Emotion.Sad, AvatarAnimatorModel.Shrug);
-                    default: return new ReactionLook(Emotion.Neutral, AvatarAnimatorModel.Shrug);
+                    case GameVoice.Grumpy: return new ReactionLook(Emotion.Sad, AvatarAnimatorStates.Shrug);
+                    default: return new ReactionLook(Emotion.Neutral, AvatarAnimatorStates.Shrug);
                 }
             }
 

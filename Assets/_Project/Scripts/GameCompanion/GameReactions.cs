@@ -55,7 +55,7 @@ namespace AICompanion.GameCompanion
         public string Text;
         public Emotion Face;
 
-        /// <summary>A gesture name from <see cref="AvatarAnimatorModel"/>, or empty.</summary>
+        /// <summary>A gesture name from <see cref="AvatarAnimatorStates"/>, or empty.</summary>
         public string Gesture;
 
         public bool IsEmpty
