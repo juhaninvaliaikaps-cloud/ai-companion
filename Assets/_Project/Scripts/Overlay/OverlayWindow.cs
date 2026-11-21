@@ -372,9 +372,21 @@ namespace AICompanion.Overlay
                 ApplySizedWindow(false);
                 _repositionFrames--;
             }
+        }
 
-            if (!_companionVisible && _chrome != null && _chrome.IsHandleLocked)
-                _chrome.SetWindowVisible(false);
+        /// <summary>
+        /// A taskbar click on a hidden overlay brings the window back. The tray state is the
+        /// authority, so route it through the tray when it is present.
+        /// </summary>
+        void OnApplicationFocus(bool hasFocus)
+        {
+            if (!hasFocus || _companionVisible || _chrome == null)
+                return;
+            var tray = GetComponent<CompanionTray>();
+            if (tray != null)
+                tray.ShowCompanion();
+            else
+                SetCompanionVisible(true);
         }
 
         void OnGUI()

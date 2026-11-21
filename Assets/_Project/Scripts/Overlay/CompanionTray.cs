@@ -77,8 +77,6 @@ namespace AICompanion.Overlay
             if (chrome != null && chrome.IsHandleLocked)
             {
                 chrome.SetTaskbarButtonVisible(!_hideTaskbar);
-                if (!_menu.CompanionVisible)
-                    chrome.SetWindowVisible(false);
             }
 
             ReportIcon();
