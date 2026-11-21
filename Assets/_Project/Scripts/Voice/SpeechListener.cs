@@ -57,6 +57,37 @@ namespace AICompanion.Voice
 
         public GameTalkInput GameTalk => _gameTalk;
 
+        // JUH-165: her data folder (ProjectLeia), the second place the Whisper model can be.
+        string _dataFolder = string.Empty;
+
+        public string DataFolder => _dataFolder;
+
+        // JUH-165: a model file the user picked in Settings; it comes first.
+        string _chosenModel = string.Empty;
+
+        public void SetChosenModel(string path)
+        {
+            if (string.Equals(path ?? string.Empty, _chosenModel, StringComparison.Ordinal))
+                return;
+            _chosenModel = path ?? string.Empty;
+            _reloadModel = true;
+        }
+
+        public void SetDataFolder(string folder)
+        {
+            if (string.Equals(folder ?? string.Empty, _dataFolder, StringComparison.Ordinal))
+                return;
+            _dataFolder = folder ?? string.Empty;
+            _reloadModel = true;
+        }
+
+        /// <summary>The model this build will use, from StreamingAssets or the data folder, or null.</summary>
+        public string FindModel()
+        {
+            var settings = RuntimeStt;
+            return WhisperModelFiles.Find(Application.streamingAssetsPath, _dataFolder, settings != null ? settings.ModelFileName : SttSettings.DefaultModelFile, _chosenModel);
+        }
+
         /// <summary>Which buttons talk while a game has the focus. Safe to call on every settings change.</summary>
         public void ConfigureGameTalk(TalkMouseButton mouse, bool xbox, bool ps)
         {
@@ -157,8 +188,8 @@ namespace AICompanion.Voice
         {
             CancelSpeech();
             var modelFile = sttSettings.ModelFileName;
-            var modelPath = Path.Combine(Application.streamingAssetsPath, "Whisper", modelFile);
-            if (!File.Exists(modelPath) || new FileInfo(modelPath).Length < 1000000)
+            var modelPath = WhisperModelFiles.Find(Application.streamingAssetsPath, _dataFolder, modelFile, _chosenModel);
+            if (modelPath == null)
             {
                 _gate.Abort();
                 Debug.Log("STT: model missing " + modelFile);
@@ -222,7 +253,8 @@ namespace AICompanion.Voice
                 if (_provider == null)
                 {
                     var modelFile = sttSettings.ModelFileName;
-                    var modelPath = Path.Combine(Application.streamingAssetsPath, "Whisper", modelFile);
+                    var modelPath = WhisperModelFiles.Find(Application.streamingAssetsPath, _dataFolder, modelFile, _chosenModel)
+                                    ?? WhisperModelFiles.BuildPath(Application.streamingAssetsPath, modelFile);
                     _provider = new WhisperSttProvider(modelPath, modelFile);
                 }
 
