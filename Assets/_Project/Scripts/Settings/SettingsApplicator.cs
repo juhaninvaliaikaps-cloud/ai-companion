@@ -97,6 +97,8 @@ namespace AICompanion.Settings
                 }
 
                 listener.ApplyRecognitionSettings();
+                // JUH-165: the Whisper model can also be in her data folder.
+                listener.SetDataFolder(SettingsLocations.Folder(appData, Application.persistentDataPath));
                 // JUH-162: the gaming talk buttons; nothing is read while push-to-talk is off.
                 var talk = settings.SttEnabled;
                 listener.ConfigureGameTalk(

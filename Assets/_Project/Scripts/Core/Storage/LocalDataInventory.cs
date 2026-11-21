@@ -64,6 +64,9 @@ namespace AICompanion.Core
             var slash = rel.LastIndexOf('/');
             if (slash >= 0)
                 name = rel.Substring(slash + 1);
+            // JUH-165: the downloaded Whisper model is not the user's data: export skips it.
+            if (rel.StartsWith("whisper/", StringComparison.Ordinal))
+                return true;
             return name == InstallKeyFile.FileName
                 || name.IndexOf(".unreadable-", StringComparison.Ordinal) >= 0
                 || name.EndsWith(".writing", StringComparison.Ordinal)

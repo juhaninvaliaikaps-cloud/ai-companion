@@ -989,6 +989,20 @@ namespace AICompanion.NewUI
             });
             Field("Speech language", S.SttLanguage, false, v => Change(s => s.SttLanguage = v));
 
+            // JUH-165: where the Whisper model is, and a download when it's missing.
+            Note(_settings.SpeechModelStatus());
+            if (_settings.SpeechModelDownloading)
+            {
+                Note("Downloading the speech model… The status line says when it's ready.");
+                Button("Cancel download", () => { _settings.CancelSpeechModelDownload(); _rebuild = true; });
+            }
+            else if (!_settings.SpeechModelFound())
+            {
+                var big = string.Equals(SttSettings.SanitizeModelFile(S.WhisperModel), SttSettings.DefaultModelFile, StringComparison.OrdinalIgnoreCase);
+                Button(big ? "Download speech model (148 MB)" : "Download speech model", () => { _settings.DownloadSpeechModel(); _rebuild = true; });
+                Note("It's saved in your data folder, %APPDATA%\\ProjectLeia\\Whisper, so every Happi build finds it. A plain download from Hugging Face; nothing about you is sent.");
+            }
+
             // JUH-162: push-to-talk while a game has the focus.
             Section("Talk while gaming");
             Note("Hold one of these in a game, talk, and let go. Happi only reads the button, so the game still gets it.");

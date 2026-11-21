@@ -138,6 +138,17 @@ The **V** key is read through Unity's input, so it works only while Happi's own 
 
 ### Get the model
 
+**Where Happi looks (JUH-165):**
+1. `Happi_Data\StreamingAssets\Whisper\<model>` in the build.
+2. `%APPDATA%\ProjectLeia\Whisper\<model>`, her data folder (`WhisperModelFiles.Find`).
+
+The weight isn't in git, so a build made from a **git worktree** ships without it. Such a build still finds the data-folder copy.
+
+- **Settings → Voice → Speech input** shows where the model was found. When it's missing, **Download speech model** saves it to the data folder (`WhisperModelDownloader`): it downloads to `.part`, checks the size and the ggml magic, then moves the file into place. Only whisper.cpp file names (`ggml-….bin`) can be downloaded. It's a plain file from Hugging Face, and nothing about the user is sent.
+- Data export leaves the `Whisper` folder out, and a wipe removes it. It isn't user data and can be downloaded again.
+- A player build logs a warning (`WhisperBuildCheck`) when `Assets/StreamingAssets/Whisper/ggml-base.bin` is missing.
+
+
 In the Editor, with the project open:
 
 1. **AI Companion > Download Whisper Model (base)**
