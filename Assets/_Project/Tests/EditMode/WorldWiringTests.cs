@@ -169,13 +169,16 @@ namespace AICompanion.Tests.EditMode
         {
             Assert.AreEqual("Persona.", WorldPromptNow.Append("Persona.\n", true), "nothing set: unchanged");
 
-            WorldPromptNow.SetFirstScene("SCENE");
-            WorldPromptNow.SetAway("AWAY");
+            WorldPromptNow.SetFirstScene("SCENE", "She sketches at her desk.");
+            WorldPromptNow.SetAway("AWAY", "Her portfolio review went well.");
+            Assert.AreEqual("She sketches at her desk.", WorldPromptNow.FirstSceneText);
+            Assert.AreEqual("Her portfolio review went well.", WorldPromptNow.AwayText);
             Assert.AreEqual("Persona.\n\nSCENE\n\nAWAY", WorldPromptNow.Append("Persona.", true));
             Assert.AreEqual("Persona.\n\nAWAY", WorldPromptNow.Append("Persona.", false), "no scene after the first message");
             Assert.AreEqual("Persona.\n\nAWAY", WorldPromptNow.Append("Persona.", false), "the away line stays until a reply finished");
 
             WorldPromptNow.ReplyFinished();
+            Assert.AreEqual(string.Empty, WorldPromptNow.AwayText, "the visible away line is finished too");
             Assert.AreEqual("Persona.", WorldPromptNow.Append("Persona.", false), "used once");
             Assert.AreEqual("Persona.\n\nSCENE", WorldPromptNow.Append("Persona.", true), "the scene waits for an empty conversation");
             Assert.AreEqual("SCENE", WorldPromptNow.Append(null, true));
