@@ -67,6 +67,8 @@ namespace AICompanion.Settings
         public bool Muted;
         public bool SttEnabled = true;
         public string PushToTalkKey = "V";
+        /// <summary>Hold the DualSense PS button as a push-to-talk button, even while a game has focus.</summary>
+        public bool SttControllerPushToTalk = true;
         public string WhisperModel = SttSettings.DefaultModelFile;
         public string SttLanguage = "auto";
         public bool AlwaysOnTop = true;
@@ -769,6 +771,8 @@ namespace AICompanion.Settings
                 settings.SttEnabled = flag;
             if (TryString(json, "pushToTalkKey", out text))
                 settings.PushToTalkKey = text;
+            if (TryBool(json, "sttControllerPushToTalk", out flag))
+                settings.SttControllerPushToTalk = flag;
             if (TryString(json, "whisperModel", out text))
                 settings.WhisperModel = text;
             if (TryString(json, "sttLanguage", out text))
@@ -979,6 +983,7 @@ namespace AICompanion.Settings
             Bool(sb, "muted", source.Muted);
             Bool(sb, "sttEnabled", source.SttEnabled);
             String(sb, "pushToTalkKey", source.PushToTalkKey);
+            Bool(sb, "sttControllerPushToTalk", source.SttControllerPushToTalk);
             String(sb, "whisperModel", source.WhisperModel);
             String(sb, "sttLanguage", source.SttLanguage);
             Bool(sb, "alwaysOnTop", source.AlwaysOnTop);

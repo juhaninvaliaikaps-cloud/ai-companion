@@ -5,6 +5,7 @@
         "AICompanion.Core",
         "AICompanion.AI",
         "com.whisper.unity",
+        "Unity.InputSystem",
         "UnityEngine.UnityWebRequestModule"
     ],
     "includePlatforms": [],

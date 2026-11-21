@@ -91,6 +91,7 @@ namespace AICompanion.Settings
                 if (stt != null)
                 {
                     stt.enabled = settings.SttEnabled;
+                    stt.controllerPushToTalk = settings.SttControllerPushToTalk;
                     stt.language = settings.SttLanguage;
                     stt.modelFile = settings.WhisperModel;
                     stt.pushToTalkKey = ParseKey(settings.PushToTalkKey);

@@ -4,6 +4,8 @@ using System.IO;
 using AICompanion.AI;
 using AICompanion.Core;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.DualShock;
 
 namespace AICompanion.Voice
 {
@@ -107,8 +109,9 @@ namespace AICompanion.Voice
 
                 var key = sttSettings.PushToTalkKey;
                 var keyHeld = Input.GetKey(key);
+                var controllerHeld = ControllerButtonHeld();
                 var listeningBlocked = !CompanionPause.ListeningAllowed(IsPaused());
-                var signal = _gate.Tick(keyHeld, _buttonHeld, DebugInputGuard.TextFieldFocused, listeningBlocked);
+                var signal = _gate.Tick(keyHeld || controllerHeld, _buttonHeld, DebugInputGuard.TextFieldFocused, listeningBlocked);
                 if (signal == PushToTalkSignal.Cancelled)
                 {
                     _serial++;
@@ -253,6 +256,32 @@ namespace AICompanion.Voice
             }
         }
 
+        bool ControllerButtonHeld()
+        {
+            if (sttSettings == null || !sttSettings.controllerPushToTalk)
+                return false;
+
+            try
+            {
+                var devices = InputSystem.devices;
+                for (var i = 0; i < devices.Count; i++)
+                {
+                    var dualSense = devices[i] as DualSenseGamepadHID;
+                    if (dualSense != null && dualSense.playStationButton != null && dualSense.playStationButton.isPressed)
+                        return true;
+                    var dualShock = devices[i] as DualShock4GamepadHID;
+                    if (dualShock != null && dualShock.playStationButton != null && dualShock.playStationButton.isPressed)
+                        return true;
+                }
+            }
+            catch (Exception)
+            {
+                // The Input System can be unavailable while it initializes or switches backends.
+            }
+
+            return false;
+        }
+
         bool IsPaused()
         {
             if (!_pauseSearched)
@@ -268,7 +297,8 @@ namespace AICompanion.Voice
         {
             if (!_alive || sttSettings == null)
                 return false;
-            return _buttonHeld || (Input.GetKey(sttSettings.PushToTalkKey) && !DebugInputGuard.TextFieldFocused);
+            return _buttonHeld || ControllerButtonHeld()
+                || (Input.GetKey(sttSettings.PushToTalkKey) && !DebugInputGuard.TextFieldFocused);
         }
 
         void CancelSpeech()

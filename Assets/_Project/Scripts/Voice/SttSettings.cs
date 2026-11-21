@@ -14,6 +14,7 @@ namespace AICompanion.Voice
         public const int MinSamples16k = 3200;
 
         public bool enabled = true;
+        public bool controllerPushToTalk = true;
         public KeyCode pushToTalkKey = KeyCode.V;
         public string language = "auto";
         public string modelFile = DefaultModelFile;
@@ -63,6 +64,7 @@ namespace AICompanion.Voice
             var copy = CreateInstance<SttSettings>();
             copy.hideFlags = HideFlags.HideAndDontSave;
             copy.enabled = enabled;
+            copy.controllerPushToTalk = controllerPushToTalk;
             copy.pushToTalkKey = pushToTalkKey;
             copy.language = language;
             copy.modelFile = modelFile;

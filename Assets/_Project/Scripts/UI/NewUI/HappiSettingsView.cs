@@ -982,6 +982,8 @@ namespace AICompanion.NewUI
             Toggle("Push-to-talk", S.SttEnabled, v => Change(s => s.SttEnabled = v));
             Field("Push-to-talk key", S.PushToTalkKey, false, v => Change(s => s.PushToTalkKey = v));
             Note("Taken keys (F6, F7, F8, F10, F12, T, R, Esc) stay on V.");
+            Toggle("PS button push-to-talk", S.SttControllerPushToTalk, v => Change(s => s.SttControllerPushToTalk = v));
+            Note("Hold the PS button on a DualSense (or the home button on a DualShock 4) to talk, even while a game has focus.");
             Field("Whisper model", S.WhisperModel, false, v =>
             {
                 Change(s => s.WhisperModel = v);
