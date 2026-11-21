@@ -442,7 +442,11 @@ namespace AICompanion.NewUI
                 Area("Personality", persona.Personality, 80f, PersonaDefinition.MaxPersonalityLength, v => Save(id, p => p.Personality = v));
             else
                 Note("Her description (" + persona.Description.Length.ToString("N0", CultureInfo.InvariantCulture) + " characters) is edited in the Persona Studio.");
-            Area("Speaking style", persona.SpeakingStyle, 54f, PersonaDefinition.MaxSpeakingStyleLength, v => Save(id, p => p.SpeakingStyle = v));
+            // JUH-155: how she talks is part of her description now.
+            if (!string.IsNullOrWhiteSpace(persona.SpeakingStyle))
+                Note("Her speaking style moves into her description when you open her in the Persona Studio.");
+            if (!string.IsNullOrWhiteSpace(persona.Scenario))
+                Note("She has a custom scenario. Edit it in the Persona Studio.");
             Field("Portrait folder", persona.PortraitFolder, false, v => Save(id, p => p.PortraitFolder = v));
             Note("Empty uses the standard portraits folder. Her voice, model and 3D avatar are set on the Voice, AI and Look tabs.");
 

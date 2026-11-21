@@ -131,6 +131,8 @@ The character sheet may also carry `temperament.axes` with `axesSet: true`. When
 
 **Log.** `Pisara reading: <persona> = <temperament>; <role>, affection N, familiarity N; world N facts, N week entries, N threads; source <model|keywords|default>`, with the reason in brackets when the model was not used. The log is plain text, so it never contains the backstory.
 
+**The user's scenario (JUH-155).** A persona with a custom scenario has it in her prompt under `CharacterSheetPrompt.ScenarioHeading` ("The world and what's going on…"). A rule in the reading prompt says that part is fact: relationship, sharedHistory and `world.rightNow` come from it, and her backstory, last week and open threads stay inside that world. `rightNow` is still what she is doing by herself just before the user arrives, because `WorldGuard.FirstScene` drops a "right now" that has the user in it when they share no past. The scenario itself is in her prompt, so the first meeting follows it either way.
+
 **Tuning the reading prompt.** `CharacterSheetPrompt.System` was changed after reading real output from local 12B models (mistral-nemo 12b and a Rocinante 12B fine-tune):
 
 | Problem in the output | Change |

@@ -11,6 +11,12 @@ namespace AICompanion.Core
     /// </summary>
     public static class CharacterSheetPrompt
     {
+        /// <summary>
+        /// JUH-155: the heading of the user's own scenario in the persona prompt. The chat model
+        /// and Pisara both read it; the rule below tells Pisara to take it as fact.
+        /// </summary>
+        public const string ScenarioHeading = "The world and what's going on (where your story with the user starts; the conversation may have moved on since):";
+
         public const string System =
             "You read a character description for a desktop companion and fill in a character sheet about her. Reply with one JSON object and nothing else. Use exactly these keys:\n" +
             "{\n" +
@@ -35,6 +41,7 @@ namespace AICompanion.Core
             "- world.lastWeek: exactly 6 small things that happened to her in the last week, each with daysAgo from 0 to 7 (0 is today). Count them: 6. Ordinary life, not drama. Each one is a different event.\n" +
             "- world.openThreads: exactly 2 things she is in the middle of, waiting for or dreading, each with one line for how it could go well and one for how it could go badly.\n" +
             "- world.rightNow: one sentence for what she is doing by herself at the moment the user first talks to her. The user is not in it.\n" +
+            "- When the description has a part headed \"The world and what's going on\", that is the scenario the user chose, and it is fact. Take relationship, sharedHistory and world.rightNow from it instead of inventing them (rightNow is what she is doing there just before the user arrives), and keep her backstory, lastWeek and openThreads inside that world.\n" +
             "- Stay inside the description. Do not contradict it or yourself. Invent only what fits it. Invent nothing about the user: no pets, jobs, friends or habits the description does not give them.\n" +
             "- Her world is her own life. Do not mention the user in backstory, lastWeek or openThreads unless sharedHistory is true. When it is true, at most 2 backstory facts and at most 2 lastWeek entries may involve the user, called \"the user\"; everything else, and every open thread, is about her own life without the user.\n" +
             "- Keep everything non-sexual. Nobody in her world is forced, pressured or distressed for someone's enjoyment.\n" +

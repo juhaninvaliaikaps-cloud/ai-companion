@@ -57,7 +57,8 @@ Version 1. Unknown fields are ignored. A missing or broken file is skipped.
 | `id` | File name. Letters, digits, `-`, and `_`. |
 | `displayName` | Name in the picker and the setup name while this persona is active. |
 | `personality` | System prompt. `systemPrompt` is accepted as the same field. Empty uses the setup name and relationship. |
-| `speakingStyle` | Added under `Speaking style:` after the personality. |
+| `speakingStyle` | Added under `Speaking style:` after the personality. Older files only: the Studio and the Persona tab have no Speaking style box any more (JUH-155). Opening the persona in the Studio moves it to the end of her description, under "How she talks:". |
+| `scenario` | JUH-155: the user's own scenario, up to 4,000 characters. Added under "The world and what's going on (where your story with the user starts…)", after the personality and before the example lines. |
 | `piperVoiceId` | Piper voice id used when chat is local or private, for example `en_US-lessac-medium`. Resolved to a `.onnx` next to the current Piper voice or `piper.exe`. This is an id only. There is no voice plug-in. |
 | `cloudVoiceId` | xAI voice id used when chat is Grok, for example `eve`. `voiceId` is accepted as the same field. |
 | `providerId` | `grok` or `local`. `ollama` means `local`. `xai` means `grok`. |
@@ -109,7 +110,7 @@ Text that looks like an API key (`xai-…`, `api_key`, `bearer …`) is removed 
 
 ## Prompt order
 
-1. Personality, then the speaking style.
+1. Personality, then the speaking style (older files), then her scenario, then her example lines.
 2. `DirectorPrompt.Append` adds the animation catalog, `AnimationCueParser.Instruction`, and `EmotionNames.CatalogLine`. `ChatPanel` does this on every send.
 3. Remembered facts are added after that, as in [MEMORY.md](MEMORY.md).
 
@@ -125,7 +126,12 @@ It edits a draft and saves the whole persona on **Save**. Closing with unsaved c
 
 - **Start:** create a new persona, start from a template (one per temperament preset), duplicate one, edit the active one, import a character card, import a `.txt` or `.md` file, or paste a description.
 - **1 · Identity:** her name, tagline and picture. Choose a picture or paste its path. The centre square is used, and she can be shown round or square.
-- **2 · Description:** up to 32,000 characters, with a meter showing what the chat model sees. Also her speaking style, her example lines, and the 18+ notes, which are shown only when 18+ is turned on in settings.
+- **2 · Description:** up to 32,000 characters, with a meter showing what the chat model sees. How she talks is part of the description; there is no separate Speaking style box (JUH-155). Also her example lines, and the 18+ notes, which are shown only when 18+ is turned on in settings.
+  - **Scenario (JUH-155):** **Add custom scenario** opens a box (up to 4,000 characters) for her world, what's going on, where you are and how you met.
+    - She reads it in every chat as where the story starts. The scene tracker (JUH-129) follows where the chat goes from there, so she doesn't snap back to the opening.
+    - Pisara takes her relationship, shared history and "right now" from it instead of inventing them (`CharacterSheetPrompt.ScenarioHeading` and its rule).
+    - Empty: Pisara makes those up as before.
+    - The scenario goes to the chat model like the description, so 18+ details belong in the 18+ notes.
 
 - **3 · Pisara (JUH-151):** Pisara reads the whole description, not the cut the chat model gets. It uses the same model and privacy rule as the background reading (`PisaraReadingKeeper.ReadDraftAsync`). The step shows who reads her, a progress bar and **Skip**, and the results:
   - **Temperament:** Auto with Pisara's line, or your own nine sliders.
@@ -153,7 +159,8 @@ It edits a draft and saves the whole persona on **Save**. Closing with unsaved c
 | Card field | Persona |
 | --- | --- |
 | `name` | Display name |
-| `description`, `personality`, `scenario` | Description, as labelled paragraphs ("Description:", "Personality:", "Scenario:") |
+| `description`, `personality` | Description, as labelled paragraphs ("Description:", "Personality:") |
+| `scenario` | Scenario (JUH-155) |
 | `first_mes` | Greeting |
 | `mes_example` | Example lines: `{{char}}` and `<BOT>` become "Her", `{{user}}` and `<USER>` become "You", `<START>` separators go |
 | `creator_notes`, `system_prompt`, `post_history_instructions` | Not imported (Happi writes its own instructions); the status line says so |
@@ -166,11 +173,11 @@ The PNG is read chunk by chunk (signature, length, type, data, CRC). No length i
 
 **Export.** Settings → Persona → the active persona → **Export…**, as:
 
-- **a character card (PNG):** her picture, or a plain blue placeholder when she has none, with a V2 `chara` chunk (correct CRC). Her description goes to `description`, her speaking style to `personality`, her greeting to `first_mes`, her example lines to `mes_example` (with `<START>`, `{{user}}` and `{{char}}`), and her tagline to `creator_notes`;
+- **a character card (PNG):** her picture, or a plain blue placeholder when she has none, with a V2 `chara` chunk (correct CRC). Her description goes to `description`, her speaking style (older files) to `personality`, her scenario to `scenario`, her greeting to `first_mes`, her example lines to `mes_example` (with `<START>`, `{{user}}` and `{{char}}`), and her tagline to `creator_notes`;
 - **card JSON:** the same card as a `.json` file;
 - **a zip:** her Happi persona file (`<id>.json`) and her picture (`<id>.png`).
 
-Her 18+ notes are **never** exported unless **Include 18+ notes** is ticked (shown only when she has some). Ticked, a card carries them in `scenario` and is tagged `nsfw`, so importing it again routes them back into the 18+ notes. The save dialog asks before overwriting a file.
+Her 18+ notes are **never** exported unless **Include 18+ notes** is ticked (shown only when she has some). Ticked, a card carries them in `scenario`, after her scenario, and is tagged `nsfw`, so importing it again routes them back into the 18+ notes. The save dialog asks before overwriting a file.
 
 ### Persona grid, her picture, describing it, history (JUH-154)
 

@@ -27,6 +27,9 @@ namespace AICompanion.Settings
         public const int MaxExampleLinesLength = 4000;
         public const int MaxAdultNotesLength = 8000;
 
+        // JUH-155.
+        public const int MaxScenarioLength = 4000;
+
         public int Version = 1;
         public string Id = string.Empty;
         public string DisplayName = string.Empty;
@@ -85,6 +88,14 @@ namespace AICompanion.Settings
         public string AdultNotes = string.Empty;
 
         /// <summary>
+        /// JUH-155: the user's own scenario: her world, what's going on, where they are and how
+        /// they met. Empty lets Pisara make those up. It is where the story starts; the scene
+        /// tracker (JUH-129) follows where the chat goes from there. 18+ details belong in
+        /// <see cref="AdultNotes"/>, which never reach a cloud model.
+        /// </summary>
+        public string Scenario = string.Empty;
+
+        /// <summary>
         /// JUH-151: true when <see cref="Personality"/> is Pisara's condensed version of a
         /// description too long for the chat model. Editing the description clears it.
         /// </summary>
@@ -133,6 +144,7 @@ namespace AICompanion.Settings
                 Greeting = Greeting,
                 ExampleLines = ExampleLines,
                 AdultNotes = AdultNotes,
+                Scenario = Scenario,
                 HasPicture = HasPicture,
                 PictureShape = PictureShape,
                 Condensed = Condensed
@@ -191,6 +203,7 @@ namespace AICompanion.Settings
             Greeting = CleanProse(Greeting, MaxGreetingLength);
             ExampleLines = CleanProse(ExampleLines, MaxExampleLinesLength);
             AdultNotes = CleanProse(AdultNotes, MaxAdultNotesLength);
+            Scenario = CleanProse(Scenario, MaxScenarioLength);
             PictureShape = PersonaPictureShapes.Normalize(PictureShape);
             return Id.Length > 0;
         }
@@ -351,6 +364,7 @@ namespace AICompanion.Settings
     public static class PersonaText
     {
         public const string StyleLabel = "Speaking style: ";
+        public const string ScenarioLabel = CharacterSheetPrompt.ScenarioHeading;
         public const string ExamplesLabel = "Examples of how you talk (follow the voice, not the exact words):";
 
         public static string Build(PersonaDefinition persona, string fallbackName, string fallbackRelationship)
@@ -368,6 +382,11 @@ namespace AICompanion.Settings
             var style = persona == null ? string.Empty : persona.SpeakingStyle;
             if (!string.IsNullOrWhiteSpace(style))
                 text = text + "\n\n" + StyleLabel + style.Trim();
+
+            // JUH-155: the user's scenario, where the story starts.
+            var scenario = persona == null ? string.Empty : persona.Scenario;
+            if (!string.IsNullOrWhiteSpace(scenario))
+                text = text + "\n\n" + ScenarioLabel + "\n" + scenario.Trim();
 
             // JUH-150: sample lines help a small model keep her voice.
             var examples = persona == null ? string.Empty : persona.ExampleLines;
@@ -434,6 +453,8 @@ namespace AICompanion.Settings
                 persona.ExampleLines = text;
             if (TryString(json, "adultNotes", out text))
                 persona.AdultNotes = text;
+            if (TryString(json, "scenario", out text))
+                persona.Scenario = text;
             bool flag;
             if (TryBool(json, "hasPicture", out flag))
                 persona.HasPicture = flag;
@@ -475,6 +496,7 @@ namespace AICompanion.Settings
             String(sb, "greeting", source.Greeting);
             String(sb, "exampleLines", source.ExampleLines);
             String(sb, "adultNotes", source.AdultNotes);
+            String(sb, "scenario", source.Scenario);
             sb.Append("  \"hasPicture\": ").Append(source.HasPicture ? "true" : "false").Append(",\n");
             String(sb, "pictureShape", source.PictureShape);
             sb.Append("  \"condensed\": ").Append(source.Condensed ? "true" : "false").Append(",\n");
@@ -732,6 +754,45 @@ namespace AICompanion.Settings
                 persona.Personality = ModelText(persona.Personality);
         }
 
+        /// <summary>The heading a folded speaking style gets at the end of her description.</summary>
+        public const string StyleHeading = "How she talks: ";
+
+        /// <summary>
+        /// JUH-155: the Studio has no Speaking style box. An old speaking style moves to the end
+        /// of her description, so nothing is lost. True when something moved; the caller saves.
+        /// </summary>
+        public static bool FoldStyle(PersonaDefinition persona)
+        {
+            if (persona == null || string.IsNullOrWhiteSpace(persona.SpeakingStyle))
+                return false;
+            var style = persona.SpeakingStyle.Trim();
+            var description = (persona.Description ?? string.Empty).Trim();
+            if (description.IndexOf(style, StringComparison.Ordinal) < 0)
+            {
+                var added = StyleHeading + style;
+                description = description.Length == 0 ? added : description + "\n\n" + added;
+                if (description.Length > PersonaDefinition.MaxDescriptionLength)
+                    description = description.Substring(0, PersonaDefinition.MaxDescriptionLength);
+            }
+
+            persona.Description = description;
+
+            // A condensed persona keeps Pisara's condensed text: the style is added to it too.
+            if (persona.Condensed)
+            {
+                var chat = (persona.Personality ?? string.Empty).Trim();
+                if (chat.IndexOf(style, StringComparison.Ordinal) < 0)
+                {
+                    var withStyle = chat.Length == 0 ? StyleHeading + style : chat + "\n\n" + StyleHeading + style;
+                    if (withStyle.Length <= ModelBudget)
+                        persona.Personality = withStyle;
+                }
+            }
+
+            persona.SpeakingStyle = string.Empty;
+            return true;
+        }
+
         /// <summary>"1,234 / 32,000 characters" and what the local model sees.</summary>
         public static string Meter(string description)
         {
@@ -840,9 +901,10 @@ namespace AICompanion.Settings
             persona.DisplayName = string.Empty;
             persona.Temperament = temperament;
             persona.TemperamentMode = TemperamentModes.Manual;
-            persona.Description = Text(temperament);
+            // JUH-155: how she talks is part of the description.
+            persona.Description = Text(temperament) + "\n\n" + PersonaDescription.StyleHeading + Style(temperament);
             persona.Personality = PersonaDescription.ModelText(persona.Description);
-            persona.SpeakingStyle = Style(temperament);
+            persona.SpeakingStyle = string.Empty;
             persona.Tagline = string.Empty;
             return persona;
         }

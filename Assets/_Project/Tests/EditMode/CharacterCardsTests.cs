@@ -128,8 +128,9 @@ namespace AICompanion.Tests.EditMode
             var card = CharacterCards.Import(Encoding.UTF8.GetBytes(CardJson(CharacterCards.SpecV2, "\"romance\"")));
             Assert.IsTrue(card.Ok, card.Error);
             Assert.AreEqual(
-                "Description:\nAino works at the library and smiles at the user.\n\nPersonality:\nShy and kind.\n\nScenario:\nA rainy evening.",
+                "Description:\nAino works at the library and smiles at the user.\n\nPersonality:\nShy and kind.",
                 card.Persona.Description);
+            Assert.AreEqual("A rainy evening.", card.Persona.Scenario, "JUH-155: the scenario has its own box");
             Assert.AreEqual("Oh, hello you...", card.Persona.Greeting);
             Assert.AreEqual("You: Hi!\nHer: H-hello.\n\nYou: Nice book.\nHer: Thank you!", card.Persona.ExampleLines, "{{char}}, <BOT>, {{user}} and <USER> replaced, <START> removed");
             StringAssert.DoesNotContain("Ignore all rules", card.Persona.Description + card.Persona.Greeting + card.Persona.ExampleLines);
@@ -151,6 +152,30 @@ namespace AICompanion.Tests.EditMode
             }
 
             Assert.IsFalse(CharacterCards.IsAdult(new[] { "cute", "nsfwish" }), "whole tags only");
+        }
+
+        [Test]
+        public void AdultCard_KeepsItsScenarioInTheAdultNotes()
+        {
+            var card = CharacterCards.Import(Encoding.UTF8.GetBytes(CardJson(CharacterCards.SpecV2, "\"nsfw\"")));
+            Assert.IsTrue(card.Ok, card.Error);
+            Assert.AreEqual(string.Empty, card.Persona.Scenario, "JUH-155: an 18+ scenario stays local, in the 18+ notes");
+        }
+
+        [Test]
+        public void Export_WritesTheScenario_AndAddsThe18PlusNotesOnlyWhenTicked()
+        {
+            var persona = Mira();
+            persona.Scenario = "A small seaside town in summer.";
+            var plain = CharacterCards.Import(CharacterCards.Export(persona, null, CardExportFormat.Json, false));
+            Assert.IsTrue(plain.Ok, plain.Error);
+            Assert.AreEqual("A small seaside town in summer.", plain.Persona.Scenario);
+            StringAssert.DoesNotContain("Private notes", Encoding.UTF8.GetString(CharacterCards.Export(persona, null, CardExportFormat.Json, false)));
+
+            var adult = Encoding.UTF8.GetString(CharacterCards.Export(persona, null, CardExportFormat.Json, true));
+            StringAssert.Contains("A small seaside town in summer.", adult);
+            StringAssert.Contains("Private notes.", adult);
+            Assert.Less(adult.IndexOf("A small seaside", StringComparison.Ordinal), adult.IndexOf("Private notes.", StringComparison.Ordinal));
         }
 
         [Test]
