@@ -45,6 +45,7 @@ namespace AICompanion.AI
             "Judge what fits her most likely. Use everything the description gives: her age, her personality and how confident or shy she is, " +
             "her relationships and anything it says about her experience. A shy 18-year-old who has never dated is near 10; " +
             "a confident 26-year-old who bullies and teases is near 70. When the description says little, stay near 50.\n" +
+            "What the user wrote comes first: when her 18+ notes say how experienced, shy or bold she is, that decides it.\n" +
             "Reply with only this JSON object and nothing else: {\"innocence\": <0 to 100>, \"reason\": \"<one short sentence>\"}";
 
         public static ChatRequest BuildRequest(string personaName, string personaPrompt)

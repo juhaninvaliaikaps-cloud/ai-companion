@@ -1295,7 +1295,7 @@ namespace AICompanion.NewUI
             PisaraReadResult result = null;
             try
             {
-                result = await reader.ReadDraftAsync(name, PersonaText.Build(input, name, RelationshipRoles.Friend), cancel.Token);
+                result = await reader.ReadDraftAsync(name, PersonaText.Build(input, name, RelationshipRoles.Friend), _lore, cancel.Token);
             }
             catch (Exception ex)
             {
