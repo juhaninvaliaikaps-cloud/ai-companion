@@ -155,6 +155,7 @@ namespace AICompanion.Settings
                 SettingsApplicator.Apply(_settings, this);
                 if (_settings.ChatHistory)
                     LoadHistory();
+                GreetIfEmpty();
             }
             finally
             {
@@ -1171,6 +1172,7 @@ namespace AICompanion.Settings
             var chat = GetComponent<ChatPanel>();
             if (chat != null)
                 chat.ClearTranscript();
+            GreetIfEmpty();
             _historyRevision = chat != null ? chat.TranscriptRevision : 0;
             _confirmClear = false;
             SetStatus("Chat history cleared. The API key was kept.");
@@ -1550,6 +1552,9 @@ namespace AICompanion.Settings
                     host.AddComponent<SettingsPanel>();
                 if (host.GetComponent<ScreenLookController>() == null)
                     host.AddComponent<ScreenLookController>();
+                // JUH-47: the game companion; idle until it is turned on in the Games section.
+                if (host.GetComponent<GameCompanionController>() == null)
+                    host.AddComponent<GameCompanionController>();
                 if (host.GetComponent<SetupWizard>() == null)
                     host.AddComponent<SetupWizard>();
             }

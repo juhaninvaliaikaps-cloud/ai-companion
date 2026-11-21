@@ -319,6 +319,7 @@ namespace AICompanion.Settings
 
             if (_settings.ChatHistory)
                 LoadHistory();
+            GreetIfEmpty();
         }
 
         void ClearActivePersona()

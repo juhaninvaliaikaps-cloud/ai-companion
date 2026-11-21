@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using AICompanion.AI;
 using AICompanion.Core;
+using AICompanion.GameCompanion;
 using AICompanion.Overlay;
 using AICompanion.ScreenLook;
 using AICompanion.Settings;
@@ -37,6 +38,7 @@ namespace AICompanion.NewUI
             Chat,
             Tools,
             Screen,
+            Games,
             Window,
             Data,
             Adult,
@@ -44,7 +46,7 @@ namespace AICompanion.NewUI
             Developer,
         }
 
-        static readonly string[] TabLabels = { "Persona", "AI", "Voice", "Look", "Chat", "Tools", "Screen", "Window", "Data", "18+", "Keys", "Developer" };
+        static readonly string[] TabLabels = { "Persona", "AI", "Voice", "Look", "Chat", "Tools", "Screen", "Games", "Window", "Data", "18+", "Keys", "Developer" };
         const float PlaneDistance = 0.36f;
 
         SettingsPanel _settings;
@@ -234,7 +236,8 @@ namespace AICompanion.NewUI
                 + "|" + s.PisaraCloud + "|" + s.PisaraCloudBaseUrl + "|" + s.PisaraCloudModel + "|" + s.MemoryEmbeddings
                 + "|" + _settings.PisaraApiKeySaved + "|" + _settings.PisaraApiKeyFromEnvironment
                 + "|" + (look != null ? look.Revision : 0) + "|" + _settings.ConnectionTestRunning + "|" + s.ShowMoodDebug + "|" + s.VoiceNarration
-                + "|" + _settings.PisaraRevision + "|" + _settings.TemperamentRevision;
+                + "|" + _settings.PisaraRevision + "|" + _settings.TemperamentRevision
+                + "|" + (_tab == Tab.Games && _settings.Games != null ? _settings.Games.Revision : 0);
         }
 
         // ---- Chrome ------------------------------------------------------------------------
@@ -375,6 +378,7 @@ namespace AICompanion.NewUI
                         case Tab.Chat: BuildChat(); break;
                         case Tab.Tools: BuildTools(); break;
                         case Tab.Screen: BuildScreen(); break;
+                        case Tab.Games: BuildGames(); break;
                         case Tab.Window: BuildWindow(); break;
                         case Tab.Data: BuildData(); break;
                         case Tab.Adult: BuildAdult(); break;
@@ -411,14 +415,14 @@ namespace AICompanion.NewUI
         {
             var catalog = _settings.PersonaCatalogNow();
             Note("Each persona keeps her own chat, memories, mood and relationship.");
+            // JUH-154: a grid of persona cards instead of the plain list; the setup name stays a row.
             var choices = _settings.Personas.Choices();
-            for (var i = 0; i < choices.Count; i++)
-            {
-                var choice = choices[i];
-                Choice(choice.Label, choice.Active, () => { _settings.Personas.Choose(choice.Id); _rebuild = true; });
-            }
+            if (choices.Count > 0 && choices[0].IsSetupName)
+                Choice(choices[0].Label, choices[0].Active, () => { _settings.Personas.Choose(string.Empty); _rebuild = true; });
+            BuildPersonaGrid();
 
-            Button("New persona", () => { _settings.NewPersona(); _rebuild = true; });
+            // JUH-150: new, template, duplicate and import open the Persona Studio.
+            Button("New or import a persona…", () => OpenStudio(null));
             PersonaEntry current;
             if (!ActivePersona(catalog, out current))
                 return;
@@ -426,10 +430,15 @@ namespace AICompanion.NewUI
             var persona = current.Persona;
             var id = persona.Id;
             Section("Edit " + (string.IsNullOrEmpty(persona.DisplayName) ? id : persona.DisplayName));
+            Button("Open in Persona Studio", () => OpenStudio(id));
+            BuildExport(persona);
             if (current.BuiltIn)
                 Note(current.UserFile ? "Editing your saved copy." : "Editing saves a copy. The built-in file stays.");
             Field("Display name", persona.DisplayName, false, v => Save(id, p => p.DisplayName = v));
-            Area("Personality", persona.Personality, 80f, PersonaDefinition.MaxPersonalityLength, v => Save(id, p => p.Personality = v));
+            if (string.IsNullOrWhiteSpace(persona.Description))
+                Area("Personality", persona.Personality, 80f, PersonaDefinition.MaxPersonalityLength, v => Save(id, p => p.Personality = v));
+            else
+                Note("Her description (" + persona.Description.Length.ToString("N0", CultureInfo.InvariantCulture) + " characters) is edited in the Persona Studio.");
             Area("Speaking style", persona.SpeakingStyle, 54f, PersonaDefinition.MaxSpeakingStyleLength, v => Save(id, p => p.SpeakingStyle = v));
             Field("Portrait folder", persona.PortraitFolder, false, v => Save(id, p => p.PortraitFolder = v));
             Note("Empty uses the standard portraits folder. Her voice, model and 3D avatar are set on the Voice, AI and Look tabs.");
@@ -482,6 +491,183 @@ namespace AICompanion.NewUI
                 Section("Delete");
                 Button(current.BuiltIn ? "Delete saved copy" : "Delete persona", () => { _settings.DeletePersona(); _rebuild = true; }, true);
             }
+        }
+
+        void OpenStudio(string id)
+        {
+            var studio = GetComponent<PersonaStudioView>();
+            if (studio == null)
+            {
+                _settings.NewPersona();
+                _rebuild = true;
+                return;
+            }
+
+            Close();
+            if (string.IsNullOrEmpty(id))
+                studio.OpenNew();
+            else
+                studio.OpenEdit(id);
+        }
+
+        // ---- JUH-154: the persona grid ---------------------------------------------------------
+
+        string _gridMenuId;
+        string _gridDeleteId;
+
+        void BuildPersonaGrid()
+        {
+            var cards = _settings.PersonaCards();
+            var catalog = _settings.PersonaCatalogNow();
+            var columns = PersonaGrid.Columns(_width, _s);
+            var gap = _theme.Spacing * _s;
+            var cardW = (_width - gap * (columns - 1)) / columns;
+            var cardH = 132f * _s;
+            for (var row = 0; row < PersonaGrid.Rows(cards.Count, columns); row++)
+            {
+                var line = HappiUiKit.Rect(_body, "PersonaRow");
+                Place(line, cardH);
+                PersonaCard menuCard = null;
+                for (var column = 0; column < columns; column++)
+                {
+                    var index = row * columns + column;
+                    if (index >= cards.Count)
+                        break;
+                    var card = cards[index];
+                    BuildPersonaCard(line, card, catalog.Find(card.Id), column * (cardW + gap), cardW, cardH);
+                    if (string.Equals(card.Id, _gridMenuId, StringComparison.OrdinalIgnoreCase))
+                        menuCard = card;
+                }
+
+                if (menuCard != null)
+                    BuildPersonaMenu(menuCard);
+            }
+        }
+
+        void BuildPersonaCard(RectTransform line, PersonaCard card, PersonaDefinition persona, float x, float width, float height)
+        {
+            var id = card.Id;
+            var button = HappiUiKit.Button(line, "Card " + id, string.Empty, _theme.FontSmall * _s, () =>
+            {
+                if (_building)
+                    return;
+                _gridMenuId = null;
+                _gridDeleteId = null;
+                _settings.Personas.Choose(id);
+                _rebuild = true;
+            });
+            HappiUiKit.Place(button.Rect, x, 0f, width, height);
+            if (card.Active)
+            {
+                var colors = button.Button.colors;
+                colors.normalColor = _theme.Selected;
+                button.Button.colors = colors;
+                var ring = button.Rect.gameObject.AddComponent<Outline>();
+                ring.effectColor = _theme.Hover;
+                ring.effectDistance = new Vector2(2f, -2f);
+            }
+
+            var pad = 6f * _s;
+            var size = Mathf.Min(64f * _s, height - 52f * _s);
+            Image frame;
+            var picture = PersonaPictureCache.Frame(button.Rect, "Picture", _theme, out frame);
+            HappiUiKit.Place(frame.rectTransform, (width - size) * 0.5f, pad, size, size);
+            var texture = PersonaPictureCache.Get(_settings.PersonasFolderPath, persona);
+            PersonaPictureCache.Show(frame, picture, texture, card.Round);
+            if (texture == null)
+            {
+                // No picture: her initial in a circle.
+                frame.gameObject.SetActive(true);
+                frame.sprite = card.Round ? HappiUiKit.Circle() : HappiUiKit.Rounded();
+                picture.color = new Color(1f, 1f, 1f, 0f);
+                var initial = HappiUiKit.Text(frame.rectTransform, "Initial", HappiUiKit.Literal(card.Name.Length > 0 ? card.Name.Substring(0, 1).ToUpperInvariant() : "?"),
+                    _theme.FontTitle * 1.3f * _s, _theme.Text, TextAlignmentOptions.Center, true);
+                HappiUiKit.Stretch(initial.rectTransform, 0f, 0f, 0f, 0f);
+            }
+
+            var name = HappiUiKit.Text(button.Rect, "Name", HappiUiKit.Literal(card.Name), _theme.FontBody * _s, _theme.Text, TextAlignmentOptions.Center, true);
+            name.textWrappingMode = TextWrappingModes.NoWrap;
+            name.overflowMode = TextOverflowModes.Ellipsis;
+            HappiUiKit.Place(name.rectTransform, pad, pad + size + 2f * _s, width - 2f * pad, 20f * _s);
+            var tagline = HappiUiKit.Text(button.Rect, "Tagline", HappiUiKit.Literal(card.Tagline), _theme.FontSmall * 0.9f * _s, _theme.TextMuted, TextAlignmentOptions.Top, false);
+            tagline.overflowMode = TextOverflowModes.Ellipsis;
+            HappiUiKit.Place(tagline.rectTransform, pad, pad + size + 22f * _s, width - 2f * pad, height - size - 26f * _s - pad);
+
+            var more = HappiUiKit.Button(button.Rect, "More", "⋯", _theme.FontBody * _s, () =>
+            {
+                if (_building)
+                    return;
+                _gridMenuId = string.Equals(_gridMenuId, id, StringComparison.OrdinalIgnoreCase) ? null : id;
+                _gridDeleteId = null;
+                _rebuild = true;
+            });
+            var moreSize = 24f * _s;
+            HappiUiKit.Place(more.Rect, width - moreSize - 3f * _s, 3f * _s, moreSize, moreSize);
+        }
+
+        /// <summary>The "⋯" menu of one card, shown under its row: Open in Studio, Duplicate, Delete.</summary>
+        void BuildPersonaMenu(PersonaCard card)
+        {
+            var id = card.Id;
+            if (string.Equals(_gridDeleteId, id, StringComparison.OrdinalIgnoreCase))
+            {
+                Note((card.SavedCopy ? "Delete your saved copy of " : "Delete ") + card.Name + "? This can't be undone."
+                     + (card.SavedCopy ? " The built-in comes back as it shipped." : string.Empty));
+                Button("Confirm delete", () =>
+                {
+                    string message;
+                    _settings.DeletePersonaById(id, out message);
+                    _gridDeleteId = null;
+                    _gridMenuId = null;
+                    _rebuild = true;
+                }, true);
+                Button("Cancel", () => { _gridDeleteId = null; _rebuild = true; });
+                return;
+            }
+
+            Section(card.Name);
+            if ((card.Actions & PersonaCardActions.OpenInStudio) != 0)
+                Button("Open in Studio", () => { _gridMenuId = null; OpenStudio(id); });
+            if ((card.Actions & PersonaCardActions.Duplicate) != 0)
+                Button("Duplicate", () =>
+                {
+                    string message;
+                    _settings.DuplicatePersona(id, out message);
+                    _gridMenuId = null;
+                    _rebuild = true;
+                });
+            // JUH-153: export from the card, in the format chosen under the active persona; never her 18+ notes.
+            Button("Export…", () =>
+            {
+                string message;
+                _settings.ExportPersona(id, _exportFormat, false, out message);
+                _gridMenuId = null;
+                _rebuild = true;
+            });
+            if ((card.Actions & PersonaCardActions.Delete) != 0)
+                Button(card.DeleteLabel, () => { _gridDeleteId = id; _rebuild = true; }, true);
+            Button("Close", () => { _gridMenuId = null; _rebuild = true; });
+        }
+
+        // JUH-153: export the active persona as a character card, a card JSON or a zip.
+        CardExportFormat _exportFormat = CardExportFormat.CardPng;
+        bool _exportAdult;
+
+        void BuildExport(PersonaDefinition persona)
+        {
+            Choice("Export as a character card (PNG)", _exportFormat == CardExportFormat.CardPng, () => { _exportFormat = CardExportFormat.CardPng; _rebuild = true; });
+            Choice("Export as card JSON", _exportFormat == CardExportFormat.Json, () => { _exportFormat = CardExportFormat.Json; _rebuild = true; });
+            Choice("Export as a zip (persona file + picture)", _exportFormat == CardExportFormat.Zip, () => { _exportFormat = CardExportFormat.Zip; _rebuild = true; });
+            if (!string.IsNullOrWhiteSpace(persona.AdultNotes))
+                Toggle("Include 18+ notes", _exportAdult, v => { _exportAdult = v; _rebuild = true; });
+            var id = persona.Id;
+            Button("Export…", () =>
+            {
+                string message;
+                _settings.ExportPersona(id, _exportFormat, _exportAdult, out message);
+                _rebuild = true;
+            });
+            Note("A card works in SillyTavern and Chub. Her 18+ notes are never exported unless you tick Include 18+ notes.");
         }
 
         /// <summary>The active persona's catalog entry. False, with a note, for the setup name or a missing file.</summary>
@@ -598,7 +784,15 @@ namespace AICompanion.NewUI
                     Field("Model", S.Model, false, v => Change(s => s.Model = v));
                     Field("Base URL", S.BaseUrl, false, v => Change(s => s.BaseUrl = v));
                     Note("xAI Grok by default (https://api.x.ai/v1). Claude: https://api.anthropic.com/v1 with a Claude model name. DeepSeek: https://api.deepseek.com/v1. Any other OpenAI-compatible API works too (OpenAI, OpenRouter, Groq).");
-                    Note("Her cloud voice and the screen look are xAI features: with another API she speaks with the local voice, and the screen look stays off.");
+                    Note("Her cloud voice is an xAI feature: with another API she speaks with the local voice.");
+                    Note("Cloud model can see pictures (screen looks):");
+                    var vision = VisionCapability.NormalizeMode(S.CloudVision);
+                    Choice("Auto: known vision models", vision == VisionCapability.ModeAuto, () => Change(s => s.CloudVision = VisionCapability.ModeAuto));
+                    Choice("Yes: this model reads pictures", vision == VisionCapability.ModeOn, () => Change(s => s.CloudVision = VisionCapability.ModeOn));
+                    Choice("No: never send it a picture", vision == VisionCapability.ModeOff, () => Change(s => s.CloudVision = VisionCapability.ModeOff));
+                    Note(VisionCapability.CloudModelAcceptsImages(S.Model)
+                        ? "\"" + S.Model + "\" will get screen looks, after you allow them on the Screen and Games tabs."
+                        : "\"" + S.Model + "\" won't get pictures. Known vision models include grok-4.7, deepseek-flash, Claude, gpt-4o, gpt-5 and Gemini.");
                     Section("Cloud AI API key");
                     Note(ApiKeyMask.Label(_settings.ApiKeySaved) + ".");
                     var key = Field("Paste a new API key for this service", string.Empty, true, null);
@@ -1317,6 +1511,117 @@ namespace AICompanion.NewUI
             return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
         }
 
+        // ---- Games: the game companion (JUH-47) --------------------------------------------
+
+        void BuildGames()
+        {
+            var games = _settings.Games;
+            Note("She watches your game and reacts, like a friend on the couch. Only each game's official data feed is used. Nothing reads or changes the game itself.");
+            Toggle("Game companion", S.GameCompanion, v => Change(s => s.GameCompanion = v));
+            if (!S.GameCompanion)
+            {
+                Note("Off. Nothing is read from your games.");
+                return;
+            }
+
+            if (games == null)
+            {
+                Note("The game companion isn't available in this session.");
+                return;
+            }
+
+
+            Section("Her lines");
+            Toggle("Let the cloud AI write her lines", S.GameCloudConsent, v => Change(s => s.GameCloudConsent = v));
+            Note(S.GameCloudConsent
+                ? "What just happened in your game (a kill, a death, a win) is sent to the cloud AI API with her persona, and she answers in her own words. If that fails, is slow or the hourly cap is used up, she says a pre-written line instead."
+                : "She says pre-written lines in her personality. Nothing about your game leaves this PC.");
+            if (games.Mode != CommentaryMode.ModelFirst && games.ModeReason.Length > 0 && games.ModeReason != CommentaryGate.NoConsent)
+                Note(games.ModeReason);
+            Note("Her style in games: " + GameVoices.Name(games.Voice) + ". It comes from her personality sliders and her relationship to you.");
+
+            Section("How often");
+            var frequency = S.GameFrequency;
+            Choice("Rare", frequency == GameFrequencyNames.Rare, () => Change(s => s.GameFrequency = GameFrequencyNames.Rare));
+            Choice("Normal", frequency == GameFrequencyNames.Normal, () => Change(s => s.GameFrequency = GameFrequencyNames.Normal));
+            Choice("Chatty", frequency == GameFrequencyNames.Chatty, () => Change(s => s.GameFrequency = GameFrequencyNames.Chatty));
+            var pace = GameCommentarySession.FrequencyFor(frequency);
+            Note("At most one line every " + Mathf.RoundToInt((float)CommentaryPacer.CooldownFor(pace)) + " seconds, sooner for a big moment. Up to "
+                 + CommentaryPacer.BudgetFor(pace) + " cloud lines an hour.");
+            if (games.Muted)
+                Button("Talk again", () => { games.Unmute(); _rebuild = true; });
+            else
+                Button("Quiet for 10 minutes", () => { games.MuteFor(TimeSpan.FromMinutes(10)); _rebuild = true; });
+
+            GameSection(games, GameTitle.CounterStrike2, "Counter-Strike 2", S.GameCs2, v => Change(s => s.GameCs2 = v));
+            GameSection(games, GameTitle.Dota2, "Dota 2", S.GameDota2, v => Change(s => s.GameDota2 = v));
+
+            Section("League of Legends");
+            Toggle("Watch League of Legends", S.GameLeague, v => Change(s => s.GameLeague = v));
+            if (S.GameLeague)
+                Note("No setup needed. She reads Riot's Live Client Data API on this PC during a match. "
+                     + (games.LeagueConnected ? "A match is on." : "Waiting for a match."));
+
+            Section("Gacha games");
+            Note("These games have no official data feed, and they ban tools that touch the game. Happi only sees the game window, the way OBS or Discord does.");
+            Toggle("Watch Genshin Impact", S.GameGenshin, v => Change(s => s.GameGenshin = v));
+            Toggle("Watch Honkai: Star Rail", S.GameStarRail, v => Change(s => s.GameStarRail = v));
+            Toggle("Watch Zenless Zone Zero", S.GameZzz, v => Change(s => s.GameZzz = v));
+            Toggle("Watch Arknights: Endfield", S.GameEndfield, v => Change(s => s.GameEndfield = v));
+            Toggle("Watch Neverness to Everness", S.GameNte, v => Change(s => s.GameNte = v));
+            Toggle("Let her look at the game", S.GameScreenLooks, v => Change(s => s.GameScreenLooks = v));
+            Note("While the game is the window you're using, she sends one picture of it to the cloud vision model every 2 minutes, and when you press "
+                 + GameCompanionController.LookHotkey + ". That is about 30 pictures an hour. They are not saved. This needs \"Let the cloud AI write her lines\" above, and she never looks in private mode or with 18+ on.");
+            if (S.GameScreenLooks && _chat != null && !_chat.CloudSeesImages)
+                Note(ChatPanel.GameLineNoVision);
+            Note(games.GachaGame != GameTitle.Unknown ? CommentaryPrompt.GameName(games.GachaGame) + " is open." : "No gacha game is open.");
+            if (S.GameScreenLooks && games.GachaGame != GameTitle.Unknown)
+                Button("Look now", () => { games.LookNow(); _rebuild = true; });
+            Toggle("React to my pulls (Genshin, Star Rail, ZZZ)", S.GamePullHistory, v => Change(s => s.GamePullHistory = v));
+            Note("She reads the pull history link the game saves when you open your history in the game, and asks HoYoverse's own server for your newest pulls. "
+                 + "The link is never sent anywhere else or saved. Endfield and NTE don't offer a safe way to do this.");
+            if (S.GamePullHistory && GachaHistoryLink.Supports(games.GachaGame))
+                Note(games.FollowingPulls ? "Following your pulls." : GameCompanionController.PullLinkMissing);
+
+            Section("Status");
+            Note(string.IsNullOrEmpty(games.StatusLine) ? "Ready." : games.StatusLine);
+            Field("Port for CS2 and Dota 2", S.GsiPort.ToString(CultureInfo.InvariantCulture), false, v =>
+            {
+                int port;
+                if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out port))
+                    Change(s => s.GsiPort = GameFrequencyNames.NormalizePort(port));
+            });
+            Note("Change it only if another app uses port " + GameFrequencyNames.DefaultGsiPort + ". Then press Set up again for each game.");
+        }
+
+        void GameSection(GameCompanionController games, GameTitle game, string name, bool on, Action<bool> changed)
+        {
+            Section(name);
+            Toggle("Watch " + name, on, changed);
+            if (!on)
+                return;
+            var installed = games.IsInstalled(game, S);
+            Note(installed
+                ? "Set up. Restart the game if it was running when you set it up."
+                : "Not set up yet. Set up puts a small config file in the game's own folder so the game sends its data to Happi on this PC.");
+            if (game == GameTitle.Dota2)
+                Note(GsiInstaller.Dota2LaunchHelp);
+            Button(installed ? "Set up again" : "Set up", () => SetUpGame(game));
+            if (installed)
+                Button("Remove", () => { P.SetStatus(games.Remove(game).Message); _rebuild = true; }, true);
+        }
+
+        void SetUpGame(GameTitle game)
+        {
+            var games = _settings.Games;
+            if (games == null)
+                return;
+            if (string.IsNullOrEmpty(S.GsiToken))
+                Change(s => s.GsiToken = GsiConfig.NewToken());
+            P.SetStatus(games.Install(game, S).Message);
+            _rebuild = true;
+        }
+
         void BuildScreen()
         {
             var look = _settings.ScreenController;
@@ -1329,7 +1634,7 @@ namespace AICompanion.NewUI
                 return;
             }
 
-            Note("Preview stays on this PC. Allowing cloud screen analysis sends the selected window image to the configured cloud vision provider (xAI Grok at the Base URL on the AI tab; other cloud APIs do not get the image). The image is not saved. Private mode never sends it and does not switch to a cloud model.");
+            Note("Preview stays on this PC. Allowing cloud screen analysis sends the selected window image to the cloud AI API on the AI tab, if its model reads pictures. The image is not saved. Private mode never sends it and does not switch to a cloud model.");
             Toggle("Allow cloud screen analysis", S.ScreenCloudConsent, v => Change(s => s.ScreenCloudConsent = v));
             if (look != null)
                 look.RefreshMonitors();

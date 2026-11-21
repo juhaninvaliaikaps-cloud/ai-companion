@@ -82,6 +82,14 @@ namespace AICompanion.NewUI
         int _appendedSerial = -1;
         int _shownLineCount = -1;
         float _layoutWidth = -1f;
+
+        // JUH-154: her picture left of her name, reloaded only when she or her picture changes.
+        Image _avatarFrame;
+        RawImage _avatar;
+        bool _avatarShown;
+        string _avatarPersona;
+        int _avatarPersonaRevision = -1;
+        int _avatarPictureRevision = -1;
         float _layoutHeight = -1f;
         float _layoutScale = -1f;
         float _layoutChatHeight = -1f;
@@ -911,6 +919,8 @@ namespace AICompanion.NewUI
             _dragHandle.Rect = handle;
             _dragHandle.Pressed = () => _dragPending = true;
 
+            _avatar = PersonaPictureCache.Frame(_box, "Avatar", _theme, out _avatarFrame);
+            _avatarFrame.gameObject.SetActive(false);
             _name = HappiUiKit.Text(_box, "Name", "Leia", _theme.FontTitle, _theme.Text, TextAlignmentOptions.MidlineLeft, true);
             _name.textWrappingMode = TextWrappingModes.NoWrap;
             _badge = HappiUiKit.Text(_box, "Badge", string.Empty, _theme.FontSmall, _theme.BadgeCloud, TextAlignmentOptions.MidlineLeft, false);
@@ -962,6 +972,7 @@ namespace AICompanion.NewUI
             dialogueButton.navigation = nav;
             dialogueButton.onClick.AddListener(OnDialogueClick);
             _dialogue = HappiUiKit.Text(_dialogueHit.transform, "Text", string.Empty, _theme.FontBody, _theme.Text, TextAlignmentOptions.BottomLeft, false);
+            _dialogue.richText = true;
             _dialogue.overflowMode = TextOverflowModes.Overflow;
             HappiUiKit.Stretch(_dialogue.rectTransform, 8f, 6f, 8f, 6f);
             _note = HappiUiKit.Text(_box, "Note", string.Empty, _theme.FontSmall, _theme.TextMuted, TextAlignmentOptions.TopLeft, false);
@@ -1121,8 +1132,15 @@ namespace AICompanion.NewUI
             right -= lookW + gap;
             HappiUiKit.Place(_mute.Rect, right - muteW, y, muteW, row);
             right -= muteW + gap;
-            var nameW = Mathf.Max(40f, right - pad);
-            HappiUiKit.Place(_name.rectTransform, pad, y, nameW, row);
+            var nameX = pad;
+            if (_avatarShown)
+            {
+                HappiUiKit.Place(_avatarFrame.rectTransform, pad, y, row, row);
+                nameX += row + gap;
+            }
+
+            var nameW = Mathf.Max(40f, right - nameX);
+            HappiUiKit.Place(_name.rectTransform, nameX, y, nameW, row);
             HappiUiKit.Place(_dragHandle.Rect, 0f, 0f, width, pad + row + gap * 0.5f);
             _badge.gameObject.SetActive(false);
             y += row + gap;
@@ -1230,6 +1248,17 @@ namespace AICompanion.NewUI
             return settings != null && settings.ChatFontSize >= 10f ? settings.ChatFontSize : _theme.FontBody;
         }
 
+        /// <summary>
+        /// History is the same paragraph, so it must use the live line's resolved size rather
+        /// than applying its own scale or a smaller transcript multiplier.
+        /// </summary>
+        float HistoryFontSize()
+        {
+            if (_dialogue != null && _dialogue.fontSize > 0.1f)
+                return _dialogue.fontSize;
+            return Mathf.Max(9f, ChatFontSize()) * (_layoutScale > 0f ? _layoutScale : 1f);
+        }
+
         /// <summary>Applies the chosen font to the dialogue, transcript and input.</summary>
         public void ApplyChatFont()
         {
@@ -1246,13 +1275,14 @@ namespace AICompanion.NewUI
                     _dialogue.font = font;
                 _dialogue.fontSize = size;
             }
+            var historySize = HistoryFontSize();
             for (var i = 0; i < _historyTexts.Count; i++)
             {
                 if (_historyTexts[i] == null)
                     continue;
                 if (font != null)
                     _historyTexts[i].font = font;
-                _historyTexts[i].fontSize = Mathf.Max(9f, size * 0.86f);
+                _historyTexts[i].fontSize = historySize;
             }
             if (_input != null && _input.textComponent != null)
             {
@@ -1289,8 +1319,38 @@ namespace AICompanion.NewUI
 
         // ---- Refresh -----------------------------------------------------------------------
 
+        /// <summary>
+        /// Her picture in the header. Compares a reference and two ints each frame (no allocation);
+        /// loads only after a persona switch, an edit of her, or a picture save.
+        /// </summary>
+        void RefreshAvatar()
+        {
+            if (_avatar == null || _settings == null)
+                return;
+            var current = _settings.CurrentSettings;
+            var id = current != null ? current.PersonaId ?? string.Empty : string.Empty;
+            if (string.Equals(id, _avatarPersona, StringComparison.Ordinal) && _settings.PersonaRevision == _avatarPersonaRevision
+                && PersonaPictureStore.Revision == _avatarPictureRevision)
+                return;
+            _avatarPersona = id;
+            _avatarPersonaRevision = _settings.PersonaRevision;
+            _avatarPictureRevision = PersonaPictureStore.Revision;
+
+            var persona = id.Length == 0 ? null : _settings.PersonaCatalogNow().Find(id);
+            var texture = PersonaPictureCache.Get(_settings.PersonasFolderPath, persona);
+            var round = persona == null || PersonaPictureShapes.Normalize(persona.PictureShape) == PersonaPictureShapes.Round;
+            PersonaPictureCache.Show(_avatarFrame, _avatar, texture, round);
+            var shown = texture != null;
+            if (shown != _avatarShown)
+            {
+                _avatarShown = shown;
+                _layoutWidth = -1f;
+            }
+        }
+
         void RefreshControls()
         {
+            RefreshAvatar();
             var presenter = _chat.Presenter;
             _send.Text = presenter.ActionLabel;
             _mute.Text = presenter.MuteLabel;
@@ -1347,9 +1407,9 @@ namespace AICompanion.NewUI
             if (line == null || string.IsNullOrEmpty(line.Text))
                 return line != null ? line.Text : string.Empty;
             if (line.Kind != ChatLineKind.Assistant && line.Kind != ChatLineKind.User)
-                return line.Text;
+                return HappiUiKit.Literal(line.Text);
             var segments = VnScriptParser.Parse(line.Text, true).Segments;
-            return VnRender.Dialogue(segments, segments.Count, -1, _theme, line.HighlightFeedback);
+            return VnRender.Dialogue(segments, segments.Count, -1, _theme, false);
         }
 
         void RefreshDialogue()
@@ -1395,7 +1455,7 @@ namespace AICompanion.NewUI
             if (_player.Segments.Count > 0 && _appendedSerial != serial)
             {
                 text = VnRender.Dialogue(_player.Segments, _player.Revealed, _player.Finished ? -1 : _player.Current, _theme,
-                    _chat != null && _chat.LastAssistantHighlighted);
+                    false);
                 _glowLineStart = VnRender.LineStart(_player.Segments, _player.Current);
             }
             else if (_sink.Streaming)
@@ -1451,10 +1511,11 @@ namespace AICompanion.NewUI
             _historyWidth = width;
             _liveDirty = false;
             var count = _transcript.Count;
-            var historySize = Mathf.Max(9f, ChatFontSize() * 0.86f) * _layoutScale;
+            var historySize = HistoryFontSize();
             while (_historyTexts.Count < count)
             {
                 var text = HappiUiKit.Text(_historyContent, "Message", string.Empty, historySize, _theme.Text, TextAlignmentOptions.TopLeft, false);
+                text.richText = true;
                 text.overflowMode = TextOverflowModes.Overflow;
                 var rect = text.rectTransform;
                 rect.anchorMin = new Vector2(0f, 1f);
@@ -1466,7 +1527,10 @@ namespace AICompanion.NewUI
 
             for (var i = 0; i < _historyTexts.Count; i++)
                 if (_historyTexts[i] != null)
+                {
+                    _historyTexts[i].richText = true;
                     _historyTexts[i].fontSize = historySize;
+                }
 
             var y = 0f;
             for (var i = 0; i < _historyTexts.Count; i++)
@@ -1489,7 +1553,7 @@ namespace AICompanion.NewUI
                 {
                     // JUH-132: the transcript used the old History tab's small font after a
                     // reply finished, while the live reply was body size. Keep one size.
-                    text.fontSize = _theme.FontBody * _layoutScale;
+                    text.fontSize = HistoryFontSize();
                     text.text = HistoryEntry(_transcript.Entry(i));
                     _historyHeights[i] = Mathf.Max(8f, text.GetPreferredValues(text.text, width - 4f, 0f).y);
                 }
@@ -1563,7 +1627,7 @@ namespace AICompanion.NewUI
             var body = entry.Substring(split + 1);
             if (label == "Companion")
                 label = CompanionName();
-            return "<b>" + HappiUiKit.Literal(label) + "</b>\n" + HappiUiKit.Literal(body);
+            return "<b>" + HappiUiKit.Literal(label) + "</b>\n" + body;
         }
 
         static string Shorten(string text, int max)

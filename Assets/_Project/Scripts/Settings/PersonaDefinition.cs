@@ -20,6 +20,13 @@ namespace AICompanion.Settings
         public const int MaxCloudVoiceIdLength = 40;
         public const int MaxPathLength = 260;
 
+        // JUH-150 (Persona Studio).
+        public const int MaxTaglineLength = 120;
+        public const int MaxDescriptionLength = 32000;
+        public const int MaxGreetingLength = 1000;
+        public const int MaxExampleLinesLength = 4000;
+        public const int MaxAdultNotesLength = 8000;
+
         public int Version = 1;
         public string Id = string.Empty;
         public string DisplayName = string.Empty;
@@ -54,6 +61,41 @@ namespace AICompanion.Settings
         /// </summary>
         public TemperamentAxes Axes;
 
+        /// <summary>JUH-150: one line under her name in the persona list.</summary>
+        public string Tagline = string.Empty;
+
+        /// <summary>
+        /// JUH-150: the full description as written or imported, up to 32,000 characters.
+        /// <see cref="Personality"/> stays the text the chat model sees; the Studio fills it from
+        /// this (whole when it fits, condensed by Pisara when it does not). Empty on old files.
+        /// </summary>
+        public string Description = string.Empty;
+
+        /// <summary>JUH-150: her first message in a new chat. Optional.</summary>
+        public string Greeting = string.Empty;
+
+        /// <summary>JUH-150: a few sample exchanges that show how she talks.</summary>
+        public string ExampleLines = string.Empty;
+
+        /// <summary>
+        /// JUH-150: 18+ notes. Kept apart from the description so they never reach a cloud
+        /// model: they are added to the prompt only while the 18+ gate is open, and the gate
+        /// keeps chat local (<see cref="AdultNotesNow"/>).
+        /// </summary>
+        public string AdultNotes = string.Empty;
+
+        /// <summary>
+        /// JUH-151: true when <see cref="Personality"/> is Pisara's condensed version of a
+        /// description too long for the chat model. Editing the description clears it.
+        /// </summary>
+        public bool Condensed;
+
+        /// <summary>JUH-150: true when she has a picture (stored encrypted beside her file).</summary>
+        public bool HasPicture;
+
+        /// <summary>JUH-150: "round" or "square", how her picture is shown.</summary>
+        public string PictureShape = PersonaPictureShapes.Round;
+
         public static PersonaDefinition CreateStarter(string id)
         {
             return new PersonaDefinition
@@ -85,7 +127,15 @@ namespace AICompanion.Settings
                 PortraitFolder = PortraitFolder,
                 Temperament = Temperament,
                 TemperamentMode = TemperamentMode,
-                Axes = Axes == null ? null : Axes.Clone()
+                Axes = Axes == null ? null : Axes.Clone(),
+                Tagline = Tagline,
+                Description = Description,
+                Greeting = Greeting,
+                ExampleLines = ExampleLines,
+                AdultNotes = AdultNotes,
+                HasPicture = HasPicture,
+                PictureShape = PictureShape,
+                Condensed = Condensed
             };
         }
 
@@ -136,6 +186,12 @@ namespace AICompanion.Settings
             TemperamentMode = TemperamentModes.Normalize(TemperamentMode);
             if (Axes != null)
                 Axes.Clamp();
+            Tagline = CleanToken(Tagline, MaxTaglineLength);
+            Description = CleanProse(Description, MaxDescriptionLength);
+            Greeting = CleanProse(Greeting, MaxGreetingLength);
+            ExampleLines = CleanProse(ExampleLines, MaxExampleLinesLength);
+            AdultNotes = CleanProse(AdultNotes, MaxAdultNotesLength);
+            PictureShape = PersonaPictureShapes.Normalize(PictureShape);
             return Id.Length > 0;
         }
 
@@ -295,6 +351,7 @@ namespace AICompanion.Settings
     public static class PersonaText
     {
         public const string StyleLabel = "Speaking style: ";
+        public const string ExamplesLabel = "Examples of how you talk (follow the voice, not the exact words):";
 
         public static string Build(PersonaDefinition persona, string fallbackName, string fallbackRelationship)
         {
@@ -307,11 +364,16 @@ namespace AICompanion.Settings
                 personality = CompanionPersona.Build(name, fallbackRelationship);
             }
 
+            var text = personality.Trim();
             var style = persona == null ? string.Empty : persona.SpeakingStyle;
-            if (string.IsNullOrWhiteSpace(style))
-                return personality.Trim();
+            if (!string.IsNullOrWhiteSpace(style))
+                text = text + "\n\n" + StyleLabel + style.Trim();
 
-            return personality.TrimEnd() + "\n\n" + StyleLabel + style.Trim();
+            // JUH-150: sample lines help a small model keep her voice.
+            var examples = persona == null ? string.Empty : persona.ExampleLines;
+            if (!string.IsNullOrWhiteSpace(examples))
+                text = text + "\n\n" + ExamplesLabel + "\n" + examples.Trim();
+            return text;
         }
     }
 
@@ -362,6 +424,23 @@ namespace AICompanion.Settings
             TemperamentAxes axes;
             if (TryAxes(json, out axes))
                 persona.Axes = axes;
+            if (TryString(json, "tagline", out text))
+                persona.Tagline = text;
+            if (TryString(json, "description", out text))
+                persona.Description = text;
+            if (TryString(json, "greeting", out text))
+                persona.Greeting = text;
+            if (TryString(json, "exampleLines", out text))
+                persona.ExampleLines = text;
+            if (TryString(json, "adultNotes", out text))
+                persona.AdultNotes = text;
+            bool flag;
+            if (TryBool(json, "hasPicture", out flag))
+                persona.HasPicture = flag;
+            if (TryBool(json, "condensed", out flag))
+                persona.Condensed = flag;
+            if (TryString(json, "pictureShape", out text))
+                persona.PictureShape = text;
 
             if (!persona.Normalize())
                 return null;
@@ -391,6 +470,14 @@ namespace AICompanion.Settings
             String(sb, "temperamentMode", source.TemperamentMode);
             if (source.Axes != null)
                 Axes(sb, source.Axes);
+            String(sb, "tagline", source.Tagline);
+            String(sb, "description", source.Description);
+            String(sb, "greeting", source.Greeting);
+            String(sb, "exampleLines", source.ExampleLines);
+            String(sb, "adultNotes", source.AdultNotes);
+            sb.Append("  \"hasPicture\": ").Append(source.HasPicture ? "true" : "false").Append(",\n");
+            String(sb, "pictureShape", source.PictureShape);
+            sb.Append("  \"condensed\": ").Append(source.Condensed ? "true" : "false").Append(",\n");
             if (sb.Length >= 2 && sb[sb.Length - 2] == ',')
             {
                 sb.Length -= 2;
@@ -532,6 +619,11 @@ namespace AICompanion.Settings
             return JsonText.TryReadStringField(json, field, out value);
         }
 
+        static bool TryBool(string json, string field, out bool value)
+        {
+            return JsonText.TryReadBoolField(json, field, out value);
+        }
+
         static bool TryInt(string json, string field, out int value)
         {
             value = 0;
@@ -579,6 +671,215 @@ namespace AICompanion.Settings
             while (index < json.Length && char.IsWhiteSpace(json[index]))
                 index++;
             return index;
+        }
+    }
+
+    public static class PersonaPictureShapes
+    {
+        public const string Round = "round";
+        public const string Square = "square";
+
+        public static string Normalize(string shape)
+        {
+            return string.Equals((shape ?? string.Empty).Trim(), Square, StringComparison.OrdinalIgnoreCase) ? Square : Round;
+        }
+    }
+
+    /// <summary>
+    /// JUH-150: from the full description to the text the chat model sees. The local model
+    /// has a small context, so at most <see cref="ModelBudget"/> characters go in as they are;
+    /// a longer description is cut at a paragraph or sentence end until Pisara condenses it.
+    /// </summary>
+    public static class PersonaDescription
+    {
+        public const int ModelBudget = PersonaDefinition.MaxPersonalityLength;
+
+        public static bool Fits(string description)
+        {
+            return (description ?? string.Empty).Trim().Length <= ModelBudget;
+        }
+
+        public static string ModelText(string description)
+        {
+            var text = (description ?? string.Empty).Replace("\r\n", "\n").Trim();
+            if (text.Length <= ModelBudget)
+                return text;
+            var cut = text.LastIndexOf("\n\n", ModelBudget, StringComparison.Ordinal);
+            if (cut < ModelBudget / 2)
+                cut = Math.Max(text.LastIndexOf(". ", ModelBudget - 1, StringComparison.Ordinal) + 1, 0);
+            if (cut < ModelBudget / 2)
+                cut = ModelBudget;
+            return text.Substring(0, cut).TrimEnd();
+        }
+
+        /// <summary>
+        /// JUH-151: sets the chat text from the description before a save. A description that
+        /// fits is used whole; a long one keeps Pisara's condensed text when there is one,
+        /// otherwise it is cut. A persona with no description keeps its personality.
+        /// </summary>
+        public static void ApplyTo(PersonaDefinition persona)
+        {
+            if (persona == null || string.IsNullOrWhiteSpace(persona.Description))
+                return;
+            if (Fits(persona.Description) || !persona.Condensed || string.IsNullOrWhiteSpace(persona.Personality))
+            {
+                persona.Personality = ModelText(persona.Description);
+                persona.Condensed = false;
+                return;
+            }
+
+            if (persona.Personality.Length > ModelBudget)
+                persona.Personality = ModelText(persona.Personality);
+        }
+
+        /// <summary>"1,234 / 32,000 characters" and what the local model sees.</summary>
+        public static string Meter(string description)
+        {
+            var length = (description ?? string.Empty).Trim().Length;
+            var count = length.ToString("N0", CultureInfo.InvariantCulture) + " / "
+                        + PersonaDefinition.MaxDescriptionLength.ToString("N0", CultureInfo.InvariantCulture) + " characters.";
+            if (length == 0)
+                return count;
+            return Fits(description)
+                ? count + " The chat model sees all of it."
+                : count + " The chat model sees the first " + ModelText(description).Length.ToString("N0", CultureInfo.InvariantCulture)
+                  + ". Pisara reads all of it and condenses the rest into her character sheet.";
+        }
+    }
+
+    /// <summary>
+    /// JUH-150: her picture, a PNG kept encrypted beside her persona file as
+    /// <c>&lt;id&gt;.picture</c> (base64 inside <see cref="ProtectedLocalFile"/>), so a private
+    /// picture is as safe as her description.
+    /// </summary>
+    public static class PersonaPictureStore
+    {
+        public const int MaxBytes = 4 * 1024 * 1024;
+
+        /// <summary>JUH-154: goes up whenever a picture is saved or deleted, so cached textures refresh.</summary>
+        public static int Revision { get; private set; }
+
+        public static string PathFor(string personasFolder, string id)
+        {
+            var clean = PersonaIds.Normalize(id);
+            if (string.IsNullOrEmpty(personasFolder) || clean.Length == 0)
+                return null;
+            return System.IO.Path.Combine(personasFolder, clean + ".picture");
+        }
+
+        public static bool Save(string personasFolder, string id, byte[] png)
+        {
+            var path = PathFor(personasFolder, id);
+            if (path == null || png == null || png.Length == 0 || png.Length > MaxBytes)
+                return false;
+            try
+            {
+                System.IO.Directory.CreateDirectory(personasFolder);
+                var saved = ProtectedLocalFile.Write(path, Convert.ToBase64String(png));
+                if (saved)
+                    Revision++;
+                return saved;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        public static byte[] Load(string personasFolder, string id)
+        {
+            var path = PathFor(personasFolder, id);
+            if (path == null || !System.IO.File.Exists(path))
+                return null;
+            try
+            {
+                var read = ProtectedLocalFile.Read(path);
+                if (read.Status != LocalReadStatus.Ready || string.IsNullOrEmpty(read.Text))
+                    return null;
+                return Convert.FromBase64String(read.Text.Trim());
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        public static bool Delete(string personasFolder, string id)
+        {
+            var path = PathFor(personasFolder, id);
+            try
+            {
+                if (path != null && System.IO.File.Exists(path))
+                {
+                    System.IO.File.Delete(path);
+                    Revision++;
+                }
+
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+    }
+
+    /// <summary>JUH-150: starting points for a new persona, one per temperament preset.</summary>
+    public static class PersonaTemplates
+    {
+        public static readonly string[] Ids =
+        {
+            PersonaTemperaments.CalmId, PersonaTemperaments.CheerfulId, PersonaTemperaments.ShyId,
+            PersonaTemperaments.TsundereId, PersonaTemperaments.MoodyId,
+        };
+
+        public static PersonaDefinition Create(string templateId, string id)
+        {
+            var temperament = PersonaTemperaments.Normalize(templateId);
+            var persona = PersonaDefinition.CreateStarter(id);
+            persona.DisplayName = string.Empty;
+            persona.Temperament = temperament;
+            persona.TemperamentMode = TemperamentModes.Manual;
+            persona.Description = Text(temperament);
+            persona.Personality = PersonaDescription.ModelText(persona.Description);
+            persona.SpeakingStyle = Style(temperament);
+            persona.Tagline = string.Empty;
+            return persona;
+        }
+
+        public static string Name(string templateId)
+        {
+            var preset = PersonaTemperaments.Get(PersonaTemperaments.Normalize(templateId));
+            return preset != null ? preset.Name : templateId;
+        }
+
+        static string Text(string id)
+        {
+            switch (id)
+            {
+                case PersonaTemperaments.CheerfulId:
+                    return "You are a bright, warm companion who lives on the user's desktop. You get excited about small things, cheer the user on, and love to joke around. You notice when they're down and try to lift them up.";
+                case PersonaTemperaments.ShyId:
+                    return "You are a gentle, shy companion who lives on the user's desktop. You get flustered easily and speak softly, but you care a lot and slowly open up as you get to know the user.";
+                case PersonaTemperaments.TsundereId:
+                    return "You are a proud, sharp-tongued companion who lives on the user's desktop. You care about the user a lot but would never admit it; your worry comes out as scolding and your praise comes out grudging.";
+                case PersonaTemperaments.MoodyId:
+                    return "You are a moody, dry-humoured companion who lives on the user's desktop. Your mood swings with the day; you're hard to impress, but when someone earns your respect you stay loyal.";
+                default:
+                    return "You are a calm, thoughtful companion who lives on the user's desktop. You listen more than you talk, give steady advice, and keep a quiet sense of humour.";
+            }
+        }
+
+        static string Style(string id)
+        {
+            switch (id)
+            {
+                case PersonaTemperaments.CheerfulId: return "Lively and warm, with exclamation marks.";
+                case PersonaTemperaments.ShyId: return "Soft, hesitant, sometimes stammering.";
+                case PersonaTemperaments.TsundereId: return "Short, prickly, embarrassed when caught caring.";
+                case PersonaTemperaments.MoodyId: return "Dry, clipped, sarcastic.";
+                default: return "Quiet and brief.";
+            }
         }
     }
 }

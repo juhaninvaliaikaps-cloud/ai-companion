@@ -13,7 +13,7 @@ Change the id, model, base URL, timeout, temperature, max tokens, or system prom
 
 The endpoint is the legacy Chat Completions API, which is what xAI documents as OpenAI-compatible. Visible reply text is `delta.content`. Reasoning text (`reasoning_content`) is not shown.
 
-A one-frame window look is the exception. When the cloud AI API is xAI Grok and cloud screen consent is on, that request uses the Responses API (`/v1/responses`) because that is the image path the current xAI image-understanding guide shows for `grok-4.7`. It sends one JPEG, sets `store` to false, and does not keep the image in the transcript. When chat is local, or private mode is on, the JPEG goes only to a separate Ollama vision model on loopback. Rocinante then receives the description as text. Details and the opt-in are in [SCREEN_LOOK.md](SCREEN_LOOK.md).
+A one-frame window look is the exception. When the cloud AI API's model reads pictures and cloud screen consent is on, the image goes to it (JUH-149; see Screen look below). For xAI Grok that request uses the Responses API (`/v1/responses`) because that is the image path the current xAI image-understanding guide shows for `grok-4.7`. It sends one JPEG, sets `store` to false, and does not keep the image in the transcript. When chat is local, or private mode is on, the JPEG goes only to a separate Ollama vision model on loopback. Rocinante then receives the description as text. Details and the opt-in are in [SCREEN_LOOK.md](SCREEN_LOOK.md).
 
 ## Set the xAI key
 
@@ -63,7 +63,17 @@ Jussi (2026-11-21): the user can use whatever cloud API they want, and the inter
 
 - **One key.** The saved cloud key (and `XAI_API_KEY`) is sent only to the host in the base URL. The key file did not move.
 - **Voice.** The xAI cloud voice is only used when the base URL is xAI (`VoiceRoute.HasXaiVoice`), so a Claude or DeepSeek key is never sent to xAI. With any other cloud API she speaks with the local voice.
-- **Screen look.** Only xAI's vision models get the window image (Grok's Responses API). With a cloud API that can't read pictures, the screen look uses the local vision model when one is set (`ScreenLookPolicy.UseLocalVision`); without one it is refused and nothing is sent. `CloudChatProvider` also wipes and refuses any image for a non-xAI host.
+- **Screen look (JUH-149).** Any cloud API whose model reads pictures gets the window image. `VisionCapability.CloudModelAcceptsImages` decides it, using the AI tab's **Cloud model can see pictures** setting:
+  - **Auto** uses the known list: `grok-4.7` and `grok-4`; `deepseek-flash` and the older DeepSeek vision preview; Claude 3 and newer; `gpt-4o`, `gpt-4.1`, `gpt-5`, `o3`, `o4-mini`; Gemini; Pixtral; Llama 4; Qwen-VL. A provider prefix like `openai/` is ignored.
+  - **Yes** trusts any model.
+  - **No** never sends a picture.
+
+  The request shape depends on the host:
+  - xAI: the Responses API, as before.
+  - Other OpenAI-compatible APIs (DeepSeek, OpenAI, OpenRouter and others): chat completions with an `image_url` data URL (`VisionChatJson`), not streamed, with DeepSeek's thinking off.
+  - Anthropic: a base64 `image` block on the last user message.
+
+  With a model that can't read pictures, the screen look uses the local vision model when one is set (`ScreenLookPolicy.UseLocalVision`); without one it is refused and nothing is sent. `CloudChatProvider` wipes and refuses an image for such a model before anything is sent.
 - **Backstop.** A request marked `BlockCloud` (private, 18+ and observation turns) is refused by the cloud slot before any provider sees it. Routing already keeps those requests local; this only catches a mistake.
 - **Connection test.** `ConnectionProbe.AuthHeaders` sends Claude's headers to `api.anthropic.com/v1/models` and a Bearer token everywhere else.
 - **Usage policies.** Each provider has its own. Anthropic's usage policy forbids erotic chat. That is already the app's rule: 18+ content only runs on the local model, and private mode never reaches any cloud provider.

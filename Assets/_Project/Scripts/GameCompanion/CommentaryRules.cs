@@ -9,10 +9,98 @@ namespace AICompanion.GameCompanion
     /// its own opt-in, and it is off in private mode and while the 18+ gate is open. There is
     /// no local model during play.
     /// </summary>
+    /// <summary>
+    /// How she may react in a game right now (JUH-49). The model comes first; pre-written lines
+    /// in her personality are the fallback and never leave this PC.
+    /// </summary>
+    public enum CommentaryMode
+    {
+        /// <summary>No reactions at all.</summary>
+        Off = 0,
+
+        /// <summary>Only pre-written lines: nothing about the game is sent anywhere.</summary>
+        PreWrittenOnly = 1,
+
+        /// <summary>Ask the cloud model first; fall back to a pre-written line.</summary>
+        ModelFirst = 2,
+    }
+
+    /// <summary>Where one line comes from.</summary>
+    public enum CommentarySource
+    {
+        None = 0,
+        Model = 1,
+        PreWritten = 2,
+    }
+
+    public static class CommentaryRoute
+    {
+        /// <summary>
+        /// A model line that takes longer than this is too late: the moment has passed, so she
+        /// says a pre-written line instead.
+        /// </summary>
+        public const double ModelTimeoutSeconds = 6;
+
+        public static CommentarySource Choose(CommentaryMode mode, CommentDecision decision)
+        {
+            if (mode == CommentaryMode.Off || !decision.Speak)
+                return CommentarySource.None;
+            return mode == CommentaryMode.ModelFirst && decision.UseModel ? CommentarySource.Model : CommentarySource.PreWritten;
+        }
+
+        /// <summary>
+        /// After a model request: its line, or the fallback when it failed, came back empty or
+        /// came too late.
+        /// </summary>
+        public static bool UseModelReply(bool ok, string text, double elapsedSeconds)
+        {
+            return ok && !string.IsNullOrWhiteSpace(text) && elapsedSeconds <= ModelTimeoutSeconds;
+        }
+    }
+
     public static class CommentaryGate
     {
+        public const string NoCloud = "No cloud AI API is set up, so she uses her pre-written lines. Nothing about your game is sent.";
+
+        public const string PrivatePreWritten = "Private mode or 18+ is on, so she uses her pre-written lines and the local voice. Nothing about your game is sent.";
+
+        /// <summary>
+        /// The mode for now, and why it is not <see cref="CommentaryMode.ModelFirst"/>.
+        /// Private mode and an open 18+ gate allow pre-written lines only (Jussi, 2026-11-21):
+        /// they never leave this PC, so the cloud stays out.
+        /// </summary>
+        public static CommentaryMode Decide(bool featureOn, bool cloudConsent, bool cloudReady, bool privateMode, out string reason)
+        {
+            reason = string.Empty;
+            if (!featureOn)
+            {
+                reason = Off;
+                return CommentaryMode.Off;
+            }
+
+            if (IntimateExpressions.KeepsLocal(privateMode))
+            {
+                reason = PrivatePreWritten;
+                return CommentaryMode.PreWrittenOnly;
+            }
+
+            if (!cloudConsent)
+            {
+                reason = NoConsent;
+                return CommentaryMode.PreWrittenOnly;
+            }
+
+            if (!cloudReady)
+            {
+                reason = NoCloud;
+                return CommentaryMode.PreWrittenOnly;
+            }
+
+            return CommentaryMode.ModelFirst;
+        }
+
         public const string Off = "Game commentary is off.";
-        public const string NoConsent = "Game commentary sends what happens in your game to the cloud AI API. Allow it first.";
+        public const string NoConsent = "Game commentary sends what happens in your game to the cloud AI API. Until you allow it, she uses her pre-written lines.";
         public const string Private = "Private mode or 18+ is on, so game commentary is off. Nothing about your game is sent.";
 
         /// <summary>True when a comment may be asked of the cloud model now; otherwise why not.</summary>
@@ -58,6 +146,25 @@ namespace AICompanion.GameCompanion
             "cooldowns, enemy positions or any information the user could not see. Do not name other players. " +
             "One or two short sentences, spoken, no lists, no emojis.";
 
+        /// <summary>
+        /// The system text for a model comment: her persona prompt first (who she is, from the
+        /// Pisara reading), then the game style from her sliders, then the fair-play rules.
+        /// </summary>
+        public static string SystemText(string personaPrompt, GameVoice voice)
+        {
+            var sb = new StringBuilder(1024);
+            if (!string.IsNullOrWhiteSpace(personaPrompt))
+                sb.Append(personaPrompt.Trim()).Append("\n\n");
+            sb.Append(GameText(voice));
+            return sb.ToString();
+        }
+
+        /// <summary>Her game style and the fair-play rules, for a caller that adds the persona itself.</summary>
+        public static string GameText(GameVoice voice)
+        {
+            return GameVoices.StyleLine(voice) + "\n\n" + Rules;
+        }
+
         public static string GameName(GameTitle game)
         {
             switch (game)
@@ -65,6 +172,11 @@ namespace AICompanion.GameCompanion
                 case GameTitle.CounterStrike2: return "Counter-Strike 2";
                 case GameTitle.Dota2: return "Dota 2";
                 case GameTitle.LeagueOfLegends: return "League of Legends";
+                case GameTitle.GenshinImpact: return "Genshin Impact";
+                case GameTitle.HonkaiStarRail: return "Honkai: Star Rail";
+                case GameTitle.ZenlessZoneZero: return "Zenless Zone Zero";
+                case GameTitle.ArknightsEndfield: return "Arknights: Endfield";
+                case GameTitle.NevernessToEverness: return "Neverness to Everness";
                 default: return "a game";
             }
         }
@@ -119,8 +231,18 @@ namespace AICompanion.GameCompanion
                 case GameEventKind.BombExploded: return "the bomb exploded";
                 case GameEventKind.LowHealth: return "they are low on health";
                 case GameEventKind.LevelUp: return "they reached level " + e.Count;
+                case GameEventKind.GachaTopPull:
+                    return "they pulled " + (e.Game == GameTitle.ZenlessZoneZero ? "an " : "a ") + TopRarity(e.Game) + (e.Detail.Length > 0 ? ": " + e.Detail : string.Empty)
+                           + (e.Count > 0 ? ", after " + e.Count + " pulls" : string.Empty);
+                case GameEventKind.GachaNoTop: return "they did " + e.Count + " pulls and got no " + TopRarity(e.Game);
                 default: return e.Kind.ToString();
             }
+        }
+
+        /// <summary>What the game calls its top rarity.</summary>
+        public static string TopRarity(GameTitle game)
+        {
+            return game == GameTitle.ZenlessZoneZero ? "S-rank" : "5-star";
         }
 
         static string MultiName(int count)
