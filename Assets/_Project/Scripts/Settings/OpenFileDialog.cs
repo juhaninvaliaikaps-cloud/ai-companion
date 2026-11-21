@@ -12,6 +12,9 @@ namespace AICompanion.Settings
         public const string Images = "Pictures (*.png;*.jpg;*.jpeg)\0*.png;*.jpg;*.jpeg\0All files (*.*)\0*.*\0\0";
         public const string Texts = "Text (*.txt;*.md)\0*.txt;*.md\0All files (*.*)\0*.*\0\0";
 
+        /// <summary>JUH-153: SillyTavern / Chub character cards.</summary>
+        public const string Cards = "Character cards (*.png;*.json)\0*.png;*.json\0All files (*.*)\0*.*\0\0";
+
         public static bool TryPick(string title, string filter, out string path)
         {
             path = null;

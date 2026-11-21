@@ -392,6 +392,7 @@ namespace AICompanion.NewUI
                 _form.Button("Edit " + names[active], () => OpenEdit(active));
 
             _form.Section("Import");
+            _form.Button("Import a character card (PNG or JSON)…", ImportCard);
             _form.Button("Import a .txt or .md file…", ImportTextFile);
             _form.Area("Or paste her description", _paste, 120f, PersonaDefinition.MaxDescriptionLength, v => _paste = v, v => _paste = v);
             _form.Button("Use this text", () =>
@@ -407,7 +408,6 @@ namespace AICompanion.NewUI
                 _paste = string.Empty;
                 Begin(draft, Step.Identity);
             });
-            _form.Note("Character cards (SillyTavern or Chub PNG and JSON) come in the next update.");
         }
 
         void BuildIdentity()
@@ -635,6 +635,67 @@ namespace AICompanion.NewUI
             draft.DisplayName = CompanionPersona.SanitizeName(Path.GetFileNameWithoutExtension(path));
             Begin(draft, Step.Identity);
             Status("Imported " + Path.GetFileName(path) + ".");
+        }
+
+        /// <summary>
+        /// JUH-153: a SillyTavern / Chub card (V2 or V3, PNG or JSON) becomes a draft; a PNG card's
+        /// picture becomes her picture. Notes about what was left out or moved go to the status line.
+        /// </summary>
+        void ImportCard()
+        {
+            string path;
+            if (!AICompanion.Settings.OpenFileDialog.TryPick("Import a character card", AICompanion.Settings.OpenFileDialog.Cards, out path))
+            {
+                Status("No card was picked.");
+                return;
+            }
+
+            ImportCardFrom(path);
+        }
+
+        void ImportCardFrom(string path)
+        {
+            CardImport card;
+            try
+            {
+                if (!File.Exists(path))
+                {
+                    Status("That file wasn't found.");
+                    return;
+                }
+
+                if (new FileInfo(path).Length > CharacterCards.MaxFileBytes)
+                {
+                    Status("That card is larger than 20 MB.");
+                    return;
+                }
+
+                card = CharacterCards.Import(File.ReadAllBytes(path));
+            }
+            catch (Exception ex)
+            {
+                Status("Couldn't read that card (" + ex.GetType().Name + ").");
+                return;
+            }
+
+            if (!card.Ok)
+            {
+                Status(card.Error);
+                return;
+            }
+
+            byte[] png = null;
+            string error = string.Empty;
+            if (card.PicturePng != null && !PersonaPictureImage.TryPrepare(card.PicturePng, out png, out error))
+                png = null;
+            SetPicture(png, png != null);
+            Begin(card.Persona, Step.Identity);
+            var message = "Imported " + (string.IsNullOrWhiteSpace(card.Persona.DisplayName) ? Path.GetFileName(path) : card.Persona.DisplayName) + ".";
+            if (card.Notes.Count > 0)
+                message += " " + string.Join(" ", card.Notes.ToArray());
+            if (card.PicturePng != null && png == null && error.Length > 0)
+                message += " Her picture couldn't be used: " + error;
+            Status(message);
         }
 
         void SetPicture(byte[] png, bool changed)

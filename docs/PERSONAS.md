@@ -122,9 +122,35 @@ The built-in presets set Grok, `eve`, and Auto. Picking one applies those. Chang
 
 It edits a draft and saves the whole persona on **Save**. Closing with unsaved changes asks first.
 
-- **Start:** create a new persona, start from a template (one per temperament preset), duplicate one, edit the active one, import a `.txt` or `.md` file, or paste a description.
+- **Start:** create a new persona, start from a template (one per temperament preset), duplicate one, edit the active one, import a character card, import a `.txt` or `.md` file, or paste a description.
 - **1 · Identity:** her name, tagline and picture. Choose a picture or paste its path. The centre square is used, and she can be shown round or square.
 - **2 · Description:** up to 32,000 characters, with a meter showing what the chat model sees. Also her speaking style, her example lines, and the 18+ notes, which are shown only when 18+ is turned on in settings.
 
-Still to come: the Pisara step with its generators, Voice, Look, the review step and test chat, character cards, export, the picture grid, and version history.
+### Character cards (JUH-153)
+
+**Import a character card (PNG or JSON)…** on the Studio's Start step reads SillyTavern and Chub cards: V2 (`chara_card_v2`, a PNG `tEXt` chunk named `chara` with base64 JSON), V3 (`chara_card_v3`, chunk `ccv3`; it wins when a PNG has both) and old flat V1 JSON. The card becomes a draft on the Identity step; a PNG card's picture becomes her picture (centre square, 512 px). Nothing is saved until **Save**.
+
+| Card field | Persona |
+| --- | --- |
+| `name` | Display name |
+| `description`, `personality`, `scenario` | Description, as labelled paragraphs ("Description:", "Personality:", "Scenario:") |
+| `first_mes` | Greeting |
+| `mes_example` | Example lines: `{{char}}` and `<BOT>` become "Her", `{{user}}` and `<USER>` become "You", `<START>` separators go |
+| `creator_notes`, `system_prompt`, `post_history_instructions` | Not imported (Happi writes its own instructions); the status line says so |
+
+In the description and greeting, `{{char}}` becomes her name and `{{user}}` becomes "the user" (in the greeting, "you"). Only the first greeting is used; the status line says how many alternates the card had. Every field is cut to the persona's limits, and the status line names any field that was cut.
+
+**18+ cards.** A card tagged `nsfw`, `nsfl`, `adult`, `18+`, `r18`, `explicit`, `lewd`, `smut`, `erotic`, `porn`, `hentai` or `sexual` keeps only its description in the description. Its personality and scenario go into her 18+ notes, which stay on this PC and reach the prompt only while the 18+ gate is open (chat is then always local). The status line tells the user.
+
+The PNG is read chunk by chunk (signature, length, type, data, CRC). No length in the file is trusted: a chunk longer than what is left of the file, or longer than 8 MB, stops the import with a message. Files over 20 MB are refused.
+
+**Export.** Settings → Persona → the active persona → **Export…**, as:
+
+- **a character card (PNG):** her picture, or a plain blue placeholder when she has none, with a V2 `chara` chunk (correct CRC). Her description goes to `description`, her speaking style to `personality`, her greeting to `first_mes`, her example lines to `mes_example` (with `<START>`, `{{user}}` and `{{char}}`), and her tagline to `creator_notes`;
+- **card JSON:** the same card as a `.json` file;
+- **a zip:** her Happi persona file (`<id>.json`) and her picture (`<id>.png`).
+
+Her 18+ notes are **never** exported unless **Include 18+ notes** is ticked (shown only when she has some). Ticked, a card carries them in `scenario` and is tagged `nsfw`, so importing it again routes them back into the 18+ notes. The save dialog asks before overwriting a file.
+
+Still to come: the Pisara step with its generators, Voice, Look, the review step and test chat, the picture grid, and version history.
 
