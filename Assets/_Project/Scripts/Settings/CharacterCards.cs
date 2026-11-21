@@ -241,7 +241,8 @@ namespace AICompanion.Settings
             else
             {
                 Paragraph(parts, "Personality", personality);
-                Paragraph(parts, "Scenario", scenario);
+                // JUH-155: the card's scenario has its own box.
+                persona.Scenario = Limit(scenario, PersonaDefinition.MaxScenarioLength, "Her scenario", result);
             }
 
             persona.Description = Limit(parts.ToString(), PersonaDefinition.MaxDescriptionLength, "Her description", result);
@@ -535,9 +536,9 @@ namespace AICompanion.Settings
         // ---- Export ------------------------------------------------------------------------------
 
         /// <summary>
-        /// The persona as V2 card JSON. Her description, speaking style, greeting and example lines
-        /// go in; {{char}} and {{user}} mark the speakers in the examples. The 18+ notes go into the
-        /// scenario, tagged nsfw, only when <paramref name="includeAdult"/> is true.
+        /// The persona as V2 card JSON. Her description, speaking style, scenario, greeting and
+        /// example lines go in; {{char}} and {{user}} mark the speakers in the examples. The 18+
+        /// notes are added after the scenario, tagged nsfw, only when <paramref name="includeAdult"/> is true.
         /// </summary>
         public static string ToCardJson(PersonaDefinition persona, bool includeAdult)
         {
@@ -549,7 +550,7 @@ namespace AICompanion.Settings
                 name = source.DisplayName ?? string.Empty,
                 description = (description ?? string.Empty).Trim(),
                 personality = (source.SpeakingStyle ?? string.Empty).Trim(),
-                scenario = adult ? source.AdultNotes.Trim() : string.Empty,
+                scenario = adult ? JoinScenario(source.Scenario, source.AdultNotes) : (source.Scenario ?? string.Empty).Trim(),
                 first_mes = (source.Greeting ?? string.Empty).Trim(),
                 mes_example = ToCardExamples(source.ExampleLines),
                 creator_notes = string.IsNullOrWhiteSpace(source.Tagline) ? "Exported from Happi." : source.Tagline.Trim(),
@@ -559,6 +560,16 @@ namespace AICompanion.Settings
             };
             var file = new CardFile { spec = SpecV2, spec_version = "2.0", data = data };
             return JsonUtility.ToJson(file, true);
+        }
+
+        /// <summary>JUH-155: an 18+ export carries her scenario and then her 18+ notes.</summary>
+        static string JoinScenario(string scenario, string adultNotes)
+        {
+            var a = (scenario ?? string.Empty).Trim();
+            var b = (adultNotes ?? string.Empty).Trim();
+            if (a.Length == 0)
+                return b;
+            return b.Length == 0 ? a : a + "\n\n" + b;
         }
 
         /// <summary>Happi's "You:" and "Her:" example lines as card examples, after a &lt;START&gt;.</summary>

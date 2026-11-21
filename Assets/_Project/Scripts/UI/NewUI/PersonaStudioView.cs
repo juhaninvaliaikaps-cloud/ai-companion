@@ -81,6 +81,7 @@ namespace AICompanion.NewUI
         PersonaDefinition _draft;
         bool _isNew;
         bool _dirty;
+        bool _showScenario;
         bool _pictureChanged;
         byte[] _picturePng;
         Texture2D _pictureTexture;
@@ -155,6 +156,7 @@ namespace AICompanion.NewUI
             _draft = null;
             _isNew = true;
             _dirty = false;
+            _showScenario = false;
             SetPicture(null, false);
             ResetSheet(null);
             ClearTest();
@@ -183,6 +185,7 @@ namespace AICompanion.NewUI
             ClearTest();
             _step = Step.Identity;
             Show();
+            FoldOldStyle();
         }
 
         void Show()
@@ -627,9 +630,27 @@ namespace AICompanion.NewUI
             _draft = restored;
             if (string.IsNullOrWhiteSpace(_draft.Description))
                 _draft.Description = _draft.Personality;
+            PersonaDescription.FoldStyle(_draft);
+            _showScenario = !string.IsNullOrWhiteSpace(_draft.Scenario);
             _dirty = true;
             _form.Rebuild = true;
             Status("Restored the version from " + System.IO.Path.GetFileName(path) + ". Save to keep it.");
+        }
+
+        /// <summary>JUH-155: an old Speaking style moves into her description; saving keeps it.</summary>
+        void FoldOldStyle()
+        {
+            _showScenario = _draft != null && !string.IsNullOrWhiteSpace(_draft.Scenario);
+            if (!PersonaDescription.FoldStyle(_draft))
+                return;
+            _dirty = true;
+            Status("Her speaking style is now at the end of her description. Save to keep it.");
+        }
+
+        static string Preview(string text, int max)
+        {
+            var line = (text ?? string.Empty).Replace("\r", " ").Replace("\n", " ").Trim();
+            return line.Length <= max ? line : line.Substring(0, max).TrimEnd() + "…";
         }
 
         void BuildDescription()
@@ -643,7 +664,27 @@ namespace AICompanion.NewUI
                     p.Description = v;
                 }, false), UpdateMeter);
             _meter = _form.Note(PersonaDescription.Meter(_draft.Description));
-            _form.Area("Speaking style", _draft.SpeakingStyle, 54f, PersonaDefinition.MaxSpeakingStyleLength, v => Edit(p => p.SpeakingStyle = v, false));
+            _form.Note("Put how she talks in here too: her tone, her words, how long her replies are.");
+
+            // JUH-155: the user's own scenario, or Pisara makes one up.
+            _form.Section("Scenario");
+            if (_showScenario || !string.IsNullOrWhiteSpace(_draft.Scenario))
+            {
+                _form.Area("Her world, what's going on, where you are and how you met", _draft.Scenario, 120f, PersonaDefinition.MaxScenarioLength,
+                    v => Edit(p => p.Scenario = v, false));
+                _form.Note("This is where your story starts. She reads it in every chat, and as you talk the scene moves on from here. "
+                           + "Pisara takes how she knows you and what she's doing right now from it. Empty lets Pisara make those up. "
+                           + "18+ details go in the 18+ notes, which stay on this PC.");
+            }
+            else
+            {
+                _form.Note("Empty: Pisara makes up how she knows you and what she's doing when you meet.");
+                _form.Button("Add custom scenario", () =>
+                {
+                    _showScenario = true;
+                    _form.Rebuild = true;
+                });
+            }
 
             _form.Section("Example lines");
             _form.Area("A few short exchanges", _draft.ExampleLines, 100f, PersonaDefinition.MaxExampleLinesLength, v => Edit(p => p.ExampleLines = v, false));
@@ -765,6 +806,7 @@ namespace AICompanion.NewUI
             if (!string.IsNullOrWhiteSpace(_draft.Tagline))
                 _form.Note(_draft.Tagline);
             _form.Note(_draft.Condensed ? "Description: condensed by Pisara for the chat model." : PersonaDescription.Meter(_draft.Description));
+            _form.Note(string.IsNullOrWhiteSpace(_draft.Scenario) ? "Scenario: Pisara makes it up." : "Scenario: " + Preview(_draft.Scenario, 140));
             if (_sheet != null)
             {
                 var choice = PisaraReading.Choose(_draft.TemperamentMode, _draft.Temperament, false, _sheet);
@@ -884,6 +926,9 @@ namespace AICompanion.NewUI
                 _form.Note("Write or paste her description first (step 2).");
                 return;
             }
+
+            if (!string.IsNullOrWhiteSpace(_draft.Scenario))
+                _form.Note("Your scenario is set, so Pisara takes how she knows you and what she's doing right now from it.");
 
             if (_reading)
             {
@@ -1316,6 +1361,8 @@ namespace AICompanion.NewUI
             _draft = draft;
             _isNew = true;
             _dirty = true;
+            PersonaDescription.FoldStyle(_draft);
+            _showScenario = _draft != null && !string.IsNullOrWhiteSpace(_draft.Scenario);
             if (!_pictureChanged)
                 SetPicture(null, false);
             ResetSheet(null);
@@ -1339,6 +1386,8 @@ namespace AICompanion.NewUI
             _draft = copy;
             _isNew = true;
             _dirty = true;
+            PersonaDescription.FoldStyle(_draft);
+            _showScenario = !string.IsNullOrWhiteSpace(_draft.Scenario);
             SetPicture(picture, picture != null);
             ResetSheet(sheet);
             _sheetChanged = sheet != null;
