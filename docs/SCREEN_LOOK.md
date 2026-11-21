@@ -92,7 +92,7 @@ Checked against the xAI docs on 2026-11-10:
 - [Reasoning](https://docs.x.ai/developers/model-capabilities/text/reasoning) uses `reasoning.effort`. This call sends `low`. Reasoning cannot be turned off. `grok-4.7` still returns `reasoning.encrypted_content`. That field is ignored and is not saved.
 - The legacy [chat completions](https://docs.x.ai/developers/model-capabilities/legacy/chat-completions) image example names `grok-4`, not `grok-4.7`. Ordinary chat in this app stays on chat completions. Only the look uses `/v1/responses`.
 
-The allowlist is the exact ids `grok-4.7` and `grok-4`. A different cloud model, including one with “vision” in the name, is refused. The request sets `store` to false, `detail` to `low`, and caps `max_output_tokens` at 800. The timeout is at most 45 seconds. Input price on the Grok 4.7 page is $2 / 1M tokens below the long-context tier, output $6 / 1M. A manual frame is one request. A 0.5–2 fps loop is a different cost and is not running.
+JUH-149: the allowlist now covers any cloud API's vision models, and there is an override on the AI tab (**Cloud model can see pictures**: Auto, Yes or No). See CHAT_PROVIDERS.md. For xAI it is the exact ids `grok-4.7` and `grok-4`. A name that merely contains "vision" is still not enough for Auto. The request sets `store` to false, `detail` to `low`, and caps `max_output_tokens` at 800. The timeout is at most 45 seconds. Input price on the Grok 4.7 page is $2 / 1M tokens below the long-context tier, output $6 / 1M. A manual frame is one request. A 0.5–2 fps loop is a different cost and is not running.
 
 The image is not added to the chat messages that later turns resend. The question and the description stay on screen for the session and are left out of the history file and out of long-term memory. The log line is `Screen look finished`. It does not include the description or the pixels.
 
@@ -188,4 +188,4 @@ If it still dies, the useful artifact is the debugger exception line (module and
 
 ## Other cloud APIs (JUH-143)
 
-The cloud slot takes any cloud API (Claude, DeepSeek, OpenAI…), but only xAI's vision models (`grok-4.7`, `grok-4`) get the window image. With another cloud API, the screen look uses the local vision model when one is set, even with cloud screen consent on; its description stays on the local chat model. Without a local vision model the look is refused and nothing is sent.
+The cloud slot takes any cloud API (Claude, DeepSeek, OpenAI…). Since JUH-149, any of them whose model reads pictures gets the window image, for example `deepseek-flash`, `grok-4.7`, Claude or `gpt-4o`. With a model that can't read pictures, the screen look uses the local vision model when one is set, even with cloud screen consent on, and its description stays on the local chat model. Without a local vision model the look is refused and nothing is sent.

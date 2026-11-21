@@ -16,7 +16,7 @@ namespace AICompanion.UI
     {
         public const string GameLineRefusedPrivate = "Private mode or 18+ is on, so nothing about the game was sent.";
         public const string GameLineNoCloud = "No cloud AI API is set up.";
-        public const string GameLineNoVision = "Screen looks need xAI (Grok) as the cloud AI API. Nothing was sent.";
+        public const string GameLineNoVision = "Screen looks need a cloud model that reads pictures, such as deepseek-flash or grok-4.7 (see the AI tab). Nothing was sent.";
 
         /// <summary>True when a game line may go into the chat now: she isn't answering the user.</summary>
         public bool CanSayGameLine
@@ -35,12 +35,12 @@ namespace AICompanion.UI
         }
 
         /// <summary>
-        /// True when the cloud AI API can take a picture: images go only to xAI (JUH-143), so a
-        /// screen look at a game needs Grok there.
+        /// True when the cloud AI API's model reads pictures (JUH-149: any API, by the known
+        /// list or the "Cloud model can see pictures" setting).
         /// </summary>
         public bool CloudSeesImages
         {
-            get { return CloudReady && settings != null && CloudChatProvider.IsXai(settings.baseUrl); }
+            get { return CloudReady && settings != null && VisionCapability.CloudModelAcceptsImages(settings.model); }
         }
 
         /// <summary>

@@ -25,7 +25,7 @@ namespace AICompanion.AI
     /// Claude's native Messages API. JUH-126: the Pisara reading uses it non-streamed, since it
     /// only needs the final sheet. JUH-143: chat in the cloud slot streams it
     /// (<see cref="AnthropicProviderConfig.Stream"/>), reading each <c>content_block_delta</c>.
-    /// Images are not sent: the screen look stays on xAI's vision models.
+    /// Images are sent as base64 blocks when the model reads pictures (JUH-149).
     /// </summary>
     public sealed class AnthropicChatProvider : IChatProvider
     {
@@ -73,11 +73,32 @@ namespace AICompanion.AI
                 return ChatResult.Fail(ChatErrorKind.Cancelled, ChatErrors.Cancelled);
             if (request == null)
                 return ChatResult.Fail(ChatErrorKind.Malformed, ChatErrors.Rejected(DisplayName));
+            var model = string.IsNullOrWhiteSpace(request.Model)
+                ? (_config.Model != null ? _config.Model() : string.Empty)
+                : request.Model;
+
+            // JUH-149: a picture goes to Claude only when the model reads pictures, the request
+            // may use the cloud, and the picture is within the size limit. It is wiped either way.
+            byte[] jpeg = null;
             if (request.Image != null)
             {
-                request.Image.Wipe();
+                var image = request.Image;
                 request.Image = null;
-                return ChatResult.Fail(ChatErrorKind.Malformed, VisionCapability.ModelRefusal);
+                string refusal = null;
+                if (request.BlockCloud)
+                    refusal = VisionCapability.PrivateRefusal;
+                else if (!VisionCapability.CloudModelAcceptsImages(model))
+                    refusal = VisionCapability.ModelRefusal;
+                else if (!VisionCapability.AcceptsPayload(image))
+                    refusal = VisionCapability.PayloadRefusal;
+                if (refusal != null)
+                {
+                    image.Wipe();
+                    return ChatResult.Fail(ChatErrorKind.Malformed, refusal);
+                }
+
+                jpeg = (byte[])image.JpegBytes.Clone();
+                image.Wipe();
             }
 
             var key = ReadKey();
@@ -86,13 +107,21 @@ namespace AICompanion.AI
             if (_config.Transport == null)
                 return ChatResult.Fail(ChatErrorKind.Unreachable, ChatErrors.Unreachable(DisplayName));
 
-            var model = string.IsNullOrWhiteSpace(request.Model)
-                ? (_config.Model != null ? _config.Model() : string.Empty)
-                : request.Model;
+            string body;
+            try
+            {
+                body = BuildBody(model, request, _config.Stream, jpeg);
+            }
+            finally
+            {
+                if (jpeg != null)
+                    Array.Clear(jpeg, 0, jpeg.Length);
+            }
+
             var http = new ChatHttpRequest
             {
                 Url = MessagesUrl(_config.BaseUrl != null ? _config.BaseUrl() : null),
-                Body = BuildBody(model, request, _config.Stream),
+                Body = body,
                 TimeoutSeconds = request.TimeoutSeconds > 0f
                     ? request.TimeoutSeconds
                     : (_config.TimeoutSeconds != null ? _config.TimeoutSeconds() : PisaraReader.RequestTimeoutSeconds),
@@ -283,8 +312,18 @@ namespace AICompanion.AI
                 sb.Append(chunk);
         }
 
-        static string BuildBody(string model, ChatRequest request, bool stream = false)
+        static string BuildBody(string model, ChatRequest request, bool stream = false, byte[] jpeg = null)
         {
+            var lastUser = -1;
+            if (request.Messages != null)
+            {
+                for (var i = request.Messages.Count - 1; i >= 0 && lastUser < 0; i--)
+                {
+                    if (request.Messages[i].Role == ChatRole.User)
+                        lastUser = i;
+                }
+            }
+
             var sb = new StringBuilder(256);
             sb.Append("{\"model\":");
             JsonText.AppendString(sb, string.IsNullOrWhiteSpace(model) ? ChatDefaults.Model : model.Trim());
@@ -313,7 +352,10 @@ namespace AICompanion.AI
                     messages.Append("{\"role\":");
                     JsonText.AppendString(sb: messages, value: message.Role == ChatRole.Assistant ? "assistant" : "user");
                     messages.Append(",\"content\":");
-                    JsonText.AppendString(messages, message.Content ?? string.Empty);
+                    if (jpeg != null && i == lastUser)
+                        AppendImageContent(messages, jpeg, message.Content);
+                    else
+                        JsonText.AppendString(messages, message.Content ?? string.Empty);
                     messages.Append('}');
                 }
             }
@@ -324,12 +366,31 @@ namespace AICompanion.AI
                 JsonText.AppendString(sb, system);
             }
 
+            if (jpeg != null && lastUser < 0)
+            {
+                if (messages.Length > 0)
+                    messages.Append(',');
+                messages.Append("{\"role\":\"user\",\"content\":");
+                AppendImageContent(messages, jpeg, string.Empty);
+                messages.Append('}');
+            }
+
             if (stream)
                 sb.Append(",\"stream\":true");
             sb.Append(",\"messages\":[");
             sb.Append(messages);
             sb.Append("]}");
             return sb.ToString();
+        }
+
+        /// <summary>JUH-149: a base64 JPEG block, then the text, as Claude's Messages API expects.</summary>
+        static void AppendImageContent(StringBuilder sb, byte[] jpeg, string text)
+        {
+            sb.Append("[{\"type\":\"image\",\"source\":{\"type\":\"base64\",\"media_type\":\"image/jpeg\",\"data\":\"");
+            sb.Append(Convert.ToBase64String(jpeg));
+            sb.Append("\"}},{\"type\":\"text\",\"text\":");
+            JsonText.AppendString(sb, string.IsNullOrEmpty(text) ? "Look at this." : text);
+            sb.Append("}]");
         }
 
         static bool TryReadText(string json, out string text)

@@ -191,15 +191,16 @@ namespace AICompanion.AI
                 }
             }
 
+            // JUH-149: xAI keeps its Responses API; any other OpenAI-compatible API gets the
+            // chat-completions image shape.
+            var baseUrl = _config.BaseUrl != null ? _config.BaseUrl() : null;
+            var responsesApi = CloudChatProvider.IsXai(baseUrl);
             string body;
             try
             {
-                body = VisionResponseJson.Build(
-                    model,
-                    VisionCapability.MaxOutputTokens,
-                    request.SystemPrompt,
-                    userText,
-                    image.JpegBytes);
+                body = responsesApi
+                    ? VisionResponseJson.Build(model, VisionCapability.MaxOutputTokens, request.SystemPrompt, userText, image.JpegBytes)
+                    : VisionChatJson.Build(model, VisionCapability.MaxOutputTokens, request.SystemPrompt, userText, image.JpegBytes, _config.DisableThinking);
             }
             finally
             {
@@ -213,7 +214,7 @@ namespace AICompanion.AI
 
             var http = new ChatHttpRequest
             {
-                Url = VisionResponseJson.ResponsesUrl(_config.BaseUrl != null ? _config.BaseUrl() : null),
+                Url = responsesApi ? VisionResponseJson.ResponsesUrl(baseUrl) : ChatEndpoints.CompletionsUrl(baseUrl),
                 Body = body,
                 TimeoutSeconds = timeout
             };
@@ -249,13 +250,13 @@ namespace AICompanion.AI
                 http.Body = null;
                 if (httpTask.IsFaulted || httpTask.IsCanceled)
                     return Task.FromResult(FailedTask(httpTask, DisplayName));
-                return Task.FromResult(ReadVision(httpTask.Result, accumulated.ToString(), onDelta, model));
+                return Task.FromResult(ReadVision(httpTask.Result, accumulated.ToString(), onDelta, model, responsesApi));
             }
 
-            return FinishVision(httpTask, http, accumulated, onDelta, model);
+            return FinishVision(httpTask, http, accumulated, onDelta, model, responsesApi);
         }
 
-        async Task<ChatResult> FinishVision(Task<ChatHttpResult> httpTask, ChatHttpRequest http, StringBuilder accumulated, Action<string> onDelta, string model)
+        async Task<ChatResult> FinishVision(Task<ChatHttpResult> httpTask, ChatHttpRequest http, StringBuilder accumulated, Action<string> onDelta, string model, bool responsesApi)
         {
             try
             {
@@ -273,7 +274,7 @@ namespace AICompanion.AI
                     return ChatResult.Fail(ChatErrorKind.Unreachable, ChatErrors.Unreachable(DisplayName));
                 }
 
-                return ReadVision(result, accumulated.ToString(), onDelta, model);
+                return ReadVision(result, accumulated.ToString(), onDelta, model, responsesApi);
             }
             finally
             {
@@ -282,7 +283,7 @@ namespace AICompanion.AI
             }
         }
 
-        ChatResult ReadVision(ChatHttpResult http, string accumulated, Action<string> onDelta, string model)
+        ChatResult ReadVision(ChatHttpResult http, string accumulated, Action<string> onDelta, string model, bool responsesApi)
         {
             if (http.Cancelled)
                 return ChatResult.Fail(ChatErrorKind.Cancelled, ChatErrors.Cancelled);
@@ -298,7 +299,9 @@ namespace AICompanion.AI
             if (json != null && json.Length > VisionCapability.MaxResponseChars)
                 json = json.Substring(0, VisionCapability.MaxResponseChars);
 
-            if (!VisionResponseJson.TryReadOutputText(json, out var text))
+            string text;
+            var read = responsesApi ? VisionResponseJson.TryReadOutputText(json, out text) : VisionChatJson.TryReadContent(json, out text);
+            if (!read)
                 return ChatResult.Fail(ChatErrorKind.Malformed, ChatErrors.Unreadable(DisplayName));
 
             if (onDelta != null && text.Length > 0)

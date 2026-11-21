@@ -23,14 +23,16 @@ namespace AICompanion.AI
     /// OpenAI-compatible chat API for everything else (xAI Grok by default, DeepSeek, OpenAI,
     /// OpenRouter…). The id stays <see cref="ChatDefaults.GrokId"/> so saved settings keep working.
     ///
-    /// The screen look only goes to xAI: its vision path is Grok's Responses API, so a window
-    /// image for any other host is wiped and refused before anything is sent.
+    /// JUH-149: a window image goes to any cloud API whose model reads pictures
+    /// (<see cref="VisionCapability.CloudModelAcceptsImages"/>); for any other model it is
+    /// wiped and refused before anything is sent.
     /// Private mode and the 18+ gate never reach this provider (routing happens before it); a
     /// request marked <see cref="ChatRequest.BlockCloud"/> is refused here as a backstop.
     /// </summary>
     public sealed class CloudChatProvider : IChatProvider
     {
         readonly Func<string> _baseUrl;
+        readonly Func<string> _model;
         readonly Func<string> _key;
         readonly IChatProvider _openAi;
         readonly IChatProvider _deepSeek;
@@ -40,6 +42,7 @@ namespace AICompanion.AI
             IChatTransport transport)
         {
             _baseUrl = baseUrl ?? (() => ChatDefaults.BaseUrl);
+            _model = model ?? (() => string.Empty);
             _key = apiKey ?? (() => null);
             _openAi = OpenAi(false, _baseUrl, model, timeoutSeconds, _key, transport);
             _deepSeek = OpenAi(true, _baseUrl, model, timeoutSeconds, _key, transport);
@@ -84,7 +87,7 @@ namespace AICompanion.AI
             return HostEndsWith(baseUrl, "deepseek.com") ? CloudApiKind.DeepSeek : CloudApiKind.OpenAiCompatible;
         }
 
-        /// <summary>Empty is the xAI default. Only an xAI host gets the screen look (Grok's Responses API).</summary>
+        /// <summary>Empty is the xAI default. An xAI host gets pictures through Grok's Responses API; others through chat completions (JUH-149).</summary>
         public static bool IsXai(string baseUrl)
         {
             if (string.IsNullOrWhiteSpace(baseUrl))
@@ -112,7 +115,9 @@ namespace AICompanion.AI
             }
 
             var url = _baseUrl();
-            if (request != null && request.Image != null && !IsXai(url))
+            // JUH-149: a picture goes to any cloud API whose model reads pictures (the known
+            // list, or the user's "Cloud model can see pictures" setting), not only xAI.
+            if (request != null && request.Image != null && !VisionCapability.CloudModelAcceptsImages(string.IsNullOrWhiteSpace(request.Model) ? _model() : request.Model))
             {
                 request.Image.Wipe();
                 request.Image = null;

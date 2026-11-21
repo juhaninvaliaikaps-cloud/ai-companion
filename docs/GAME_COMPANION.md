@@ -134,7 +134,7 @@ Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, Arknights: Endfield and Ne
   - **It needs all of these:**
     - the Games section's cloud consent
     - its own switch, **Let her look at the game**, which is off by default
-    - xAI (Grok) as the cloud AI API, because images go only to xAI
+    - a cloud AI API whose model reads pictures, for example `deepseek-flash` or `grok-4.7` (JUH-149)
   - It never runs in private mode or with 18+ on.
 - **Pull history (Genshin, Star Rail, ZZZ, JUH-148).** It is opt-in: **React to my pulls**.
   - **The link.** When you open the pull history in the game, the game's built-in browser caches a link with a short-lived, read-only `authkey`. paimon.moe, Star Rail Warp Export and stardb use the same link.

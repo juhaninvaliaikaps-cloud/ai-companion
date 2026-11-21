@@ -23,6 +23,7 @@ namespace AICompanion.Settings
                 !string.IsNullOrEmpty(adultFolder) && Directory.Exists(adultFolder));
             PisaraSwitches.Configure(settings.PisaraRelationship, settings.PisaraAwayEvents, settings.PisaraWorld);
             AICompanion.Memory.MemoryEmbeddings.Configure(settings.MemoryEmbeddings);
+            AICompanion.AI.VisionCapability.Configure(settings.CloudVision);
             var provider = AICompanion.Voice.OutboundPrivacy.ChatProviderId(settings.PrivateMode, settings.ProviderId, settings.PrivateEndpointType);
 
             AICompanion.Memory.MemoryRuntime.SwitchPersona(settings.PersonaId);

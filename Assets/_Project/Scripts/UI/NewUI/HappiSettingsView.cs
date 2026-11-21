@@ -600,7 +600,15 @@ namespace AICompanion.NewUI
                     Field("Model", S.Model, false, v => Change(s => s.Model = v));
                     Field("Base URL", S.BaseUrl, false, v => Change(s => s.BaseUrl = v));
                     Note("xAI Grok by default (https://api.x.ai/v1). Claude: https://api.anthropic.com/v1 with a Claude model name. DeepSeek: https://api.deepseek.com/v1. Any other OpenAI-compatible API works too (OpenAI, OpenRouter, Groq).");
-                    Note("Her cloud voice and the screen look are xAI features: with another API she speaks with the local voice, and the screen look stays off.");
+                    Note("Her cloud voice is an xAI feature: with another API she speaks with the local voice.");
+                    Note("Cloud model can see pictures (screen looks):");
+                    var vision = VisionCapability.NormalizeMode(S.CloudVision);
+                    Choice("Auto: known vision models", vision == VisionCapability.ModeAuto, () => Change(s => s.CloudVision = VisionCapability.ModeAuto));
+                    Choice("Yes: this model reads pictures", vision == VisionCapability.ModeOn, () => Change(s => s.CloudVision = VisionCapability.ModeOn));
+                    Choice("No: never send it a picture", vision == VisionCapability.ModeOff, () => Change(s => s.CloudVision = VisionCapability.ModeOff));
+                    Note(VisionCapability.CloudModelAcceptsImages(S.Model)
+                        ? "\"" + S.Model + "\" will get screen looks, after you allow them on the Screen and Games tabs."
+                        : "\"" + S.Model + "\" won't get pictures. Known vision models include grok-4.7, deepseek-flash, Claude, gpt-4o, gpt-5 and Gemini.");
                     Section("Cloud AI API key");
                     Note(ApiKeyMask.Label(_settings.ApiKeySaved) + ".");
                     var key = Field("Paste a new API key for this service", string.Empty, true, null);
@@ -1392,7 +1400,7 @@ namespace AICompanion.NewUI
                 return;
             }
 
-            Note("Preview stays on this PC. Allowing cloud screen analysis sends the selected window image to the configured cloud vision provider (xAI Grok at the Base URL on the AI tab; other cloud APIs do not get the image). The image is not saved. Private mode never sends it and does not switch to a cloud model.");
+            Note("Preview stays on this PC. Allowing cloud screen analysis sends the selected window image to the cloud AI API on the AI tab, if its model reads pictures. The image is not saved. Private mode never sends it and does not switch to a cloud model.");
             Toggle("Allow cloud screen analysis", S.ScreenCloudConsent, v => Change(s => s.ScreenCloudConsent = v));
             if (look != null)
                 look.RefreshMonitors();
