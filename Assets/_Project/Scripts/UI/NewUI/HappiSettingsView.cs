@@ -413,12 +413,11 @@ namespace AICompanion.NewUI
         {
             var catalog = _settings.PersonaCatalogNow();
             Note("Each persona keeps her own chat, memories, mood and relationship.");
+            // JUH-154: a grid of persona cards instead of the plain list; the setup name stays a row.
             var choices = _settings.Personas.Choices();
-            for (var i = 0; i < choices.Count; i++)
-            {
-                var choice = choices[i];
-                Choice(choice.Label, choice.Active, () => { _settings.Personas.Choose(choice.Id); _rebuild = true; });
-            }
+            if (choices.Count > 0 && choices[0].IsSetupName)
+                Choice(choices[0].Label, choices[0].Active, () => { _settings.Personas.Choose(string.Empty); _rebuild = true; });
+            BuildPersonaGrid();
 
             // JUH-150: new, template, duplicate and import open the Persona Studio.
             Button("New or import a persona…", () => OpenStudio(null));
@@ -509,6 +508,137 @@ namespace AICompanion.NewUI
         }
 
         /// <summary>The active persona's catalog entry. False, with a note, for the setup name or a missing file.</summary>
+        // ---- JUH-154: the persona grid ---------------------------------------------------------
+
+        string _gridMenuId;
+        string _gridDeleteId;
+
+        void BuildPersonaGrid()
+        {
+            var cards = _settings.PersonaCards();
+            var catalog = _settings.PersonaCatalogNow();
+            var columns = PersonaGrid.Columns(_width, _s);
+            var gap = _theme.Spacing * _s;
+            var cardW = (_width - gap * (columns - 1)) / columns;
+            var cardH = 132f * _s;
+            for (var row = 0; row < PersonaGrid.Rows(cards.Count, columns); row++)
+            {
+                var line = HappiUiKit.Rect(_body, "PersonaRow");
+                Place(line, cardH);
+                PersonaCard menuCard = null;
+                for (var column = 0; column < columns; column++)
+                {
+                    var index = row * columns + column;
+                    if (index >= cards.Count)
+                        break;
+                    var card = cards[index];
+                    BuildPersonaCard(line, card, catalog.Find(card.Id), column * (cardW + gap), cardW, cardH);
+                    if (string.Equals(card.Id, _gridMenuId, StringComparison.OrdinalIgnoreCase))
+                        menuCard = card;
+                }
+
+                if (menuCard != null)
+                    BuildPersonaMenu(menuCard);
+            }
+        }
+
+        void BuildPersonaCard(RectTransform line, PersonaCard card, PersonaDefinition persona, float x, float width, float height)
+        {
+            var id = card.Id;
+            var button = HappiUiKit.Button(line, "Card " + id, string.Empty, _theme.FontSmall * _s, () =>
+            {
+                if (_building)
+                    return;
+                _gridMenuId = null;
+                _gridDeleteId = null;
+                _settings.Personas.Choose(id);
+                _rebuild = true;
+            });
+            HappiUiKit.Place(button.Rect, x, 0f, width, height);
+            if (card.Active)
+            {
+                var colors = button.Button.colors;
+                colors.normalColor = _theme.Selected;
+                button.Button.colors = colors;
+                var ring = button.Rect.gameObject.AddComponent<Outline>();
+                ring.effectColor = _theme.Hover;
+                ring.effectDistance = new Vector2(2f, -2f);
+            }
+
+            var pad = 6f * _s;
+            var size = Mathf.Min(64f * _s, height - 52f * _s);
+            Image frame;
+            var picture = PersonaPictureCache.Frame(button.Rect, "Picture", _theme, out frame);
+            HappiUiKit.Place(frame.rectTransform, (width - size) * 0.5f, pad, size, size);
+            var texture = PersonaPictureCache.Get(_settings.PersonasFolderPath, persona);
+            PersonaPictureCache.Show(frame, picture, texture, card.Round);
+            if (texture == null)
+            {
+                // No picture: her initial in a circle.
+                frame.gameObject.SetActive(true);
+                frame.sprite = card.Round ? HappiUiKit.Circle() : HappiUiKit.Rounded();
+                picture.color = new Color(1f, 1f, 1f, 0f);
+                var initial = HappiUiKit.Text(frame.rectTransform, "Initial", HappiUiKit.Literal(card.Name.Length > 0 ? card.Name.Substring(0, 1).ToUpperInvariant() : "?"),
+                    _theme.FontTitle * 1.3f * _s, _theme.Text, TextAlignmentOptions.Center, true);
+                HappiUiKit.Stretch(initial.rectTransform, 0f, 0f, 0f, 0f);
+            }
+
+            var name = HappiUiKit.Text(button.Rect, "Name", HappiUiKit.Literal(card.Name), _theme.FontBody * _s, _theme.Text, TextAlignmentOptions.Center, true);
+            name.textWrappingMode = TextWrappingModes.NoWrap;
+            name.overflowMode = TextOverflowModes.Ellipsis;
+            HappiUiKit.Place(name.rectTransform, pad, pad + size + 2f * _s, width - 2f * pad, 20f * _s);
+            var tagline = HappiUiKit.Text(button.Rect, "Tagline", HappiUiKit.Literal(card.Tagline), _theme.FontSmall * 0.9f * _s, _theme.TextMuted, TextAlignmentOptions.Top, false);
+            tagline.overflowMode = TextOverflowModes.Ellipsis;
+            HappiUiKit.Place(tagline.rectTransform, pad, pad + size + 22f * _s, width - 2f * pad, height - size - 26f * _s - pad);
+
+            var more = HappiUiKit.Button(button.Rect, "More", "⋯", _theme.FontBody * _s, () =>
+            {
+                if (_building)
+                    return;
+                _gridMenuId = string.Equals(_gridMenuId, id, StringComparison.OrdinalIgnoreCase) ? null : id;
+                _gridDeleteId = null;
+                _rebuild = true;
+            });
+            var moreSize = 24f * _s;
+            HappiUiKit.Place(more.Rect, width - moreSize - 3f * _s, 3f * _s, moreSize, moreSize);
+        }
+
+        /// <summary>The "⋯" menu of one card, shown under its row: Open in Studio, Duplicate, Delete.</summary>
+        void BuildPersonaMenu(PersonaCard card)
+        {
+            var id = card.Id;
+            if (string.Equals(_gridDeleteId, id, StringComparison.OrdinalIgnoreCase))
+            {
+                Note((card.SavedCopy ? "Delete your saved copy of " : "Delete ") + card.Name + "? This can't be undone."
+                     + (card.SavedCopy ? " The built-in comes back as it shipped." : string.Empty));
+                Button("Confirm delete", () =>
+                {
+                    string message;
+                    _settings.DeletePersonaById(id, out message);
+                    _gridDeleteId = null;
+                    _gridMenuId = null;
+                    _rebuild = true;
+                }, true);
+                Button("Cancel", () => { _gridDeleteId = null; _rebuild = true; });
+                return;
+            }
+
+            Section(card.Name);
+            if ((card.Actions & PersonaCardActions.OpenInStudio) != 0)
+                Button("Open in Studio", () => { _gridMenuId = null; OpenStudio(id); });
+            if ((card.Actions & PersonaCardActions.Duplicate) != 0)
+                Button("Duplicate", () =>
+                {
+                    string message;
+                    _settings.DuplicatePersona(id, out message);
+                    _gridMenuId = null;
+                    _rebuild = true;
+                });
+            if ((card.Actions & PersonaCardActions.Delete) != 0)
+                Button(card.DeleteLabel, () => { _gridDeleteId = id; _rebuild = true; }, true);
+            Button("Close", () => { _gridMenuId = null; _rebuild = true; });
+        }
+
         bool ActivePersona(PersonaCatalog catalog, out PersonaEntry current)
         {
             current = null;

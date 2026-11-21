@@ -245,6 +245,9 @@ namespace AICompanion.Settings
 
     public static class PersonaStore
     {
+        /// <summary>JUH-154: goes up on every saved persona file, so cached pictures and cards know to refresh.</summary>
+        public static int Revision { get; private set; }
+
         public static bool Save(string directory, PersonaDefinition persona)
         {
             if (persona == null || string.IsNullOrWhiteSpace(directory))
@@ -269,7 +272,12 @@ namespace AICompanion.Settings
                 if (CompanionSettingsSecrets.ContainsForbiddenSecretField(json))
                     return false;
 
-                return ProtectedLocalFile.Write(path, json);
+                // JUH-154: keep the previous version (the last 10) before overwriting it.
+                PersonaHistory.KeepPrevious(directory, copy.Id, json, DateTime.UtcNow);
+                if (!ProtectedLocalFile.Write(path, json))
+                    return false;
+                Revision++;
+                return true;
             }
             catch (Exception)
             {

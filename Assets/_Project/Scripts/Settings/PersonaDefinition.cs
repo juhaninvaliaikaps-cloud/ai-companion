@@ -726,6 +726,9 @@ namespace AICompanion.Settings
     {
         public const int MaxBytes = 4 * 1024 * 1024;
 
+        /// <summary>JUH-154: goes up whenever a picture is saved or deleted, so cached textures refresh.</summary>
+        public static int Revision { get; private set; }
+
         public static string PathFor(string personasFolder, string id)
         {
             var clean = PersonaIds.Normalize(id);
@@ -742,7 +745,10 @@ namespace AICompanion.Settings
             try
             {
                 System.IO.Directory.CreateDirectory(personasFolder);
-                return ProtectedLocalFile.Write(path, Convert.ToBase64String(png));
+                var saved = ProtectedLocalFile.Write(path, Convert.ToBase64String(png));
+                if (saved)
+                    Revision++;
+                return saved;
             }
             catch (Exception)
             {
@@ -774,7 +780,11 @@ namespace AICompanion.Settings
             try
             {
                 if (path != null && System.IO.File.Exists(path))
+                {
                     System.IO.File.Delete(path);
+                    Revision++;
+                }
+
                 return true;
             }
             catch (Exception)
