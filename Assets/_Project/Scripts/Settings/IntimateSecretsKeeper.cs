@@ -138,7 +138,9 @@ namespace AICompanion.Settings
         // ---- Reading ----------------------------------------------------------------------
 
         string _hashedPrompt;
+        string _hashedNotes;
         string _hashedFor;
+        string _readInput = string.Empty;
         string _hash = string.Empty;
         string _key = string.Empty;
 
@@ -152,12 +154,16 @@ namespace AICompanion.Settings
             var prompt = chat.systemPrompt ?? string.Empty;
             if (prompt.Trim().Length == 0)
                 return;
-            // The hash changes only with the prompt or the persona, so idle checks do not allocate.
-            if (!ReferenceEquals(prompt, _hashedPrompt) || !string.Equals(_hashedFor, _personaId, StringComparison.Ordinal))
+            // JUH-157: her 18+ notes are read too, so what the user wrote comes first.
+            var notes = AdultNotesNow.Notes;
+            // The hash changes only with the prompt, the notes or the persona, so idle checks do not allocate.
+            if (!ReferenceEquals(prompt, _hashedPrompt) || !ReferenceEquals(notes, _hashedNotes) || !string.Equals(_hashedFor, _personaId, StringComparison.Ordinal))
             {
                 _hashedPrompt = prompt;
+                _hashedNotes = notes;
                 _hashedFor = _personaId;
-                _hash = CharacterSheet.HashPrompt(prompt);
+                _readInput = AdultNotesNow.ForReading(prompt);
+                _hash = CharacterSheet.HashPrompt(_readInput);
                 _key = _personaId + "\n" + _hash;
             }
 
@@ -165,7 +171,7 @@ namespace AICompanion.Settings
                 return;
             _forceRead = false;
             _triedThisLaunch.Add(_key);
-            Read(_personaId, prompt, _hash);
+            Read(_personaId, _readInput, _hash);
         }
 
         async void Read(string persona, string prompt, string hash)

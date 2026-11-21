@@ -161,7 +161,7 @@ It edits a draft and saves the whole persona on **Save**. Closing with unsaved c
 | `name` | Display name |
 | `description`, `personality` | Description, as labelled paragraphs ("Description:", "Personality:") |
 | `scenario` | Scenario (JUH-155) |
-| `character_book` | Her lorebook (JUH-156), see below |
+| `character_book` | Her lorebook (JUH-156 import, JUH-159 export), see below |
 | `first_mes` | Greeting |
 | `mes_example` | Example lines: `{{char}}` and `<BOT>` become "Her", `{{user}}` and `<USER>` become "You", `<START>` separators go |
 | `creator_notes`, `system_prompt`, `post_history_instructions` | Not imported (Happi writes its own instructions); the status line says so |
@@ -196,7 +196,15 @@ A lorebook is a set of short entries about her world (places, people, things). W
   - Entries go in constant first, then by insertion order, up to about 3,000 characters a message, under "What you know about this world…". This happens in `ChatPanel.WithLore`, right after the scene tracker.
 - **Storage:** `<id>.lorebook`, encrypted beside her persona file (`LorebookStore`), in V2 `character_book` shape. Duplicating her copies it, and deleting her deletes it. Saving the Studio with **Remove lorebook** removes it.
 - **18+:** a lorebook from a card tagged 18+ is marked 18+. With 18+ turned on in settings, the Studio also has an **18+ lorebook** switch. An 18+ lorebook is used only while the 18+ gate is open, and the gate keeps chat local (`LoreNow`, like the 18+ notes). Any other lorebook goes to the chat model like her description.
-- **Not yet:** editing entries one by one, exporting her lorebook inside an exported card, and Pisara reading the lorebook.
+- **Editing (JUH-159):** under the lorebook, **Edit an entry** opens a drop-down of the entries.
+  - Each entry has: Name, "When any of these come up" (keys, comma-separated), "What she knows", "Only when one of these comes up too" (secondary keys, which make the entry selective), **Always on** and **On**.
+  - **Add an entry** and **Delete this entry** do what they say. With no lorebook yet, **Start a lorebook** begins an empty one.
+  - Nothing is kept until you save. A lorebook with no entries left is removed on save.
+- **Export (JUH-159):**
+  - **Export lorebook JSON…** writes her lorebook as a V2 `character_book`, which SillyTavern, Chub and Character Tavern import.
+  - Exporting her as a card PNG or card JSON adds the lorebook as the card's `character_book`. The zip adds `<id>.lorebook.json`.
+  - An 18+ lorebook goes into a card only with "include 18+" ticked, and then the card is tagged `nsfw`. Without the tick it's left out, and the status line says so.
+  - Pisara reads the lorebook too (JUH-157).
 
 ### Persona grid, her picture, describing it, history (JUH-154)
 

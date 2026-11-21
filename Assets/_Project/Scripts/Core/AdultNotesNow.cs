@@ -34,5 +34,22 @@ namespace AICompanion.Core
         {
             _notes = string.Empty;
         }
+
+        /// <summary>JUH-157: the heading her 18+ notes get in a reading's input.</summary>
+        public const string ReadingLabel = "Her 18+ notes, written by the user. They are fact: use what they say first, and choose only what they leave out:";
+
+        /// <summary>
+        /// JUH-157: the input for the 18+ readings (innocence, 18+ secrets): her persona text,
+        /// then her 18+ notes, so what the user wrote comes first. Those readings run only on the
+        /// local model with the gate open. Returns <paramref name="personaPrompt"/> itself when she
+        /// has no notes, so the reading and its hash stay as they were.
+        /// </summary>
+        public static string ForReading(string personaPrompt)
+        {
+            var prompt = personaPrompt ?? string.Empty;
+            if (_notes.Length == 0)
+                return prompt;
+            return prompt.TrimEnd() + "\n\n" + ReadingLabel + "\n" + _notes;
+        }
     }
 }

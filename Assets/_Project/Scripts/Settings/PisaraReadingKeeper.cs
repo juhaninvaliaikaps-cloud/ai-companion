@@ -391,10 +391,11 @@ namespace AICompanion.Settings
                     : IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
                 readKeepsLocal = keepsLocal;
                 var intimateActive = choice.UseCloud ? false : IntimateExpressions.Active;
+                // JUH-157: her lorebook is read too; an 18+ one only on a local reading with the gate open.
                 result = await PisaraReader.ReadAsync(
                     Provider(choice, keepsLocal),
                     PersonaName(persona),
-                    prompt,
+                    LoreReading.Append(prompt, LoreNow.Book, keepsLocal && intimateActive),
                     keepsLocal,
                     intimateActive,
                     PisaraKeywords.Temperament,
@@ -486,11 +487,21 @@ namespace AICompanion.Settings
         /// Reads a draft that isn't saved yet. Same model, privacy rule and parser as a normal
         /// reading; nothing is stored here (the Studio saves the sheet with the persona).
         /// </summary>
-        public async Task<PisaraReadResult> ReadDraftAsync(string name, string text, CancellationToken token)
+        public Task<PisaraReadResult> ReadDraftAsync(string name, string text, CancellationToken token)
+        {
+            return ReadDraftAsync(name, text, null, token);
+        }
+
+        /// <summary>
+        /// JUH-157: as above, with the draft's lorebook read too. An 18+ lorebook is added only
+        /// when the reading stays local with the 18+ gate open.
+        /// </summary>
+        public async Task<PisaraReadResult> ReadDraftAsync(string name, string text, Lorebook lore, CancellationToken token)
         {
             var choice = Choice();
             var keepsLocal = DraftKeepsLocal(choice);
             var intimateActive = choice.UseCloud ? false : IntimateExpressions.Active;
+            text = LoreReading.Append(text, lore, keepsLocal && intimateActive);
             var result = await PisaraReader.ReadAsync(Provider(choice, keepsLocal), name, text, keepsLocal, intimateActive,
                 PisaraKeywords.Temperament, token);
             if (result != null && result.Sheet != null && result.Sheet.source == CharacterSheet.SourceModel)
