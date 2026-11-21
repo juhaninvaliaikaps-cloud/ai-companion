@@ -47,6 +47,8 @@ namespace AICompanion.GameCompanion
         ObjectiveLost = 8,
         Tense = 9,
         LevelUp = 10,
+        GachaTop = 11,
+        GachaNoTop = 12,
     }
 
     /// <summary>One reaction: the line, her face and an optional gesture.</summary>
@@ -190,6 +192,8 @@ namespace AICompanion.GameCompanion
                 case GameEventKind.BombPlanted:
                 case GameEventKind.LowHealth: return ReactionMoment.Tense;
                 case GameEventKind.LevelUp: return ReactionMoment.LevelUp;
+                case GameEventKind.GachaTopPull: return ReactionMoment.GachaTop;
+                case GameEventKind.GachaNoTop: return ReactionMoment.GachaNoTop;
                 default:
                     // Defused or exploded: the feed does not say whose bomb, so no guess.
                     return ReactionMoment.None;

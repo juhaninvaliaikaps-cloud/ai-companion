@@ -41,18 +41,19 @@ namespace AICompanion.GameCompanion
         static bool IsGood(ReactionMoment moment)
         {
             return moment == ReactionMoment.Win || moment == ReactionMoment.BigPlay || moment == ReactionMoment.Kill ||
-                   moment == ReactionMoment.ObjectiveTaken || moment == ReactionMoment.LevelUp;
+                   moment == ReactionMoment.ObjectiveTaken || moment == ReactionMoment.LevelUp || moment == ReactionMoment.GachaTop;
         }
 
         static bool IsBad(ReactionMoment moment)
         {
-            return moment == ReactionMoment.Loss || moment == ReactionMoment.Death || moment == ReactionMoment.ObjectiveLost;
+            return moment == ReactionMoment.Loss || moment == ReactionMoment.Death || moment == ReactionMoment.ObjectiveLost ||
+                   moment == ReactionMoment.GachaNoTop;
         }
 
         /// <summary>Her face and gesture for a line. The gesture names exist in the animator today.</summary>
         public static ReactionLook Look(GameVoice voice, ReactionMoment moment)
         {
-            var big = moment == ReactionMoment.BigPlay || moment == ReactionMoment.Win;
+            var big = moment == ReactionMoment.BigPlay || moment == ReactionMoment.Win || moment == ReactionMoment.GachaTop;
             if (moment == ReactionMoment.MatchStart)
             {
                 switch (voice)
@@ -121,6 +122,8 @@ namespace AICompanion.GameCompanion
                 case ReactionMoment.ObjectiveLost: return new[] { "And there it goes. Nice.", "You just gave that away, huh?", "Oops. That one's on you." };
                 case ReactionMoment.Tense: return new[] { "Don't choke. Don't choke!", "Oh, this is gonna be good.", "Sweaty hands, huh?" };
                 case ReactionMoment.LevelUp: return new[] { "Level up! Still a noob though.", "Ooh, a number went up.", "Bigger level, same aim." };
+                case ReactionMoment.GachaTop: return new[] { "Gold! Okay, your luck is better than your aim.", "No way. You actually got it?", "Lucky! Don't get used to it." };
+                case ReactionMoment.GachaNoTop: return new[] { "Ten pulls of nothing. Ha!", "Wow. The game hates you.", "Purple, purple, sadness." };
                 default: return null;
             }
         }
@@ -139,6 +142,8 @@ namespace AICompanion.GameCompanion
                 case ReactionMoment.ObjectiveLost: return new[] { "Ah, we lost it! We'll get it back!", "No! Okay, regroup!", "That hurts, but we're fine!" };
                 case ReactionMoment.Tense: return new[] { "Oh no, oh no, careful!", "You've got this! Come on!", "My heart is racing!" };
                 case ReactionMoment.LevelUp: return new[] { "Level up! Let's go!", "Stronger already!", "Ding! Love it!" };
+                case ReactionMoment.GachaTop: return new[] { "Gold! Gold! You got it!", "Yes! That's the one!", "Huge pull! I'm so happy!" };
+                case ReactionMoment.GachaNoTop: return new[] { "Aw, no gold this time!", "Next ten will hit, I can feel it!", "Pity's building, that's progress!" };
                 default: return null;
             }
         }
@@ -157,6 +162,8 @@ namespace AICompanion.GameCompanion
                 case ReactionMoment.ObjectiveLost: return new[] { "Aw, that's alright.", "It happens. Keep going.", "You'll get the next one." };
                 case ReactionMoment.Tense: return new[] { "Be careful!", "Oh, I'm nervous for you.", "Stay safe, please." };
                 case ReactionMoment.LevelUp: return new[] { "Level up! Good job.", "You're getting stronger.", "Yay, a new level!" };
+                case ReactionMoment.GachaTop: return new[] { "You got it! I'm so happy for you.", "Oh, that's wonderful!", "Congratulations, they're lovely." };
+                case ReactionMoment.GachaNoTop: return new[] { "Aw, not this time. It'll come.", "That's okay, pity is on your side.", "Don't be sad, you're getting closer." };
                 default: return null;
             }
         }
@@ -175,6 +182,8 @@ namespace AICompanion.GameCompanion
                 case ReactionMoment.ObjectiveLost: return new[] { "Oh... we lost that.", "Um, it's fine, probably.", "Ah... oh well." };
                 case ReactionMoment.Tense: return new[] { "I can't look...", "Please be careful...", "Eek..." };
                 case ReactionMoment.LevelUp: return new[] { "Oh, a new level...", "Um, congrats.", "You leveled up... nice." };
+                case ReactionMoment.GachaTop: return new[] { "Oh! Th-that's gold...", "W-wow, you got one...", "Um, congrats... that's amazing." };
+                case ReactionMoment.GachaNoTop: return new[] { "Oh... nothing gold...", "Um, maybe next time?", "That's... okay, right?" };
                 default: return null;
             }
         }
@@ -193,6 +202,8 @@ namespace AICompanion.GameCompanion
                 case ReactionMoment.ObjectiveLost: return new[] { "Seriously?!", "Ugh, you're hopeless.", "I'm not mad. I'm just disappointed." };
                 case ReactionMoment.Tense: return new[] { "Don't you dare die now!", "I-I'm not nervous!", "Careful, dummy!" };
                 case ReactionMoment.LevelUp: return new[] { "A level. Big deal.", "Hmph, congrats or whatever.", "Don't think I'm impressed." };
+                case ReactionMoment.GachaTop: return new[] { "Hmph. Lucky. Not that I care.", "F-fine, that's a good pull.", "Don't get smug, it was pity." };
+                case ReactionMoment.GachaNoTop: return new[] { "Ugh, wasted. Idiot.", "I told you to save. Hmph.", "Not like I wanted you to win." };
                 default: return null;
             }
         }
@@ -211,6 +222,8 @@ namespace AICompanion.GameCompanion
                 case ReactionMoment.ObjectiveLost: return new[] { "Ugh. Sloppy.", "And there it goes.", "Typical." };
                 case ReactionMoment.Tense: return new[] { "This won't end well.", "Don't mess this up.", "Here we go." };
                 case ReactionMoment.LevelUp: return new[] { "A level. Sure.", "Mm. Stronger, I guess.", "Okay." };
+                case ReactionMoment.GachaTop: return new[] { "Huh. Gold. Fine.", "Okay. That one's good.", "Lucky. I'll allow it." };
+                case ReactionMoment.GachaNoTop: return new[] { "Of course. Nothing.", "That's the gacha. Ugh.", "Money well spent. Not." };
                 default: return null;
             }
         }
@@ -229,6 +242,8 @@ namespace AICompanion.GameCompanion
                 case ReactionMoment.ObjectiveLost: return new[] { "Lost that one.", "Hm. That stings.", "Moving on." };
                 case ReactionMoment.Tense: return new[] { "Steady.", "Careful now.", "Breathe." };
                 case ReactionMoment.LevelUp: return new[] { "Level up.", "Stronger now.", "Nice, a new level." };
+                case ReactionMoment.GachaTop: return new[] { "Gold. Nice pull.", "There it is.", "Good luck today." };
+                case ReactionMoment.GachaNoTop: return new[] { "No gold this time.", "Pity's building.", "Next time." };
                 default: return null;
             }
         }

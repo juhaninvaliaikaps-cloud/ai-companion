@@ -136,7 +136,23 @@ Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, Arknights: Endfield and Ne
     - its own switch, **Let her look at the game**, which is off by default
     - xAI (Grok) as the cloud AI API, because images go only to xAI
   - It never runs in private mode or with 18+ on.
-- **Pull history (Genshin, Star Rail, ZZZ):** JUH-148.
+- **Pull history (Genshin, Star Rail, ZZZ, JUH-148).** It is opt-in: **React to my pulls**.
+  - **The link.** When you open the pull history in the game, the game's built-in browser caches a link with a short-lived, read-only `authkey`. paimon.moe, Star Rail Warp Export and stardb use the same link.
+  - **Finding it** (`GachaCacheFiles`, read only):
+    1. The game's Unity log under `AppData\LocalLow` names its data folder. Genshin uses `miHoYo\Genshin Impact\output_log.txt`, Star Rail uses `Cognosphere\Star Rail\Player.log`, and ZZZ uses `miHoYo\ZenlessZoneZero\Player.log`; the CN names are tried too.
+    2. The link is in `<data>\webCaches\<version>\Cache\Cache_Data\data_2`. The newest version is tried first, and the file is opened shared because the game may have it open.
+  - **Where the link goes.** `GachaHistoryLink` keeps the newest link that carries an authkey and names this game. It sends the authkey only to `*.hoyoverse.com` or `*.mihoyo.com`, using the cached API link's own endpoint or the game's default (global or CN). It keeps only the auth parameters. The link is never logged or saved.
+  - **Polling:** one banner's newest page (20 pulls) every 15 seconds, in turn, while the game window is open.
+    - Genshin: 301, 302, 200, 500
+    - Star Rail: 11, 12, 1
+    - ZZZ: 2001, 3001, 1001, 5001 (as `real_gacha_type`)
+    - Too many requests (`-110`) waits a minute. An expired link (`-101`) waits until the cache has a newer one, and the section asks you to open the history once.
+  - **Events** (`GachaBannerTracker`):
+    - The first page sets the baseline and the pity, which is the pulls since the last top-rarity result. Past the first page the pity is unknown, and then it isn't stated.
+    - Each new top pull (5-star, or S-rank in ZZZ) is a big moment, with its name and pity.
+    - Ten or more pulls without one is a normal moment. A single pull without one isn't spoken.
+  - **Her lines** follow the mode: the model first, a pre-written line as the fallback ("Gold! Okay, your luck is better than your aim."), and pre-written lines only in private mode.
+  - **Endfield and NTE: no.** Endfield's history needs the account's login token, which unlocks more than the history (one Endfield tracker turned out to be malware). NTE's exporter works by capturing the game's network traffic.
 
 ## Still to build
 

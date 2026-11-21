@@ -81,6 +81,7 @@ namespace AICompanion.Settings
             if (!AnyGacha(settings))
             {
                 _gachaWindow = null;
+                KeepPulls(settings);
                 return;
             }
 
@@ -98,6 +99,8 @@ namespace AICompanion.Settings
             if (hotkey && !_hotkeyDown && _gachaWindow != null)
                 _look.AskNow();
             _hotkeyDown = hotkey;
+
+            KeepPulls(settings);
 
             bool asked;
             if (_looking || !settings.GameScreenLooks || !_look.Due(now, out asked))
@@ -348,6 +351,7 @@ namespace AICompanion.Settings
 
             _gachaWindow = null;
             _looking = false;
+            ResetPulls(GameTitle.Unknown);
         }
 
         // ---- Windows: which window is in front, and the global hotkey ------------------------

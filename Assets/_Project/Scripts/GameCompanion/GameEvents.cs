@@ -44,6 +44,12 @@ namespace AICompanion.GameCompanion
         BombExploded = 16,
         LowHealth = 17,
         LevelUp = 18,
+
+        /// <summary>JUH-148: a top-rarity pull (5-star, S-rank). Count is the pity, Detail the name.</summary>
+        GachaTopPull = 19,
+
+        /// <summary>JUH-148: a batch of pulls (Count of them) with no top-rarity result.</summary>
+        GachaNoTop = 20,
     }
 
     /// <summary>How much a moment matters. Only Normal and Big can be spoken about.</summary>
@@ -102,7 +108,10 @@ namespace AICompanion.GameCompanion
                 case GameEventKind.MatchLost:
                 case GameEventKind.Ace:
                 case GameEventKind.BombDefused:
+                case GameEventKind.GachaTopPull:
                     return GameMoment.Big;
+                case GameEventKind.GachaNoTop:
+                    return count >= 10 ? GameMoment.Normal : GameMoment.Minor;
                 case GameEventKind.MultiKill:
                     return count >= 3 ? GameMoment.Big : GameMoment.Normal;
                 case GameEventKind.KillStreak:

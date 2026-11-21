@@ -208,6 +208,12 @@ namespace AICompanion.Settings
         /// </summary>
         public bool GameScreenLooks;
 
+        /// <summary>
+        /// JUH-148: react to new pulls in Genshin, Star Rail and ZZZ, using the history link the
+        /// game caches. The link goes only to HoYoverse's own server. Off by default.
+        /// </summary>
+        public bool GamePullHistory;
+
         public bool GameGenshin = true;
         public bool GameStarRail = true;
         public bool GameZzz = true;
@@ -837,6 +843,8 @@ namespace AICompanion.Settings
                 settings.GameLeague = flag;
             if (TryBool(json, "gameScreenLooks", out flag))
                 settings.GameScreenLooks = flag;
+            if (TryBool(json, "gamePullHistory", out flag))
+                settings.GamePullHistory = flag;
             if (TryBool(json, "gameGenshin", out flag))
                 settings.GameGenshin = flag;
             if (TryBool(json, "gameStarRail", out flag))
@@ -984,6 +992,7 @@ namespace AICompanion.Settings
             Bool(sb, "gameDota2", source.GameDota2);
             Bool(sb, "gameLeague", source.GameLeague);
             Bool(sb, "gameScreenLooks", source.GameScreenLooks);
+            Bool(sb, "gamePullHistory", source.GamePullHistory);
             Bool(sb, "gameGenshin", source.GameGenshin);
             Bool(sb, "gameStarRail", source.GameStarRail);
             Bool(sb, "gameZzz", source.GameZzz);
