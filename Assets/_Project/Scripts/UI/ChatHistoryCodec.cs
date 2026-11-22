@@ -36,6 +36,13 @@ namespace AICompanion.UI
                     JsonText.AppendString(sb, line.Text);
                     if (line.LocalOnly)
                         sb.Append(",\"local\":true");
+                    // JUH-174: a scene note or a change line keeps its colour after a restart.
+                    if (line.Tag == ChatLineTag.Scene)
+                        sb.Append(",\"tag\":\"scene\"");
+                    else if (line.Tag == ChatLineTag.Change)
+                        sb.Append(",\"tag\":\"change\",\"change\":").Append(line.Change.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    if (line.Adult)
+                        sb.Append(",\"adult\":true");
                     sb.Append('}');
                     written++;
                 }
@@ -69,10 +76,38 @@ namespace AICompanion.UI
                 var nextRole = json.IndexOf("\"role\"", textAt + 6, StringComparison.Ordinal);
                 var end = nextRole < 0 ? json.Length : nextRole;
                 var localOnly = json.IndexOf("\"local\":true", textAt, end - textAt, StringComparison.Ordinal) >= 0;
-                if (conversation.ImportLine(ParseRole(role), text, localOnly))
+                var adult = json.IndexOf("\"adult\":true", textAt, end - textAt, StringComparison.Ordinal) >= 0;
+                var tag = ChatLineTag.None;
+                var change = 0;
+                if (json.IndexOf("\"tag\":\"scene\"", textAt, end - textAt, StringComparison.Ordinal) >= 0)
+                    tag = ChatLineTag.Scene;
+                else if (json.IndexOf("\"tag\":\"change\"", textAt, end - textAt, StringComparison.Ordinal) >= 0)
+                {
+                    tag = ChatLineTag.Change;
+                    change = ReadInt(json, "\"change\":", textAt, end);
+                }
+
+                if (conversation.ImportLine(ParseRole(role), text, localOnly, tag, change, adult))
                     count++;
                 i = textAt + 6;
             }
+        }
+
+        /// <summary>The whole number after <paramref name="key"/> between <paramref name="from"/> and <paramref name="end"/>, or 0.</summary>
+        static int ReadInt(string json, string key, int from, int end)
+        {
+            var at = json.IndexOf(key, from, end - from, StringComparison.Ordinal);
+            if (at < 0)
+                return 0;
+            var i = at + key.Length;
+            var value = 0;
+            while (i < end && i < json.Length && char.IsDigit(json[i]))
+            {
+                value = value * 10 + (json[i] - '0');
+                i++;
+            }
+
+            return value;
         }
 
         static string RoleName(ChatLineKind kind)

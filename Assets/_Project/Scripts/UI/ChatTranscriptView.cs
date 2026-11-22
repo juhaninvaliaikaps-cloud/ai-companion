@@ -76,6 +76,9 @@ namespace AICompanion.UI
                     // Same rule as FormatTranscript: an empty reply that is still streaming is not shown yet.
                     if (line.Kind == ChatLineKind.Assistant && line.Streaming && line.Text.Length == 0)
                         continue;
+                    // JUH-174: an 18+ change line is not drawn while the gate is closed.
+                    if (!ChatConversation.Shows(line))
+                        continue;
                     _visible.Add(i);
                 }
             }
@@ -162,7 +165,13 @@ namespace AICompanion.UI
                 text = CutPrefix + text.Substring(text.Length - MaxShownCharacters);
             if (_formatter != null)
                 text = _formatter(line);
-            return Label(line.Kind) + "\n" + text;
+            return LabelFor(line) + "\n" + text;
+        }
+
+        /// <summary>JUH-174: scene notes and change lines carry no "Note" label; their colour says what they are.</summary>
+        static string LabelFor(ChatLine line)
+        {
+            return line.Tag != ChatLineTag.None ? string.Empty : Label(line.Kind);
         }
 
         static string Label(ChatLineKind kind)

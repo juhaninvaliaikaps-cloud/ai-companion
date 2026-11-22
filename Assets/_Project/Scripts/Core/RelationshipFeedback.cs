@@ -23,20 +23,25 @@ namespace AICompanion.Core
         /// <summary>The secret this message found for the first time (JUH-123); empty for none.</summary>
         public string SecretFound;
 
+        /// <summary>JUH-174: the found secret is one of her 18+ ones, so its chat line shows only while the gate is open.</summary>
+        public bool SecretAdult;
+
         /// <summary>
         /// The notice for a change. <paramref name="announcedBand"/> is the band shown last; a new
         /// band counts only upwards (familiarity never drops).
         /// </summary>
-        public static RelationshipNotice From(RelationshipChange change, int announcedBand, string secretFound = null)
+        public static RelationshipNotice From(RelationshipChange change, int announcedBand, string secretFound = null, bool secretAdult = false)
         {
             var band = RelationshipCard.KnowingBand(change.Familiarity);
+            var found = string.IsNullOrWhiteSpace(secretFound) ? string.Empty : secretFound.Trim();
             return new RelationshipNotice
             {
                 Change = change,
                 LandingName = RelationshipHistory.ShortName(change.Landing),
                 NewBand = band > announcedBand,
                 Band = band,
-                SecretFound = string.IsNullOrWhiteSpace(secretFound) ? string.Empty : secretFound.Trim(),
+                SecretFound = found,
+                SecretAdult = found.Length > 0 && secretAdult,
             };
         }
     }
@@ -90,6 +95,9 @@ namespace AICompanion.Core
 
         /// <summary>When a newer normal piece pushed this one out (it fades early); NaN while it is not.</summary>
         public float RetiredAt;
+
+        /// <summary>JUH-174: 18+ (a desire change, or one of her 18+ secrets): its chat line shows only while the gate is open.</summary>
+        public bool Adult;
 
         /// <summary>JUH-170: a desire piece, shown only while the 18+ gate is open.</summary>
         public bool IsDesire
@@ -220,10 +228,39 @@ namespace AICompanion.Core
                 Kind = notice.Delta > 0f && !notice.Release ? FeedbackKind.DesireUp : FeedbackKind.DesireDown,
                 Amount = notice.Release ? string.Empty : DesireAmountText(notice.Delta),
                 Label = DesireText(notice.Desire, notice.Release),
+                Adult = true,
                 StartTime = now,
                 RetiredAt = float.NaN,
             }, now);
             return true;
+        }
+
+        /// <summary>
+        /// JUH-174: the readable line the chat keeps for a piece after it has floated away:
+        /// "+1.5 affection · Compliment", "Critical! +3.0 affection · Compliment",
+        /// "Secret found: …", "You know each other well now", "+8 desire (now 48)".
+        /// </summary>
+        public static string ChatText(FeedbackPiece piece)
+        {
+            var label = piece.Label ?? string.Empty;
+            var amount = piece.Amount ?? string.Empty;
+            switch (piece.Kind)
+            {
+                case FeedbackKind.Up:
+                case FeedbackKind.Down:
+                    return amount + " affection · " + label;
+                case FeedbackKind.CritUp:
+                case FeedbackKind.CritDown:
+                    return "Critical! " + amount + " affection · " + label;
+                case FeedbackKind.DesireUp:
+                case FeedbackKind.DesireDown:
+                    if (amount.Length == 0)
+                        return label;
+                    var now = label.StartsWith("Desire ", StringComparison.Ordinal) ? label.Substring("Desire ".Length) : label;
+                    return amount + " desire (now " + now + ")";
+                default:
+                    return label;
+            }
         }
 
         /// <summary>"+8", "-3": whole numbers, always signed (a change under 1 shows one decimal).</summary>
@@ -286,7 +323,7 @@ namespace AICompanion.Core
             }
 
             // JUH-123: a secret found comes with the affection piece, after it.
-            if (AddSecret(notice.SecretFound, now, true))
+            if (AddSecret(notice.SecretFound, now, true, notice.SecretAdult))
                 added++;
 
             if (notice.NewBand && notice.Band > 0)
@@ -309,7 +346,7 @@ namespace AICompanion.Core
         /// The secret-found piece (JUH-123), "Secret found: being trusted". It counts as a normal
         /// piece. <see cref="Add"/> adds it for a notice that found one.
         /// </summary>
-        public bool AddSecret(string what, float now, bool enabled)
+        public bool AddSecret(string what, float now, bool enabled, bool adult = false)
         {
             if (!enabled || string.IsNullOrWhiteSpace(what))
                 return false;
@@ -318,6 +355,7 @@ namespace AICompanion.Core
                 Kind = FeedbackKind.Secret,
                 Amount = string.Empty,
                 Label = SecretText(what),
+                    Adult = adult,
                 StartTime = now,
                 RetiredAt = float.NaN,
             }, now);

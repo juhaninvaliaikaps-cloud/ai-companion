@@ -1327,6 +1327,18 @@ namespace AICompanion.UI
                 x, y, w, h, sw, sh, vx, vy, vw, vh));
         }
 
+        /// <summary>
+        /// JUH-174: the readable copy of a floating change in the chat box. <paramref name="change"/>
+        /// is the piece's kind as a number; an 18+ one shows only while the gate is open.
+        /// </summary>
+        public void AddChangeLine(string text, int change, bool adult)
+        {
+            if (_conversation == null)
+                return;
+            _conversation.AddChange(text, change, adult);
+            RefreshTranscript(true);
+        }
+
         void RefreshTranscript(bool force)
         {
             if (_conversation == null || _content == null)

@@ -145,7 +145,7 @@ namespace AICompanion.Settings
             _timeUnshown += delta;
             if (Math.Abs(_timeUnshown) >= TimeShown)
             {
-                DesireNow.Report(new DesireNotice { Delta = _timeUnshown, Desire = _state.Desire });
+                DesireNow.Report(new DesireNotice { Delta = _timeUnshown, Desire = _state.Desire, ByTime = true });
                 _timeUnshown = 0f;
                 Revision++;
             }

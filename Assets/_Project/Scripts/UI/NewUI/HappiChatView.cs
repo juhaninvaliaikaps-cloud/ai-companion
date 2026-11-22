@@ -1425,7 +1425,7 @@ namespace AICompanion.NewUI
             if (line == null || string.IsNullOrEmpty(line.Text))
                 return line != null ? line.Text : string.Empty;
             if (line.Kind != ChatLineKind.Assistant && line.Kind != ChatLineKind.User)
-                return HappiUiKit.Literal(line.Text);
+                return ChatLineColors.Format(line, HappiUiKit.Literal(line.Text));
             var segments = VnScriptParser.Parse(line.Text, true).Segments;
             return VnRender.Dialogue(segments, segments.Count, -1, _theme, false);
         }
@@ -1461,7 +1461,8 @@ namespace AICompanion.NewUI
                 var line = lines[i];
                 if (line == null)
                     continue;
-                if (line.Kind == ChatLineKind.System && note.Length == 0)
+                // JUH-174: change lines live in the scrollback; the note keeps real notes.
+                if (line.Kind == ChatLineKind.System && note.Length == 0 && line.Tag != ChatLineTag.Change)
                     note = line.Text;
                 if (line.Kind == ChatLineKind.User)
                     break;
@@ -1516,6 +1517,9 @@ namespace AICompanion.NewUI
             for (var i = 0; i < lines.Count; i++)
             {
                 if (skipLast && i == lines.Count - 1)
+                    continue;
+                // JUH-174: an 18+ change line is not drawn while the gate is closed.
+                if (!ChatConversation.Shows(lines[i]))
                     continue;
                 _historyLines.Add(lines[i]);
             }
@@ -1643,6 +1647,9 @@ namespace AICompanion.NewUI
                 return HappiUiKit.Literal(entry);
             var label = entry.Substring(0, split);
             var body = entry.Substring(split + 1);
+            // JUH-174: scene notes and change lines have no label, only their colour.
+            if (label.Length == 0)
+                return body;
             if (label == "Companion")
                 label = CompanionName();
             return "<b>" + HappiUiKit.Literal(label) + "</b>\n" + body;
@@ -1753,6 +1760,8 @@ namespace AICompanion.NewUI
                 if (line == null || string.IsNullOrWhiteSpace(line.Text))
                     continue;
                 if (line.Kind == ChatLineKind.Assistant && line.Streaming && line.Text.Length == 0)
+                    continue;
+                if (!ChatConversation.Shows(line))
                     continue;
                 if (sb.Length > 0)
                     sb.Append("\n\n");
