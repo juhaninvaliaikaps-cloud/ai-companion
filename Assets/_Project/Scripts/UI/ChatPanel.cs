@@ -233,6 +233,7 @@ namespace AICompanion.UI
                 return;
             TickSession();
             SyncWorldLines();
+            SyncPrivacy();
 
             EnsureCamera();
             if (Input.GetKeyDown(KeyCode.F10))
@@ -616,17 +617,31 @@ namespace AICompanion.UI
                 _webSearchContext = null;
             }
 
+            // JUH-177: a public send leaves the private lines out, and gets one sentence written
+            // by code in their place (the user's setting decides how much it says).
+            if (!privateMode && _conversation != null)
+            {
+                if (_conversation.AnyLocalOnlyInWindow)
+                {
+                    var chapter = PrivateChapterPrompt.Line(PrivateChapterNow.Hint, _privateChapter);
+                    if (chapter.Length > 0)
+                        prompt = prompt.TrimEnd() + "\n\n" + chapter;
+                }
+                else
+                {
+                    _privateChapter.Reset();
+                }
+            }
+
+            _lastSendAdult = adultLine;
             var temperature = settings.temperature;
             var maxTokens = settings.maxTokens;
-            ChatTurnOptions options = null;
-            if (adultLine || !privateMode)
+            // JUH-177: everything said in private mode is local-only, not just 18+ interactions.
+            var options = new ChatTurnOptions
             {
-                options = new ChatTurnOptions
-                {
-                    LocalOnly = adultLine,
-                    OmitLocalOnly = !privateMode
-                };
-            }
+                LocalOnly = adultLine || privateMode,
+                OmitLocalOnly = !privateMode
+            };
 
             Dispatch(provider, text, prompt, temperature, maxTokens, _cancel.Token, options, true, privateMode);
             return true;
@@ -911,6 +926,9 @@ namespace AICompanion.UI
                 && (!string.IsNullOrEmpty(_exchange.LastCue.Secret)
                     || _exchange.LastCue.Landed != LandingEvent.Neutral))
                 _conversation.MarkLastAssistantFeedback();
+            // JUH-177: what kind of private chapter this is, from the cue only (never its text).
+            if (_conversation != null && _conversation.MarkLocalNow)
+                _privateChapter.Note(_exchange.LastCue.Landed, _exchange.LastCue.Heat, _exchange.LastCue.EmotionField, CompanionMoodNow.Shown, _lastSendAdult);
             // JUH-108: the new chat fires each cue at its own line and reports the mood there.
             if (_replyCuesElsewhere)
             {
@@ -1337,6 +1355,45 @@ namespace AICompanion.UI
                 return;
             _conversation.AddChange(text, change, adult);
             RefreshTranscript(true);
+        }
+
+        // ---- JUH-177: private and public --------------------------------------------------
+
+        readonly PrivateChapter _privateChapter = new PrivateChapter();
+        bool _lastSendAdult;
+        int _privacyShown = -1;
+
+        /// <summary>
+        /// Keeps the transcript's private flag in step with private mode (lines added while it is
+        /// on stay local-only), and writes a note when the user switches.
+        /// </summary>
+        void SyncPrivacy()
+        {
+            if (_conversation == null)
+                return;
+            var privacy = GetComponent<IPrivacyMode>();
+            var privateNow = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+            _conversation.MarkLocalNow = privateNow;
+            var shown = privateNow ? 1 : 0;
+            if (shown == _privacyShown)
+                return;
+            var first = _privacyShown < 0;
+            _privacyShown = shown;
+            if (first)
+                return;
+            _conversation.AddSystem(PrivateChapterPrompt.SwitchNote(privateNow, PrivateChapterNow.Hint));
+            Debug.Log("Chat: switched to " + (privateNow ? "private" : "public") + " mode");
+            RefreshTranscript(true);
+        }
+
+        /// <summary>The chat box switch: private mode on or off, saved like the setting.</summary>
+        public bool PrivateNow
+        {
+            get
+            {
+                var privacy = GetComponent<IPrivacyMode>();
+                return privacy != null && privacy.PrivateMode;
+            }
         }
 
         void RefreshTranscript(bool force)

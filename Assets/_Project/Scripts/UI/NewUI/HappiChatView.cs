@@ -50,7 +50,10 @@ namespace AICompanion.NewUI
         TextMeshProUGUI _note;
         Image _dialogueHit;
         HappiButton _mute;
-        HappiButton _look;
+        // JUH-177: the Private / Public switch (it took the place of "What do you see?", which
+        // stays on the wheel: Screen > Look now).
+        HappiButton _privacy;
+        int _privacyShown = -1;
         HappiButton _close;
         GameObject _chatMenu;
         HappiButton _menuCopy;
@@ -940,7 +943,7 @@ namespace AICompanion.NewUI
             _name.textWrappingMode = TextWrappingModes.NoWrap;
             _badge = HappiUiKit.Text(_box, "Badge", string.Empty, _theme.FontSmall, _theme.BadgeCloud, TextAlignmentOptions.MidlineLeft, false);
             _mute = HappiUiKit.Button(_box, "Mute", ChatPresenter.MuteOffLabel, _theme.FontSmall, () => _chat.Presenter.ToggleMute());
-            _look = HappiUiKit.Button(_box, "Look", ChatPresenter.LookLabelIdle, _theme.FontSmall, OnLook);
+            _privacy = HappiUiKit.Button(_box, "Privacy", "Public", _theme.FontSmall, OnPrivacy);
             _close = HappiUiKit.Button(_box, "Close", "⚙", _theme.FontBody, ToggleChatMenu);
             var gearFont = HappiFonts.For("Segoe UI Symbol");
             if (gearFont != null)
@@ -1014,7 +1017,7 @@ namespace AICompanion.NewUI
             _saveKey = HappiUiKit.Button(_box, "SaveKey", "Save", _theme.FontSmall, SaveKey);
 
             _controlRow = new[] { _mode, _next, _skip, _showAll, _narration };
-            _fontButtons = new[] { _mute, _look, _mode, _next, _skip, _showAll, _narration, _mic, _send, _saveKey };
+            _fontButtons = new[] { _mute, _privacy, _mode, _next, _skip, _showAll, _narration, _mic, _send, _saveKey };
 
             // JUH-127: the edges and corners, last so they sit above everything in the box.
             var edges = new[]
@@ -1135,7 +1138,7 @@ namespace AICompanion.NewUI
 
             SetFonts(s);
 
-            // Header: name + badge on the left, History / Mute / Look / × on the right.
+            // Header: name + badge on the left, Mute / Private-Public / ⚙ on the right.
             var y = pad;
             var closeW = row;
             var lookW = 112f * s;
@@ -1144,7 +1147,7 @@ namespace AICompanion.NewUI
             HappiUiKit.Place(_close.Rect, right - closeW, y, closeW, row);
             PlaceChatMenu(s, pad, row, gap);
             right -= closeW + gap;
-            HappiUiKit.Place(_look.Rect, right - lookW, y, lookW, row);
+            HappiUiKit.Place(_privacy.Rect, right - lookW, y, lookW, row);
             right -= lookW + gap;
             HappiUiKit.Place(_mute.Rect, right - muteW, y, muteW, row);
             right -= muteW + gap;
@@ -1372,8 +1375,7 @@ namespace AICompanion.NewUI
             var presenter = _chat.Presenter;
             _send.Text = presenter.ActionLabel;
             _mute.Text = presenter.MuteLabel;
-            _look.Text = presenter.LookLabel;
-            _look.Interactable = presenter.LookInteractable;
+            RefreshPrivacy(presenter.ReplyBusy);
             _input.interactable = !presenter.ReplyBusy;
 
             var recording = _chat.MicRecording;
@@ -1682,9 +1684,28 @@ namespace AICompanion.NewUI
             _input.ActivateInputField();
         }
 
-        void OnLook()
+        /// <summary>
+        /// JUH-177: switches private mode with the saved setting, so each side uses the model and
+        /// voice set up for it. Not while she is still answering: that reply finishes first.
+        /// </summary>
+        void OnPrivacy()
         {
-            _chat.Presenter.Look();
+            if (_settings == null || _chat == null || _chat.Presenter.ReplyBusy)
+                return;
+            _settings.Presenter.SetPrivateMode(!_chat.PrivateNow);
+            _privacyShown = -1;
+        }
+
+        void RefreshPrivacy(bool busy)
+        {
+            var on = _chat != null && _chat.PrivateNow;
+            var shown = (on ? 1 : 0) + (busy ? 2 : 0);
+            if (shown == _privacyShown)
+                return;
+            _privacyShown = shown;
+            _privacy.Text = on ? "Private" : "Public";
+            _privacy.Label.color = on ? _theme.Intimate : _theme.BadgeCloud;
+            _privacy.Interactable = !busy;
         }
 
         void OnDialogueClick()
