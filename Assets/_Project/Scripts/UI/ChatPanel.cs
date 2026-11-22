@@ -548,6 +548,10 @@ namespace AICompanion.UI
             if (!interactionLine && text.StartsWith("/search ", StringComparison.OrdinalIgnoreCase))
                 return TryWebSearch(text.Substring("/search ".Length));
 
+            if (!interactionLine && (text.Equals("/describe", StringComparison.OrdinalIgnoreCase)
+                || text.StartsWith("/describe ", StringComparison.OrdinalIgnoreCase)))
+                return TryDescribe(text.Length > "/describe".Length ? text.Substring("/describe".Length).Trim() : string.Empty);
+
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             // Adult interaction text stays on the local model even if the privacy flag is stale.
