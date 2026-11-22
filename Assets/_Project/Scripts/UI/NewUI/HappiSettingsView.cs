@@ -461,7 +461,7 @@ namespace AICompanion.NewUI
                 BuildReadingProgress(view.ReadingStartedAt);
             BuildRelationshipCorrection();
             BuildInnocence();
-            BuildVoice();
+            BuildHowSheTalks();
             Note("Temperament: how quickly her moods build and fade. Auto takes it from her description.");
             Choice("Auto", !view.Manual, () => { _settings.SetPersonaTemperamentAuto(id); _rebuild = true; });
             for (var i = 0; i < PersonaTemperaments.Ids.Length; i++)
@@ -1495,7 +1495,7 @@ namespace AICompanion.NewUI
         /// writes wins, and an emptied field goes back to the reading. Lists are split by ";".
         /// The 18+ part shows only while the gate is open.
         /// </summary>
-        void BuildVoice()
+        void BuildHowSheTalks()
         {
             var keeper = _settings.Voice;
             if (keeper == null || !keeper.IsLoaded)
