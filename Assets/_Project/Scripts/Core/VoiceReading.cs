@@ -97,7 +97,8 @@ namespace AICompanion.Core
         /// <summary>The sheet in a model reply, or null. Prose or a code fence around the object is fine.</summary>
         public static VoiceSheet Parse(string reply)
         {
-            var json = CharacterSheet.ExtractObject(reply);
+            // JUH-178: a reply the model stopped halfway still gives the fields it finished.
+            var json = CharacterSheet.ExtractObject(reply) ?? JsonRepair.CloseTruncated(reply);
             if (json == null)
                 return null;
             VoiceSheet sheet;
@@ -160,7 +161,8 @@ namespace AICompanion.Core
 
         public static IntimateVoice Parse(string reply)
         {
-            var json = CharacterSheet.ExtractObject(reply);
+            // JUH-178: a reply the model stopped halfway still gives the fields it finished.
+            var json = CharacterSheet.ExtractObject(reply) ?? JsonRepair.CloseTruncated(reply);
             if (json == null)
                 return null;
             IntimateVoice voice;
