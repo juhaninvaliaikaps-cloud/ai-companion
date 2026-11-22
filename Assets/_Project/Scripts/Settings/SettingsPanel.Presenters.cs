@@ -323,6 +323,23 @@ namespace AICompanion.Settings
                 choice.Axes);
         }
 
+        /// <summary>JUH-171: how she talks (the voice reading and the user's own text), or null.</summary>
+        public VoiceKeeper Voice
+        {
+            get { return GetComponent<VoiceKeeper>(); }
+        }
+
+        /// <summary>JUH-171: "Read again" for how she talks.</summary>
+        public void ReadVoiceAgain()
+        {
+            var keeper = GetComponent<VoiceKeeper>();
+            if (keeper == null)
+                return;
+            keeper.ReadAgain();
+            SetStatus("Reading how she talks again. Her description is read first if it is still being read.");
+            _rebuild = true;
+        }
+
         /// <summary>The "Re-read" button: asks the model again for the active persona's sheet.</summary>
         public void RereadPersona()
         {

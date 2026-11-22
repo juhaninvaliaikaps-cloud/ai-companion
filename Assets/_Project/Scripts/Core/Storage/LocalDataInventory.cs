@@ -40,6 +40,7 @@ namespace AICompanion.Core
                 || IsMoodName(rel)
                 || IsRelationshipName(rel)
                 || IsInnocenceName(rel)
+                || IsVoiceName(rel)
                 || IsHerSecretsName(rel)
                 || IsIntimateSecretsName(rel)
                 || IsSheetName(rel);
@@ -135,6 +136,15 @@ namespace AICompanion.Core
             if (name == "innocence.json")
                 return true;
             return name.StartsWith("innocence-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
+        }
+
+        /// <summary>How she talks per persona (JUH-171): voice.json and voice-&lt;persona&gt;.json.</summary>
+        public static bool IsVoiceName(string fileName)
+        {
+            var name = Normalize(fileName);
+            if (name == "voice.json")
+                return true;
+            return name.StartsWith("voice-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
         }
 
         /// <summary>

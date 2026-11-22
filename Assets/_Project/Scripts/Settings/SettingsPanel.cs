@@ -130,6 +130,9 @@ namespace AICompanion.Settings
             // JUH-116: Innocent–Perverted, adult mode only; idle while the 18+ gate is closed.
             if (GetComponent<InnocenceKeeper>() == null)
                 gameObject.AddComponent<InnocenceKeeper>();
+            // JUH-171: how she talks, the last Pisara reading (its 18+ part on the local model only).
+            if (GetComponent<VoiceKeeper>() == null)
+                gameObject.AddComponent<VoiceKeeper>();
             // JUH-125: her 18+ secrets, read on the local model only; idle while the gate is closed.
             if (GetComponent<IntimateSecretsKeeper>() == null)
                 gameObject.AddComponent<IntimateSecretsKeeper>();

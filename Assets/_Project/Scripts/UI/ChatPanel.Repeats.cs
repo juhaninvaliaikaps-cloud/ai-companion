@@ -31,6 +31,8 @@ namespace AICompanion.UI
             }
 
             var phrases = RepeatedPhrases.Find(_recentReplies);
+            // The voice reading's sample lines: a copied run is named at once.
+            RepeatedPhrases.AddCopied(_recentReplies, VoiceNow.Samples, phrases);
             if (phrases.Count == 0)
                 return prompt;
             // Counts only: the phrases come from her own replies and stay out of Player.log.

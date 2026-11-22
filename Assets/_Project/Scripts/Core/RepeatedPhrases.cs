@@ -94,6 +94,48 @@ namespace AICompanion.Core
             return found;
         }
 
+        /// <summary>Words a sample line and a reply must share in a row to count as a copy.</summary>
+        public const int CopyWords = 4;
+
+        /// <summary>
+        /// JUH-171: the voice reading's sample lines are for the feel only. When one of her last
+        /// replies copied four words in a row from a sample, that run is named at once (no need
+        /// to wait for three replies). Adds to <paramref name="found"/> without repeating a
+        /// phrase already in it, up to <see cref="MaxPhrases"/>.
+        /// </summary>
+        public static void AddCopied(IList<string> replies, IList<string> samples, List<string> found)
+        {
+            if (replies == null || samples == null || found == null || replies.Count == 0)
+                return;
+            var start = Math.Max(0, replies.Count - RepliesLooked);
+            var recent = new List<string>(replies.Count - start);
+            for (var r = start; r < replies.Count; r++)
+            {
+                var words = Words(replies[r]);
+                recent.Add(" " + Join(words, 0, words.Count) + " ");
+            }
+
+            for (var s = 0; s < samples.Count && found.Count < MaxPhrases; s++)
+            {
+                var sample = Words(samples[s]);
+                for (var i = 0; i + CopyWords <= sample.Count; i++)
+                {
+                    if (!HasContent(sample, i, CopyWords))
+                        continue;
+                    var run = " " + Join(sample, i, CopyWords) + " ";
+                    var copied = false;
+                    for (var r = 0; r < recent.Count && !copied; r++)
+                        copied = recent[r].IndexOf(run, StringComparison.Ordinal) >= 0;
+                    if (!copied)
+                        continue;
+                    var phrase = run.Trim();
+                    if (!found.Contains(phrase))
+                        found.Add(phrase);
+                    break;
+                }
+            }
+        }
+
         /// <summary>The prompt line for these phrases, or empty when there are none.</summary>
         public static string Line(IList<string> phrases)
         {

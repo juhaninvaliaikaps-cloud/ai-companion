@@ -573,6 +573,34 @@ namespace AICompanion.Settings
             return _registry.TryGet(id, out provider) ? provider : null;
         }
 
+        /// <summary>
+        /// JUH-171: the model for the everyday voice reading: the same as her description's, but
+        /// never the cloud in private mode (only the description reading may go there, JUH-126).
+        /// <paramref name="keepsLocal"/> says whether a cloud provider must be refused.
+        /// </summary>
+        public IChatProvider VoiceProvider(out bool keepsLocal, out string readBy)
+        {
+            var privacy = GetComponent<IPrivacyMode>();
+            var privateMode = privacy != null && privacy.PrivateMode;
+            var choice = privateMode ? default(PisaraModelChoice) : Choice();
+            keepsLocal = choice.UseCloud ? false : IntimateExpressions.KeepsLocal(privateMode);
+            readBy = ReadBy(choice, keepsLocal);
+            return Provider(choice, keepsLocal);
+        }
+
+        /// <summary>JUH-171: the local model or the private server, for the 18+ voice reading.</summary>
+        public IChatProvider LocalVoiceProvider(out string readBy)
+        {
+            readBy = ReadBy(default(PisaraModelChoice), true);
+            return Provider(default(PisaraModelChoice), true);
+        }
+
+        /// <summary>The persona's display name, for the readings that run after this one.</summary>
+        public string NameFor(string personaId)
+        {
+            return PersonaName(personaId);
+        }
+
         /// <summary>True when a fallback can be retried without violating the privacy rule.</summary>
         bool ProviderReady()
         {

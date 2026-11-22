@@ -461,6 +461,7 @@ namespace AICompanion.NewUI
                 BuildReadingProgress(view.ReadingStartedAt);
             BuildRelationshipCorrection();
             BuildInnocence();
+            BuildVoice();
             Note("Temperament: how quickly her moods build and fade. Auto takes it from her description.");
             Choice("Auto", !view.Manual, () => { _settings.SetPersonaTemperamentAuto(id); _rebuild = true; });
             for (var i = 0; i < PersonaTemperaments.Ids.Length; i++)
@@ -1489,6 +1490,75 @@ namespace AICompanion.NewUI
         /// JUH-116: Innocent to Perverted. Only while the 18+ gate is open; nothing about it is
         /// shown otherwise. Every change applies at once.
         /// </summary>
+        /// <summary>
+        /// JUH-171: how she talks, the last Pisara reading. Every field is editable; what the user
+        /// writes wins, and an emptied field goes back to the reading. Lists are split by ";".
+        /// The 18+ part shows only while the gate is open.
+        /// </summary>
+        void BuildVoice()
+        {
+            var keeper = _settings.Voice;
+            if (keeper == null || !keeper.IsLoaded)
+                return;
+            Section("How she talks");
+            Note("Read last, from her description and everything the other readings found. Your text wins; empty a field to go back to the reading. Lists are split by \";\".");
+            Note(keeper.EverydayStatus);
+            Button(keeper.ReadingEveryday || keeper.ReadingIntimate ? "Read again (reading...)" : "Read again", () => { _settings.ReadVoiceAgain(); _rebuild = true; });
+            Button("Use the reading everywhere", () => { keeper.UseReading(); _rebuild = true; });
+
+            var file = keeper.File;
+            var read = file.everyday;
+            var user = file.UserEveryday;
+            VoiceField("Overall", user.summary, read.summary, v => keeper.EditEveryday(u => u.summary = v));
+            VoiceField("Register", user.register, read.register, v => keeper.EditEveryday(u => u.register = v));
+            VoiceField("Rhythm", user.rhythm, read.rhythm, v => keeper.EditEveryday(u => u.rhythm = v));
+            VoiceField("Words", user.vocabulary, read.vocabulary, v => keeper.EditEveryday(u => u.vocabulary = v));
+            VoiceList("Habits", user.habits, read.habits, VoiceSheet.MaxItems, v => keeper.EditEveryday(u => u.habits = v));
+            VoiceList("Never", user.never, read.never, VoiceSheet.MaxItems, v => keeper.EditEveryday(u => u.never = v));
+            VoiceField("When happy", user.happy, read.happy, v => keeper.EditEveryday(u => u.happy = v));
+            VoiceField("When annoyed", user.annoyed, read.annoyed, v => keeper.EditEveryday(u => u.annoyed = v));
+            VoiceField("When flustered", user.flustered, read.flustered, v => keeper.EditEveryday(u => u.flustered = v));
+            VoiceField("When sad", user.sad, read.sad, v => keeper.EditEveryday(u => u.sad = v));
+            VoiceField("When affectionate", user.affectionate, read.affectionate, v => keeper.EditEveryday(u => u.affectionate = v));
+            VoiceField("With a stranger", user.stranger, read.stranger, v => keeper.EditEveryday(u => u.stranger = v));
+            VoiceField("With someone close", user.close, read.close, v => keeper.EditEveryday(u => u.close = v));
+            VoiceList("Sample lines", user.samples, read.samples, VoiceSheet.MaxSamples, v => keeper.EditEveryday(u => u.samples = v));
+
+            if (!IntimateExpressions.Active)
+                return;
+            Section("How she talks in intimate scenes (18+)");
+            Note("Read on the local model only, again when her innocence moves into a new band. " + keeper.IntimateStatus);
+            var readIntimate = file.intimate;
+            var userIntimate = file.UserIntimate;
+            VoiceField("Holding back", userIntimate.holdingBack, readIntimate.holdingBack, v => keeper.EditIntimate(u => u.holdingBack = v));
+            VoiceField("Letting go", userIntimate.lettingGo, readIntimate.lettingGo, v => keeper.EditIntimate(u => u.lettingGo = v));
+            VoiceList("Habits", userIntimate.habits, readIntimate.habits, VoiceSheet.MaxItems, v => keeper.EditIntimate(u => u.habits = v));
+            VoiceList("Never", userIntimate.never, readIntimate.never, VoiceSheet.MaxItems, v => keeper.EditIntimate(u => u.never = v));
+            VoiceList("Sample lines", userIntimate.samples, readIntimate.samples, VoiceSheet.MaxSamples, v => keeper.EditIntimate(u => u.samples = v));
+        }
+
+        /// <summary>Shows the user's text, or the reading's; typing the reading's text back keeps no override.</summary>
+        void VoiceField(string caption, string user, string read, Action<string> set)
+        {
+            var shown = string.IsNullOrEmpty(user) ? read : user;
+            Field(caption, shown, false, v =>
+            {
+                var typed = VoiceText.Line(v);
+                set(string.Equals(typed, read, StringComparison.Ordinal) ? string.Empty : typed);
+            });
+        }
+
+        void VoiceList(string caption, string[] user, string[] read, int max, Action<string[]> set)
+        {
+            var readText = VoiceText.Join(read);
+            var shown = user != null && user.Length > 0 ? VoiceText.Join(user) : readText;
+            Field(caption, shown, false, v =>
+            {
+                var items = VoiceText.Split(v, max, max == VoiceSheet.MaxSamples ? VoiceSheet.MaxLine : VoiceSheet.MaxItem);
+                set(string.Equals(VoiceText.Join(items), readText, StringComparison.Ordinal) ? new string[0] : items);
+            });
+        }
+
         void BuildInnocence()
         {
             if (!IntimateExpressions.Active)
