@@ -57,6 +57,13 @@ namespace AICompanion.Settings
         int _sigBand = -1;
         bool _sigInnocenceReading;
 
+        // The rotating pool: what chat showed and what she echoed, drained once per check.
+        readonly List<string> _shownNow = new List<string>();
+        readonly List<string> _echoedNow = new List<string>();
+        CancellationTokenSource _refreshCancel;
+        public bool Refreshing { get; private set; }
+        int _refreshChecked = -1;
+
         public int Revision { get; private set; }
         public bool ReadingEveryday { get; private set; }
         public bool ReadingIntimate { get; private set; }
@@ -100,7 +107,203 @@ namespace AICompanion.Settings
             }
 
             MaybeRead(false);
+            CountUsage();
+            MaybeRefresh();
             Publish(false);
+        }
+
+        // ---- The rotating pool: retire used lines, refresh thin moods --------------------
+
+        /// <summary>The lines chat showed and she echoed: a line retires after a few replies, or at once when echoed.</summary>
+        void CountUsage()
+        {
+            _shownNow.Clear();
+            _echoedNow.Clear();
+            if (!VoiceNow.TakeUsage(_shownNow, _echoedNow))
+                return;
+            var changed = false;
+            for (var i = 0; i < _shownNow.Count; i++)
+                changed |= Use(_shownNow[i], false);
+            for (var i = 0; i < _echoedNow.Count; i++)
+                changed |= Use(_echoedNow[i], true);
+            Save();
+            if (changed)
+            {
+                _contentRevision++;
+                Revision++;
+                Publish(true);
+            }
+        }
+
+        /// <summary>Counts one showing (or an echo); true when the line just retired from a pool of the model's.</summary>
+        bool Use(string line, bool echoed)
+        {
+            var uses = new List<LineUse>(_file.uses ?? new LineUse[0]);
+            LineUse use = null;
+            for (var i = 0; i < uses.Count; i++)
+            {
+                if (string.Equals(uses[i].text, line, StringComparison.Ordinal))
+                {
+                    use = uses[i];
+                    break;
+                }
+            }
+
+            if (use == null)
+            {
+                use = new LineUse { text = line };
+                uses.Add(use);
+            }
+
+            if (!echoed)
+                use.shown++;
+            _file.uses = uses.ToArray();
+            if (!VoicePool.ShouldRetire(use.shown, echoed))
+                return false;
+
+            // Only the model's lines retire; the user's are in their own fields and never move.
+            var retired = false;
+            for (var k = 0; k < VoiceLines.Keys.Length; k++)
+            {
+                var key = VoiceLines.Keys[k];
+                var before = _file.everyday.lines.Get(key);
+                var after = VoicePool.Without(before, line);
+                if (after.Length != before.Length)
+                {
+                    _file.everyday.lines.Set(key, after);
+                    retired = true;
+                }
+            }
+
+            for (var k = 0; k < IntimateLines.Keys.Length; k++)
+            {
+                var key = IntimateLines.Keys[k];
+                var before = _file.intimate.lines.Get(key);
+                var after = VoicePool.Without(before, line);
+                if (after.Length != before.Length)
+                {
+                    _file.intimate.lines.Set(key, after);
+                    retired = true;
+                }
+            }
+
+            if (retired)
+            {
+                _file.retired = VoicePool.Retire(_file.retired, line);
+                _file.uses = Prune(_file.uses, line);
+                Debug.Log("Voice: " + LogId() + " retired a line (" + (echoed ? "echoed" : use.shown + " replies") + ")");
+            }
+
+            return retired;
+        }
+
+        static LineUse[] Prune(LineUse[] uses, string line)
+        {
+            var kept = new List<LineUse>();
+            for (var i = 0; uses != null && i < uses.Length; i++)
+            {
+                if (!string.Equals(uses[i].text, line, StringComparison.Ordinal))
+                    kept.Add(uses[i]);
+            }
+
+            return kept.ToArray();
+        }
+
+        /// <summary>
+        /// One refresh at a time: the first mood (or 18+ stage) down to its last line gets three
+        /// new ones in the background. Everyday moods on the everyday model, the 18+ stages on
+        /// the local model only. The user's own lines are never refreshed.
+        /// </summary>
+        void MaybeRefresh()
+        {
+            if (Refreshing || ReadingEveryday || ReadingIntimate)
+                return;
+            // Looked at again only after the pool changed (a retired line, a new reading, the gate).
+            var check = _contentRevision * 2 + (IntimateExpressions.Active ? 1 : 0);
+            if (check == _refreshChecked)
+                return;
+            var pisara = GetComponent<PisaraReadingKeeper>();
+            if (pisara == null || pisara.IsReading)
+                return;
+            _refreshChecked = check;
+
+            if (!_file.everyday.IsEmpty)
+            {
+                for (var k = 0; k < VoiceLines.Keys.Length; k++)
+                {
+                    var key = VoiceLines.Keys[k];
+                    if (VoicePool.NeedsRefresh(_file.everyday.lines.Get(key), _file.UserEveryday.lines.Get(key)) && Untried("r" + key))
+                    {
+                        Refresh(key, false);
+                        return;
+                    }
+                }
+            }
+
+            if (!IntimateExpressions.Active || _file.intimate.IsEmpty)
+                return;
+            for (var k = 0; k < IntimateLines.Keys.Length; k++)
+            {
+                var key = IntimateLines.Keys[k];
+                if (VoicePool.NeedsRefresh(_file.intimate.lines.Get(key), _file.UserIntimate.lines.Get(key)) && Untried("r" + key))
+                {
+                    Refresh(key, true);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>Once per launch per mood and per retired count, so a failing model is not asked in a loop.</summary>
+        bool Untried(string part)
+        {
+            return _tried.Add(part + _personaId + "#" + (_file.retired != null ? _file.retired.Length : 0));
+        }
+
+        async void Refresh(string key, bool intimate)
+        {
+            var pisara = GetComponent<PisaraReadingKeeper>();
+            bool keepsLocal = true;
+            string readBy;
+            var provider = intimate ? pisara.LocalVoiceProvider(out readBy) : pisara.VoiceProvider(out keepsLocal, out readBy);
+            var had = new List<string>(_file.retired ?? new string[0]);
+            var left = intimate ? _file.intimate.lines.Get(key) : _file.everyday.lines.Get(key);
+            had.AddRange(left);
+            var input = VoiceReader.RefreshInput(_everyday, VoiceReader.Moment(key), Familiarity() >= VoicePrompt.CloseFrom, had,
+                intimate ? _intimate : null);
+            var persona = _personaId;
+            var generation = _generation;
+            var cancel = new CancellationTokenSource();
+            _refreshCancel = cancel;
+            Refreshing = true;
+            var fresh = await VoiceReader.RefreshAsync(provider, keepsLocal, intimate, IntimateExpressions.Active, pisara.NameFor(persona), input, cancel.Token);
+            if (this == null || generation != _generation || !string.Equals(persona, _personaId, StringComparison.Ordinal))
+            {
+                cancel.Dispose();
+                return;
+            }
+
+            Refreshing = false;
+            _refreshCancel = null;
+            cancel.Dispose();
+            if (fresh.Length == 0)
+            {
+                Debug.LogWarning("Voice: " + LogId() + " refresh for " + key + " gave no lines");
+                // The other moods may still be refreshed; this one waits for the next launch.
+                _refreshChecked = -1;
+                return;
+            }
+
+            var now = intimate ? _file.intimate.lines.Get(key) : _file.everyday.lines.Get(key);
+            var refilled = VoicePool.Refill(now, fresh, _file.retired);
+            if (intimate)
+                _file.intimate.lines.Set(key, refilled);
+            else
+                _file.everyday.lines.Set(key, refilled);
+            Save();
+            Debug.Log("Voice: " + LogId() + " refreshed " + key + " (" + refilled.Length + " lines, " + (intimate ? "local model" : readBy) + ")");
+            _contentRevision++;
+            Revision++;
+            Publish(true);
         }
 
         // ---- Reading ---------------------------------------------------------------------
@@ -235,8 +438,10 @@ namespace AICompanion.Settings
                 _file.everydayBy = readBy;
                 Save();
                 EverydayStatus = "Read by " + readBy + ".";
+                var lines = new List<string>();
+                result.Everyday.lines.AddAll(lines);
                 Debug.Log("Voice: " + LogId() + " everyday read by " + readBy + " (" + result.Everyday.habits.Length + " habits, "
-                    + result.Everyday.samples.Length + " samples)");
+                    + lines.Count + " lines)");
             }
             else
             {
@@ -365,7 +570,12 @@ namespace AICompanion.Settings
             var pisara = GetComponent<PisaraReadingKeeper>();
             var block = VoicePrompt.Block(pisara != null ? pisara.NameFor(_personaId) : string.Empty, everyday, intimate,
                 CompanionMoodNow.Shown, CompanionMoodNow.Strength, familiarity, gate, innocence, axes, desire);
-            VoiceNow.Set(block, everyday.samples, intimate != null ? intimate.samples : null);
+            var pool = VoicePrompt.Pool(everyday, intimate, CompanionMoodNow.Shown, CompanionMoodNow.Strength, gate, innocence, desire);
+            var all = new List<string>();
+            everyday.lines.AddAll(all);
+            if (intimate != null)
+                intimate.lines.AddAll(all);
+            VoiceNow.Set(block, pool, all);
         }
 
         // ---- Persona, Start over, wipe ---------------------------------------------------
@@ -418,10 +628,14 @@ namespace AICompanion.Settings
                 _everydayCancel.Cancel();
             if (_intimateCancel != null)
                 _intimateCancel.Cancel();
+            if (_refreshCancel != null)
+                _refreshCancel.Cancel();
             _everydayCancel = null;
             _intimateCancel = null;
+            _refreshCancel = null;
             ReadingEveryday = false;
             ReadingIntimate = false;
+            Refreshing = false;
         }
 
         // ---- Helpers ---------------------------------------------------------------------

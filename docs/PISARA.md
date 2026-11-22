@@ -196,8 +196,10 @@ The last Pisara reading. `VoiceKeeper` waits until her description has been read
 - for the 18+ request also: her 18+ notes, where she sits between innocent and perverted, and her libido (JUH-170)
 
 **What it gives** (`VoiceSheet`, `IntimateVoice`): short fixed fields.
-- **Everyday:** overall, register, rhythm, words, 3–5 habits, 3–5 things she never does when talking, one line per mood (happy, annoyed, flustered, sad, affectionate), one line with a stranger and one with someone close, and 2 sample lines.
-- **18+:** holding back, letting go, habits, never, and 2 samples.
+- **Everyday:** overall, register, rhythm, words, 3–5 habits, 3–5 things she never does when talking, one line per mood (happy, annoyed, flustered, sad, affectionate), one line with a stranger and one with someone close, and **her own lines**: up to 3 per mood (content, happy, annoyed, flustered, sad, affectionate).
+- **18+:** holding back, letting go, habits, never, and her own lines for holding back and for letting go (up to 3 each).
+
+Her lines must be things only she would say, in her world and her words. The reading is told to start each line differently, and code drops a line that starts with the same two words as another (`VoiceText.Varied`).
 
 **When it reads again:** it is saved encrypted per persona (`voice-<persona>.json`, in wipe and export) with the hash of what it was given. It reads again only when that changes: her description, sliders, mood temperament or starting relationship. The 18+ part also reads again when her innocence or libido moves into a new band, so her intimate voice follows her as she gets more experienced. A changed input waits 4 seconds unchanged first (slider drags), and each input is read at most once per launch, unless the user presses **Read again**.
 
@@ -205,13 +207,21 @@ The last Pisara reading. `VoiceKeeper` waits until her description has been read
 - the line for her mood now (strength 0.25 or more)
 - the stranger or close line from her familiarity now (50 or more is close)
 - while the gate is open: "holding back" while she is innocent, "letting go" when she is experienced or perverted, and both in between. Very high desire (very aroused or more) moves her one step toward letting go, so even a shy one gives in (`VoicePrompt.IntimateStage`)
-- the rules code always adds: the samples show the feel only and are never repeated word for word; vary how sentences start; and, only for a confident or assertive one (70 or more), do not stammer or trail off. A shy one keeps her stammer.
+- the rules code always adds: vary how sentences start; and, only for a confident or assertive one (70 or more), do not stammer or trail off. A shy one keeps her stammer.
+
+**Her lines, the rotating pool** (`VoicePrompt.Pool`, `Pick`, `VoiceNow.AppendLines`). Two of her lines go mid-prompt, right after the relationship line, so they colour her voice without being the last thing the model reads. They come with the rule that they show the feel only and are never repeated word for word.
+- **The pool for this moment:** her lines for the mood she is in (strength 0.25 or more), then her everyday ones. While the gate is open and she is aroused (desire band 2 or more, or an intimate mood), the pool is her 18+ lines instead: holding back, letting go, or both, by `IntimateStage`.
+- **Rotation:** each reply gets the next two lines (by how many replies she has given). A line she echoed (four words in a row) in her last five replies is skipped.
+- **Retiring and refreshing** (`VoicePool`, `VoiceKeeper`): each typed or spoken message counts a showing. A model line retires after 6 showings, or at once when she echoes it. When a mood (or an 18+ stage) is down to 1 line, a small refresh request asks for 3 new lines. It gets her voice (summary, register, rhythm, words, habits, never), the moment, how well she knows the user now (so her lines warm up as you get closer), and the lines she has had (the last 40 retired lines are kept so none comes back). It gets no chat text.
+  - Everyday refreshes use the everyday model (the cloud when that setting is on, local in private mode). 18+ refreshes use the local model only, while the gate is open.
+  - One refresh runs at a time. A failed one is tried again for that mood only next launch.
+  - The user's own lines never retire and are never refreshed.
 
 While there is no reading yet, the short "Her manner" line stands in.
 
 **The user's text wins.** Settings → Persona → Who she is → **How she talks** shows every field. What the user types is kept, and an emptied field goes back to the reading. Lists are split by ";". **Use the reading everywhere** drops the user's text. The 18+ fields show only while the gate is open. Start over keeps her voice. Log lines say what was read and by which model, never the text.
 
-**Copied samples.** If one of her last replies has four words in a row from a sample line, that run is named in the repeated-phrases line right away (`RepeatedPhrases.AddCopied`).
+**Copied lines.** If one of her last replies has four words in a row from one of her lines, that run is also named in the repeated-phrases line right away (`RepeatedPhrases.AddCopied`).
 
 **Repeated phrases.** Before each typed or spoken message, `RepeatedPhrases.Find` looks at her last five replies. A phrase of two to four words that showed up in at least three of them is named in one line at the end of the prompt, with a request to vary it (up to four phrases, longest first). A phrase made only of small common words is never named. A local-only (18+) reply is looked at only when the send is private, so none of its words can reach a cloud request. Player.log gets the count only.
 

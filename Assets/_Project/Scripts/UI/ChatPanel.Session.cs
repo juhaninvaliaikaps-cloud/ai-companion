@@ -62,6 +62,9 @@ namespace AICompanion.UI
                 prompt = PersonaMannerNow.Append(prompt);
             // JUH-118 section 4: who she is to the user now, right after the mood line.
             prompt = RelationshipNow.Append(prompt);
+            // JUH-173: two of her own lines for this moment, rotating; mid-prompt so they colour
+            // her voice without being the last thing the model reads.
+            prompt = WithVoiceLines(prompt, chatMessage);
             // JUH-116: where she sits between Innocent and Perverted; empty while the 18+ gate is closed.
             prompt = InnocenceNow.Append(prompt);
             // JUH-170: her desire and the heat instruction; empty while the 18+ gate is closed.
