@@ -58,6 +58,12 @@ namespace AICompanion.Settings
         public string KokoroModel = string.Empty;
         public string KokoroVoices = string.Empty;
         public string KokoroVoice = "af_heart";
+
+        /// <summary>JUH-168: Kokoro uses fewer cores while a game is in front.</summary>
+        public bool KokoroGameLimit = true;
+
+        /// <summary>JUH-168: the logical processors Kokoro may use then (1 to 16).</summary>
+        public int KokoroGameCores = AICompanion.Voice.KokoroCpuLimit.DefaultCores;
         public string ChatterboxPython = string.Empty;
         public string ChatterboxScript = string.Empty;
         public string ChatterboxVoices = string.Empty;
@@ -417,6 +423,7 @@ namespace AICompanion.Settings
             if (float.IsNaN(ChatFontSize) || float.IsInfinity(ChatFontSize))
                 ChatFontSize = 14f;
             ChatFontSize = Math.Max(10f, Math.Min(24f, ChatFontSize));
+            KokoroGameCores = AICompanion.Voice.KokoroCpuLimit.Clean(KokoroGameCores);
             DesktopFilesPermission = CleanPermission(DesktopFilesPermission);
             DesktopAppsPermission = CleanPermission(DesktopAppsPermission);
             DesktopClipboardPermission = CleanPermission(DesktopClipboardPermission);
@@ -764,6 +771,10 @@ namespace AICompanion.Settings
                 settings.KokoroVoices = text;
             if (TryString(json, "kokoroVoice", out text))
                 settings.KokoroVoice = text;
+            if (TryBool(json, "kokoroGameLimit", out flag))
+                settings.KokoroGameLimit = flag;
+            if (TryNumber(json, "kokoroGameCores", out number))
+                settings.KokoroGameCores = (int)Math.Round(number);
             if (TryString(json, "chatterboxPython", out text))
                 settings.ChatterboxPython = text;
             if (TryString(json, "chatterboxScript", out text))
@@ -993,6 +1004,8 @@ namespace AICompanion.Settings
             String(sb, "kokoroModel", source.KokoroModel);
             String(sb, "kokoroVoices", source.KokoroVoices);
             String(sb, "kokoroVoice", source.KokoroVoice);
+            Bool(sb, "kokoroGameLimit", source.KokoroGameLimit);
+            Number(sb, "kokoroGameCores", source.KokoroGameCores, true);
             String(sb, "chatterboxPython", source.ChatterboxPython);
             String(sb, "chatterboxScript", source.ChatterboxScript);
             String(sb, "chatterboxVoices", source.ChatterboxVoices);
