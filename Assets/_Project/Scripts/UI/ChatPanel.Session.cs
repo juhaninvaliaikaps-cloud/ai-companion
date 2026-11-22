@@ -155,7 +155,7 @@ namespace AICompanion.UI
         /// reply (guarded by <see cref="ChatExchange.CueSerial"/>), also when the tag's emotion was
         /// unreadable: the cue is then neutral, and only the exchange itself counts.
         /// </summary>
-        void SessionReplyFinished()
+        void SessionReplyFinished(IChatProvider provider, string userText, string replyText, bool keepsLocal)
         {
             WorldPromptNow.ReplyFinished();
             _sessionUserMessages++;
@@ -163,8 +163,68 @@ namespace AICompanion.UI
             if (_exchange != null && _exchange.CueSerial != _landingCueSerial)
             {
                 _landingCueSerial = _exchange.CueSerial;
-                RelationshipNow.ReportReply(_exchange.LastCue);
+                var cue = _exchange.LastCue;
+                SecretClaim claim;
+                if (SecretClaimNow.NeedsCheck(cue, out claim))
+                    CheckSecretThenReport(provider, userText, replyText, keepsLocal, cue, claim);
+                else
+                    RelationshipNow.ReportReply(cue);
             }
+        }
+
+        /// <summary>
+        /// JUH-180: a reply that claims a first find of one of her secrets lands only after one
+        /// short yes/no request to the same chat model. A no, an unclear answer or a failed
+        /// request lands the message without the secret. Private mode and 18+ secrets only ask
+        /// a local model. The log names the id and the answer, never any text.
+        /// </summary>
+        async void CheckSecretThenReport(IChatProvider provider, string userText, string replyText, bool keepsLocal, AnimationCue cue, SecretClaim claim)
+        {
+            var local = keepsLocal || claim.Intimate;
+            var verdict = SecretVerdict.Unclear;
+            var why = "gave no clear answer";
+            if (!PisaraReader.MayUse(provider, local))
+            {
+                why = "could not run on a local model";
+            }
+            else
+            {
+                try
+                {
+                    var request = new ChatRequest
+                    {
+                        SystemPrompt = SecretCheck.SystemPrompt,
+                        Messages = new List<ChatMessage> { new ChatMessage(ChatRole.User, SecretCheck.Question(claim, userText, replyText)) },
+                        Temperature = SecretCheck.Temperature,
+                        MaxTokens = SecretCheck.MaxTokens,
+                        TimeoutSeconds = SecretCheck.TimeoutSeconds,
+                        BlockCloud = local,
+                        NoMemory = true,
+                    };
+                    var result = await provider.StreamChat(request, _ => { }, CancellationToken.None);
+                    if (result.Ok)
+                        verdict = SecretCheck.Parse(result.Text);
+                    else
+                        why = "failed";
+                }
+                catch (Exception e)
+                {
+                    why = "failed (" + e.GetType().Name + ")";
+                }
+            }
+
+            if (!_alive)
+                return;
+            if (verdict == SecretVerdict.Yes)
+            {
+                Debug.Log("Secrets: checked " + claim.Id + ": yes");
+                RelationshipNow.ReportReply(cue);
+                return;
+            }
+
+            Debug.Log("Secrets: the reply named " + claim.Id + ", but the check " + (verdict == SecretVerdict.No ? "said no" : why)
+                + "; it lands as an ordinary message");
+            RelationshipNow.ReportReply(SecretCheck.WithoutSecret(cue));
         }
 
         /// <summary>

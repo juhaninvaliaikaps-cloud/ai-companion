@@ -776,7 +776,7 @@ namespace AICompanion.UI
                 ApplyForcedStrip(result.Text);
                 if (remember)
                 {
-                    SessionReplyFinished();
+                    SessionReplyFinished(provider, text, result.Text, keepsLocal);
                     SaveRollingCheckpoint();
                     MaybeUpdateSceneDigest();
                     CaptureMemory(provider, text, result.Text, keepsLocal);
