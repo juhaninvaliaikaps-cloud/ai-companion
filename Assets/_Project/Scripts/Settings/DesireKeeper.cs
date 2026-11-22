@@ -189,6 +189,11 @@ namespace AICompanion.Settings
                 _state.RefractoryUntilTicks = now.AddMinutes(DesireMath.RefractoryMinutes(libido)).Ticks;
                 PushMoods(DesireMath.ReleasePushes(), "a release");
             }
+            else if (DesireMath.Fulfils(before, heat, group))
+            {
+                // JUH-179: her kink done while she is aroused relieves her a little.
+                _state.Desire = DesireMath.AfterFulfilled(before);
+            }
             else
             {
                 _state.Desire = DesireMath.AfterMoment(before, heat, cue.Intensity, libido, Affection(), _state.InRefractory(now), group);

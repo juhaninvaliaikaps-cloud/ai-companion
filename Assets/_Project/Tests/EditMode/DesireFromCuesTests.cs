@@ -38,6 +38,26 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void AClimaxClipOrExpression_IsARelease_WithoutTheTag()
+        {
+            Assert.AreEqual(DesireHeat.Release, DesireHeats.Of(Cue("neutral", "climax_shiver", LandingEvent.Neutral)));
+            Assert.AreEqual(DesireHeat.Release, DesireHeats.Of(Cue("x_orgasm", null, LandingEvent.Neutral)));
+            Assert.AreEqual(9f, DesireMath.AfterRelease(60f), 0.001f, "a release keeps 15 %");
+        }
+
+        [Test]
+        public void AFulfilledKink_RelievesHerALittle_ATeasedOneArousesHer()
+        {
+            Assert.IsTrue(DesireMath.Fulfils(60f, DesireHeat.Hot, IntimateSecretGroup.Kink), "aroused, and the kink is done");
+            Assert.IsFalse(DesireMath.Fulfils(30f, DesireHeat.Hot, IntimateSecretGroup.Kink), "only warm: it still arouses her");
+            Assert.IsFalse(DesireMath.Fulfils(60f, DesireHeat.Warm, IntimateSecretGroup.Kink), "only talked about");
+            Assert.IsFalse(DesireMath.Fulfils(60f, DesireHeat.Hot, IntimateSecretGroup.Sensitive), "a sensitive spot arouses");
+            Assert.IsFalse(DesireMath.Fulfils(60f, DesireHeat.Hot, null));
+            Assert.AreEqual(51f, DesireMath.AfterFulfilled(60f), 0.001f);
+            Assert.Less(DesireMath.AfterFulfilled(60f), 60f);
+        }
+
+        [Test]
         public void TheTurnReminder_AsksForHeat()
         {
             var reminder = DesireHeats.WithReminder(LandingEvents.TurnReminder);
