@@ -74,9 +74,9 @@ namespace AICompanion.Core
         /// cue's <c>secret=</c> found one of her secrets for the first time (JUH-123): a critical hit.
         /// A secret found before lands like any other message (Jussi, 2026-11-15).
         /// </summary>
-        public static RelationshipChange Land(AnimationCue cue, float affection, float familiarity, bool firstSecretHit = false, float bonus = 1f)
+        public static RelationshipChange Land(AnimationCue cue, float affection, float familiarity, bool firstSecretHit = false, float bonus = 1f, SecretLean lean = SecretLean.None)
         {
-            return RelationshipMath.Land(cue.Landed, cue.Intensity, affection, familiarity, firstSecretHit, bonus);
+            return RelationshipMath.Land(cue.Landed, cue.Intensity, affection, familiarity, firstSecretHit, bonus, lean);
         }
     }
 }

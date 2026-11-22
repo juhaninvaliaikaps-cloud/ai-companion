@@ -133,8 +133,7 @@ namespace AICompanion.NewUI
             var text = string.Empty;
             for (var i = _feedback.Count - added; i < _feedback.Count; i++)
             {
-                var piece = _feedback.Piece(i);
-                text += (text.Length > 0 ? ", " : string.Empty) + piece.Kind + " " + (piece.Amount.Length > 0 ? piece.Amount + " " : string.Empty) + piece.Label;
+                text += (text.Length > 0 ? ", " : string.Empty) + _feedback.Piece(i).LogText;
             }
 
             return text;
