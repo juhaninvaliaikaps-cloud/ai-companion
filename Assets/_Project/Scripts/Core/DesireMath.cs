@@ -50,6 +50,53 @@ namespace AICompanion.Core
             }
         }
 
+        /// <summary>
+        /// JUH-179: the heat of a reply. The model's own heat wins. When it wrote none (Jussi's
+        /// log, 2026-11-22: Rocinante never wrote heat, not even with a strip reaction), the cue's
+        /// other signs count: an 18+ expression, undressing or a naked or adult clip is hot, and a
+        /// flirt is warm.
+        /// </summary>
+        public static DesireHeat Of(AnimationCue cue)
+        {
+            if (cue.Heat != DesireHeat.None)
+                return cue.Heat;
+            var reaction = cue.Reaction ?? string.Empty;
+            // JUH-179: a climax clip or expression is a release even without the tag.
+            if (IsClimax(reaction) || IsClimax(cue.EmotionField))
+                return DesireHeat.Release;
+            if (IntimateExpressions.IsIntimateId(cue.EmotionField))
+                return DesireHeat.Hot;
+            if (string.Equals(reaction, "strip", System.StringComparison.OrdinalIgnoreCase) || IntimateExpressions.IsNakedCue(reaction))
+                return DesireHeat.Hot;
+            if (cue.Landed == LandingEvent.Flirted)
+                return DesireHeat.Warm;
+            return DesireHeat.None;
+        }
+
+        static bool IsClimax(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return false;
+            return value.IndexOf("climax", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || value.IndexOf("orgasm", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>
+        /// JUH-179: added to the turn reminder while the 18+ gate is open. Local models follow the
+        /// reminder on the newest message more than the system prompt (as with landed, JUH-122).
+        /// </summary>
+        public const string Reminder =
+            " While the moment is sexual, also set heat: heat=\"warm\" when suggestive, heat=\"hot\" when openly sexual, heat=\"release\" when you climax.";
+
+        /// <summary>The turn reminder with <see cref="Reminder"/> inside its closing parenthesis.</summary>
+        public static string WithReminder(string turnReminder)
+        {
+            var text = (turnReminder ?? string.Empty).TrimEnd();
+            if (text.EndsWith(")", System.StringComparison.Ordinal))
+                return text.Substring(0, text.Length - 1) + Reminder + ")";
+            return text + Reminder;
+        }
+
         public static string Name(DesireHeat heat)
         {
             switch (heat)
@@ -246,6 +293,26 @@ namespace AICompanion.Core
             var room = (Max - desire) / Max;
             gain *= 0.4f + 0.6f * room;
             return Clamp(desire + gain);
+        }
+
+        /// <summary>A fulfilled kink keeps this share of her desire (Jussi, 2026-11-22: it relieves it a bit).</summary>
+        public const float FulfilledKeeps = 0.85f;
+
+        /// <summary>
+        /// JUH-179: true when one of her kinks is fulfilled, not only teased: it comes in a hot
+        /// moment (or a release) while she is already aroused (band 2 or more). Doing it then
+        /// relieves her a little instead of raising her desire.
+        /// </summary>
+        public static bool Fulfils(float desire, DesireHeat heat, IntimateSecretGroup? secret)
+        {
+            return secret.HasValue && secret.Value == IntimateSecretGroup.Kink
+                && (heat == DesireHeat.Hot || heat == DesireHeat.Release) && Band(desire) >= 2;
+        }
+
+        /// <summary>After a fulfilled kink: a little of her desire is spent.</summary>
+        public static float AfterFulfilled(float desire)
+        {
+            return Clamp(Clamp(desire) * FulfilledKeeps);
         }
 
         /// <summary>After she climaxes: most of her desire is spent.</summary>
