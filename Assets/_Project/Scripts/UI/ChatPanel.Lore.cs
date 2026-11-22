@@ -28,10 +28,14 @@ namespace AICompanion.UI
                 return _loreScan.ToString();
             var lines = _conversation.Lines;
             var taken = 0;
+            // JUH-177: in public mode, private lines do not pick lore either.
+            var includePrivate = _conversation.MarkLocalNow;
             for (var i = lines.Count - 1; i >= 0 && taken < LoreMatcher.ScanLines; i--)
             {
                 var line = lines[i];
                 if (line == null || line.Kind == ChatLineKind.System || string.IsNullOrEmpty(line.Text))
+                    continue;
+                if (line.LocalOnly && !includePrivate)
                     continue;
                 _loreScan.Append('\n').Append(line.Text);
                 taken++;

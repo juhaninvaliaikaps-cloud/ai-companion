@@ -22,6 +22,8 @@ namespace AICompanion.Settings
             IntimateExpressions.Configure(settings.IntimateExpressions, settings.PrivateMode,
                 !string.IsNullOrEmpty(adultFolder) && Directory.Exists(adultFolder));
             PisaraSwitches.Configure(settings.PisaraRelationship, settings.PisaraAwayEvents, settings.PisaraWorld);
+            // JUH-177: what public mode may know about a private chapter.
+            PrivateChapterNow.Configure(settings.PrivateChapterHint);
             AICompanion.Memory.MemoryEmbeddings.Configure(settings.MemoryEmbeddings);
             AICompanion.AI.VisionCapability.Configure(settings.CloudVision);
             var provider = AICompanion.Voice.OutboundPrivacy.ChatProviderId(settings.PrivateMode, settings.ProviderId, settings.PrivateEndpointType);

@@ -90,6 +90,12 @@ namespace AICompanion.Settings
         public bool ChatHistory;
         public bool PrivateMode;
 
+        /// <summary>
+        /// JUH-177: what public mode may know about a private chapter: 0 nothing, 1 that it
+        /// happened, 2 what kind of moment it was (the default). See <see cref="PrivateChapterHint"/>.
+        /// </summary>
+        public int PrivateChapterHint = 2;
+
         /// <summary>Local Ollama or a user-provided OpenAI-compatible server while Private mode is on.</summary>
         public string PrivateEndpointType = PrivateEndpointTypes.Local;
         public string PrivateBaseUrl = string.Empty;
@@ -790,6 +796,8 @@ namespace AICompanion.Settings
                 settings.SttLanguage = text;
             if (TryNumber(json, "talkMouseButton", out number))
                 settings.TalkMouseButton = (int)Math.Round(number);
+            if (TryNumber(json, "privateChapterHint", out number))
+                settings.PrivateChapterHint = (int)AICompanion.Core.PrivateChapterPrompt.Normalize((int)Math.Round(number));
             if (TryBool(json, "talkXboxButton", out flag))
                 settings.TalkXboxButton = flag;
             if (TryBool(json, "talkPsButton", out flag))
@@ -1006,6 +1014,7 @@ namespace AICompanion.Settings
             String(sb, "whisperModelPath", source.WhisperModelPath);
             String(sb, "sttLanguage", source.SttLanguage);
             Number(sb, "talkMouseButton", source.TalkMouseButton, true);
+            Number(sb, "privateChapterHint", source.PrivateChapterHint, true);
             Bool(sb, "talkXboxButton", source.TalkXboxButton);
             Bool(sb, "talkPsButton", source.TalkPsButton);
             Bool(sb, "alwaysOnTop", source.AlwaysOnTop);

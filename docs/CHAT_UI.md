@@ -15,6 +15,21 @@ The logic is in `SceneDigest` (plain C#, `SceneDigestTests`); `ChatPanel.Scene.c
 
 The system prompt lives on `ChatSettings.systemPrompt`. A persona selected in Settings replaces it. With no persona, it is the setup name and relationship, and the default with no name is a short, friendly, PG desktop companion. `ChatPanel` then appends the director cue instructions. Adult or private mode is a later local-model feature and is not part of this panel.
 
+## Private and public (JUH-177)
+
+The chat box header has a **Private / Public** switch in the place of "What do you see?" (looking at the screen stays on the wheel: Screen → Look now).
+- **The switch.** It turns private mode on or off with the saved setting, so each side uses the model and voice set up for it. It does nothing while she is still answering; that reply finishes on its own model first. Private shows in pink, Public in amber.
+- **The note.** Switching writes a note in the chat ("Public mode on: what was said in private stays on this PC; …").
+
+**Everything said in private mode stays local-only.** Every user line and reply added while private mode is on is marked local-only (`ChatConversation.MarkLocalNow`), not just 18+ interaction lines, so a public request leaves it out. Before this, the first public message after private mode sent the last private messages to the cloud. In public mode, private lines also do not pick lorebook entries. Back in private mode, the local model sees the whole conversation again.
+
+**What public mode may know** (`PrivateChapter`, `PrivateChapterPrompt`; Settings → AI → Private mode). When a public request leaves private lines out, it gets one sentence written by code, never by a model, from a fixed list:
+- **Nothing:** no sentence.
+- **That it happened:** "you and the user talked in private; … don't guess at it, retell it or ask about it, and don't act as if nothing happened."
+- **What kind of moment** (the default): the same, as a personal talk, a romantic moment or an intimate moment. The intimate one says "don't describe it or bring up details; it can leave you feeling closer".
+
+The kind is the strongest seen during the private chapter. It comes from each private reply's cue only: an 18+ interaction, `heat` hot or release, an intimate expression or the intimate mood mean intimate; `heat` warm, a flirt or the affectionate mood mean romantic. No text is used. After a restart the kind is unknown, so "what kind" falls back to "that it happened". This is the one exception to "nothing from private mode goes to the cloud" (AGENTS.md).
+
 ## Hotkeys
 
 | Key | When | What it does |

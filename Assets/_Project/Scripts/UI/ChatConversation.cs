@@ -130,6 +130,30 @@ namespace AICompanion.UI
         /// </summary>
         public int HistoryStart { get; set; }
 
+        /// <summary>
+        /// JUH-177: true while private mode is on. Every user line and reply added then is kept
+        /// local-only, so a later public (cloud) request leaves it out. Before this only 18+
+        /// interaction lines were, and the last private messages went to the cloud with the first
+        /// public one.
+        /// </summary>
+        public bool MarkLocalNow { get; set; }
+
+        /// <summary>JUH-177: true when a line from <see cref="HistoryStart"/> on is local-only (a public request leaves it out).</summary>
+        public bool AnyLocalOnlyInWindow
+        {
+            get
+            {
+                for (var i = Math.Max(0, HistoryStart); i < _lines.Count; i++)
+                {
+                    var line = _lines[i];
+                    if (line != null && line.LocalOnly && line.Kind != ChatLineKind.System)
+                        return true;
+                }
+
+                return false;
+            }
+        }
+
         /// <summary>Increments on each accepted send so a late chunk cannot join the next reply.</summary>
         public int Generation { get; private set; }
 
@@ -147,7 +171,7 @@ namespace AICompanion.UI
 
             Generation++;
             var user = new ChatLine(ChatLineKind.User, text, false);
-            var localOnly = options != null && options.LocalOnly;
+            var localOnly = (options != null && options.LocalOnly) || MarkLocalNow;
             if (localOnly)
                 user.LocalOnly = true;
             _lines.Add(user);
@@ -253,7 +277,7 @@ namespace AICompanion.UI
             if (string.IsNullOrWhiteSpace(text))
                 return;
 
-            _lines.Add(new ChatLine(ChatLineKind.Assistant, text.Trim(), false));
+            _lines.Add(new ChatLine(ChatLineKind.Assistant, text.Trim(), false) { LocalOnly = MarkLocalNow });
             Touch();
         }
         public void AddSystem(string text)

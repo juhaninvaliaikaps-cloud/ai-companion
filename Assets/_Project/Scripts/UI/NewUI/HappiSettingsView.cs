@@ -780,7 +780,12 @@ namespace AICompanion.NewUI
         {
             Section("Private mode");
             Toggle("Private mode", S.PrivateMode, v => { Change(s => s.PrivateMode = v); _rebuild = true; });
-            Note("On: chat, voice, the voice agent, session memories, memory capture, innocence and 18+ secrets stay local. The Pisara cloud reading can still use its own service when that is on. Off by default.");
+            Note("On: chat, voice, the voice agent, session memories, memory capture, innocence and 18+ secrets stay local. The Pisara cloud reading can still use its own service when that is on. Off by default. The chat box has a Private / Public switch too.");
+            // JUH-177: what public mode may know about a private chapter. Its text never leaves this PC.
+            Note("What public mode may know about a private chapter (what was said in private never leaves this PC):");
+            Choice("Nothing", S.PrivateChapterHint == (int)PrivateChapterHint.Nothing, () => Change(s => s.PrivateChapterHint = (int)PrivateChapterHint.Nothing));
+            Choice("That it happened", S.PrivateChapterHint == (int)PrivateChapterHint.ThatItHappened, () => Change(s => s.PrivateChapterHint = (int)PrivateChapterHint.ThatItHappened));
+            Choice("What kind of moment (personal, romantic, intimate)", S.PrivateChapterHint == (int)PrivateChapterHint.WhatKind, () => Change(s => s.PrivateChapterHint = (int)PrivateChapterHint.WhatKind));
             Label("Active now: " + P.ActiveModelText);
 
             // JUH-126: the reading can use its own cloud service; chat is unchanged.
