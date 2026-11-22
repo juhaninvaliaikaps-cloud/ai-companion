@@ -29,6 +29,24 @@ namespace AICompanion.Core
         /// <summary>UTC ticks until which she is spent after a release, or 0.</summary>
         public long RefractoryUntilTicks;
 
+        /// <summary>JUH-185: UTC ticks until which a heated moment holds her desire (no fade), or 0.</summary>
+        public long HeatUntilTicks;
+
+        /// <summary>True while a warm or hot moment in the last <see cref="DesireMath.HoldMinutes"/> holds her desire.</summary>
+        public bool Holding(DateTime nowUtc)
+        {
+            return HeatUntilTicks > 0L && nowUtc.ToUniversalTime().Ticks < HeatUntilTicks;
+        }
+
+        /// <summary>A warm or hot moment now: she holds for <see cref="DesireMath.HoldMinutes"/> from here. A release ends the hold.</summary>
+        public void NoteHeat(DesireHeat heat, DateTime nowUtc)
+        {
+            if (heat == DesireHeat.Release)
+                HeatUntilTicks = 0L;
+            else if (heat == DesireHeat.Warm || heat == DesireHeat.Hot)
+                HeatUntilTicks = nowUtc.ToUniversalTime().AddMinutes(DesireMath.HoldMinutes).Ticks;
+        }
+
         /// <summary>True once the user set the libido slider: a new reading then changes nothing until "Use the reading".</summary>
         public bool LibidoUserSet;
 
@@ -69,6 +87,7 @@ namespace AICompanion.Core
             public float desire;
             public long lastTicks;
             public long refractoryUntilTicks;
+            public long heatUntilTicks;
             public bool libidoUserSet;
             public float userLibido = DesireMath.DefaultLibido;
         }
@@ -81,6 +100,7 @@ namespace AICompanion.Core
                 desire = Desire,
                 lastTicks = LastTicks,
                 refractoryUntilTicks = RefractoryUntilTicks,
+                heatUntilTicks = HeatUntilTicks,
                 libidoUserSet = LibidoUserSet,
                 userLibido = UserLibido,
             }, true);
@@ -107,6 +127,7 @@ namespace AICompanion.Core
             state.Desire = file.desire;
             state.LastTicks = file.lastTicks > 0L ? file.lastTicks : 0L;
             state.RefractoryUntilTicks = file.refractoryUntilTicks > 0L ? file.refractoryUntilTicks : 0L;
+            state.HeatUntilTicks = file.heatUntilTicks > 0L ? file.heatUntilTicks : 0L;
             state.LibidoUserSet = file.libidoUserSet;
             state.UserLibido = file.userLibido;
             return state;

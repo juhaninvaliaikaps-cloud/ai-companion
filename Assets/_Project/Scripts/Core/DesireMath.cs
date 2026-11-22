@@ -246,7 +246,19 @@ namespace AICompanion.Core
         /// builds (not during the refractory time); above it, it fades back. Exponential, so a long
         /// time away settles near the level and never overshoots.
         /// </summary>
-        public static float AfterTime(float desire, float libido, double minutes, float moodPace, bool undressed, bool refractory)
+        /// <summary>
+        /// JUH-185: how long after a warm or hot moment she does not cool down. Without it the
+        /// fade between two slow local replies cancelled each warm gain, and desire stalled in
+        /// the middle of a scene (Jussi's log, 2026-11-22).
+        /// </summary>
+        public const double HoldMinutes = 10d;
+
+        /// <summary>
+        /// Time passing: she builds toward her level or fades back to it. While
+        /// <paramref name="holding"/> (a heated moment in the last <see cref="HoldMinutes"/>),
+        /// desire above her level does not fade; building is unchanged.
+        /// </summary>
+        public static float AfterTime(float desire, float libido, double minutes, float moodPace, bool undressed, bool refractory, bool holding = false)
         {
             desire = Clamp(desire);
             if (double.IsNaN(minutes) || minutes <= 0d)
@@ -263,6 +275,8 @@ namespace AICompanion.Core
                 return Clamp(desire + (target - desire) * (float)(1d - Math.Exp(-minutes / tau)));
             }
 
+            if (desire > target && holding)
+                return desire;
             if (desire > target)
                 return Clamp(desire - (desire - target) * (float)(1d - Math.Exp(-minutes / FadeMinutes(libido))));
             return desire;
