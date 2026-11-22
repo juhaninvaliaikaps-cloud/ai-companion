@@ -51,6 +51,9 @@ namespace AICompanion.Memory
         /// <summary>True for something she is in the middle of, waiting for or dreading.</summary>
         public bool isThread;
 
+        /// <summary>JUH-188: kind of session this came from ("intimate"), or empty.</summary>
+        public string moment = string.Empty;
+
         /// <summary>For a thread: one line each for how it could turn out.</summary>
         public string goodOutcome = string.Empty;
         public string badOutcome = string.Empty;

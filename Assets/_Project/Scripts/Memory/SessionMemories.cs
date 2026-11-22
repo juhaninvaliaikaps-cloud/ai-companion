@@ -61,11 +61,20 @@ namespace AICompanion.Memory
         /// <summary>True when any send of this session had to stay local.</summary>
         public bool KeptLocal { get; private set; }
 
+        /// <summary>True when the 18+ gate was open at any send of this session.</summary>
+        public bool Intimate { get; private set; }
+
         /// <summary>One send of the session, with its private flag.</summary>
         public void Note(bool keepsLocal)
         {
             if (keepsLocal)
                 KeptLocal = true;
+        }
+
+        public void NoteMoment(bool intimate)
+        {
+            if (intimate)
+                Intimate = true;
         }
 
         /// <summary>The private flag for the session-end request: the sticky one, or the current one.</summary>
@@ -77,6 +86,7 @@ namespace AICompanion.Memory
         public void Reset()
         {
             KeptLocal = false;
+            Intimate = false;
         }
     }
 
@@ -378,7 +388,8 @@ namespace AICompanion.Memory
             float timeoutSeconds,
             CancellationToken cancellation,
             bool askThread = false,
-            DateTime? sessionLocalDate = null)
+            DateTime? sessionLocalDate = null,
+            string moment = null)
         {
             var capture = new SessionCapture();
             var stored = capture.Memories;
@@ -435,12 +446,31 @@ namespace AICompanion.Memory
                 if (memory == null || !memory.IsValid || !MemoryDurability.IsDurable(memory.Text))
                     continue;
                 var before = store.Count;
-                WorldMemory.AddShortTerm(store, memory.Text, now, keepsLocal);
+                var entry = WorldMemory.AddShortTerm(store, memory.Text, now, keepsLocal);
+                if (entry != null)
+                    entry.moment = moment ?? string.Empty;
                 if (store.Count > before)
                 {
                     stored.Add(memory.Text);
                     capture.Details.Add(memory);
                 }
+            }
+
+            // JUH-188: an intimate session must leave one memory of the event, not the
+            // physical details. The private copy is for private mode; the public copy is a
+            // deliberately vague marker so public mode is not blind after a restart.
+            if (string.Equals(moment, "intimate", StringComparison.OrdinalIgnoreCase))
+            {
+                var name = string.IsNullOrWhiteSpace(herName) ? "her" : herName.Trim();
+                var marker = keepsLocal
+                    ? "The user and " + name + " were intimate."
+                    : "The user and " + name + " shared a private, intimate moment.";
+                var before = store.Count;
+                var entry = WorldMemory.AddShortTerm(store, marker, now, keepsLocal);
+                if (entry != null)
+                    entry.moment = "intimate";
+                if (store.Count > before && !stored.Contains(marker))
+                    stored.Add(marker);
             }
 
             if (askThread)

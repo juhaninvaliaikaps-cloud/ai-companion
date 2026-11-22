@@ -26,6 +26,8 @@ namespace AICompanion.Memory
         public int userMessages;
         public bool keepsLocal;
         public bool intimateActive;
+        /// <summary>JUH-188: "intimate" when the session held an 18+ moment, so it survives a restart.</summary>
+        public string momentKind = string.Empty;
         /// <summary>The chat session this belongs to; a checkpoint and the final save share it.</summary>
         public string session = string.Empty;
 
@@ -73,15 +75,16 @@ namespace AICompanion.Memory
 
         /// <summary>Saves or replaces this session's handoff. Another session's file is left alone.</summary>
         public static PendingSession Save(string sessionId, string transcript, string herName, string providerId,
-            MemoryStore store, string why, int userMessages, bool keepsLocal, bool intimateActive)
+            MemoryStore store, string why, int userMessages, bool keepsLocal, bool intimateActive, string momentKind = null)
         {
             var pending = SaveAt(PathFor(MemoryPaths.Folder(), sessionId), transcript, herName, providerId, store,
-                why, userMessages, keepsLocal, intimateActive, sessionId);
+                why, userMessages, keepsLocal, intimateActive, sessionId, momentKind);
             return pending;
         }
 
         public static PendingSession SaveAt(string path, string transcript, string herName, string providerId,
-            MemoryStore store, string why, int userMessages, bool keepsLocal, bool intimateActive, string sessionId = null)
+            MemoryStore store, string why, int userMessages, bool keepsLocal, bool intimateActive, string sessionId = null,
+            string momentKind = null)
         {
             if (string.IsNullOrWhiteSpace(transcript) || store == null || string.IsNullOrEmpty(store.Path))
                 return null;
@@ -98,6 +101,7 @@ namespace AICompanion.Memory
                 userMessages = userMessages,
                 keepsLocal = keepsLocal,
                 intimateActive = intimateActive,
+                momentKind = momentKind ?? string.Empty,
                 session = sessionId ?? string.Empty,
                 path = path ?? string.Empty,
             };
@@ -203,6 +207,15 @@ namespace AICompanion.Memory
             var paths = PendingPaths(MemoryPaths.Folder());
             for (var i = 0; i < paths.Count; i++)
                 ClearFile(paths[i]);
+        }
+
+        /// <summary>Removes the old single-file checkpoint for one session before split saves replace it.</summary>
+        public static void ClearSession(string sessionId)
+        {
+            var folder = MemoryPaths.Folder();
+            ClearFile(PathFor(folder, sessionId));
+            ClearFile(PathFor(folder, sessionId + "pub"));
+            ClearFile(PathFor(folder, sessionId + "prv"));
         }
 
         static void ClearFile(string path)

@@ -137,6 +137,7 @@ namespace AICompanion.UI
                 _conversation.HistoryStart = _sessionStartLine;
             }
             NoteSessionPrivacy(keepsLocal);
+            _sessionPrivacy.NoteMoment(IntimateExpressions.Active);
         }
 
         /// <summary>
@@ -317,7 +318,8 @@ namespace AICompanion.UI
             var stored = await SessionMemories.CaptureAsync(
                 provider, pending.transcript, pending.herName, pending.userMessages,
                 pending.keepsLocal, pending.intimateActive, store,
-                SessionMemories.DefaultTimeoutSeconds, CancellationToken.None, false, PendingLocalDate(pending));
+                SessionMemories.DefaultTimeoutSeconds, CancellationToken.None, false, PendingLocalDate(pending),
+                pending.momentKind);
 
             Debug.Log("Session handoff: finished " + pending.why + " with " + stored.Memories.Count + " memories (answered=" + stored.Answered + ")");
 
@@ -344,23 +346,37 @@ namespace AICompanion.UI
 
             var privacy = GetComponent<IPrivacyMode>();
             var lines = _conversation.Lines;
-            var keepsLocal = SessionLineFilter.MustStayLocal(
-                _sessionPrivacy.KeptLocal,
-                SessionLineFilter.AnyLocalOnly(lines, _sessionStartLine),
-                IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode));
-            var providerId = PrivateChatRouting.ProviderId(keepsLocal, settings.providerId, settings.privateEndpointType);
-            if (!_registry.TryGet(providerId, out var provider))
+            var keepsLocalNow = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+            var momentKind = (_sessionPrivacy.Intimate || IntimateExpressions.Active) ? "intimate" : string.Empty;
+
+            var publicMessages = new List<ChatMessage>();
+            SessionLineFilter.AppendPublic(publicMessages, lines, _sessionStartLine);
+            var privateMessages = new List<ChatMessage>();
+            SessionLineFilter.AppendPrivate(privateMessages, lines, _sessionStartLine);
+            var publicTranscript = SessionMemories.BuildTranscript(publicMessages, WorldPromptNow.HerName);
+            var privateTranscript = SessionMemories.BuildTranscript(privateMessages, WorldPromptNow.HerName);
+            if (publicTranscript.Length == 0 && privateTranscript.Length == 0)
                 return;
 
-            var messages = new List<ChatMessage>();
-            SessionLineFilter.Append(messages, lines, _sessionStartLine, keepsLocal);
-            var transcript = SessionMemories.BuildTranscript(messages, WorldPromptNow.HerName);
-            if (transcript.Length == 0)
-                return;
+            SessionHandoff.ClearSession(SessionId);
+            if (publicTranscript.Length > 0 && !keepsLocalNow)
+            {
+                var id = PrivateChatRouting.ProviderId(false, settings.providerId, settings.privateEndpointType);
+                if (_registry.TryGet(id, out var provider))
+                    SessionHandoff.SaveAt(SessionHandoff.PathFor(MemoryPaths.Folder(), SessionId + "pub"),
+                        publicTranscript, WorldPromptNow.HerName, provider.ProviderId, MemoryRuntime.Store,
+                        "a rolling checkpoint", _sessionUserMessages, false, false, SessionId, momentKind);
+            }
 
-            SessionHandoff.Save(SessionId, transcript, WorldPromptNow.HerName, provider.ProviderId,
-                MemoryRuntime.Store, "a rolling checkpoint", _sessionUserMessages, keepsLocal,
-                IntimateExpressions.Active);
+            if (privateTranscript.Length > 0)
+            {
+                var id = PrivateChatRouting.ProviderId(true, settings.providerId, settings.privateEndpointType);
+                if (_registry.TryGet(id, out var provider))
+                    SessionHandoff.SaveAt(SessionHandoff.PathFor(MemoryPaths.Folder(), SessionId + "prv"),
+                        privateTranscript, WorldPromptNow.HerName, provider.ProviderId, MemoryRuntime.Store,
+                        "a rolling checkpoint", _sessionUserMessages, true,
+                        string.Equals(momentKind, "intimate", StringComparison.OrdinalIgnoreCase), SessionId, momentKind);
+            }
         }
 
         /// <summary>Once per frame: a long pause ends the session. No allocation.</summary>
@@ -431,40 +447,122 @@ namespace AICompanion.UI
             var userMessages = _sessionUserMessages;
             var startLine = _sessionStartLine;
             var keptLocal = _sessionPrivacy.KeptLocal;
+            var intimate = _sessionPrivacy.Intimate || IntimateExpressions.Active;
             var sessionId = SessionId;
             DropSession();
             if (!SessionMemories.Qualifies(userMessages) || _conversation == null || settings == null || _registry == null)
                 return false;
 
             var privacy = GetComponent<IPrivacyMode>();
+            var keepsLocalNow = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             var lines = _conversation.Lines;
-            // A restored adult line counts as private even when this process never saw the send.
-            var hasLocalOnly = SessionLineFilter.AnyLocalOnly(lines, startLine);
-            var keepsLocal = SessionLineFilter.MustStayLocal(
-                keptLocal,
-                hasLocalOnly,
-                IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode));
-            var providerId = PrivateChatRouting.ProviderId(keepsLocal, settings.providerId, settings.privateEndpointType);
-            if (!_registry.TryGet(providerId, out var provider))
+
+            var publicMessages = new List<ChatMessage>();
+            SessionLineFilter.AppendPublic(publicMessages, lines, startLine);
+            var privateMessages = new List<ChatMessage>();
+            SessionLineFilter.AppendPrivate(privateMessages, lines, startLine);
+            var publicTranscript = SessionMemories.BuildTranscript(publicMessages, WorldPromptNow.HerName);
+            var privateTranscript = SessionMemories.BuildTranscript(privateMessages, WorldPromptNow.HerName);
+            if (publicTranscript.Length == 0 && privateTranscript.Length == 0)
                 return false;
 
-            var messages = new List<ChatMessage>();
-            SessionLineFilter.Append(messages, lines, startLine, keepsLocal);
+            IChatProvider publicProvider = null;
+            IChatProvider privateProvider = null;
+            if (publicTranscript.Length > 0 && !keepsLocalNow)
+            {
+                var publicId = PrivateChatRouting.ProviderId(false, settings.providerId, settings.privateEndpointType);
+                if (_registry.TryGet(publicId, out var provider) && PisaraReader.MayUse(provider, false))
+                    publicProvider = provider;
+            }
 
-            var transcript = SessionMemories.BuildTranscript(messages, WorldPromptNow.HerName);
-            if (transcript.Length == 0)
+            if (privateTranscript.Length > 0 || keptLocal)
+            {
+                var privateId = PrivateChatRouting.ProviderId(true, settings.providerId, settings.privateEndpointType);
+                if (_registry.TryGet(privateId, out var provider) && PisaraReader.MayUse(provider, true))
+                    privateProvider = provider;
+            }
+
+            if (publicProvider == null && privateProvider == null)
                 return false;
 
-            // Write the handoff before the model call. A local model or a quit can miss the
-            // four-second window; the next start retries this exact session.
-            var pending = SessionHandoff.Save(
-                sessionId, transcript, WorldPromptNow.HerName, provider.ProviderId, MemoryRuntime.Store,
-                why, userMessages, keepsLocal, IntimateExpressions.Active);
+            var store = MemoryRuntime.Store;
+            if (store == null)
+                return false;
+
+            SessionHandoff.ClearSession(sessionId);
+            PendingSession publicPending = null;
+            PendingSession privatePending = null;
+            var momentKind = intimate ? "intimate" : string.Empty;
+            if (publicProvider != null)
+            {
+                publicPending = SessionHandoff.SaveAt(
+                    SessionHandoff.PathFor(MemoryPaths.Folder(), sessionId + "pub"),
+                    publicTranscript, WorldPromptNow.HerName, publicProvider.ProviderId, store,
+                    why, userMessages, false, false, sessionId, momentKind);
+            }
+
+            if (privateProvider != null)
+            {
+                privatePending = SessionHandoff.SaveAt(
+                    SessionHandoff.PathFor(MemoryPaths.Folder(), sessionId + "prv"),
+                    privateTranscript, WorldPromptNow.HerName, privateProvider.ProviderId, store,
+                    why, userMessages, true, intimate, sessionId, momentKind);
+            }
+
             _sessionsCapturing.Add(sessionId);
-
-            // The store of the persona this session belongs to: after a switch MemoryRuntime.Store is another one.
-            CaptureSession(provider, transcript, WorldPromptNow.HerName, userMessages, keepsLocal, MemoryRuntime.Store, timeoutSeconds, why, pending, sessionId, done);
+            CaptureSplit(publicProvider, publicTranscript, privateProvider, privateTranscript,
+                WorldPromptNow.HerName, userMessages, timeoutSeconds, why, momentKind,
+                publicPending, privatePending, sessionId, done);
             return true;
+        }
+
+        async void CaptureSplit(IChatProvider publicProvider, string publicTranscript,
+            IChatProvider privateProvider, string privateTranscript, string herName,
+            int userMessages, float timeoutSeconds, string why, string momentKind,
+            PendingSession publicPending, PendingSession privatePending, string sessionId, Action done)
+        {
+            try
+            {
+                if (publicProvider != null && publicTranscript.Length > 0)
+                    await CapturePart(publicProvider, publicTranscript, herName, userMessages, false, false,
+                        momentKind, MemoryRuntime.Store, timeoutSeconds, why, publicPending);
+                if (privateProvider != null && privateTranscript.Length > 0)
+                    await CapturePart(privateProvider, privateTranscript, herName, userMessages, true,
+                        string.Equals(momentKind, "intimate", StringComparison.OrdinalIgnoreCase),
+                        momentKind, MemoryRuntime.Store, timeoutSeconds, why, privatePending);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Session memories: split capture failed (" + e.GetType().Name + ")");
+            }
+            finally
+            {
+                _sessionsCapturing.Remove(sessionId);
+                if (done != null)
+                    done();
+            }
+        }
+
+        async System.Threading.Tasks.Task CapturePart(IChatProvider provider, string transcript, string herName,
+            int userMessages, bool keepsLocal, bool intimateActive, string momentKind, MemoryStore store,
+            float timeoutSeconds, string why, PendingSession pending)
+        {
+            var askThread = keepsLocal && herName.Length > 0 && PisaraSwitches.World && PisaraSwitches.AwayEvents;
+            var stored = await SessionMemories.CaptureAsync(
+                provider, transcript, herName, userMessages, keepsLocal, intimateActive, store,
+                timeoutSeconds, CancellationToken.None, askThread, null, momentKind);
+            Debug.Log("Session memories (" + (keepsLocal ? "private" : "public") + "): "
+                + stored.Memories.Count + " stored after " + why + " (" + userMessages + " messages)"
+                + (askThread ? ", new thread: " + (stored.Thread != null ? "yes" : "no") : string.Empty));
+
+            var timeline = RelationshipTimeline.ForStore(store);
+            var applied = timeline.ApplySession(stored, keepsLocal, DateTime.UtcNow, store);
+            if (applied.Added + applied.Updated + applied.Resolved > 0)
+                Debug.Log("Relationship timeline (" + (keepsLocal ? "private" : "public") + "): after " + why
+                    + " " + applied.Added + " added, " + applied.Updated + " updated, " + applied.Resolved + " resolved");
+
+            if (stored.Answered)
+                SessionHandoff.Clear(pending);
         }
 
         async void CaptureSession(IChatProvider provider, string transcript, string herName, int userMessages, bool keepsLocal,
@@ -544,6 +642,37 @@ namespace AICompanion.UI
                 if (!includeLocalOnly && line.LocalOnly)
                     continue;
                 if (string.IsNullOrEmpty(line.Text))
+                    continue;
+                var role = line.Kind == ChatLineKind.User ? ChatRole.User : ChatRole.Assistant;
+                messages.Add(new ChatMessage(role, line.Text));
+            }
+        }
+
+        /// <summary>Only the lines that already went to the cloud.</summary>
+        public static void AppendPublic(List<ChatMessage> messages, IReadOnlyList<ChatLine> lines, int start)
+        {
+            AppendWhere(messages, lines, start, false);
+        }
+
+        /// <summary>Only the lines that stayed local.</summary>
+        public static void AppendPrivate(List<ChatMessage> messages, IReadOnlyList<ChatLine> lines, int start)
+        {
+            AppendWhere(messages, lines, start, true);
+        }
+
+        static void AppendWhere(List<ChatMessage> messages, IReadOnlyList<ChatLine> lines, int start, bool localOnly)
+        {
+            if (messages == null || lines == null)
+                return;
+            var first = start < 0 ? 0 : start;
+            if (first > lines.Count)
+                first = lines.Count;
+            for (var i = first; i < lines.Count; i++)
+            {
+                var line = lines[i];
+                if (line == null || line.Kind == ChatLineKind.System || line.Streaming || !line.KeepInHistory)
+                    continue;
+                if (line.LocalOnly != localOnly || string.IsNullOrEmpty(line.Text))
                     continue;
                 var role = line.Kind == ChatLineKind.User ? ChatRole.User : ChatRole.Assistant;
                 messages.Add(new ChatMessage(role, line.Text));
