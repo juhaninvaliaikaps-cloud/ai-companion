@@ -14,6 +14,34 @@ namespace AICompanion.UI
     {
         readonly List<string> _recentReplies = new List<string>(RepeatedPhrases.RepliesLooked);
 
+        readonly List<string> _voiceReplies = new List<string>(RepeatedPhrases.RepliesLooked);
+
+        /// <summary>
+        /// JUH-173: two of her own lines for this moment, mid-prompt, rotating with the number of
+        /// her replies so far. A line she echoed lately is skipped. Only a typed or spoken message
+        /// counts a showing (<paramref name="count"/>), which is what retires a line.
+        /// </summary>
+        string WithVoiceLines(string prompt, bool count)
+        {
+            if (_conversation == null || VoiceNow.Pool.Count == 0)
+                return prompt;
+            _voiceReplies.Clear();
+            var turn = 0;
+            var lines = _conversation.Lines;
+            for (var i = lines.Count - 1; i >= 0; i--)
+            {
+                var line = lines[i];
+                if (line.Kind != ChatLineKind.Assistant || string.IsNullOrEmpty(line.Text))
+                    continue;
+                turn++;
+                // Only used to tell whether she echoed a line; none of it goes into the prompt.
+                if (_voiceReplies.Count < RepeatedPhrases.RepliesLooked)
+                    _voiceReplies.Insert(0, line.Text);
+            }
+
+            return VoiceNow.AppendLines(prompt, turn, _voiceReplies, count);
+        }
+
         string WithRepeats(string prompt, bool privateMode)
         {
             if (_conversation == null)
