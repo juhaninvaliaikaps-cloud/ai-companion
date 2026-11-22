@@ -155,6 +155,9 @@ namespace AICompanion.Core
 
         /// <summary>The release that spent it.</summary>
         public bool Release;
+
+        /// <summary>JUH-174: moved by time alone, not by a moment: floats, but gets no chat line.</summary>
+        public bool ByTime;
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using AICompanion.Core;
 using AICompanion.Settings;
+using AICompanion.UI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -58,6 +59,7 @@ namespace AICompanion.NewUI
         public int SetupCount { get; private set; }
 
         SettingsPanel _settings;
+        ChatPanel _chat;
         Wheel.HeadLocator _head;
         readonly RelationshipFeedback _feedback = new RelationshipFeedback();
         readonly Slot[] _slots = new Slot[RelationshipFeedback.Capacity];
@@ -133,7 +135,27 @@ namespace AICompanion.NewUI
 
         void OnDesire(DesireNotice notice)
         {
-            _feedback.AddDesire(notice, Time.unscaledTime, DesireEnabled);
+            // JUH-174: a moment's change also gets a readable line in the chat box; time alone only floats.
+            if (_feedback.AddDesire(notice, Time.unscaledTime, DesireEnabled) && !notice.ByTime)
+                CopyToChat(1);
+        }
+
+        /// <summary>
+        /// JUH-174: the newest <paramref name="added"/> pieces as readable lines in the chat box,
+        /// so the user can read them after they float away. 18+ ones are marked and show only
+        /// while the gate is open.
+        /// </summary>
+        void CopyToChat(int added)
+        {
+            if (_chat == null)
+                _chat = GetComponent<ChatPanel>();
+            if (_chat == null)
+                return;
+            for (var i = _feedback.Count - added; i < _feedback.Count; i++)
+            {
+                var piece = _feedback.Piece(i);
+                _chat.AddChangeLine(RelationshipFeedback.ChatText(piece), (int)piece.Kind, piece.Adult);
+            }
         }
 
         bool Enabled
@@ -149,7 +171,10 @@ namespace AICompanion.NewUI
         {
             var added = _feedback.Add(notice, Time.unscaledTime, Enabled);
             if (added > 0)
+            {
                 Debug.Log("Relationship feedback: " + DescribeNewest(added));
+                CopyToChat(added);
+            }
         }
 
         string DescribeNewest(int added)

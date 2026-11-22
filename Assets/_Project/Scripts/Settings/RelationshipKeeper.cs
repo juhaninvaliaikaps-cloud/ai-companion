@@ -152,7 +152,8 @@ namespace AICompanion.Settings
                 lean = SecretLean.Likes;
             var change = RelationshipNow.Land(cue, _state.Affection, _state.Familiarity, first, bonus, lean);
             var foundText = hit == SecretHitKind.First ? secret.Text : intimateHit == SecretHitKind.First ? intimate.Text : null;
-            if (!Apply(change, foundText))
+            var foundAdult = hit != SecretHitKind.First && intimateHit == SecretHitKind.First;
+            if (!Apply(change, foundText, foundAdult))
                 return;
             if (intimateHit == SecretHitKind.First && intimateKeeper != null && intimateKeeper.Reveal(intimate))
                 Debug.Log("Intimate secrets: found " + intimate.Id + " for persona " + PersonaLogId() + " (" + intimateKeeper.FoundCount + " found)");
@@ -257,7 +258,7 @@ namespace AICompanion.Settings
         /// line. Does nothing while the Relationship switch is off. True when it was applied.
         /// The caller passes the change's mood nudges on with <see cref="RelationshipMath.PushMoods"/>.
         /// </summary>
-        public bool Apply(RelationshipChange change, string secretFound = null)
+        public bool Apply(RelationshipChange change, string secretFound = null, bool secretAdult = false)
         {
             if (!_loaded || !PisaraSwitches.Relationship)
                 return false;
@@ -271,7 +272,7 @@ namespace AICompanion.Settings
             // band reached through chat time shows with the next landing.
             if (_announcedBand < 0)
                 _announcedBand = RelationshipCard.KnowingBand(familiarityBefore);
-            var notice = RelationshipNotice.From(change, _announcedBand, secretFound);
+            var notice = RelationshipNotice.From(change, _announcedBand, secretFound, secretAdult);
             if (notice.NewBand)
                 _announcedBand = notice.Band;
             RelationshipNow.ReportChanged(notice);

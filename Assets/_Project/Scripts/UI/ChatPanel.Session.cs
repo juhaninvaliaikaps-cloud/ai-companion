@@ -110,7 +110,7 @@ namespace AICompanion.UI
                 _shownWorldScene = scene;
                 if (ConversationIsEmpty())
                 {
-                    _conversation.AddSystem("Scene: " + scene);
+                    _conversation.AddScene("Scene: " + scene);
                     RefreshTranscript(true);
                 }
             }
@@ -121,7 +121,7 @@ namespace AICompanion.UI
             else if (!string.Equals(away, _shownAwayText, StringComparison.Ordinal))
             {
                 _shownAwayText = away;
-                _conversation.AddSystem("While you were away: " + away);
+                _conversation.AddScene("While you were away: " + away);
                 RefreshTranscript(true);
             }
         }

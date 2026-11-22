@@ -15,6 +15,22 @@ namespace AICompanion.UI
         System = 2
     }
 
+    /// <summary>
+    /// JUH-174: what a note line is, for its colour in the chat box. Notes stay out of every
+    /// request whatever their tag.
+    /// </summary>
+    public enum ChatLineTag
+    {
+        /// <summary>A plain note, a user line or a reply.</summary>
+        None = 0,
+
+        /// <summary>Scene text: the first scene and "While you were away" (green).</summary>
+        Scene = 1,
+
+        /// <summary>A relationship or desire change, the readable copy of a floating piece.</summary>
+        Change = 2,
+    }
+
     public sealed class ChatLine
     {
         internal ChatLine(ChatLineKind kind, string text, bool streaming)
@@ -44,6 +60,18 @@ namespace AICompanion.UI
         /// feedback styling. UI only; the text sent to the model is unchanged.
         /// </summary>
         public bool HighlightFeedback { get; internal set; }
+
+        /// <summary>JUH-174: a scene note or a change line; <see cref="ChatLineTag.None"/> otherwise.</summary>
+        public ChatLineTag Tag { get; internal set; }
+
+        /// <summary>JUH-174: for a change line, the piece's <c>FeedbackKind</c> as a number (it picks the colour).</summary>
+        public int Change { get; internal set; }
+
+        /// <summary>
+        /// JUH-174: an 18+ change (desire, or one of her 18+ secrets). It is shown only while the
+        /// 18+ gate is open (<see cref="ChatConversation.Shows"/>), and kept as a local-only line.
+        /// </summary>
+        public bool Adult { get; internal set; }
 
         internal void Append(string piece)
         {
@@ -237,6 +265,41 @@ namespace AICompanion.UI
             Touch();
         }
 
+        /// <summary>JUH-174: scene text (the first scene, "While you were away"), drawn green.</summary>
+        public void AddScene(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+
+            _lines.Add(new ChatLine(ChatLineKind.System, text.Trim(), false) { Tag = ChatLineTag.Scene });
+            Touch();
+        }
+
+        /// <summary>
+        /// JUH-174: the readable copy of a floating change ("+1.5 affection · Compliment"), so it
+        /// can be read after the piece is gone. A note: it never goes to the model.
+        /// </summary>
+        public void AddChange(string text, int change, bool adult)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+
+            _lines.Add(new ChatLine(ChatLineKind.System, text.Trim(), false)
+            {
+                Tag = ChatLineTag.Change,
+                Change = change,
+                Adult = adult,
+                LocalOnly = adult,
+            });
+            Touch();
+        }
+
+        /// <summary>JUH-174: false for an 18+ change line while the gate is closed; such lines are not drawn or copied then.</summary>
+        public static bool Shows(ChatLine line)
+        {
+            return line != null && (!line.Adult || IntimateExpressions.Active);
+        }
+
         /// <summary>Marks the newest assistant reply as a pink feedback line.</summary>
         public void MarkLastAssistantFeedback()
         {
@@ -330,6 +393,12 @@ namespace AICompanion.UI
 
         public bool ImportLine(ChatLineKind kind, string text, bool localOnly)
         {
+            return ImportLine(kind, text, localOnly, ChatLineTag.None, 0, false);
+        }
+
+        /// <summary>JUH-174: as above, with a note's tag, change kind and 18+ flag from the history file.</summary>
+        public bool ImportLine(ChatLineKind kind, string text, bool localOnly, ChatLineTag tag, int change, bool adult)
+        {
             if (kind != ChatLineKind.User && kind != ChatLineKind.Assistant && kind != ChatLineKind.System)
                 return false;
             if (string.IsNullOrWhiteSpace(text))
@@ -339,7 +408,18 @@ namespace AICompanion.UI
             if (clean.Length > 4000)
                 clean = clean.Substring(0, 4000);
             var line = new ChatLine(kind, clean, false);
-            line.LocalOnly = localOnly;
+            line.LocalOnly = localOnly || adult;
+            if (kind == ChatLineKind.System)
+            {
+                // A history file from before JUH-174 has no tags: its scene notes are known by their start.
+                if (tag == ChatLineTag.None && (clean.StartsWith("Scene: ", StringComparison.Ordinal)
+                                                || clean.StartsWith("While you were away: ", StringComparison.Ordinal)))
+                    tag = ChatLineTag.Scene;
+                line.Tag = tag;
+                line.Change = tag == ChatLineTag.Change ? change : 0;
+                line.Adult = adult;
+            }
+
             _lines.Add(line);
             Touch();
             return true;
@@ -352,6 +432,8 @@ namespace AICompanion.UI
             {
                 var line = _lines[i];
                 if (line.Kind == ChatLineKind.Assistant && line.Streaming && line.Text.Length == 0)
+                    continue;
+                if (!Shows(line))
                     continue;
 
                 if (sb.Length > 0)
