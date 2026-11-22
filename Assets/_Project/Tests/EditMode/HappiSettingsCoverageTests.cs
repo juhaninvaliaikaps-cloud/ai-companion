@@ -48,10 +48,18 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void TheTabsAreTheJuh121Layout()
+        public void TheTabsAreTheJuh182Layout()
+        {
+            CollectionAssert.AreEqual(new[] { "Her", "AI", "Voice", "Look", "Chat", "Senses", "18+", "App" }, AICompanion.NewUI.SettingsMenu.TabLabels);
+            StringAssert.Contains("SettingsMenu.TabLabels", ViewSource());
+        }
+
+        [Test]
+        public void EveryPageHasABuilder()
         {
             var source = ViewSource();
-            StringAssert.Contains("{ \"Persona\", \"AI\", \"Voice\", \"Look\", \"Chat\", \"Tools\", \"Screen\", \"Games\", \"Window\", \"Data\", \"18+\", \"Keys\", \"Developer\" }", source);
+            foreach (AICompanion.NewUI.SettingsPage page in System.Enum.GetValues(typeof(AICompanion.NewUI.SettingsPage)))
+                StringAssert.Contains("case SettingsPage." + page + ":", source, page + " is drawn by BuildPage");
         }
 
         [Test]

@@ -122,7 +122,7 @@ namespace AICompanion.Settings
             {
                 if (!allowed)
                 {
-                    done?.Invoke(Fail("Web search is not allowed. Enable it in Settings > Tools."));
+                    done?.Invoke(Fail("Web search is not allowed. Enable it in Settings > Senses > Tools."));
                     return;
                 }
 

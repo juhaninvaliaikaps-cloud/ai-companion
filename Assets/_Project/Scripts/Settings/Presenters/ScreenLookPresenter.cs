@@ -43,7 +43,7 @@ namespace AICompanion.Settings.Presenters
     /// </summary>
     public sealed class ScreenLookPresenter
     {
-        public const string ConsentNeeded = "Turn on \"Whole screen instead of a window\" and \"Allow whole-screen capture\" in Settings > Screen to pick a monitor.";
+        public const string ConsentNeeded = "Turn on \"Whole screen instead of a window\" and \"Allow whole-screen capture\" in Settings > Senses > Screen to pick a monitor.";
         public const string FeatureOffNote = "Screen look is off. Nothing is captured.";
         public const string NoMonitors = "No displays were reported by Windows. Nothing is captured.";
         public const string Unavailable = "Window capture is not available in this session.";

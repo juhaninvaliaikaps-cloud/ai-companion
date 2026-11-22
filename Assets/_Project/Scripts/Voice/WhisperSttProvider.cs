@@ -106,7 +106,7 @@ namespace AICompanion.Voice
         {
             var name = string.IsNullOrWhiteSpace(modelFile) ? SttSettings.DefaultModelFile : modelFile;
             // JUH-165: say how to get it, not only that it's missing.
-            return "The speech model is missing (" + name + "). Download it in Settings > Voice > Speech input.";
+            return "The speech model is missing (" + name + "). Download it in Settings > Voice > Listening.";
         }
 
         static string FailLine(string modelFile, float elapsed, bool loaded, float loadSeconds)

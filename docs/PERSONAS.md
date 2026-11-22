@@ -1,6 +1,6 @@
 # Personas
 
-A persona is the companion's name, personality, speaking style, voice, model, avatar, and portrait set. Pick one in **Settings → Persona**. The switch applies immediately. The app does not restart.
+A persona is the companion's name, personality, speaking style, voice, model, avatar, and portrait set. Pick one in **Settings → Her → Persona**. The switch applies immediately. The app does not restart.
 
 When a persona is selected or its personality text changes, the app asks the model once for a character sheet (temperament, relationship, her world) and caches it encrypted next to her mood. Persona settings show what was read and have a **Re-read** button; a temperament picked by hand overrides the reading (`temperamentMode` in the persona file: `auto`, `manual`, or missing for older files). See [PISARA.md](PISARA.md).
 
@@ -172,7 +172,7 @@ In the description and greeting, `{{char}}` becomes her name and `{{user}}` beco
 
 The PNG is read chunk by chunk (signature, length, type, data, CRC). No length in the file is trusted: a chunk longer than what is left of the file, or longer than 8 MB, stops the import with a message. Files over 20 MB are refused.
 
-**Export.** Settings → Persona → the active persona → **Export…**, as:
+**Export.** Settings → Her → Persona → **Export**, as:
 
 - **a character card (PNG):** her picture, or a plain blue placeholder when she has none, with a V2 `chara` chunk (correct CRC). Her description goes to `description`, her speaking style (older files) to `personality`, her scenario to `scenario`, her greeting to `first_mes`, her example lines to `mes_example` (with `<START>`, `{{user}}` and `{{char}}`), and her tagline to `creator_notes`;
 - **card JSON:** the same card as a `.json` file;
