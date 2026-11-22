@@ -187,8 +187,40 @@ namespace AICompanion.Voice
                 chatterbox.Prewarm();
         }
 
+        // ---- JUH-168: fewer cores for Kokoro while a game is in front ----------------------------
+
+        /// <summary>Whether a game is in front. Set by the settings applicator from the overlay.</summary>
+        public Func<bool> GameInFront;
+
+        KokoroProcessSession _kokoroSession;
+        bool _kokoroLimited;
+        int _kokoroLimitCores;
+        float _kokoroLimitCheckAt;
+
+        /// <summary>Once a second: the limit follows the setting and whether a game is in front.</summary>
+        void PumpKokoroLimit()
+        {
+            var session = _kokoroSession;
+            if (session == null || Time.unscaledTime < _kokoroLimitCheckAt)
+                return;
+            _kokoroLimitCheckAt = Time.unscaledTime + 1f;
+            var enabled = voiceSettings != null && voiceSettings.kokoroGameLimit;
+            var cores = KokoroCpuLimit.Clean(voiceSettings != null ? voiceSettings.kokoroGameCores : KokoroCpuLimit.DefaultCores);
+            var want = KokoroCpuLimit.Want(enabled, GameInFront != null && GameInFront());
+            if (want == _kokoroLimited && (!want || cores == _kokoroLimitCores))
+                return;
+            _kokoroLimited = want;
+            _kokoroLimitCores = cores;
+            session.Limit(want, cores);
+            Debug.Log(KokoroCpuLimit.LogLine(want, cores));
+        }
+
         ITtsProvider BuildProvider(float timeout)
         {
+            // A new provider starts a new process with every core; the next check limits it again.
+            _kokoroSession = null;
+            _kokoroLimited = false;
+            _kokoroLimitCheckAt = 0f;
             var mode = voiceSettings != null ? voiceSettings.provider : null;
             if (string.Equals(mode, PiperTtsProvider.Id, System.StringComparison.OrdinalIgnoreCase))
             {
@@ -211,6 +243,7 @@ namespace AICompanion.Voice
                     voiceSettings.kokoroVoices,
                     voiceSettings.kokoroVoice,
                     kokoroTimeout);
+                _kokoroSession = session;
                 return new KokoroTtsProvider(
                     voiceSettings.kokoroPython,
                     voiceSettings.kokoroScript,
@@ -272,6 +305,7 @@ namespace AICompanion.Voice
                 PumpPlayback();
                 PumpSynthesis();
                 ApplyTalking();
+                PumpKokoroLimit();
             }
             catch (Exception ex)
             {

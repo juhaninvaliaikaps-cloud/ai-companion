@@ -1113,6 +1113,13 @@ namespace AICompanion.NewUI
                 Field("Kokoro script", S.KokoroScript, false, v => Change(s => s.KokoroScript = v));
                 Field("Kokoro model", S.KokoroModel, false, v => Change(s => s.KokoroModel = v));
                 Field("Kokoro voices", S.KokoroVoices, false, v => Change(s => s.KokoroVoices = v));
+                // JUH-168: Kokoro runs on the processor; while a game is in front it gets fewer cores.
+                Section("Kokoro in games");
+                Toggle("Kokoro: fewer cores while a game is in front", S.KokoroGameLimit, v => Change(s => s.KokoroGameLimit = v));
+                if (S.KokoroGameLimit)
+                    Slider(v => "Kokoro cores in games: " + Mathf.RoundToInt(v), S.KokoroGameCores, 1f, Mathf.Min(KokoroCpuLimit.MaxCores, Mathf.Max(1, SystemInfo.processorCount)), true,
+                        v => Change(s => s.KokoroGameCores = Mathf.RoundToInt(v)));
+                Note("Kokoro runs on the processor and, left alone, keeps almost every core busy for each sentence. While a game is in front she uses only this many, at below-normal priority, so the PC's power draw doesn't jump on top of the game. With 2 she still speaks about twice as fast as real time, a second or two later per sentence. It needs the kokoro_server.py from this version (docs/OFFLINE_TTS.md).");
             }
             else if (chatterbox)
             {

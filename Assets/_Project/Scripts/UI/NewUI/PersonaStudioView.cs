@@ -7,6 +7,7 @@ using AICompanion.Core;
 using AICompanion.Overlay;
 using AICompanion.Settings;
 using AICompanion.UI;
+using AICompanion.Voice;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -37,13 +38,6 @@ namespace AICompanion.NewUI
         const Step LastStep = Step.Review;
 
         static readonly string[] StepLabels = { "Start", "Identity", "Description", "Pisara", "Voice", "Look", "Review" };
-
-        /// <summary>Kokoro's bundled voices, the same list as the Voice tab.</summary>
-        static readonly string[] KokoroVoices =
-        {
-            "af_heart", "af_bella", "af_nicole", "af_sky", "bf_emma", "bf_isabella", "bm_george", "bm_lewis",
-            "am_adam", "am_michael", "am_puck", "am_santa", "hm_omega", "hm_psi", "jf_alpha", "jm_kumo",
-        };
 
         /// <summary>The model may take a minute or two locally; the bar fills over this long.</summary>
         const float ExpectedReadSeconds = 90f;
@@ -1003,18 +997,38 @@ namespace AICompanion.NewUI
 
         void BuildVoice()
         {
-            _form.Section("Her voice");
-            _form.Note("Each voice engine has its own voice id. Empty keeps the engine's voice from the Voice tab.");
-            _form.Field("Piper voice id (local), for example en_US-lessac-medium", _draft.PiperVoiceId, PersonaDefinition.MaxPiperVoiceIdLength, v => Edit(p => p.PiperVoiceId = v, false));
-            var kokoro = new List<string> { string.Empty };
-            kokoro.AddRange(KokoroVoices);
-            if (!string.IsNullOrEmpty(_draft.KokoroVoiceId) && !kokoro.Contains(_draft.KokoroVoiceId))
-                kokoro.Add(_draft.KokoroVoiceId);
-            _form.Dropdown("Kokoro voice (local)", VoiceLabel(_draft.KokoroVoiceId), kokoro, VoiceLabel, v => v == (_draft.KokoroVoiceId ?? string.Empty),
-                v => Edit(p => p.KokoroVoiceId = v));
-            _form.Field("Chatterbox voice id (local)", _draft.ChatterboxVoiceId, PersonaDefinition.MaxChatterboxVoiceIdLength, v => Edit(p => p.ChatterboxVoiceId = v, false));
-            _form.Field("Cloud voice id (xAI), for example eve", _draft.CloudVoiceId, PersonaDefinition.MaxCloudVoiceIdLength, v => Edit(p => p.CloudVoiceId = v, false));
-            _form.Note("The xAI voice is used only when xAI is the cloud AI API. With DeepSeek or another API she speaks with the local voice.");
+            // JUH-181 (Jussi): a drop-down for every engine, so her private-mode (local) and
+            // public-mode (cloud) voices are set up at the same time.
+            var settings = _settings.CurrentSettings;
+            var provider = settings != null ? settings.TtsProvider : string.Empty;
+            var engine = VoiceChoices.LocalEngine(provider);
+            _form.Section("Private mode (local voice)");
+            _form.Note("Private mode always speaks on this PC. The Voice tab uses " + engine + " now; each engine has its own voice for her.");
+            var order = VoiceChoices.LocalOrder(provider);
+            for (var i = 0; i < order.Count; i++)
+            {
+                var inUse = i == 0 ? " (in use)" : string.Empty;
+                switch (order[i])
+                {
+                    case VoiceChoices.Piper:
+                        _form.Dropdown("Piper voice" + inUse, VoiceLabel(_draft.PiperVoiceId), PiperChoices(settings), VoiceLabel,
+                            v => Same(v, _draft.PiperVoiceId), v => Edit(p => p.PiperVoiceId = v));
+                        break;
+                    case VoiceChoices.KokoroName:
+                        _form.Dropdown("Kokoro voice" + inUse, VoiceLabel(_draft.KokoroVoiceId), VoiceChoices.KokoroIds(true, _draft.KokoroVoiceId), VoiceLabel,
+                            v => Same(v, _draft.KokoroVoiceId), v => Edit(p => p.KokoroVoiceId = v));
+                        break;
+                    default:
+                        _form.Dropdown("Chatterbox voice" + inUse, VoiceLabel(_draft.ChatterboxVoiceId), ChatterboxChoices(settings), VoiceLabel,
+                            v => Same(v, _draft.ChatterboxVoiceId), v => Edit(p => p.ChatterboxVoiceId = v));
+                        break;
+                }
+            }
+
+            _form.Section("Public mode (cloud voice)");
+            _form.Dropdown("xAI voice", VoiceLabel(_draft.CloudVoiceId), VoiceChoices.CloudIds(true, _draft.CloudVoiceId), VoiceLabel,
+                v => Same(v, _draft.CloudVoiceId), v => Edit(p => p.CloudVoiceId = v));
+            _form.Note("Used only when xAI is the cloud AI API. With DeepSeek or another API she speaks with the local voice above.");
 
             _form.Section("Hear her");
             var active = _settings.CurrentSettings != null ? _settings.CurrentSettings.PersonaId : string.Empty;
@@ -1068,6 +1082,54 @@ namespace AICompanion.NewUI
                 return _draft.Greeting.Trim();
             var name = string.IsNullOrWhiteSpace(_draft.DisplayName) ? "your companion" : _draft.DisplayName.Trim();
             return "Hi, I'm " + name + ". This is how I sound.";
+        }
+
+        static bool Same(string option, string current)
+        {
+            return string.Equals(option ?? string.Empty, (current ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>The .onnx voices in the Piper folder, plus her saved one.</summary>
+        List<string> PiperChoices(CompanionSettings settings)
+        {
+            var files = new List<string>();
+            var folder = settings != null ? VoiceChoices.PiperFolder(settings.PiperVoice, settings.PiperExe) : string.Empty;
+            try
+            {
+                if (folder.Length > 0 && Directory.Exists(folder))
+                    files.AddRange(Directory.GetFiles(folder, "*.onnx"));
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Persona Studio: could not list the Piper voices (" + e.GetType().Name + ")");
+            }
+
+            return VoiceChoices.PiperIds(files, true, _draft.PiperVoiceId);
+        }
+
+        /// <summary>The Chatterbox voice folders that have a reference.wav, plus her saved one.</summary>
+        List<string> ChatterboxChoices(CompanionSettings settings)
+        {
+            var presets = new List<string>();
+            var root = settings != null ? settings.ChatterboxVoices : string.Empty;
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(root) && Directory.Exists(root))
+                {
+                    var folders = Directory.GetDirectories(root);
+                    for (var i = 0; i < folders.Length; i++)
+                    {
+                        if (File.Exists(Path.Combine(folders[i], "reference.wav")))
+                            presets.Add(Path.GetFileName(folders[i]));
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Persona Studio: could not list the Chatterbox voices (" + e.GetType().Name + ")");
+            }
+
+            return ChatterboxVoiceMenu.Options(presets, true, _draft.ChatterboxVoiceId);
         }
 
         static string VoiceLabel(string id)

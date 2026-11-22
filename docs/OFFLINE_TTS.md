@@ -55,3 +55,35 @@ Python environment, because it runs as an ONNX model:
 The app starts the Python server once and keeps it alive, because loading the model takes about
 15 seconds; after that a sentence takes roughly 1 second. If the process dies it is restarted on
 the next sentence.
+
+### Fewer cores while a game is in front (JUH-168)
+
+Kokoro runs on the processor, not the graphics card. `kokoro-onnx` uses onnxruntime's CPU build: `onnxruntime` 1.31.1 in `E:\Tools\tts\venv` offers only the CPU and Azure engines. Left alone, onnxruntime keeps about five of the Ryzen 5600X's six cores busy for each sentence.
+
+On 2026-11-21 the PC lost power twice (Kernel-Power 41, no crash code, no dump) while Arknights: Endfield had the graphics card at full load and Happi answered in the Kokoro voice. That jump in power draw on top of the game is what this limits. It softens the spike; it doesn't replace a power supply that can't take the load.
+
+**Settings → Voice → Kokoro: fewer cores while a game is in front** is on by default, with **Kokoro cores in games** at 2 (1 to 16). "A game in front" is the overlay's own detection (JUH-164): a borderless or windowed-fullscreen game, or a game she is watching. It is checked once a second.
+
+- **While a game is in front,** each sentence asks the script for that many threads (`"threads": 2`). The script runs it on a second onnxruntime session:
+  - `intra_op_num_threads` set to that number, and one inter-op thread;
+  - no busy-waiting;
+  - below-normal process priority.
+- **When the game leaves the front,** the next sentence goes back to the default session (every core, normal priority).
+- **Warming.** As soon as a game comes to the front, the app sends `{"warm": true, "threads": 2}`. The script builds the limited session and speaks one word into nothing, so the first sentence in the game isn't the slow one. Without this, it once took 21.6 s.
+- **Memory.** Only the latest limited session is kept, so at most two copies of the model are loaded.
+- **Measured on this PC,** for one sentence of 11.9 s of audio:
+
+  | Threads | Time | Cores busy | CPU time |
+  | --- | --- | --- | --- |
+  | every core (default) | 3.6 s | 5.4 | 19.3 s |
+  | 4 | 3.9 s | 3.7 | 14.4 s |
+  | 3 | 4.3 s | 2.8 | 12.2 s |
+  | 2, no busy-waiting | 5.3 s | 1.8 | 9.4 s |
+  | 1, no busy-waiting | 8.8 s | 1.0 | 8.6 s |
+
+  With 2 threads she still speaks more than twice as fast as real time, so she doesn't stutter; each sentence starts a second or two later.
+- **Why the script does it, not the app.**
+  - Pinning the process to two cores (affinity) left onnxruntime's six threads fighting over them: 18 s for the same sentence, slower than real time.
+  - The venv's `python.exe` is only a launcher that starts the real Python as a child process, so a limit on the process the app starts misses the worker.
+- **Update your copy of the script.** Copy `tools/kokoro/kokoro_server.py` over `E:\Tools\tts\kokoro_server.py` again. An older copy ignores `"threads"` and keeps using every core; Player.log then says "this kokoro_server.py doesn't limit its threads" once.
+- **Player.log** says `Voice: Kokoro uses 2 threads at below-normal priority while a game is in front` and `Voice: Kokoro uses every core again`.
