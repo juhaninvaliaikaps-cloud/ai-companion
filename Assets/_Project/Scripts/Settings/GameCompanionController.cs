@@ -123,7 +123,10 @@ namespace AICompanion.Settings
             KeepListener(settings, mode != CommentaryMode.Off && (settings.GameCs2 || settings.GameDota2));
             KeepLeague(mode != CommentaryMode.Off && settings.GameLeague);
             if (mode == CommentaryMode.Off)
+            {
+                GameContextNow.Clear();
                 return;
+            }
 
             DrainListener(settings);
             KeepGacha(settings, chat);
@@ -278,6 +281,9 @@ namespace AICompanion.Settings
 
         void HandleOne(GameEvent e)
         {
+            if (e == null || e.Game == GameTitle.Unknown)
+                return;
+            GameContextNow.SetGame(CommentaryPrompt.GameName(e.Game));
             var now = DateTime.UtcNow;
             var voice = CurrentVoice();
             var step = _session.Next(e, _mode, voice, now);

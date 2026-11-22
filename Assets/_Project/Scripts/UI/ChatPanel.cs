@@ -614,6 +614,8 @@ namespace AICompanion.UI
 
             // JUH-129: keep the scene (place, time, clothes, who does what) once it is older than the window.
             prompt = WithScene(prompt, privateMode, provider);
+            if (!privateMode)
+                prompt = GameContextNow.Append(prompt);
             // JUH-156: her lorebook entries for this message.
             prompt = WithLore(prompt, text);
             // JUH-171: the phrases her last replies kept reusing, so she varies them.

@@ -238,6 +238,15 @@ namespace AICompanion.Settings
         public bool GameScreenLooks;
 
         /// <summary>
+        /// JUH-160: live gameplay commentary for games without an event feed. Off until the
+        /// user turns it on; it samples a changed frame periodically, not every frame.
+        /// </summary>
+        public bool GameLiveCommentary;
+
+        /// <summary>JUH-29: let the game companion pull current public patch/meta context.</summary>
+        public bool GamePatchContext = true;
+
+        /// <summary>
         /// JUH-148: react to new pulls in Genshin, Star Rail and ZZZ, using the history link the
         /// game caches. The link goes only to HoYoverse's own server. Off by default.
         /// </summary>
@@ -911,6 +920,10 @@ namespace AICompanion.Settings
                 settings.GameLeague = flag;
             if (TryBool(json, "gameScreenLooks", out flag))
                 settings.GameScreenLooks = flag;
+            if (TryBool(json, "gameLiveCommentary", out flag))
+                settings.GameLiveCommentary = flag;
+            if (TryBool(json, "gamePatchContext", out flag))
+                settings.GamePatchContext = flag;
             if (TryBool(json, "gamePullHistory", out flag))
                 settings.GamePullHistory = flag;
             if (TryBool(json, "gameGenshin", out flag))
@@ -1079,6 +1092,8 @@ namespace AICompanion.Settings
             Bool(sb, "gameDota2", source.GameDota2);
             Bool(sb, "gameLeague", source.GameLeague);
             Bool(sb, "gameScreenLooks", source.GameScreenLooks);
+            Bool(sb, "gameLiveCommentary", source.GameLiveCommentary);
+            Bool(sb, "gamePatchContext", source.GamePatchContext);
             Bool(sb, "gamePullHistory", source.GamePullHistory);
             Bool(sb, "gameGenshin", source.GameGenshin);
             Bool(sb, "gameStarRail", source.GameStarRail);

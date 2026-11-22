@@ -103,6 +103,8 @@ namespace AICompanion.Settings
             }
 
             _look.Front(inFront, now);
+            KeepPatchContext(settings, _gachaGame);
+            KeepLive(settings, chat, inFront);
 
             var hotkey = HotkeyHeld();
             if (hotkey && !_hotkeyDown && _gachaWindow != null)
@@ -189,6 +191,10 @@ namespace AICompanion.Settings
             var before = GachaGame;
             _gachaWindow = found;
             _gachaGame = game;
+            if (found != null)
+                GameContextNow.SetGame(CommentaryPrompt.GameName(game));
+            else if (before != GameTitle.Unknown)
+                GameContextNow.SetGame(string.Empty);
             // JUH-164: the overlay stays above this window even when it isn't full-screen.
             if (found != null)
                 GameWindowNow.Set(found.Hwnd);

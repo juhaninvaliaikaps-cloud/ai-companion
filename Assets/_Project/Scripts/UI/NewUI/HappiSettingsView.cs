@@ -2059,6 +2059,12 @@ namespace AICompanion.NewUI
             Toggle("Let her look at the game", S.GameScreenLooks, v => Change(s => s.GameScreenLooks = v));
             Note("While the game is the window you're using, she sends one picture of it to the cloud vision model every 2 minutes, and when you press "
                  + GameCompanionController.LookHotkey + ". That is about 30 pictures an hour. They are not saved. This needs \"Let the cloud AI write her lines\" above, and she never looks in private mode or with 18+ on.", true);
+            Toggle("Live commentary while playing", S.GameLiveCommentary, v => Change(s => s.GameLiveCommentary = v));
+            Note("Experimental: while the game is in front, she checks a new frame about every 20 seconds and comments only when the picture actually changed. "
+                 + "It uses the same cloud vision model, can stay silent, and never runs in private mode or with 18+ on.", true);
+            Toggle("Use current patch notes", S.GamePatchContext, v => Change(s => s.GamePatchContext = v));
+            Note("When a watched game opens, she may look up one public \"latest patch notes / meta\" search, at most every six hours. It needs the Web permission in Senses → Tools. "
+                 + "The results are background context, not a claim that they are current beyond those results.", true);
             if (S.GameScreenLooks && _chat != null && !_chat.CloudSeesImages)
                 Note(ChatPanel.GameLineNoVision);
             Note(games.GachaGame != GameTitle.Unknown ? CommentaryPrompt.GameName(games.GachaGame) + " is open." : "No gacha game is open.");
