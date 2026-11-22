@@ -29,8 +29,9 @@ namespace AICompanion.AI
     /// </summary>
     public static class VoiceReader
     {
-        public const int EverydayMaxTokens = 700;
-        public const int IntimateMaxTokens = 450;
+        public const int EverydayMaxTokens = 1400;
+        public const int IntimateMaxTokens = 800;
+        public const int RefreshMaxTokens = 300;
         public const float Temperature = 0.6f;
         public const float TimeoutSeconds = PisaraReader.RequestTimeoutSeconds;
 
@@ -47,6 +48,7 @@ namespace AICompanion.AI
             "low confidence means she hedges), her mood temperament and how she starts with the user.\n" +
             "Be concrete: name real habits (how long her sentences are, how she addresses the user, words she uses, what she does when embarrassed), not adjectives. " +
             "Keep every field short. No narration about the user.\n" +
+            LinesRule +
             "Reply with only this JSON object and nothing else:\n" +
             "{\"summary\": \"<one sentence: how she sounds>\", \"register\": \"<formal, casual, crude, old-fashioned...>\", " +
             "\"rhythm\": \"<sentence length and pace>\", \"vocabulary\": \"<the kind of words she uses>\", " +
@@ -54,7 +56,14 @@ namespace AICompanion.AI
             "\"happy\": \"<how her speech changes when happy>\", \"annoyed\": \"<when annoyed>\", \"flustered\": \"<when flustered or embarrassed>\", " +
             "\"sad\": \"<when sad>\", \"affectionate\": \"<when affectionate>\", " +
             "\"stranger\": \"<how she talks to someone she barely knows>\", \"close\": \"<how she talks to someone close>\", " +
-            "\"samples\": [\"<2 short lines in her voice, different situations>\"]}";
+            "\"lines\": {\"content\": [\"<3 lines>\"], \"happy\": [\"<3 lines>\"], \"annoyed\": [\"<3 lines>\"], \"flustered\": [\"<3 lines>\"], " +
+            "\"sad\": [\"<3 lines>\"], \"affectionate\": [\"<3 lines>\"]}}";
+
+        /// <summary>What makes her lines hers: asked in every request that writes lines.</summary>
+        public const string LinesRule =
+            "Her lines are short things she would actually say out loud, one or two sentences each. Every line must be something only she would say: " +
+            "use her world, her habits and her words, never a line any other character could say. Make every line different: a different first word, " +
+            "length and shape; never start two lines the same way.\n";
 
         public const string IntimateSystemPrompt =
             "You read a character for an adults-only companion app, where she and the user are consenting adults, and write down how she talks in intimate and sexual scenes, " +
@@ -63,9 +72,22 @@ namespace AICompanion.AI
             "and how innocent or perverted she is (an innocent one is shy and holds back in words; a perverted one is bold and explicit). " +
             "Her everyday personality stays: an assertive, confident woman stays assertive in bed; a shy one stays shy until she lets go.\n" +
             "Be concrete: what she says, how she asks for things, how explicit her words are. Keep every field short.\n" +
+            LinesRule +
             "Reply with only this JSON object and nothing else:\n" +
             "{\"holdingBack\": \"<how she talks when aroused but holding back>\", \"lettingGo\": \"<how she talks when she gives in or takes the lead>\", " +
-            "\"habits\": [\"<2 to 4 concrete habits>\"], \"never\": [\"<2 to 4 things she would never say>\"], \"samples\": [\"<2 short lines>\"]}";
+            "\"habits\": [\"<2 to 4 concrete habits>\"], \"never\": [\"<2 to 4 things she would never say>\"], " +
+            "\"lines\": {\"holdingBack\": [\"<3 lines while holding back>\"], \"lettingGo\": [\"<3 lines when letting go>\"]}}";
+
+        public const string RefreshSystemPrompt =
+            "You write new lines for a character in a companion app, in her own voice, for one situation. " +
+            LinesRule +
+            "Never repeat or rephrase a line she has already said. Reply with only this JSON object and nothing else: {\"lines\": [\"\", \"\", \"\"]}";
+
+        public const string IntimateRefreshSystemPrompt =
+            "You write new lines for a character in an adults-only companion app, where she and the user are consenting adults, in her own voice, " +
+            "for one moment in an intimate scene. " +
+            LinesRule +
+            "Never repeat or rephrase a line she has already said. Reply with only this JSON object and nothing else: {\"lines\": [\"\", \"\", \"\"]}";
 
         public static ChatRequest BuildEveryday(string personaName, string input)
         {
@@ -75,6 +97,114 @@ namespace AICompanion.AI
         public static ChatRequest BuildIntimate(string personaName, string input)
         {
             return Build(IntimateSystemPrompt, personaName, input, IntimateMaxTokens, true);
+        }
+
+        /// <summary>The refresh input: her voice, the moment, how well she knows the user now, and the lines she has had.</summary>
+        public static string RefreshInput(VoiceSheet voice, string moment, bool close, IList<string> hadLines, IntimateVoice intimate = null)
+        {
+            var sb = new System.Text.StringBuilder();
+            if (voice != null)
+            {
+                sb.Append("How she talks: ").Append(voice.summary).Append(' ').Append(voice.register).Append("; ").Append(voice.rhythm).Append("; ").Append(voice.vocabulary).Append('\n');
+                if (voice.habits.Length > 0)
+                    sb.Append("Her habits: ").Append(string.Join("; ", voice.habits)).Append('\n');
+                if (voice.never.Length > 0)
+                    sb.Append("She never: ").Append(string.Join("; ", voice.never)).Append('\n');
+            }
+
+            if (intimate != null)
+                sb.Append("In intimate scenes, holding back: ").Append(intimate.holdingBack).Append(" Letting go: ").Append(intimate.lettingGo).Append('\n');
+            sb.Append("Write 3 new lines for: ").Append(moment).Append('\n');
+            sb.Append("How well she knows the user now: ").Append(close ? "someone close" : "still getting to know them").Append('\n');
+            if (hadLines != null && hadLines.Count > 0)
+            {
+                sb.Append("Lines she has already said:\n");
+                for (var i = 0; i < hadLines.Count; i++)
+                    sb.Append("- ").Append(hadLines[i]).Append('\n');
+            }
+
+            return sb.ToString().TrimEnd();
+        }
+
+        /// <summary>The moment a refresh writes for, from the pool key ("flustered", "holdingBack").</summary>
+        public static string Moment(string key)
+        {
+            switch (key)
+            {
+                case "content": return "an ordinary moment, in a calm mood";
+                case "holdingBack": return "an intimate moment when she is aroused but still holding back";
+                case "lettingGo": return "an intimate moment when she gives in or takes the lead";
+                default: return "when she is " + key;
+            }
+        }
+
+        public static ChatRequest BuildRefresh(string personaName, string input, bool intimate)
+        {
+            return Build(intimate ? IntimateRefreshSystemPrompt : RefreshSystemPrompt, personaName, input, RefreshMaxTokens, intimate);
+        }
+
+        [Serializable]
+        class LinesReply
+        {
+            public string[] lines = new string[0];
+        }
+
+        /// <summary>New lines from a refresh reply, or an empty array.</summary>
+        public static string[] ParseLines(string reply)
+        {
+            var json = CharacterSheet.ExtractObject(reply);
+            if (json == null)
+                return new string[0];
+            try
+            {
+                var parsed = UnityEngine.JsonUtility.FromJson<LinesReply>(json);
+                return VoiceText.Items(parsed != null ? parsed.lines : null, VoiceSheet.MaxLinesPerMood, VoiceSheet.MaxLine);
+            }
+            catch (ArgumentException)
+            {
+                return new string[0];
+            }
+        }
+
+        /// <summary>
+        /// One refresh: new lines for one mood, or (<paramref name="intimate"/>) one 18+ stage. An
+        /// 18+ refresh is refused unless the gate is open and the provider is local; an everyday
+        /// one follows <paramref name="keepsLocal"/> like the everyday reading. Never throws.
+        /// </summary>
+        public static async Task<string[]> RefreshAsync(IChatProvider provider, bool keepsLocal, bool intimate, bool gateOpen,
+            string personaName, string input, CancellationToken cancellation, float timeoutSeconds = TimeoutSeconds)
+        {
+            if (intimate && !gateOpen)
+                return new string[0];
+            if (provider == null || !provider.IsConfigured || !PisaraReader.MayUse(provider, intimate || keepsLocal))
+                return new string[0];
+            using (var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
+            {
+                try
+                {
+                    var call = provider.StreamChat(BuildRefresh(personaName, input, intimate), _ => { }, linked.Token);
+                    var limit = Task.Delay(TimeSpan.FromSeconds(Math.Max(1f, timeoutSeconds)), linked.Token);
+                    var first = await Task.WhenAny(call, limit);
+                    if (first != call)
+                    {
+                        linked.Cancel();
+                        call.ContinueWith(t => { var ignored = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
+                        return new string[0];
+                    }
+
+                    var reply = await call;
+                    linked.Cancel();
+                    return reply.Ok ? ParseLines(reply.Text) : new string[0];
+                }
+                catch (OperationCanceledException)
+                {
+                    return new string[0];
+                }
+                catch (Exception)
+                {
+                    return new string[0];
+                }
+            }
         }
 
         static ChatRequest Build(string system, string personaName, string input, int maxTokens, bool blockCloud)

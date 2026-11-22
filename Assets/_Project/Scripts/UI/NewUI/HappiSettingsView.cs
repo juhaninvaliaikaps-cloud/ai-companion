@@ -1522,7 +1522,14 @@ namespace AICompanion.NewUI
             VoiceField("When affectionate", user.affectionate, read.affectionate, v => keeper.EditEveryday(u => u.affectionate = v));
             VoiceField("With a stranger", user.stranger, read.stranger, v => keeper.EditEveryday(u => u.stranger = v));
             VoiceField("With someone close", user.close, read.close, v => keeper.EditEveryday(u => u.close = v));
-            VoiceList("Sample lines", user.samples, read.samples, VoiceSheet.MaxSamples, v => keeper.EditEveryday(u => u.samples = v));
+            // Her own lines per mood: chat shows two at a time, rotating; a used line retires and
+            // Pisara writes new ones. Lines you write here never retire.
+            Note("Her lines (up to 3 per mood). Chat shows 2 at a time, rotating. The model's lines retire after a few replies and new ones are written; yours stay.");
+            for (var k = 0; k < VoiceLines.Keys.Length; k++)
+            {
+                var key = VoiceLines.Keys[k];
+                VoiceList("Lines: " + key, user.lines.Get(key), read.lines.Get(key), VoiceSheet.MaxLinesPerMood, v => keeper.EditEveryday(u => u.lines.Set(key, v)));
+            }
 
             if (!IntimateExpressions.Active)
                 return;
@@ -1534,7 +1541,10 @@ namespace AICompanion.NewUI
             VoiceField("Letting go", userIntimate.lettingGo, readIntimate.lettingGo, v => keeper.EditIntimate(u => u.lettingGo = v));
             VoiceList("Habits", userIntimate.habits, readIntimate.habits, VoiceSheet.MaxItems, v => keeper.EditIntimate(u => u.habits = v));
             VoiceList("Never", userIntimate.never, readIntimate.never, VoiceSheet.MaxItems, v => keeper.EditIntimate(u => u.never = v));
-            VoiceList("Sample lines", userIntimate.samples, readIntimate.samples, VoiceSheet.MaxSamples, v => keeper.EditIntimate(u => u.samples = v));
+            VoiceList("Lines: holding back", userIntimate.lines.Get("holdingBack"), readIntimate.lines.Get("holdingBack"), VoiceSheet.MaxLinesPerMood,
+                v => keeper.EditIntimate(u => u.lines.Set("holdingBack", v)));
+            VoiceList("Lines: letting go", userIntimate.lines.Get("lettingGo"), readIntimate.lines.Get("lettingGo"), VoiceSheet.MaxLinesPerMood,
+                v => keeper.EditIntimate(u => u.lines.Set("lettingGo", v)));
         }
 
         /// <summary>Shows the user's text, or the reading's; typing the reading's text back keeps no override.</summary>
@@ -1554,7 +1564,7 @@ namespace AICompanion.NewUI
             var shown = user != null && user.Length > 0 ? VoiceText.Join(user) : readText;
             Field(caption, shown, false, v =>
             {
-                var items = VoiceText.Split(v, max, max == VoiceSheet.MaxSamples ? VoiceSheet.MaxLine : VoiceSheet.MaxItem);
+                var items = VoiceText.Split(v, max, max == VoiceSheet.MaxLinesPerMood ? VoiceSheet.MaxLine : VoiceSheet.MaxItem);
                 set(string.Equals(VoiceText.Join(items), readText, StringComparison.Ordinal) ? new string[0] : items);
             });
         }

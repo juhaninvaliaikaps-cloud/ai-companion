@@ -136,6 +136,30 @@ namespace AICompanion.Core
             }
         }
 
+        /// <summary>
+        /// JUH-171: true when one of <paramref name="replies"/> (the last <see cref="RepliesLooked"/>)
+        /// has four words in a row from <paramref name="line"/>, so the rotating pool skips it for now.
+        /// </summary>
+        public static bool Echoes(IList<string> replies, string line)
+        {
+            if (replies == null || replies.Count == 0 || string.IsNullOrEmpty(line))
+                return false;
+            var words = Words(line);
+            var start = Math.Max(0, replies.Count - RepliesLooked);
+            for (var r = start; r < replies.Count; r++)
+            {
+                var reply = Words(replies[r]);
+                var text = " " + Join(reply, 0, reply.Count) + " ";
+                for (var i = 0; i + CopyWords <= words.Count; i++)
+                {
+                    if (HasContent(words, i, CopyWords) && text.IndexOf(" " + Join(words, i, CopyWords) + " ", StringComparison.Ordinal) >= 0)
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
         /// <summary>The prompt line for these phrases, or empty when there are none.</summary>
         public static string Line(IList<string> phrases)
         {

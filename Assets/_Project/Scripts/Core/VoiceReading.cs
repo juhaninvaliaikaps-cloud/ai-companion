@@ -18,7 +18,9 @@ namespace AICompanion.Core
         public const int MaxLine = 200;
         public const int MaxItem = 90;
         public const int MaxItems = 5;
-        public const int MaxSamples = 2;
+
+        /// <summary>Lines in her voice per mood in the pool; the prompt gets 2 of them at a time, rotating.</summary>
+        public const int MaxLinesPerMood = 3;
 
         public string summary = string.Empty;
         public string register = string.Empty;
@@ -33,7 +35,9 @@ namespace AICompanion.Core
         public string affectionate = string.Empty;
         public string stranger = string.Empty;
         public string close = string.Empty;
-        public string[] samples = new string[0];
+
+        /// <summary>Her own lines per mood, the rotating pool (<see cref="VoicePrompt.Pool"/>).</summary>
+        public VoiceLines lines = new VoiceLines();
 
         public bool IsEmpty
         {
@@ -42,7 +46,7 @@ namespace AICompanion.Core
                 return summary.Length == 0 && register.Length == 0 && rhythm.Length == 0 && vocabulary.Length == 0
                     && habits.Length == 0 && never.Length == 0 && happy.Length == 0 && annoyed.Length == 0
                     && flustered.Length == 0 && sad.Length == 0 && affectionate.Length == 0 && stranger.Length == 0
-                    && close.Length == 0 && samples.Length == 0;
+                    && close.Length == 0 && (lines == null || lines.IsEmpty);
             }
         }
 
@@ -62,7 +66,7 @@ namespace AICompanion.Core
             affectionate = VoiceText.Line(affectionate);
             stranger = VoiceText.Line(stranger);
             close = VoiceText.Line(close);
-            samples = VoiceText.Items(samples, MaxSamples, MaxLine);
+            lines = (lines ?? new VoiceLines()).Normalize();
             return this;
         }
 
@@ -86,7 +90,7 @@ namespace AICompanion.Core
                 affectionate = VoiceText.Pick(u.affectionate, r.affectionate),
                 stranger = VoiceText.Pick(u.stranger, r.stranger),
                 close = VoiceText.Pick(u.close, r.close),
-                samples = u.samples.Length > 0 ? u.samples : r.samples,
+                lines = VoiceLines.Merge(u.lines, r.lines),
             };
         }
 
@@ -121,11 +125,13 @@ namespace AICompanion.Core
         public string lettingGo = string.Empty;
         public string[] habits = new string[0];
         public string[] never = new string[0];
-        public string[] samples = new string[0];
+
+        /// <summary>Her own lines in intimate scenes, holding back and letting go: the rotating pool there.</summary>
+        public IntimateLines lines = new IntimateLines();
 
         public bool IsEmpty
         {
-            get { return holdingBack.Length == 0 && lettingGo.Length == 0 && habits.Length == 0 && never.Length == 0 && samples.Length == 0; }
+            get { return holdingBack.Length == 0 && lettingGo.Length == 0 && habits.Length == 0 && never.Length == 0 && (lines == null || lines.IsEmpty); }
         }
 
         public IntimateVoice Normalize()
@@ -134,7 +140,7 @@ namespace AICompanion.Core
             lettingGo = VoiceText.Line(lettingGo);
             habits = VoiceText.Items(habits, VoiceSheet.MaxItems);
             never = VoiceText.Items(never, VoiceSheet.MaxItems);
-            samples = VoiceText.Items(samples, VoiceSheet.MaxSamples, VoiceSheet.MaxLine);
+            lines = (lines ?? new IntimateLines()).Normalize();
             return this;
         }
 
@@ -148,7 +154,7 @@ namespace AICompanion.Core
                 lettingGo = VoiceText.Pick(u.lettingGo, r.lettingGo),
                 habits = u.habits.Length > 0 ? u.habits : r.habits,
                 never = u.never.Length > 0 ? u.never : r.never,
-                samples = u.samples.Length > 0 ? u.samples : r.samples,
+                lines = IntimateLines.Merge(u.lines, r.lines),
             };
         }
 
@@ -171,6 +177,181 @@ namespace AICompanion.Core
                 return null;
             voice.Normalize();
             return voice.IsEmpty ? null : voice;
+        }
+    }
+
+    /// <summary>
+    /// JUH-171: her own lines per mood, read by Pisara for this persona only. The prompt gets two
+    /// at a time, rotating (<see cref="VoicePrompt.Pick"/>), so no single line is drilled in. Two
+    /// lines that start with the same two words are not kept: the pool stays varied.
+    /// </summary>
+    [Serializable]
+    public sealed class VoiceLines
+    {
+        public string[] content = new string[0];
+        public string[] happy = new string[0];
+        public string[] annoyed = new string[0];
+        public string[] flustered = new string[0];
+        public string[] sad = new string[0];
+        public string[] affectionate = new string[0];
+
+        public bool IsEmpty
+        {
+            get
+            {
+                return Count(content) + Count(happy) + Count(annoyed) + Count(flustered) + Count(sad) + Count(affectionate) == 0;
+            }
+        }
+
+        static int Count(string[] items)
+        {
+            return items == null ? 0 : items.Length;
+        }
+
+        public VoiceLines Normalize()
+        {
+            var openings = new HashSet<string>(StringComparer.Ordinal);
+            content = VoiceText.Varied(content, openings);
+            happy = VoiceText.Varied(happy, openings);
+            annoyed = VoiceText.Varied(annoyed, openings);
+            flustered = VoiceText.Varied(flustered, openings);
+            sad = VoiceText.Varied(sad, openings);
+            affectionate = VoiceText.Varied(affectionate, openings);
+            return this;
+        }
+
+        /// <summary>Mood by mood: the user's lines where they wrote some, the reading's elsewhere.</summary>
+        public static VoiceLines Merge(VoiceLines user, VoiceLines read)
+        {
+            var u = user ?? new VoiceLines();
+            var r = read ?? new VoiceLines();
+            return new VoiceLines
+            {
+                content = Count(u.content) > 0 ? u.content : r.content ?? new string[0],
+                happy = Count(u.happy) > 0 ? u.happy : r.happy ?? new string[0],
+                annoyed = Count(u.annoyed) > 0 ? u.annoyed : r.annoyed ?? new string[0],
+                flustered = Count(u.flustered) > 0 ? u.flustered : r.flustered ?? new string[0],
+                sad = Count(u.sad) > 0 ? u.sad : r.sad ?? new string[0],
+                affectionate = Count(u.affectionate) > 0 ? u.affectionate : r.affectionate ?? new string[0],
+            };
+        }
+
+        /// <summary>The lines for a mood; empty for a mood without its own lines (sleepy, content uses <see cref="content"/>).</summary>
+        public string[] For(CompanionMood mood)
+        {
+            switch (mood)
+            {
+                case CompanionMood.Happy: return happy;
+                case CompanionMood.Annoyed: return annoyed;
+                case CompanionMood.Flustered:
+                case CompanionMood.Anxious: return flustered;
+                case CompanionMood.Sad: return sad;
+                case CompanionMood.Affectionate:
+                case CompanionMood.Intimate: return affectionate;
+                default: return new string[0];
+            }
+        }
+
+        /// <summary>The everyday moods that have their own lines, in pool order.</summary>
+        public static readonly string[] Keys = { "content", "happy", "annoyed", "flustered", "sad", "affectionate" };
+
+        public string[] Get(string key)
+        {
+            switch (key)
+            {
+                case "content": return content ?? new string[0];
+                case "happy": return happy ?? new string[0];
+                case "annoyed": return annoyed ?? new string[0];
+                case "flustered": return flustered ?? new string[0];
+                case "sad": return sad ?? new string[0];
+                case "affectionate": return affectionate ?? new string[0];
+                default: return new string[0];
+            }
+        }
+
+        public void Set(string key, string[] lines)
+        {
+            lines = lines ?? new string[0];
+            switch (key)
+            {
+                case "content": content = lines; break;
+                case "happy": happy = lines; break;
+                case "annoyed": annoyed = lines; break;
+                case "flustered": flustered = lines; break;
+                case "sad": sad = lines; break;
+                case "affectionate": affectionate = lines; break;
+            }
+        }
+
+        public void AddAll(List<string> into)
+        {
+            Add(content, into);
+            Add(happy, into);
+            Add(annoyed, into);
+            Add(flustered, into);
+            Add(sad, into);
+            Add(affectionate, into);
+        }
+
+        internal static void Add(string[] items, List<string> into)
+        {
+            if (items == null)
+                return;
+            for (var i = 0; i < items.Length; i++)
+                into.Add(items[i]);
+        }
+    }
+
+    /// <summary>JUH-171: her own lines in intimate scenes, 18+ only.</summary>
+    [Serializable]
+    public sealed class IntimateLines
+    {
+        public string[] holdingBack = new string[0];
+        public string[] lettingGo = new string[0];
+
+        public bool IsEmpty
+        {
+            get { return (holdingBack == null || holdingBack.Length == 0) && (lettingGo == null || lettingGo.Length == 0); }
+        }
+
+        public IntimateLines Normalize()
+        {
+            var openings = new HashSet<string>(StringComparer.Ordinal);
+            holdingBack = VoiceText.Varied(holdingBack, openings);
+            lettingGo = VoiceText.Varied(lettingGo, openings);
+            return this;
+        }
+
+        public static IntimateLines Merge(IntimateLines user, IntimateLines read)
+        {
+            var u = user ?? new IntimateLines();
+            var r = read ?? new IntimateLines();
+            return new IntimateLines
+            {
+                holdingBack = u.holdingBack != null && u.holdingBack.Length > 0 ? u.holdingBack : r.holdingBack ?? new string[0],
+                lettingGo = u.lettingGo != null && u.lettingGo.Length > 0 ? u.lettingGo : r.lettingGo ?? new string[0],
+            };
+        }
+
+        public static readonly string[] Keys = { "holdingBack", "lettingGo" };
+
+        public string[] Get(string key)
+        {
+            return key == "holdingBack" ? holdingBack ?? new string[0] : key == "lettingGo" ? lettingGo ?? new string[0] : new string[0];
+        }
+
+        public void Set(string key, string[] lines)
+        {
+            if (key == "holdingBack")
+                holdingBack = lines ?? new string[0];
+            else if (key == "lettingGo")
+                lettingGo = lines ?? new string[0];
+        }
+
+        public void AddAll(List<string> into)
+        {
+            VoiceLines.Add(holdingBack, into);
+            VoiceLines.Add(lettingGo, into);
         }
     }
 
@@ -197,6 +378,26 @@ namespace AICompanion.Core
             }
 
             return list.ToArray();
+        }
+
+        /// <summary>
+        /// Up to <see cref="VoiceSheet.MaxLinesPerMood"/> lines, dropping any that starts with the
+        /// same two words as a line already kept (in <paramref name="openings"/>, shared across moods).
+        /// </summary>
+        public static string[] Varied(string[] values, HashSet<string> openings)
+        {
+            var items = Items(values, VoiceSheet.MaxLinesPerMood * 2, VoiceSheet.MaxLine);
+            var kept = new List<string>(VoiceSheet.MaxLinesPerMood);
+            for (var i = 0; i < items.Length && kept.Count < VoiceSheet.MaxLinesPerMood; i++)
+            {
+                var words = RepeatedPhrases.Words(items[i]);
+                var opening = words.Count == 0 ? string.Empty : words.Count == 1 ? words[0] : words[0] + " " + words[1];
+                if (opening.Length > 0 && !openings.Add(opening))
+                    continue;
+                kept.Add(items[i]);
+            }
+
+            return kept.ToArray();
         }
 
         public static string Pick(string user, string read)
@@ -311,12 +512,11 @@ namespace AICompanion.Core
     /// JUH-171: the "How she talks" block for chat, built by code from the reading. Only the line
     /// for her mood now and for how well she knows the user now goes in; the 18+ part only while
     /// the gate is open, said as "holding back" while she is innocent and "letting go" when she
-    /// is experienced. Code adds the rules the model must not decide: samples are never repeated
+    /// is experienced. Code adds the rules the model must not decide: her lines are never repeated
     /// word for word, and only a confident or assertive one is told not to stammer.
     /// </summary>
     public static class VoicePrompt
     {
-        public const string SamplesRule = "These show the feel only; never repeat them word for word.";
         public const string Openings = "Vary how your sentences start.";
         public const string NoStammer = "Do not stammer or trail off with \"...\" unless she is truly lost for words.";
 
@@ -391,7 +591,6 @@ namespace AICompanion.Core
                 var closeness = familiarity >= CloseFrom ? voice.close : voice.stranger;
                 if (closeness.Length > 0)
                     sb.Append("\n- With the user now (").Append(familiarity >= CloseFrom ? "someone close" : "still getting to know them").Append("): ").Append(Sentence(closeness).Trim());
-                Samples(voice.samples, sb);
             }
 
             if (adult)
@@ -408,7 +607,6 @@ namespace AICompanion.Core
                     sb.Append("\n- In intimate scenes: ").Append(Sentence(scene).Trim());
                 List("Intimate habits", intimate.habits, sb);
                 List("Never in intimate scenes", intimate.never, sb);
-                Samples(intimate.samples, sb);
             }
 
             sb.Append("\n- ").Append(Openings);
@@ -417,13 +615,99 @@ namespace AICompanion.Core
             return sb.ToString();
         }
 
-        /// <summary>A key that changes exactly when <see cref="Block"/> would, for a given reading revision.</summary>
+        /// <summary>A key that changes exactly when <see cref="Block"/> or <see cref="Pool"/> would, for a given reading revision.</summary>
         public static int Key(VoiceSheet voice, CompanionMood mood, float moodStrength, float familiarity, bool gateOpen, float innocence, float desire = -1f)
         {
-            var moodLine = MoodLine(voice, mood, moodStrength).Length > 0 ? (int)mood + 1 : 0;
-            return moodLine
+            var moodNow = !float.IsNaN(moodStrength) && moodStrength >= MoodFrom ? (int)mood + 1 : 0;
+            return moodNow
                 + 100 * (familiarity >= CloseFrom ? 1 : 0)
-                + 1000 * (gateOpen ? 1 + IntimateStage(innocence, desire) : 0);
+                + 1000 * (gateOpen ? 1 + IntimateStage(innocence, desire) : 0)
+                + 10000 * (UsesIntimateLines(gateOpen, mood, moodStrength, desire) ? 1 : 0);
+        }
+
+        // ---- The rotating pool of her lines ----------------------------------------------
+
+        public const string LinesIntro = "Lines only she would say, for the feel of this moment (never repeat them word for word):";
+
+        /// <summary>Lines in the prompt per reply.</summary>
+        public const int LinesShown = 2;
+
+        /// <summary>
+        /// True when this moment takes her intimate lines instead of her everyday ones: the gate is
+        /// open and she is aroused (desire band 2 or more, JUH-170) or in an intimate mood.
+        /// </summary>
+        public static bool UsesIntimateLines(bool gateOpen, CompanionMood mood, float moodStrength, float desire)
+        {
+            if (!gateOpen)
+                return false;
+            if (desire >= 0f && DesireMath.Band(desire) >= 2)
+                return true;
+            return mood == CompanionMood.Intimate && !float.IsNaN(moodStrength) && moodStrength >= MoodFrom;
+        }
+
+        /// <summary>
+        /// The lines that fit this moment, best first: in an intimate moment her holding-back or
+        /// letting-go lines (by <see cref="IntimateStage"/>, both in between); otherwise her lines
+        /// for the mood she is in, then her everyday ones.
+        /// </summary>
+        public static List<string> Pool(VoiceSheet voice, IntimateVoice intimate, CompanionMood mood, float moodStrength, bool gateOpen, float innocence, float desire)
+        {
+            var pool = new List<string>();
+            if (UsesIntimateLines(gateOpen, mood, moodStrength, desire) && intimate != null && intimate.lines != null && !intimate.lines.IsEmpty)
+            {
+                var stage = IntimateStage(innocence, desire);
+                if (stage != 2)
+                    VoiceLines.Add(intimate.lines.holdingBack, pool);
+                if (stage != 0)
+                    VoiceLines.Add(intimate.lines.lettingGo, pool);
+                if (pool.Count > 0)
+                    return pool;
+            }
+
+            if (voice == null || voice.lines == null)
+                return pool;
+            if (!float.IsNaN(moodStrength) && moodStrength >= MoodFrom)
+                VoiceLines.Add(voice.lines.For(mood), pool);
+            VoiceLines.Add(voice.lines.content, pool);
+            return pool;
+        }
+
+        /// <summary>
+        /// Two lines from the pool for this reply, rotating with <paramref name="turn"/> so each
+        /// reply sees a different pair. A line she has echoed lately (<paramref name="echoed"/>)
+        /// is skipped; when every line is skipped, none is shown.
+        /// </summary>
+        public static List<string> Pick(IList<string> pool, int turn, Func<string, bool> echoed)
+        {
+            var picked = new List<string>(LinesShown);
+            if (pool == null || pool.Count == 0)
+                return picked;
+            var start = (Math.Max(0, turn) * LinesShown) % pool.Count;
+            for (var i = 0; i < pool.Count && picked.Count < LinesShown; i++)
+            {
+                var line = pool[(start + i) % pool.Count];
+                if (echoed != null && echoed(line))
+                    continue;
+                picked.Add(line);
+            }
+
+            return picked;
+        }
+
+        /// <summary>The prompt line for the picked lines, or empty.</summary>
+        public static string LinesLine(IList<string> picked)
+        {
+            if (picked == null || picked.Count == 0)
+                return string.Empty;
+            var sb = new StringBuilder(LinesIntro).Append(' ');
+            for (var i = 0; i < picked.Count; i++)
+            {
+                if (i > 0)
+                    sb.Append(" / ");
+                sb.Append('"').Append(picked[i]).Append('"');
+            }
+
+            return sb.ToString();
         }
 
         static string Pick(string first, string second)
@@ -461,19 +745,83 @@ namespace AICompanion.Core
             sb.Append("\n- ").Append(label).Append(": ").Append(string.Join("; ", items)).Append('.');
         }
 
-        static void Samples(string[] samples, StringBuilder sb)
+    }
+
+    /// <summary>One of her lines and how many replies it has been shown in.</summary>
+    [Serializable]
+    public sealed class LineUse
+    {
+        public string text = string.Empty;
+        public int shown;
+    }
+
+    /// <summary>
+    /// JUH-171: when a line of the model's leaves the pool, and when a mood needs new lines. A
+    /// line retires after <see cref="RetireAfter"/> replies, or at once when she echoed it. A
+    /// mood (or an 18+ stage) with <see cref="RefreshAt"/> lines or fewer left is refreshed. The
+    /// user's own lines never retire.
+    /// </summary>
+    public static class VoicePool
+    {
+        public const int RetireAfter = 6;
+        public const int RefreshAt = 1;
+        public const int MaxRetired = 40;
+
+        public static bool ShouldRetire(int shown, bool echoed)
         {
-            if (samples == null || samples.Length == 0)
-                return;
-            sb.Append("\n- In her voice: ");
-            for (var i = 0; i < samples.Length; i++)
+            return echoed || shown >= RetireAfter;
+        }
+
+        public static bool NeedsRefresh(string[] readLines, string[] userLines)
+        {
+            if (userLines != null && userLines.Length > 0)
+                return false;
+            return readLines == null || readLines.Length <= RefreshAt;
+        }
+
+        /// <summary><paramref name="lines"/> without <paramref name="line"/>.</summary>
+        public static string[] Without(string[] lines, string line)
+        {
+            var kept = new List<string>();
+            if (lines != null)
             {
-                if (i > 0)
-                    sb.Append(" / ");
-                sb.Append('"').Append(samples[i]).Append('"');
+                for (var i = 0; i < lines.Length; i++)
+                {
+                    if (!string.Equals(lines[i], line, StringComparison.Ordinal))
+                        kept.Add(lines[i]);
+                }
             }
 
-            sb.Append(". ").Append(SamplesRule);
+            return kept.ToArray();
+        }
+
+        /// <summary>The lines left plus the new ones, varied and capped (the lines left first).</summary>
+        public static string[] Refill(string[] left, string[] fresh, IList<string> retired)
+        {
+            var all = new List<string>();
+            if (left != null)
+                all.AddRange(left);
+            if (fresh != null)
+            {
+                for (var i = 0; i < fresh.Length; i++)
+                {
+                    if (retired == null || !retired.Contains(fresh[i]))
+                        all.Add(fresh[i]);
+                }
+            }
+
+            return VoiceText.Varied(all.ToArray(), new HashSet<string>(StringComparer.Ordinal));
+        }
+
+        /// <summary>The retired list with <paramref name="line"/> added, capped to the newest <see cref="MaxRetired"/>.</summary>
+        public static string[] Retire(string[] retired, string line)
+        {
+            var list = new List<string>(retired ?? new string[0]);
+            if (!list.Contains(line))
+                list.Add(line);
+            while (list.Count > MaxRetired)
+                list.RemoveAt(0);
+            return list.ToArray();
         }
     }
 
@@ -497,6 +845,12 @@ namespace AICompanion.Core
         public string intimateBy = string.Empty;
         public VoiceSheet userEveryday = new VoiceSheet();
         public IntimateVoice userIntimate = new IntimateVoice();
+
+        /// <summary>How often each of the model's lines has been shown (JUH-171, the rotating pool).</summary>
+        public LineUse[] uses = new LineUse[0];
+
+        /// <summary>Lines retired from the pool, newest last, so a refresh does not write them again.</summary>
+        public string[] retired = new string[0];
 
         public VoiceSheet UserEveryday
         {
@@ -542,6 +896,8 @@ namespace AICompanion.Core
                 file.intimateHash = file.intimateHash ?? string.Empty;
                 file.everydayBy = file.everydayBy ?? string.Empty;
                 file.intimateBy = file.intimateBy ?? string.Empty;
+                file.uses = file.uses ?? new LineUse[0];
+                file.retired = file.retired ?? new string[0];
                 return file;
             }
             catch (ArgumentException)
@@ -558,42 +914,45 @@ namespace AICompanion.Core
         }
     }
 
-    /// <summary>JUH-171: the hand-off between the voice keeper and chat, like <see cref="InnocenceNow"/>. Main thread only.</summary>
+    /// <summary>
+    /// JUH-171: the hand-off between the voice keeper and chat, like <see cref="InnocenceNow"/>.
+    /// The block goes at the end of the prompt; two of her lines go higher up, picked per reply
+    /// from the pool for this moment (<see cref="AppendLines"/>). Main thread only.
+    /// </summary>
     public static class VoiceNow
     {
         static string _block = string.Empty;
-        static readonly List<string> _samples = new List<string>();
+        static readonly List<string> _pool = new List<string>();
+        static readonly List<string> _all = new List<string>();
+        static readonly List<string> _shown = new List<string>();
+        static readonly List<string> _echoed = new List<string>();
 
         public static string PromptBlock
         {
             get { return _block; }
         }
 
-        /// <summary>The sample lines in the block now, for the repeated-phrase check.</summary>
+        /// <summary>The lines that fit this moment (the rotating pool).</summary>
+        public static IList<string> Pool
+        {
+            get { return _pool; }
+        }
+
+        /// <summary>Every line of hers in use, for the copied-line check.</summary>
         public static IList<string> Samples
         {
-            get { return _samples; }
+            get { return _all; }
         }
 
-        public static void Set(string block, string[] everydaySamples, string[] intimateSamples)
+        public static void Set(string block, IList<string> pool, IList<string> all)
         {
             _block = string.IsNullOrWhiteSpace(block) ? string.Empty : block.Trim();
-            _samples.Clear();
-            if (_block.Length == 0)
-                return;
-            Add(everydaySamples);
-            Add(intimateSamples);
-        }
-
-        static void Add(string[] samples)
-        {
-            if (samples == null)
-                return;
-            for (var i = 0; i < samples.Length; i++)
-            {
-                if (!string.IsNullOrEmpty(samples[i]))
-                    _samples.Add(samples[i]);
-            }
+            _pool.Clear();
+            _all.Clear();
+            if (pool != null)
+                _pool.AddRange(pool);
+            if (all != null)
+                _all.AddRange(all);
         }
 
         /// <summary>The prompt with the block at the end, or unchanged when there is none.</summary>
@@ -605,10 +964,54 @@ namespace AICompanion.Core
             return body.Length == 0 ? _block : body + "\n\n" + _block;
         }
 
+        /// <summary>
+        /// The prompt with two of her lines for this reply, or unchanged when there are none.
+        /// <paramref name="turn"/> rotates them; a line one of <paramref name="recentReplies"/>
+        /// echoed is skipped.
+        /// </summary>
+        public static string AppendLines(string prompt, int turn, IList<string> recentReplies, bool count = true)
+        {
+            var body = prompt == null ? string.Empty : prompt.TrimEnd();
+            if (_pool.Count == 0)
+                return body;
+            var picked = VoicePrompt.Pick(_pool, turn, l =>
+            {
+                if (!RepeatedPhrases.Echoes(recentReplies, l))
+                    return false;
+                if (count && !_echoed.Contains(l))
+                    _echoed.Add(l);
+                return true;
+            });
+            if (count)
+                _shown.AddRange(picked);
+            var line = VoicePrompt.LinesLine(picked);
+            if (line.Length == 0)
+                return body;
+            return body.Length == 0 ? line : body + "\n" + line;
+        }
+
+        /// <summary>
+        /// For the keeper: the lines shown and the lines she echoed since the last call, then
+        /// cleared. Returns false (and touches nothing) when there were none.
+        /// </summary>
+        public static bool TakeUsage(List<string> shown, List<string> echoed)
+        {
+            if (_shown.Count == 0 && _echoed.Count == 0)
+                return false;
+            shown.AddRange(_shown);
+            echoed.AddRange(_echoed);
+            _shown.Clear();
+            _echoed.Clear();
+            return true;
+        }
+
         public static void Reset()
         {
             _block = string.Empty;
-            _samples.Clear();
+            _pool.Clear();
+            _all.Clear();
+            _shown.Clear();
+            _echoed.Clear();
         }
     }
 }
