@@ -96,6 +96,9 @@ namespace AICompanion.Settings
             var innocence = GetComponent<InnocenceKeeper>();
             if (innocence != null)
                 innocence.Forget();
+            var desire = GetComponent<DesireKeeper>();
+            if (desire != null)
+                desire.Forget();
             var intimateSecrets = GetComponent<IntimateSecretsKeeper>();
             if (intimateSecrets != null)
                 intimateSecrets.Forget();

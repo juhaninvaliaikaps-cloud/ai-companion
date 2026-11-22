@@ -51,6 +51,12 @@ namespace AICompanion.Core
 
         public string ReadReason = string.Empty;
 
+        /// <summary>
+        /// JUH-170: her libido from the same reading (0 to 100), or -1 when the reading had none
+        /// (a reading from before JUH-170: the keeper then reads once more for it).
+        /// </summary>
+        public float ReadLibido = -1f;
+
         public bool HasReading
         {
             get { return ReadValue >= 0f && !string.IsNullOrEmpty(ReadHash); }
@@ -90,6 +96,7 @@ namespace AICompanion.Core
             public string readHash;
             public float readValue = -1f;
             public string readReason;
+            public float readLibido = -1f;
         }
 
         public string ToJson()
@@ -105,6 +112,7 @@ namespace AICompanion.Core
                 readHash = ReadHash ?? string.Empty,
                 readValue = ReadValue,
                 readReason = ReadReason ?? string.Empty,
+                readLibido = ReadLibido,
             }, true);
         }
 
@@ -134,6 +142,7 @@ namespace AICompanion.Core
             state.ReadHash = file.readHash ?? string.Empty;
             state.ReadValue = float.IsNaN(file.readValue) || file.readValue < 0f ? -1f : InnocenceMath.Clamp(file.readValue);
             state.ReadReason = file.readReason ?? string.Empty;
+            state.ReadLibido = float.IsNaN(file.readLibido) || file.readLibido < 0f ? -1f : DesireMath.ClampLibido(file.readLibido);
             return state;
         }
     }

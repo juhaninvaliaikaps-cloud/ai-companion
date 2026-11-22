@@ -1580,6 +1580,25 @@ namespace AICompanion.NewUI
                 Button("Use the reading", () => { _settings.UseInnocenceReading(); _rebuild = true; });
             Button(keeper.Reading ? "Read again (reading...)" : "Read again", () => { _settings.ReadInnocenceAgain(); _rebuild = true; });
 
+            // JUH-170: libido is read with innocence; desire moves on its own and is only shown.
+            var desire = _settings.Desire;
+            if (desire != null && desire.IsLoaded)
+            {
+                Section("Libido and desire (18+)");
+                var read = desire.ReadLibido();
+                Slider(v => "Libido " + Mathf.RoundToInt(v) + ": " + DesireMath.LibidoName(v) + " (0 rarely wants it, 100 relentless)",
+                    desire.Libido, DesireMath.Min, DesireMath.Max, true, v => _settings.SetLibido(v));
+                Note(desire.State.LibidoUserSet
+                    ? "Your setting. A new reading of her description does not change it."
+                    : read >= 0f ? "Read from her description with her innocence: " + Mathf.RoundToInt(read) + " (" + DesireMath.LibidoName(read) + ")."
+                    : "Not read yet; she runs on 50 until the next reading of her innocence.");
+                if (desire.State.LibidoUserSet)
+                    Button("Use the reading", () => { _settings.UseLibidoReading(); _rebuild = true; });
+                Note("Desire now: " + Mathf.RoundToInt(desire.Desire) + " (" + DesireMath.BandName(desire.Desire) + ")"
+                    + (desire.Spent ? ", spent after a release" : string.Empty)
+                    + ". It moves on its own: it builds over time toward a level her libido sets, rises in sexual moments and with her kinks, and a climax spends it. You cannot set it.");
+            }
+
             // JUH-125: her 18+ secrets, read on the local model only. What is in them is for the Profile panel to reveal.
             var secrets = _settings.IntimateSecrets;
             if (secrets != null && secrets.IsLoaded)

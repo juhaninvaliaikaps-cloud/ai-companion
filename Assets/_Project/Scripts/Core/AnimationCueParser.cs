@@ -270,7 +270,7 @@ namespace AICompanion.Core
                     else if (status != CueParseStatus.Parsed)
                     {
                         // A broken second tag does not undo a good first one.
-                        cue = new AnimationCue(Emotion.Neutral, NeutralIntensity, string.Empty, 0f, parsed.EmotionField, parsed.Reaction, parsed.Landed, parsed.Secret);
+                        cue = new AnimationCue(Emotion.Neutral, NeutralIntensity, string.Empty, 0f, parsed.EmotionField, parsed.Reaction, parsed.Landed, parsed.Secret, parsed.Heat);
                         status = CueParseStatus.Invalid;
                         rawTag = raw;
                     }
@@ -422,7 +422,7 @@ namespace AICompanion.Core
             return true;
         }
 
-        static readonly string[] LooseStarts = { "emotion=", "gesture=", "intensity=", "direction=", "reaction=", "landed=", "secret=" };
+        static readonly string[] LooseStarts = { "emotion=", "gesture=", "intensity=", "direction=", "reaction=", "landed=", "secret=", "heat=" };
 
         static bool LooksLikeCueStart(string text)
         {
@@ -451,6 +451,7 @@ namespace AICompanion.Core
             var reaction = string.Empty;
             var landed = LandingEvent.Neutral;
             var secret = string.Empty;
+            var heat = DesireHeat.None;
             var ok = true;
 
             foreach (Match attribute in AttributePattern.Matches(trimmed))
@@ -500,18 +501,22 @@ namespace AICompanion.Core
                         // JUH-123: an id that is not one of hers is dropped later, never an unreadable tag.
                         secret = HerSecrets.SanitizeId(value);
                         break;
+                    case DesireHeats.Attribute:
+                        // JUH-170: an unknown word is None, never an unreadable tag.
+                        heat = DesireHeats.Parse(value);
+                        break;
                 }
             }
 
             if (!ok)
             {
                 // A reaction named in a tag with a bad emotion still plays.
-                cue = new AnimationCue(Emotion.Neutral, NeutralIntensity, string.Empty, 0f, emotionField, reaction, landed, secret);
+                cue = new AnimationCue(Emotion.Neutral, NeutralIntensity, string.Empty, 0f, emotionField, reaction, landed, secret, heat);
                 return false;
             }
 
             NormalizeMovementCue(ref gesture, ref direction);
-            cue = new AnimationCue(emotion, intensity, gesture, direction, emotionField, reaction, landed, secret);
+            cue = new AnimationCue(emotion, intensity, gesture, direction, emotionField, reaction, landed, secret, heat);
             return true;
         }
 

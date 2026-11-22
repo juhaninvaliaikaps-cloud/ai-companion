@@ -784,8 +784,9 @@ namespace AICompanion.UI
                     _speech.Cancel();
             }
 
+            // JUH-169: the reply itself stays out of Player.log (private mode and 18+ chats too).
             if (result.Ok && remember)
-                Debug.Log("Chat reply: " + result.Text);
+                Debug.Log("Chat reply: " + (result.Text != null ? result.Text.Length : 0) + " chars");
             else if (result.Ok)
                 Debug.Log("Screen look finished");
             else if (!string.IsNullOrEmpty(result.LogMessage))
@@ -956,7 +957,7 @@ namespace AICompanion.UI
             if (director == null)
                 return;
             director.Play(new AnimationCue(cue.Emotion, cue.Intensity, cue.Gesture, cue.Direction,
-                cue.EmotionField, "strip", cue.Landed, cue.Secret));
+                cue.EmotionField, "strip", cue.Landed, cue.Secret, cue.Heat));
             Debug.Log("Clothing: forced strip because the user removed clothing and the reply had no strip cue");
         }
 
