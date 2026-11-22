@@ -199,6 +199,8 @@ The last Pisara reading. `VoiceKeeper` waits until her description has been read
 - **Everyday:** overall, register, rhythm, words, 3–5 habits, 3–5 things she never does when talking, one line per mood (happy, annoyed, flustered, sad, affectionate), one line with a stranger and one with someone close, and **her own lines**: up to 3 per mood (content, happy, annoyed, flustered, sad, affectionate).
 - **18+:** holding back, letting go, habits, never, and her own lines for holding back and for letting go (up to 3 each).
 
+Since JUH-178 the everyday reading no longer asks for her lines: the full reply was too long for a 12B model to finish ("the reply had no voice"). Her lines per mood come from the refresh, one mood at a time, right after the reading. A reply the model stopped halfway still gives the fields it finished (`JsonRepair.CloseTruncated`). A reply that cannot be read is asked once more, and the log says why it failed (its length, and whether the JSON was unfinished), never its text.
+
 Her lines must be things only she would say, in her world and her words. The reading is told to start each line differently, and code drops a line that starts with the same two words as another (`VoiceText.Varied`).
 
 **When it reads again:** it is saved encrypted per persona (`voice-<persona>.json`, in wipe and export) with the hash of what it was given. It reads again only when that changes: her description, sliders, mood temperament or starting relationship. The 18+ part also reads again when her innocence or libido moves into a new band, so her intimate voice follows her as she gets more experienced. A changed input waits 4 seconds unchanged first (slider drags), and each input is read at most once per launch, unless the user presses **Read again**.

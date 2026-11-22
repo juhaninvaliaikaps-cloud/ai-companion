@@ -29,7 +29,9 @@ namespace AICompanion.AI
     /// </summary>
     public static class VoiceReader
     {
-        public const int EverydayMaxTokens = 1400;
+        // JUH-178: her lines are no longer part of this reading (the refresh writes them mood by
+        // mood), so the reply is short enough for a 12B model to finish.
+        public const int EverydayMaxTokens = 1000;
         public const int IntimateMaxTokens = 800;
         public const int RefreshMaxTokens = 300;
         public const float Temperature = 0.6f;
@@ -48,16 +50,13 @@ namespace AICompanion.AI
             "low confidence means she hedges), her mood temperament and how she starts with the user.\n" +
             "Be concrete: name real habits (how long her sentences are, how she addresses the user, words she uses, what she does when embarrassed), not adjectives. " +
             "Keep every field short. No narration about the user.\n" +
-            LinesRule +
             "Reply with only this JSON object and nothing else:\n" +
             "{\"summary\": \"<one sentence: how she sounds>\", \"register\": \"<formal, casual, crude, old-fashioned...>\", " +
             "\"rhythm\": \"<sentence length and pace>\", \"vocabulary\": \"<the kind of words she uses>\", " +
             "\"habits\": [\"<3 to 5 concrete speech habits>\"], \"never\": [\"<3 to 5 things she would never say or do when talking>\"], " +
             "\"happy\": \"<how her speech changes when happy>\", \"annoyed\": \"<when annoyed>\", \"flustered\": \"<when flustered or embarrassed>\", " +
             "\"sad\": \"<when sad>\", \"affectionate\": \"<when affectionate>\", " +
-            "\"stranger\": \"<how she talks to someone she barely knows>\", \"close\": \"<how she talks to someone close>\", " +
-            "\"lines\": {\"content\": [\"<3 lines>\"], \"happy\": [\"<3 lines>\"], \"annoyed\": [\"<3 lines>\"], \"flustered\": [\"<3 lines>\"], " +
-            "\"sad\": [\"<3 lines>\"], \"affectionate\": [\"<3 lines>\"]}}";
+            "\"stranger\": \"<how she talks to someone she barely knows>\", \"close\": \"<how she talks to someone close>\"}";
 
         /// <summary>What makes her lines hers: asked in every request that writes lines.</summary>
         public const string LinesRule =
@@ -152,7 +151,7 @@ namespace AICompanion.AI
         /// <summary>New lines from a refresh reply, or an empty array.</summary>
         public static string[] ParseLines(string reply)
         {
-            var json = CharacterSheet.ExtractObject(reply);
+            var json = CharacterSheet.ExtractObject(reply) ?? JsonRepair.CloseTruncated(reply);
             if (json == null)
                 return new string[0];
             try
@@ -252,7 +251,35 @@ namespace AICompanion.AI
             return Ask(provider, BuildIntimate(personaName, input), true, cancellation, timeoutSeconds);
         }
 
+        /// <summary>JUH-178: a reply that cannot be read is asked once more before the reading gives up.</summary>
+        public const int ReadTries = 2;
+
         static async Task<VoiceReadResult> Ask(IChatProvider provider, ChatRequest request, bool intimate, CancellationToken cancellation, float timeoutSeconds)
+        {
+            VoiceReadResult result = null;
+            for (var attempt = 0; attempt < ReadTries; attempt++)
+            {
+                result = await AskOnce(provider, request, intimate, cancellation, timeoutSeconds);
+                if (result.Ok || !result.Failure.StartsWith(BadReply, StringComparison.Ordinal) || cancellation.IsCancellationRequested)
+                    return result;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// "the reply had no voice (1834 chars, unfinished)": the length, and whether the JSON
+        /// was left open, never the text.
+        /// </summary>
+        public static string BadReplyDetail(string reply)
+        {
+            var text = reply ?? string.Empty;
+            var finished = CharacterSheet.ExtractObject(text) != null;
+            var opened = text.IndexOf('{') >= 0;
+            return BadReply + " (" + text.Length + " chars, " + (!opened ? "no JSON" : finished ? "unreadable JSON" : "unfinished") + ")";
+        }
+
+        static async Task<VoiceReadResult> AskOnce(IChatProvider provider, ChatRequest request, bool intimate, CancellationToken cancellation, float timeoutSeconds)
         {
             ChatResult reply;
             using (var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
@@ -287,11 +314,11 @@ namespace AICompanion.AI
             if (intimate)
             {
                 var voice = IntimateVoice.Parse(reply.Text);
-                return voice == null ? Fail(BadReply) : new VoiceReadResult { Ok = true, Intimate = voice };
+                return voice == null ? Fail(BadReplyDetail(reply.Text)) : new VoiceReadResult { Ok = true, Intimate = voice };
             }
 
             var sheet = VoiceSheet.Parse(reply.Text);
-            return sheet == null ? Fail(BadReply) : new VoiceReadResult { Ok = true, Everyday = sheet };
+            return sheet == null ? Fail(BadReplyDetail(reply.Text)) : new VoiceReadResult { Ok = true, Everyday = sheet };
         }
 
         static VoiceReadResult Fail(string why)
