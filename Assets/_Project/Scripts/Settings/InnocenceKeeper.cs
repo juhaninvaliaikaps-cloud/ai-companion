@@ -39,7 +39,8 @@ namespace AICompanion.Settings
         bool _forceRead;
         int _generation;
         CancellationTokenSource _cancel;
-        readonly HashSet<string> _triedThisLaunch = new HashSet<string>(StringComparer.Ordinal);
+        // JUH-176: once per launch, unless the model was not answering yet: then again later.
+        readonly ReadRetry _retry = new ReadRetry();
         string _failure = string.Empty;
 
         int _publishedBand = -1;
@@ -236,11 +237,11 @@ namespace AICompanion.Settings
             var key = _key;
             // JUH-170: a reading from before libido was read is asked once more, for libido only.
             var current = string.Equals(hash, _state.ReadHash, StringComparison.Ordinal) && _state.ReadLibido >= 0f;
-            if (!_forceRead && (current || _triedThisLaunch.Contains(key)))
+            if (!_forceRead && (current || !_retry.Ready(key, Time.unscaledTime)))
                 return;
             var full = _forceRead || !string.Equals(hash, _state.ReadHash, StringComparison.Ordinal);
             _forceRead = false;
-            _triedThisLaunch.Add(key);
+            _retry.Started(key);
             Read(_personaId, _readInput, hash, full);
         }
 
@@ -268,6 +269,9 @@ namespace AICompanion.Settings
             if (this == null || generation != _generation || cancel.IsCancellationRequested)
             {
                 cancel.Dispose();
+                // JUH-176: a cancelled reading (a persona switch, Read again) may run again later.
+                if (this != null)
+                    _retry.Failed(persona + "\n" + hash, Time.unscaledTime, true);
                 return;
             }
 
@@ -279,10 +283,19 @@ namespace AICompanion.Settings
             if (!result.Ok || !string.Equals(persona, _personaId, StringComparison.Ordinal))
             {
                 _failure = result.Ok ? string.Empty : result.Failure ?? string.Empty;
-                if (!result.Ok)
-                    Debug.Log("Innocence: reading for " + PersonaLogId() + " gave nothing (" + _failure + ")");
+                if (result.Ok)
+                    _retry.Failed(persona + "\n" + hash, Time.unscaledTime, true);
+                else
+                {
+                    var passing = ReadRetry.IsPassing(_failure);
+                    _retry.Failed(persona + "\n" + hash, Time.unscaledTime, passing);
+                    Debug.Log("Innocence: reading for " + PersonaLogId() + " gave nothing (" + _failure + ")" + (passing ? "; trying again shortly" : string.Empty));
+                }
+
                 return;
             }
+
+            _retry.Succeeded(persona + "\n" + hash);
 
             var hadReading = _state.HasReading;
             if (hadReading && !full && string.Equals(hash, _state.ReadHash, StringComparison.Ordinal))
@@ -405,7 +418,7 @@ namespace AICompanion.Settings
             _state = new InnocenceState();
             _dirty = false;
             _loaded = false;
-            _triedThisLaunch.Clear();
+            _retry.Clear();
             _failure = string.Empty;
             Revision++;
             InnocenceNow.Reset();

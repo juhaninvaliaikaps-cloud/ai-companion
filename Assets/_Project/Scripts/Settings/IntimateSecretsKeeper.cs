@@ -35,7 +35,8 @@ namespace AICompanion.Settings
         bool _forceRead;
         int _generation;
         CancellationTokenSource _cancel;
-        readonly HashSet<string> _triedThisLaunch = new HashSet<string>(StringComparer.Ordinal);
+        // JUH-176: once per launch, unless the model was not answering yet: then again later.
+        readonly ReadRetry _retry = new ReadRetry();
         string _failure = string.Empty;
 
         bool _publishedOn;
@@ -167,10 +168,10 @@ namespace AICompanion.Settings
                 _key = _personaId + "\n" + _hash;
             }
 
-            if (!_forceRead && (string.Equals(_hash, _state.ReadHash, StringComparison.Ordinal) || _triedThisLaunch.Contains(_key)))
+            if (!_forceRead && (string.Equals(_hash, _state.ReadHash, StringComparison.Ordinal) || !_retry.Ready(_key, Time.unscaledTime)))
                 return;
             _forceRead = false;
-            _triedThisLaunch.Add(_key);
+            _retry.Started(_key);
             Read(_personaId, _readInput, _hash);
         }
 
@@ -202,6 +203,9 @@ namespace AICompanion.Settings
             if (this == null || generation != _generation || cancel.IsCancellationRequested)
             {
                 cancel.Dispose();
+                // JUH-176: a cancelled reading (a persona switch, Read again) may run again later.
+                if (this != null)
+                    _retry.Failed(persona + "\n" + hash, Time.unscaledTime, true);
                 return;
             }
 
@@ -213,10 +217,19 @@ namespace AICompanion.Settings
             if (!result.Ok || !string.Equals(persona, _personaId, StringComparison.Ordinal))
             {
                 _failure = result.Ok ? string.Empty : result.Failure ?? string.Empty;
-                if (!result.Ok)
-                    Debug.Log("Intimate secrets: reading for " + PersonaLogId() + " gave nothing (" + _failure + ")");
+                if (result.Ok)
+                    _retry.Failed(persona + "\n" + hash, Time.unscaledTime, true);
+                else
+                {
+                    var passing = ReadRetry.IsPassing(_failure);
+                    _retry.Failed(persona + "\n" + hash, Time.unscaledTime, passing);
+                    Debug.Log("Intimate secrets: reading for " + PersonaLogId() + " gave nothing (" + _failure + ")" + (passing ? "; trying again shortly" : string.Empty));
+                }
+
                 return;
             }
+
+            _retry.Succeeded(persona + "\n" + hash);
 
             _state.SetReading(hash, result.Kinks, result.Sensitive, result.Shy, kinks, sensitive, shy);
             Save();
@@ -308,7 +321,7 @@ namespace AICompanion.Settings
             CancelReading();
             _state = new IntimateSecretsState();
             _loaded = false;
-            _triedThisLaunch.Clear();
+            _retry.Clear();
             _failure = string.Empty;
             Revision++;
             IntimateSecretsNow.Reset();

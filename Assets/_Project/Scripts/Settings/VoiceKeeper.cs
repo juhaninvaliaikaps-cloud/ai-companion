@@ -33,6 +33,9 @@ namespace AICompanion.Settings
         bool _loaded;
         float _checkIn;
         readonly HashSet<string> _tried = new HashSet<string>(StringComparer.Ordinal);
+
+        // JUH-176: a reading that failed because the model was not answering yet is tried again later.
+        readonly ReadRetry _retry = new ReadRetry();
         string _everydayPending = string.Empty;
         float _everydaySince;
         string _intimatePending = string.Empty;
@@ -314,6 +317,7 @@ namespace AICompanion.Settings
             if (!_loaded || string.IsNullOrEmpty(_personaId))
                 return;
             _tried.Clear();
+            _retry.Clear();
             MaybeRead(true);
         }
 
@@ -336,7 +340,7 @@ namespace AICompanion.Settings
             var same = pisara.Revision == _sigSheet && ReferenceEquals(prompt, _sigPrompt) && ReferenceEquals(AdultNotesNow.Notes, _sigNotes)
                 && ReferenceEquals(PersonaMannerNow.PromptLine, _sigManner) && gateNow == _sigGate && bandNow == _sigBand
                 && innocenceReading == _sigInnocenceReading;
-            if (!force && same && _everydayPending.Length == 0 && _intimatePending.Length == 0)
+            if (!force && same && _everydayPending.Length == 0 && _intimatePending.Length == 0 && !_retry.AnyWaiting)
                 return;
             _sigSheet = pisara.Revision;
             _sigPrompt = prompt;
@@ -357,7 +361,7 @@ namespace AICompanion.Settings
             var everydayInput = VoiceInput.Everyday(prompt, axes, sheet);
             var everydayHash = VoiceInput.Hash(everydayInput);
             if (!ReadingEveryday && Due(force, everydayHash, _file.everydayHash, ref _everydayPending, ref _everydaySince, "e"))
-                ReadEveryday(name, everydayInput, everydayHash);
+                ReadEveryday(name, everydayInput, everydayHash, "e" + _personaId + everydayHash);
 
             // 18+: only while the gate is open, after her innocence reading, on the local model.
             if (!IntimateExpressions.Active)
@@ -372,16 +376,17 @@ namespace AICompanion.Settings
             // Bands, not exact values, decide: her slow drift re-reads only in a new band.
             var intimateHash = VoiceInput.IntimateHash(withNotes, axes, sheet, innocence.State.Current, libido);
             if (!ReadingIntimate && Due(force, intimateHash, _file.intimateHash, ref _intimatePending, ref _intimateSince, "i"))
-                ReadIntimate(name, intimateInput, intimateHash);
+                ReadIntimate(name, intimateInput, intimateHash, "i" + _personaId + intimateHash);
         }
 
         /// <summary>True when this part should be read now: forced, or new and unchanged for a few seconds, once per launch.</summary>
         bool Due(bool force, string hash, string savedHash, ref string pending, ref float since, string part)
         {
+            var key = part + _personaId + hash;
             if (force)
             {
                 pending = string.Empty;
-                _tried.Add(part + _personaId + hash);
+                _retry.Started(key);
                 return true;
             }
 
@@ -400,15 +405,14 @@ namespace AICompanion.Settings
 
             if (Time.unscaledTime - since < SettleSeconds)
                 return false;
-            var key = part + _personaId + hash;
-            if (_tried.Contains(key))
+            if (!_retry.Ready(key, Time.unscaledTime))
                 return false;
-            _tried.Add(key);
+            _retry.Started(key);
             pending = string.Empty;
             return true;
         }
 
-        async void ReadEveryday(string name, string input, string hash)
+        async void ReadEveryday(string name, string input, string hash, string retryKey)
         {
             var pisara = GetComponent<PisaraReadingKeeper>();
             bool keepsLocal;
@@ -425,6 +429,9 @@ namespace AICompanion.Settings
             if (this == null || generation != _generation || !string.Equals(persona, _personaId, StringComparison.Ordinal))
             {
                 cancel.Dispose();
+                // JUH-176: cancelled by a persona switch: it may run again later.
+                if (this != null)
+                    _retry.Failed(retryKey, Time.unscaledTime, true);
                 return;
             }
 
@@ -433,6 +440,7 @@ namespace AICompanion.Settings
             cancel.Dispose();
             if (result.Ok)
             {
+                _retry.Succeeded(retryKey);
                 _file.everyday = result.Everyday;
                 _file.everydayHash = hash;
                 _file.everydayBy = readBy;
@@ -446,7 +454,9 @@ namespace AICompanion.Settings
             else
             {
                 EverydayStatus = "Not read: " + result.Failure + (_file.everyday.IsEmpty ? "." : "; the earlier reading stays.");
-                Debug.LogWarning("Voice: " + LogId() + " everyday reading failed (" + result.Failure + ")");
+                var passing = ReadRetry.IsPassing(result.Failure);
+                _retry.Failed(retryKey, Time.unscaledTime, passing);
+                Debug.LogWarning("Voice: " + LogId() + " everyday reading failed (" + result.Failure + ")" + (passing ? "; trying again shortly" : string.Empty));
             }
 
             _contentRevision++;
@@ -454,7 +464,7 @@ namespace AICompanion.Settings
             Publish(true);
         }
 
-        async void ReadIntimate(string name, string input, string hash)
+        async void ReadIntimate(string name, string input, string hash, string retryKey)
         {
             var pisara = GetComponent<PisaraReadingKeeper>();
             string readBy;
@@ -470,6 +480,9 @@ namespace AICompanion.Settings
             if (this == null || generation != _generation || !string.Equals(persona, _personaId, StringComparison.Ordinal))
             {
                 cancel.Dispose();
+                // JUH-176: cancelled by a persona switch: it may run again later.
+                if (this != null)
+                    _retry.Failed(retryKey, Time.unscaledTime, true);
                 return;
             }
 
@@ -478,6 +491,7 @@ namespace AICompanion.Settings
             cancel.Dispose();
             if (result.Ok)
             {
+                _retry.Succeeded(retryKey);
                 _file.intimate = result.Intimate;
                 _file.intimateHash = hash;
                 _file.intimateBy = readBy;
@@ -488,7 +502,9 @@ namespace AICompanion.Settings
             else
             {
                 IntimateStatus = "Not read: " + result.Failure + (_file.intimate.IsEmpty ? "." : "; the earlier reading stays.");
-                Debug.LogWarning("Voice: " + LogId() + " intimate reading failed (" + result.Failure + ")");
+                var passing = ReadRetry.IsPassing(result.Failure);
+                _retry.Failed(retryKey, Time.unscaledTime, passing);
+                Debug.LogWarning("Voice: " + LogId() + " intimate reading failed (" + result.Failure + ")" + (passing ? "; trying again shortly" : string.Empty));
             }
 
             _contentRevision++;
@@ -612,6 +628,7 @@ namespace AICompanion.Settings
             _loaded = false;
             _sigSheet = -1;
             _tried.Clear();
+            _retry.Clear();
             Revision++;
             VoiceNow.Reset();
         }

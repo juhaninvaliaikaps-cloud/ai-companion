@@ -552,6 +552,16 @@ The line also says when she is conflicted (affection -10 or lower while aroused:
 
 **Not done yet:** a blush or breathing driven by desire on the avatar, and a meter that always shows on screen (today it shows in the Profile panel and with each floating piece).
 
+## When a reading fails (JUH-176)
+
+The innocence, 18+ secrets and voice readings are each asked once per launch for what they read. When the local model is not running yet at start (Ollama's port refused), they used to fail in the first seconds and stay empty until the next launch, although chat worked a minute later (Jussi's log, 2026-11-22). Now a failure that can pass by itself is tried again (`ReadRetry`): the model did not answer, took too long, or the call failed.
+
+- The retries come after 30 s, 60 s, 2 min, then every 5 min, up to 6 tries per launch.
+- A refusal (gate closed, cloud refused), no model set up, or a reply with nothing usable still ends it for the launch, and so does a success.
+- A reading cancelled by a persona switch may run again later.
+- **Read again** starts over.
+- The log line says "trying again shortly".
+
 ## Guards
 
 - **Local only when it must be.** Every model call here follows `IntimateExpressions.KeepsLocal` and Private mode, except the JUH-126 character-sheet reading when the Pisara cloud toggle is on: that one reading may go to its own cloud service, always gate-closed. Chat, voice, session memories, innocence and 18+ secrets never use it.
