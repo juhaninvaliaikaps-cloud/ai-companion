@@ -331,8 +331,8 @@ namespace AICompanion.Settings
 
             _dirty = true;
             Save(true);
-            Debug.Log("Innocence: " + PersonaLogId() + " read as " + result.Value.ToString("0")
-                + (_state.UserSet ? " (your setting is kept)" : string.Empty) + ": " + _state.ReadReason);
+            // JUH-184: the number and band only. The reason is 18+ reading text and stays out of Player.log.
+            Debug.Log(InnocenceLog.ReadLine(PersonaLogId(), result.Value, _state.UserSet));
             Publish(true);
         }
 

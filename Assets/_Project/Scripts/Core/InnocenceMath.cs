@@ -158,3 +158,20 @@ namespace AICompanion.Core
         }
     }
 }
+
+namespace AICompanion.Core
+{
+    /// <summary>
+    /// JUH-184: the Player.log line for an innocence reading: the persona, the number and its
+    /// band. Never the reading's reason, which is 18+ text (Player.log has counts and kinds only).
+    /// </summary>
+    public static class InnocenceLog
+    {
+        public static string ReadLine(string persona, float value, bool userSet)
+        {
+            return "Innocence: " + persona + " read as " + value.ToString("0", System.Globalization.CultureInfo.InvariantCulture)
+                + " (" + InnocenceMath.BandName(value) + ")"
+                + (userSet ? ", your setting is kept" : string.Empty);
+        }
+    }
+}
