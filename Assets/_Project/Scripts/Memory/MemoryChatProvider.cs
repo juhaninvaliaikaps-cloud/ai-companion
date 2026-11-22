@@ -177,6 +177,7 @@ namespace AICompanion.Memory
                 Image = request.Image,
                 BlockCloud = request.BlockCloud,
                 NoMemory = request.NoMemory,
+                Roleplay = request.Roleplay,
             };
         }
 

@@ -55,6 +55,9 @@ namespace AICompanion.UI
         string PersonaPrompt(bool chatMessage)
         {
             var prompt = CompanionMoodPrompt.AppendCurrent(settings != null ? settings.systemPrompt : string.Empty);
+            // JUH-171: how she carries herself, from her temperament sliders, so a mood or the
+            // relationship line colours her manner instead of replacing it.
+            prompt = PersonaMannerNow.Append(prompt);
             // JUH-118 section 4: who she is to the user now, right after the mood line.
             prompt = RelationshipNow.Append(prompt);
             // JUH-116: where she sits between Innocent and Perverted; empty while the 18+ gate is closed.

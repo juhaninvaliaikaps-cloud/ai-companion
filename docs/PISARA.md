@@ -177,6 +177,14 @@ The character sheet may also carry `temperament.axes` with `axesSet: true`. When
 
 A mix averages gains and half-lives by share. It keeps the leader's baseline only when the leader has at least 60 %, and scales the rest bias by share. Intimate is never touched, and every number passes the same clamps as the presets. When `axesSet` is true and any mood slider is off 50, Auto uses those sliders instead of this blend (`TemperamentMood`). Curiosity alone does not. The sliders for a blend with no axes are the mix of the two presets' points, for the settings UI only.
 
+### Her manner in chat (JUH-171)
+
+Before JUH-171 the nine sliders only moved her mood and game remarks. The chat model never heard them, so a self-assured, assertive character came out timid and stammering in romantic scenes, where the mood line (flustered) and the relationship line (guarded) pulled the other way. Now `PersonaManner.Line` names every slider at 70 or more, or 30 or less, in one line right after the mood line, for example: "Her manner: takes the lead, says what she means, self-assured." The line also asks her to keep that manner in every scene, romantic and intimate ones included. When her confidence or assertiveness is 70 or more, it adds that being flustered, guarded or aroused never makes her timid. A profile at 50 gives no line. `CompanionMoodKeeper` publishes it through `PersonaMannerNow` whenever it resolves her temperament.
+
+**Repeated phrases.** Before each typed or spoken message, `RepeatedPhrases.Find` looks at her last five replies. A phrase of two to four words that showed up in at least three of them is named in one line at the end of the prompt, with a request to vary it (up to four phrases, longest first). A phrase made only of small common words is never named. A local-only (18+) reply is looked at only when the send is private, so none of its words can reach a cloud request. Player.log gets the count only.
+
+**Sampler.** Her replies on the local model (`ChatRequest.Roleplay`, set by the conversation) add `repeat_penalty` 1.08 over the last 1024 tokens and `min_p` 0.05 (`OllamaChatJson.RoleplayOptions`). Ollama's default penalty looks back only 64 tokens. Readings, summaries and other JSON tasks keep Ollama's defaults, and the temperature stays the user's setting.
+
 ## Relationship
 
 State per persona (`RelationshipState`, JUH-119): `Affection` -100..100, `Familiarity` 0..100, `SecondsTogether`. The math below works on plain numbers, so it does not depend on that class.

@@ -79,6 +79,13 @@ namespace AICompanion.AI
         /// recalled (JUH-118). For requests that are not her talking: the session-memory request.
         /// </summary>
         public bool NoMemory;
+
+        /// <summary>
+        /// JUH-171: this request is her talking in the conversation (not a reading, a summary or
+        /// a JSON task). The local model then gets sampler settings against repeated phrasing
+        /// (<see cref="OllamaChatJson.RoleplayOptions"/>); other requests keep Ollama's defaults.
+        /// </summary>
+        public bool Roleplay;
     }
 
     /// <summary>
