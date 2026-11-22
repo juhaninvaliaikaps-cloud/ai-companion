@@ -197,7 +197,7 @@ try {
                     $eventLine = $line.Substring(0, [Math]::Min(500, $line.Length))
                     $eventRow = [pscustomobject]@{ Time = $time; Line = $eventLine; Vram = $vramUsed; Gpu = $gpuUtil }
                     $recentEvents.Add($eventRow)
-                    if ($line -match 'Screen look|ScreenLook') { $lookCount++ }
+                    if ($line -match 'Screen look|ScreenLook|Game companion: She said') { $lookCount++ }
                     if ($recentEvents.Count -gt 100) { $recentEvents.RemoveAt(0) }
                     "`"$time`",event,`"$($eventLine -replace '"','""')`"" | Add-Content -Path $eventsPath -Encoding UTF8
                     Write-Host ("  {0}  {1}" -f $time, $eventLine) -ForegroundColor DarkGray
@@ -234,7 +234,7 @@ try {
     "" | Add-Content -Path $summaryPath -Encoding UTF8
     "Events: $eventCount" | Add-Content -Path $summaryPath -Encoding UTF8
     "Screen-look events: $lookCount" | Add-Content -Path $summaryPath -Encoding UTF8
-    $looks = @($recentEvents | Where-Object { $_.Line -match 'Screen look|ScreenLook' })
+    $looks = @($recentEvents | Where-Object { $_.Line -match 'Screen look|ScreenLook|Game companion: She said' })
     foreach ($look in $looks | Select-Object -Last 10) {
         "  {0}  VRAM {1} MB  GPU {2}%  {3}" -f $look.Time, (Fmt $look.Vram), (Fmt $look.Gpu), $look.Line |
             Add-Content -Path $summaryPath -Encoding UTF8

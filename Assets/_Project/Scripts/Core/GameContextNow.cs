@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 
 namespace AICompanion.Core
@@ -10,10 +11,12 @@ namespace AICompanion.Core
     public static class GameContextNow
     {
         public const int MaxLength = 2200;
+        public const int MaxObservations = 3;
 
         static string _game = string.Empty;
-        static string _observation = string.Empty;
+        static string _primer = string.Empty;
         static string _patch = string.Empty;
+        static readonly List<string> _observations = new List<string>();
 
         public static string Game
         {
@@ -31,16 +34,29 @@ namespace AICompanion.Core
             if (string.Equals(value, _game, System.StringComparison.Ordinal))
                 return;
             _game = value;
-            if (_game.Length == 0)
-            {
-                _observation = string.Empty;
-                _patch = string.Empty;
-            }
+            _observations.Clear();
+            _primer = string.Empty;
+            _patch = string.Empty;
+        }
+
+        public static void SetPrimer(string primer)
+        {
+            _primer = Trim(primer);
         }
 
         public static void SetObservation(string observation)
         {
-            _observation = Trim(observation);
+            var value = Trim(observation);
+            if (value.Length == 0)
+                return;
+            for (var i = 0; i < _observations.Count; i++)
+            {
+                if (string.Equals(_observations[i], value, System.StringComparison.Ordinal))
+                    return;
+            }
+            _observations.Add(value);
+            while (_observations.Count > MaxObservations)
+                _observations.RemoveAt(0);
         }
 
         public static void SetPatchContext(string context)
@@ -51,8 +67,9 @@ namespace AICompanion.Core
         public static void Clear()
         {
             _game = string.Empty;
-            _observation = string.Empty;
+            _primer = string.Empty;
             _patch = string.Empty;
+            _observations.Clear();
         }
 
         /// <summary>Append the game note to a chat prompt when a game is active.</summary>
@@ -63,10 +80,16 @@ namespace AICompanion.Core
 
             var sb = new StringBuilder((prompt ?? string.Empty).TrimEnd());
             sb.Append("\n\nGame you are watching: ").Append(_game).Append('.');
-            if (!string.IsNullOrEmpty(_observation))
-                sb.Append("\nLast screen observation: ").Append(_observation);
+            if (!string.IsNullOrEmpty(_primer))
+                sb.Append("\nGame primer (background; do not invent beyond it):\n").Append(_primer);
             if (!string.IsNullOrEmpty(_patch))
                 sb.Append("\nRecent public patch/meta context (background only; do not invent beyond it):\n").Append(_patch);
+            if (_observations.Count > 0)
+            {
+                sb.Append("\nRecent screen observations (newest last):");
+                for (var i = 0; i < _observations.Count; i++)
+                    sb.Append("\n- ").Append(_observations[i]);
+            }
             return sb.ToString();
         }
 

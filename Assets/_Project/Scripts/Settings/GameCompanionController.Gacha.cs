@@ -327,17 +327,22 @@ namespace AICompanion.Settings
 
         ChatImageAttachment Encode(CapturedWindowFrame frame)
         {
+            return Encode(frame, ScreenImageBudget.MaxEdge, ScreenImageBudget.Qualities, AICompanion.AI.VisionCapability.MaxImageBytes);
+        }
+
+        ChatImageAttachment Encode(CapturedWindowFrame frame, int maxEdge, int[] qualities, int maxBytes)
+        {
             byte[] small;
             int width;
             int height;
-            ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out small, out width, out height, ScreenImageBudget.MaxEdge, true);
+            ScreenImageBudget.Downscale(frame.Bgra, frame.Width, frame.Height, frame.Width * 4, out small, out width, out height, maxEdge, true);
             if (small == null || ScreenImageBudget.LooksBlank(small, width, height))
                 return null;
 
             var rgba = ScreenImageBudget.BgraTopDownToRgbaBottomUp(small, width, height);
             Array.Clear(small, 0, small.Length);
             int quality;
-            var jpeg = ScreenImageBudget.FitJpeg(q => EncodeJpeg(rgba, width, height, q), out quality);
+            var jpeg = ScreenImageBudget.FitJpeg(q => EncodeJpeg(rgba, width, height, q), out quality, maxBytes, qualities);
             Array.Clear(rgba, 0, rgba.Length);
             if (jpeg == null || jpeg.Length == 0)
                 return null;

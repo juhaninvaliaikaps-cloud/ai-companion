@@ -13,6 +13,7 @@ namespace AICompanion.GameCompanion
             "One or two short spoken sentences, in your own voice. Do not describe static menus, HUD numbers, loading screens, " +
             "or the fact that you received a picture. Do not invent events that are not visible. " +
             "Do not mention private or hidden information. If there is nothing worth saying, reply with exactly SILENT. " +
+            "When a menu, quest label or objective is visible and the text is clear, read only that visible text; do not guess blurred text. " +
             "Do not use stage directions or tags.";
 
         public static string Turn(GameTitle game)

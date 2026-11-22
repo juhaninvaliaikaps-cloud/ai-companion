@@ -9,6 +9,9 @@ namespace AICompanion.ScreenLook
     public static class ScreenImageBudget
     {
         public const int MaxEdge = 768;
+        public const int LiveMaxEdge = 1280;
+        public const int LiveMaxBytes = 400 * 1024;
+        public static readonly int[] LiveQualities = { 85, 75, 65 };
         /// <summary>
         /// Local vision keeps the window at its native size up to this edge. The earlier 1280
         /// halved a 1595 px Notepad window, which turned 11-16 px text into 5-8 px and made the

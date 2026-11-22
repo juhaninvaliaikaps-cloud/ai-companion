@@ -17,8 +17,8 @@ namespace AICompanion.Settings
     /// </summary>
     public sealed partial class GameCompanionController
     {
-        public const float LiveSampleSeconds = 20f;
-        public const float LiveCommentGapSeconds = 40f;
+        public const float LiveSampleSeconds = 30f;
+        public const float LiveCommentGapSeconds = 45f;
         public const float LiveFrameDifference = 14f;
 
         bool _liveLooking;
@@ -87,7 +87,7 @@ namespace AICompanion.Settings
             }
 
             _lastLiveThumb = thumb;
-            var attachment = Encode(frame);
+            var attachment = Encode(frame, ScreenImageBudget.LiveMaxEdge, ScreenImageBudget.LiveQualities, ScreenImageBudget.LiveMaxBytes);
             Wipe(frame);
             if (attachment == null)
             {
@@ -181,14 +181,12 @@ namespace AICompanion.Settings
             _patchLooking = true;
             _nextPatchLookupUtc = DateTime.UtcNow.AddHours(6);
             _patchGame = CommentaryPrompt.GameName(game);
-            WebSearchTool.RequestForGame(panel, _patchGame, response =>
+            GameKnowledge.Request(panel, game, context =>
             {
                 _patchLooking = false;
-                var context = WebSearchTool.BuildContext(response);
                 if (!string.IsNullOrEmpty(context) && _alive)
                 {
-                    GameContextNow.SetPatchContext(context);
-                    Touch("Patch context loaded for " + _patchGame + ".");
+                    Touch("Game reference loaded for " + _patchGame + ".");
                 }
             });
         }
