@@ -91,15 +91,15 @@ namespace AICompanion.Core
         /// <summary>When a newer normal piece pushed this one out (it fades early); NaN while it is not.</summary>
         public float RetiredAt;
 
-        public bool IsCritical
-        {
-            get { return Kind == FeedbackKind.CritUp || Kind == FeedbackKind.CritDown; }
-        }
-
         /// <summary>JUH-170: a desire piece, shown only while the 18+ gate is open.</summary>
         public bool IsDesire
         {
             get { return Kind == FeedbackKind.DesireUp || Kind == FeedbackKind.DesireDown; }
+        }
+
+        public bool IsCritical
+        {
+            get { return Kind == FeedbackKind.CritUp || Kind == FeedbackKind.CritDown; }
         }
     }
 
