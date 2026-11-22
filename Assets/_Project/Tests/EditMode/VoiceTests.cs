@@ -152,6 +152,31 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void HighDesire_MovesEvenAShyOneTowardLettingGo()
+        {
+            Assert.AreEqual(0, VoicePrompt.IntimateStage(5f, -1f));
+            Assert.AreEqual(0, VoicePrompt.IntimateStage(5f, 30f), "warm is not enough");
+            Assert.AreEqual(1, VoicePrompt.IntimateStage(5f, 80f), "very aroused: both lines");
+            Assert.AreEqual(2, VoicePrompt.IntimateStage(50f, 80f));
+            Assert.AreEqual(2, VoicePrompt.IntimateStage(95f, 5f));
+
+            var intimate = new IntimateVoice { holdingBack = "whispers, embarrassed", lettingGo = "bold demands" }.Normalize();
+            var aroused = VoicePrompt.Block("M", Sheet(), intimate, CompanionMood.Content, 0f, 10f, true, 5f, null, 80f);
+            StringAssert.Contains("When she lets go: bold demands.", aroused);
+            Assert.AreNotEqual(VoicePrompt.Key(Sheet(), CompanionMood.Content, 0f, 10f, true, 5f, 10f), VoicePrompt.Key(Sheet(), CompanionMood.Content, 0f, 10f, true, 5f, 80f));
+        }
+
+        [Test]
+        public void TheIntimateInput_CarriesHerLibido_AndReReadsOnlyInANewBand()
+        {
+            var sheet = CharacterSheet.Neutral("A swordswoman.");
+            StringAssert.Contains("Libido, how relentless her needs are: 85 of 100 (relentless)", VoiceInput.Intimate("x", Confident(), sheet, 50f, 85f));
+            StringAssert.DoesNotContain("Libido", VoiceInput.Intimate("x", Confident(), sheet, 50f));
+            Assert.AreEqual(VoiceInput.IntimateHash("x", Confident(), sheet, 50f, 85f), VoiceInput.IntimateHash("x", Confident(), sheet, 52f, 88f), "same bands");
+            Assert.AreNotEqual(VoiceInput.IntimateHash("x", Confident(), sheet, 50f, 85f), VoiceInput.IntimateHash("x", Confident(), sheet, 90f, 85f));
+        }
+
+        [Test]
         public void VoiceNow_GoesLast_AndCarriesTheSamples()
         {
             VoiceNow.Set("How M talks: ...", new[] { "Keep up, rookie." }, null);

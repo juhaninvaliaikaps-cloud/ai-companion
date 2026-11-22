@@ -125,7 +125,9 @@ namespace AICompanion.Settings
                 return;
             var innocenceKeeper = GetComponent<InnocenceKeeper>();
             var gateNow = IntimateExpressions.Active;
-            var bandNow = innocenceKeeper != null && innocenceKeeper.IsLoaded ? InnocenceMath.Band(innocenceKeeper.State.Current) : -1;
+            var desireKeeper = GetComponent<DesireKeeper>();
+            var bandNow = (innocenceKeeper != null && innocenceKeeper.IsLoaded ? InnocenceMath.Band(innocenceKeeper.State.Current) : -1)
+                + 10 * (desireKeeper != null && desireKeeper.IsLoaded ? DesireMath.LibidoBand(desireKeeper.Libido) : -1);
             var innocenceReading = innocenceKeeper != null && innocenceKeeper.Reading;
             var prompt = chat.systemPrompt ?? string.Empty;
             var same = pisara.Revision == _sigSheet && ReferenceEquals(prompt, _sigPrompt) && ReferenceEquals(AdultNotesNow.Notes, _sigNotes)
@@ -160,10 +162,12 @@ namespace AICompanion.Settings
             var innocence = GetComponent<InnocenceKeeper>();
             if (innocence == null || !innocence.IsLoaded || innocence.Reading)
                 return;
-            var intimateInput = VoiceInput.Intimate(AdultNotesNow.ForReading(prompt), axes, sheet, innocence.State.Current);
-            // The band, not the exact value, decides: her slow drift re-reads only in a new band.
-            var intimateHash = VoiceInput.Hash(VoiceInput.Intimate(AdultNotesNow.ForReading(prompt), axes, sheet,
-                InnocenceMath.Band(innocence.State.Current) * 25f));
+            var desire = GetComponent<DesireKeeper>();
+            var libido = desire != null && desire.IsLoaded ? desire.Libido : -1f;
+            var withNotes = AdultNotesNow.ForReading(prompt);
+            var intimateInput = VoiceInput.Intimate(withNotes, axes, sheet, innocence.State.Current, libido);
+            // Bands, not exact values, decide: her slow drift re-reads only in a new band.
+            var intimateHash = VoiceInput.IntimateHash(withNotes, axes, sheet, innocence.State.Current, libido);
             if (!ReadingIntimate && Due(force, intimateHash, _file.intimateHash, ref _intimatePending, ref _intimateSince, "i"))
                 ReadIntimate(name, intimateInput, intimateHash);
         }
@@ -350,7 +354,8 @@ namespace AICompanion.Settings
             }
 
             var everyday = _everyday;
-            var key = VoicePrompt.Key(everyday, CompanionMoodNow.Shown, CompanionMoodNow.Strength, familiarity, gate, innocence);
+            var desire = Desire();
+            var key = VoicePrompt.Key(everyday, CompanionMoodNow.Shown, CompanionMoodNow.Strength, familiarity, gate, innocence, desire);
             if (!force && key == _publishedKey && _contentRevision == _publishedRevision)
                 return;
             _publishedKey = key;
@@ -359,7 +364,7 @@ namespace AICompanion.Settings
             var axes = Axes();
             var pisara = GetComponent<PisaraReadingKeeper>();
             var block = VoicePrompt.Block(pisara != null ? pisara.NameFor(_personaId) : string.Empty, everyday, intimate,
-                CompanionMoodNow.Shown, CompanionMoodNow.Strength, familiarity, gate, innocence, axes);
+                CompanionMoodNow.Shown, CompanionMoodNow.Strength, familiarity, gate, innocence, axes, desire);
             VoiceNow.Set(block, everyday.samples, intimate != null ? intimate.samples : null);
         }
 
@@ -432,6 +437,13 @@ namespace AICompanion.Settings
         {
             var innocence = GetComponent<InnocenceKeeper>();
             return innocence != null && innocence.IsLoaded ? innocence.State.Current : InnocenceMath.Default;
+        }
+
+        /// <summary>Her desire now (JUH-170), or -1 while the gate is closed or it is not loaded.</summary>
+        float Desire()
+        {
+            var desire = GetComponent<DesireKeeper>();
+            return IntimateExpressions.Active && desire != null && desire.IsLoaded ? desire.Desire : -1f;
         }
 
         float Familiarity()

@@ -242,15 +242,30 @@ namespace AICompanion.Core
         }
 
         /// <summary>
-        /// The 18+ input: the everyday input with her 18+ notes in the description, and her
-        /// innocence band. Local only. <paramref name="personaPromptWithNotes"/> comes from
-        /// <see cref="AdultNotesNow.ForReading"/>.
+        /// The 18+ input: the everyday input with her 18+ notes in the description, her innocence
+        /// and her libido (JUH-170; below 0 when there is none). Local only.
+        /// <paramref name="personaPromptWithNotes"/> comes from <see cref="AdultNotesNow.ForReading"/>.
         /// </summary>
-        public static string Intimate(string personaPromptWithNotes, TemperamentAxes axes, CharacterSheet sheet, float innocence)
+        public static string Intimate(string personaPromptWithNotes, TemperamentAxes axes, CharacterSheet sheet, float innocence, float libido = -1f)
         {
-            return Everyday(personaPromptWithNotes, axes, sheet)
+            var text = Everyday(personaPromptWithNotes, axes, sheet)
                 + "\n- Innocent to perverted: " + InnocenceMath.Clamp(innocence).ToString("0", CultureInfo.InvariantCulture)
                 + " of 100 (" + InnocenceMath.BandName(innocence) + ")";
+            if (libido >= 0f)
+                text += "\n- Libido, how relentless her needs are: " + DesireMath.ClampLibido(libido).ToString("0", CultureInfo.InvariantCulture)
+                    + " of 100 (" + DesireMath.LibidoName(libido) + ")";
+            return text;
+        }
+
+        /// <summary>
+        /// The key the 18+ reading is saved under: bands, not exact values, so her slow drift in
+        /// innocence (and a libido nudge) re-reads only when she moves into a new band.
+        /// </summary>
+        public static string IntimateHash(string personaPromptWithNotes, TemperamentAxes axes, CharacterSheet sheet, float innocence, float libido = -1f)
+        {
+            var key = Everyday(personaPromptWithNotes, axes, sheet) + "\ninnocence band " + InnocenceMath.Band(innocence)
+                + (libido >= 0f ? "\nlibido band " + DesireMath.LibidoBand(libido) : string.Empty);
+            return Hash(key);
         }
 
         /// <summary>
@@ -338,9 +353,23 @@ namespace AICompanion.Core
             }
         }
 
+        /// <summary>
+        /// Which of the 18+ lines to use: 0 holding back, 1 both, 2 letting go. Her innocence
+        /// decides first; very high desire (JUH-170, band 3 or more) moves her one step toward
+        /// letting go, so even a shy one gives in. <paramref name="desire"/> below 0 means none.
+        /// </summary>
+        public static int IntimateStage(float innocence, float desire)
+        {
+            var band = InnocenceMath.Band(innocence);
+            var stage = band <= 1 ? 0 : band == 2 ? 1 : 2;
+            if (desire >= 0f && DesireMath.Band(desire) >= 3)
+                stage = Math.Min(2, stage + 1);
+            return stage;
+        }
+
         /// <summary>The block, or empty when there is nothing read or written yet.</summary>
         public static string Block(string name, VoiceSheet voice, IntimateVoice intimate, CompanionMood mood, float moodStrength,
-            float familiarity, bool gateOpen, float innocence, TemperamentAxes axes)
+            float familiarity, bool gateOpen, float innocence, TemperamentAxes axes, float desire = -1f)
         {
             var everyday = voice != null && !voice.IsEmpty;
             var adult = gateOpen && intimate != null && !intimate.IsEmpty;
@@ -367,11 +396,11 @@ namespace AICompanion.Core
 
             if (adult)
             {
-                var band = InnocenceMath.Band(innocence);
+                var stage = IntimateStage(innocence, desire);
                 string scene;
-                if (band <= 1)
+                if (stage == 0)
                     scene = Pick(intimate.holdingBack, intimate.lettingGo);
-                else if (band >= 3)
+                else if (stage == 2)
                     scene = Pick(intimate.lettingGo, intimate.holdingBack);
                 else
                     scene = Join(intimate.holdingBack, intimate.lettingGo);
@@ -389,12 +418,12 @@ namespace AICompanion.Core
         }
 
         /// <summary>A key that changes exactly when <see cref="Block"/> would, for a given reading revision.</summary>
-        public static int Key(VoiceSheet voice, CompanionMood mood, float moodStrength, float familiarity, bool gateOpen, float innocence)
+        public static int Key(VoiceSheet voice, CompanionMood mood, float moodStrength, float familiarity, bool gateOpen, float innocence, float desire = -1f)
         {
             var moodLine = MoodLine(voice, mood, moodStrength).Length > 0 ? (int)mood + 1 : 0;
             return moodLine
                 + 100 * (familiarity >= CloseFrom ? 1 : 0)
-                + 1000 * (gateOpen ? 1 + InnocenceMath.Band(innocence) : 0);
+                + 1000 * (gateOpen ? 1 + IntimateStage(innocence, desire) : 0);
         }
 
         static string Pick(string first, string second)

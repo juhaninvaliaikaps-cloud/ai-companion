@@ -193,18 +193,18 @@ The last Pisara reading. `VoiceKeeper` waits until her description has been read
 - her nine sliders as numbers
 - her mood temperament ("mostly tsundere")
 - how she starts with the user
-- for the 18+ request also: her 18+ notes and where she sits between innocent and perverted
+- for the 18+ request also: her 18+ notes, where she sits between innocent and perverted, and her libido (JUH-170)
 
 **What it gives** (`VoiceSheet`, `IntimateVoice`): short fixed fields.
 - **Everyday:** overall, register, rhythm, words, 3–5 habits, 3–5 things she never does when talking, one line per mood (happy, annoyed, flustered, sad, affectionate), one line with a stranger and one with someone close, and 2 sample lines.
 - **18+:** holding back, letting go, habits, never, and 2 samples.
 
-**When it reads again:** it is saved encrypted per persona (`voice-<persona>.json`, in wipe and export) with the hash of what it was given. It reads again only when that changes: her description, sliders, mood temperament or starting relationship. The 18+ part also reads again when her innocence moves into a new band, so her intimate voice follows her as she gets more experienced. A changed input waits 4 seconds unchanged first (slider drags), and each input is read at most once per launch, unless the user presses **Read again**.
+**When it reads again:** it is saved encrypted per persona (`voice-<persona>.json`, in wipe and export) with the hash of what it was given. It reads again only when that changes: her description, sliders, mood temperament or starting relationship. The 18+ part also reads again when her innocence or libido moves into a new band, so her intimate voice follows her as she gets more experienced. A changed input waits 4 seconds unchanged first (slider drags), and each input is read at most once per launch, unless the user presses **Read again**.
 
 **What chat gets** (`VoicePrompt`, through `VoiceNow`, at the very end of the persona prompt, where a small local model follows it best). Code picks what goes in:
 - the line for her mood now (strength 0.25 or more)
 - the stranger or close line from her familiarity now (50 or more is close)
-- while the gate is open: "holding back" while she is innocent, "letting go" when she is experienced or perverted, and both in between
+- while the gate is open: "holding back" while she is innocent, "letting go" when she is experienced or perverted, and both in between. Very high desire (very aroused or more) moves her one step toward letting go, so even a shy one gives in (`VoicePrompt.IntimateStage`)
 - the rules code always adds: the samples show the feel only and are never repeated word for word; vary how sentences start; and, only for a confident or assertive one (70 or more), do not stammer or trail off. A shy one keeps her stammer.
 
 While there is no reading yet, the short "Her manner" line stands in.
