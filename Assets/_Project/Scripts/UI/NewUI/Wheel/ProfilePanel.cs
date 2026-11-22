@@ -339,7 +339,16 @@ namespace AICompanion.NewUI.Wheel
                 Heading("Innocent to Perverted (18+)");
                 Row("Innocent", p.InnocenceValue + "   Perverted");
                 FillBar(p.Innocence / 100f, _theme.Intimate);
-                Paragraph("Set it on Settings → Persona → Who she is.", true);
+                if (p.ShowDesire)
+                {
+                    // JUH-170: desire moves on its own; libido is how relentless her needs are.
+                    Row("Desire", p.DesireValue);
+                    FillBar(p.Desire / 100f, _theme.Intimate);
+                    Row("Libido", p.LibidoValue);
+                    FillBar(p.Libido / 100f, _theme.Hover);
+                }
+
+                Paragraph("Set innocence and libido on Settings → Persona → Who she is. Desire moves on its own.", true);
                 End(box);
             }
 

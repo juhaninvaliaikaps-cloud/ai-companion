@@ -98,13 +98,17 @@ namespace AICompanion.Core
         }
 
         /// <summary>
-        /// True when a finished reply was an intimate moment: an intimate expression, or an
-        /// adult video reaction (undressing or a naked clip). Only while the 18+ gate is open.
+        /// True when a finished reply was an intimate moment: an intimate expression, an adult
+        /// video reaction (undressing or a naked clip), or a hot moment or a release (the cue's
+        /// heat, JUH-170: the local model often tags a sex scene "neutral"). Only while the 18+
+        /// gate is open.
         /// </summary>
         public static bool IsMoment(AnimationCue cue, bool gateOpen)
         {
             if (!gateOpen)
                 return false;
+            if (cue.Heat == DesireHeat.Hot || cue.Heat == DesireHeat.Release)
+                return true;
             if (IntimateExpressions.IsIntimateId(cue.EmotionField))
                 return true;
             var reaction = cue.Reaction ?? string.Empty;

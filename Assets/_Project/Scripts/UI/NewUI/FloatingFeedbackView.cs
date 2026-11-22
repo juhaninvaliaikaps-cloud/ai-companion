@@ -13,6 +13,7 @@ namespace AICompanion.NewUI
     /// <list type="bullet">
     /// <item>Pink heart: affection up. Grey heart: down. Light blue: a new familiarity band.</item>
     /// <item>Crit: big and gold with a punch and a CRITICAL caption. Crit drop: big and grey.</item>
+    /// <item>JUH-170, 18+ only: magenta heart, desire up; dim violet, desire down or spent.</item>
     /// </list>
     /// One pool of <see cref="RelationshipFeedback.Capacity"/> labels is built once; a change only
     /// sets their text, so there is no Instantiate per change and no allocation per frame.
@@ -31,6 +32,8 @@ namespace AICompanion.NewUI
         static readonly Color GreyBorder = HappiTheme.Hex("#7FA8E0");
         static readonly Color Gold = HappiTheme.Hex("#FFD166");
         static readonly Color Light = HappiTheme.Hex("#9FD4FF");
+        static readonly Color Magenta = HappiTheme.Hex("#E86BFF");
+        static readonly Color Violet = HappiTheme.Hex("#9A7BC4");
 
         sealed class Slot
         {
@@ -107,9 +110,30 @@ namespace AICompanion.NewUI
                 return;
             _subscribed = on;
             if (on)
+            {
                 RelationshipNow.Changed += OnChanged;
+                DesireNow.Changed += OnDesire;
+            }
             else
+            {
                 RelationshipNow.Changed -= OnChanged;
+                DesireNow.Changed -= OnDesire;
+            }
+        }
+
+        /// <summary>JUH-170: desire pieces need the floating changes on and the 18+ gate open.</summary>
+        bool DesireEnabled
+        {
+            get
+            {
+                var settings = _settings != null ? _settings.CurrentSettings : null;
+                return settings != null && settings.ShowRelationshipFeedback && IntimateExpressions.Active;
+            }
+        }
+
+        void OnDesire(DesireNotice notice)
+        {
+            _feedback.AddDesire(notice, Time.unscaledTime, DesireEnabled);
         }
 
         bool Enabled
@@ -145,8 +169,14 @@ namespace AICompanion.NewUI
             if (!_attached || _canvasObject == null)
                 return;
             var now = Time.unscaledTime;
-            if (!Enabled && _feedback.Count > 0)
-                _feedback.Clear();
+            if (_feedback.Count > 0)
+            {
+                // JUH-170: desire pieces go the moment the gate closes; the others with their setting.
+                if (!Enabled && _feedback.Has(false))
+                    _feedback.Drop(false);
+                if (!DesireEnabled && _feedback.Has(true))
+                    _feedback.Drop(true);
+            }
             _feedback.Tick(now);
 
             if (_feedback.Count == 0)
@@ -270,6 +300,14 @@ namespace AICompanion.NewUI
                     border = Gold;
                     iconColor = Gold;
                     icon = FeedbackSprites.Star();
+                    break;
+                case FeedbackKind.DesireUp:
+                    border = Magenta;
+                    iconColor = Magenta;
+                    break;
+                case FeedbackKind.DesireDown:
+                    border = Violet;
+                    iconColor = Violet;
                     break;
             }
 

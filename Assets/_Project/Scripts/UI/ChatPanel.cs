@@ -954,7 +954,7 @@ namespace AICompanion.UI
             if (director == null)
                 return;
             director.Play(new AnimationCue(cue.Emotion, cue.Intensity, cue.Gesture, cue.Direction,
-                cue.EmotionField, "strip", cue.Landed, cue.Secret));
+                cue.EmotionField, "strip", cue.Landed, cue.Secret, cue.Heat));
             Debug.Log("Clothing: forced strip because the user removed clothing and the reply had no strip cue");
         }
 

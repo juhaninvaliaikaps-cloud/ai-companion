@@ -104,6 +104,25 @@ namespace AICompanion.Core
         public float Innocence = InnocenceMath.Default;
         public string InnocenceValue = string.Empty;
 
+        /// <summary>JUH-170: her desire and libido, only while the gate is open (<see cref="SetDesire"/>).</summary>
+        public bool ShowDesire;
+        public float Desire;
+        public string DesireValue = string.Empty;
+        public float Libido = DesireMath.DefaultLibido;
+        public string LibidoValue = string.Empty;
+
+        /// <summary>Fills the desire rows. Nothing while the gate is closed.</summary>
+        public void SetDesire(bool gateOpen, float desire, float libido, bool spent)
+        {
+            ShowDesire = gateOpen;
+            if (!gateOpen)
+                return;
+            Desire = DesireMath.Clamp(desire);
+            Libido = DesireMath.ClampLibido(libido);
+            DesireValue = Desire.ToString("0", CultureInfo.InvariantCulture) + " · " + (spent && DesireMath.Band(Desire) <= 1 ? "spent" : DesireMath.BandName(Desire));
+            LibidoValue = Libido.ToString("0", CultureInfo.InvariantCulture) + " · " + DesireMath.LibidoName(Libido);
+        }
+
         /// <summary>
         /// JUH-136 (Jussi, 2026-11-20): the nine temperament sliders she runs on, 0 to 100, in
         /// <see cref="TemperamentAxes.Names"/> order. They replace the 5-axis radar. Null when

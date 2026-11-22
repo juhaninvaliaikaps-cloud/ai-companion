@@ -234,14 +234,18 @@ namespace AICompanion.Settings
 
             var hash = _hash;
             var key = _key;
-            if (!_forceRead && (string.Equals(hash, _state.ReadHash, StringComparison.Ordinal) || _triedThisLaunch.Contains(key)))
+            // JUH-170: a reading from before libido was read is asked once more, for libido only.
+            var current = string.Equals(hash, _state.ReadHash, StringComparison.Ordinal) && _state.ReadLibido >= 0f;
+            if (!_forceRead && (current || _triedThisLaunch.Contains(key)))
                 return;
+            var full = _forceRead || !string.Equals(hash, _state.ReadHash, StringComparison.Ordinal);
             _forceRead = false;
             _triedThisLaunch.Add(key);
-            Read(_personaId, _readInput, hash);
+            Read(_personaId, _readInput, hash, full);
         }
 
-        async void Read(string persona, string prompt, string hash)
+        /// <summary><paramref name="full"/> is false when only her libido is missing from a current reading (JUH-170).</summary>
+        async void Read(string persona, string prompt, string hash, bool full)
         {
             var generation = ++_generation;
             var cancel = new CancellationTokenSource();
@@ -281,7 +285,20 @@ namespace AICompanion.Settings
             }
 
             var hadReading = _state.HasReading;
+            if (hadReading && !full && string.Equals(hash, _state.ReadHash, StringComparison.Ordinal))
+            {
+                // JUH-170: the same description, read again only for her libido. Her innocence stays as it was.
+                _state.ReadLibido = result.Libido;
+                _dirty = true;
+                Save(true);
+                Debug.Log("Innocence: " + PersonaLogId() + " libido read as "
+                    + (result.Libido >= 0f ? result.Libido.ToString("0", System.Globalization.CultureInfo.InvariantCulture) : "nothing"));
+                Publish(true);
+                return;
+            }
+
             _state.ReadHash = hash;
+            _state.ReadLibido = result.Libido;
             _state.ReadValue = result.Value;
             _state.ReadReason = result.Reason ?? string.Empty;
             if (!_state.UserSet)

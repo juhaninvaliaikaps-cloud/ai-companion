@@ -61,6 +61,12 @@ namespace AICompanion.Core
 
         /// <summary>A gold star: a secret found (JUH-123).</summary>
         Secret = 5,
+
+        /// <summary>A magenta heart: her desire went up (JUH-170, 18+ only).</summary>
+        DesireUp = 6,
+
+        /// <summary>A dim violet heart: her desire went down, or a release spent it (JUH-170, 18+ only).</summary>
+        DesireDown = 7,
     }
 
     /// <summary>One piece on screen: what it says, when it started, and when it was pushed out.</summary>
@@ -88,6 +94,12 @@ namespace AICompanion.Core
         public bool IsCritical
         {
             get { return Kind == FeedbackKind.CritUp || Kind == FeedbackKind.CritDown; }
+        }
+
+        /// <summary>JUH-170: a desire piece, shown only while the 18+ gate is open.</summary>
+        public bool IsDesire
+        {
+            get { return Kind == FeedbackKind.DesireUp || Kind == FeedbackKind.DesireDown; }
         }
     }
 
@@ -144,6 +156,76 @@ namespace AICompanion.Core
         public void Clear()
         {
             _count = 0;
+        }
+
+        /// <summary>
+        /// JUH-170: drops the desire pieces (<paramref name="desire"/> true) or all the others, at
+        /// once and without allocating: desire pieces go the moment the 18+ gate closes, the others
+        /// when the relationship setting goes off.
+        /// </summary>
+        public void Drop(bool desire)
+        {
+            var write = 0;
+            for (var read = 0; read < _count; read++)
+            {
+                if (_pieces[read].IsDesire == desire)
+                    continue;
+                _pieces[write++] = _pieces[read];
+            }
+
+            _count = write;
+        }
+
+        /// <summary>True when any piece of that family is showing.</summary>
+        public bool Has(bool desire)
+        {
+            for (var i = 0; i < _count; i++)
+            {
+                if (_pieces[i].IsDesire == desire)
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>The smallest desire change that gets a piece, unless it is a release.</summary>
+        public const float DesireMinShown = 0.5f;
+
+        /// <summary>
+        /// JUH-170: one desire change: "+8 Desire 48" (magenta) or "-3 Desire 41"; a release is
+        /// "Release · desire 7". Nothing while <paramref name="enabled"/> is false (the gate is
+        /// closed or the floating changes are off). Returns true when a piece was added.
+        /// </summary>
+        public bool AddDesire(DesireNotice notice, float now, bool enabled)
+        {
+            if (!enabled || float.IsNaN(notice.Delta))
+                return false;
+            if (!notice.Release && Math.Abs(notice.Delta) < DesireMinShown)
+                return false;
+            Push(new FeedbackPiece
+            {
+                Kind = notice.Delta > 0f && !notice.Release ? FeedbackKind.DesireUp : FeedbackKind.DesireDown,
+                Amount = notice.Release ? string.Empty : DesireAmountText(notice.Delta),
+                Label = DesireText(notice.Desire, notice.Release),
+                StartTime = now,
+                RetiredAt = float.NaN,
+            }, now);
+            return true;
+        }
+
+        /// <summary>"+8", "-3": whole numbers, always signed (a change under 1 shows one decimal).</summary>
+        public static string DesireAmountText(float delta)
+        {
+            return Math.Abs(delta) < 1f
+                ? delta.ToString("+0.0;-0.0;0.0", CultureInfo.InvariantCulture)
+                : delta.ToString("+0;-0;0", CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>"Desire 48", or "Release · desire 7".</summary>
+        public static string DesireText(float desire, bool release)
+        {
+            var value = DesireMath.Clamp(desire).ToString("0", CultureInfo.InvariantCulture);
+            return release ? "Release · desire " + value : "Desire " + value;
         }
 
         // ---- Which changes show ---------------------------------------------------------------

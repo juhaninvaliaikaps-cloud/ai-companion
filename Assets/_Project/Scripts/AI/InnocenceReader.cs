@@ -13,6 +13,10 @@ namespace AICompanion.AI
     {
         public bool Ok;
         public float Value = -1f;
+
+        /// <summary>JUH-170: her libido (0 to 100), or -1 when the reply had none.</summary>
+        public float Libido = -1f;
+
         public string Reason = string.Empty;
         public string Failure = string.Empty;
     }
@@ -27,7 +31,7 @@ namespace AICompanion.AI
     /// </summary>
     public static class InnocenceReader
     {
-        public const int MaxTokens = 160;
+        public const int MaxTokens = 200;
         public const float Temperature = 0.3f;
         public const float TimeoutSeconds = PisaraReader.RequestTimeoutSeconds;
         public const int MaxReasonLength = 160;
@@ -38,7 +42,8 @@ namespace AICompanion.AI
         public const string BadReply = "the reply had no number";
 
         public const string SystemPrompt =
-            "You read a character description for an adults-only companion app and judge one trait: where she sits between innocent and perverted.\n" +
+            "You read a character description for an adults-only companion app and judge two traits.\n" +
+            "First, innocence: where she sits between innocent and perverted.\n" +
             "0 = completely innocent: little or no sexual experience, easily embarrassed, never makes the first move.\n" +
             "50 = in between: some experience, curious, neither shy nor bold.\n" +
             "100 = perverted: very experienced and used to sexual things, bold, often makes the first move.\n" +
@@ -46,7 +51,10 @@ namespace AICompanion.AI
             "her relationships and anything it says about her experience. A shy 18-year-old who has never dated is near 10; " +
             "a confident 26-year-old who bullies and teases is near 70. When the description says little, stay near 50.\n" +
             "What the user wrote comes first: when her 18+ notes say how experienced, shy or bold she is, that decides it.\n" +
-            "Reply with only this JSON object and nothing else: {\"innocence\": <0 to 100>, \"reason\": \"<one short sentence>\"}";
+            "Second, libido: how strong and relentless her sexual needs are. This is separate from experience: a shy virgin can have a high libido. " +
+            "0 = she rarely feels desire; 50 = ordinary; 100 = insatiable, her needs come back again and again. " +
+            "When the description says little, stay near 50; when her 18+ notes say it, that decides it.\n" +
+            "Reply with only this JSON object and nothing else: {\"innocence\": <0 to 100>, \"libido\": <0 to 100>, \"reason\": \"<one short sentence>\"}";
 
         public static ChatRequest BuildRequest(string personaName, string personaPrompt)
         {
@@ -70,13 +78,22 @@ namespace AICompanion.AI
         class Reply
         {
             public float innocence = -1f;
+            public float libido = -1f;
             public string reason;
         }
 
         /// <summary>The value and reason in a model reply, or false. Accepts code fences and text around the object.</summary>
         public static bool TryParse(string reply, out float value, out string reason)
         {
+            float libido;
+            return TryParse(reply, out value, out libido, out reason);
+        }
+
+        /// <summary>As above, with her libido (JUH-170), or -1 when the reply had none.</summary>
+        public static bool TryParse(string reply, out float value, out float libido, out string reason)
+        {
             value = -1f;
+            libido = -1f;
             reason = string.Empty;
             var json = CharacterSheet.ExtractObject(reply);
             if (json == null || json.IndexOf("\"innocence\"", StringComparison.Ordinal) < 0)
@@ -96,6 +113,12 @@ namespace AICompanion.AI
             // Some models answer on a 0 to 1 scale: a fraction such as 0.7 means 70.
             var raw = parsed.innocence > 0f && parsed.innocence < 1f ? parsed.innocence * 100f : parsed.innocence;
             value = InnocenceMath.Clamp(raw);
+            if (!float.IsNaN(parsed.libido) && parsed.libido >= 0f && json.IndexOf("\"libido\"", StringComparison.Ordinal) >= 0)
+            {
+                var rawLibido = parsed.libido > 0f && parsed.libido < 1f ? parsed.libido * 100f : parsed.libido;
+                libido = DesireMath.ClampLibido(rawLibido);
+            }
+
             reason = (parsed.reason ?? string.Empty).Trim();
             if (reason.Length > MaxReasonLength)
                 reason = reason.Substring(0, MaxReasonLength).TrimEnd();
@@ -153,10 +176,11 @@ namespace AICompanion.AI
                 return Fail("the model did not answer (" + reply.Error + ")");
 
             float value;
+            float libido;
             string reason;
-            if (!TryParse(reply.Text, out value, out reason))
+            if (!TryParse(reply.Text, out value, out libido, out reason))
                 return Fail(BadReply);
-            return new InnocenceReadResult { Ok = true, Value = value, Reason = reason };
+            return new InnocenceReadResult { Ok = true, Value = value, Libido = libido, Reason = reason };
         }
 
         static InnocenceReadResult Fail(string why)
