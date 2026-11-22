@@ -148,6 +148,9 @@ namespace AICompanion.Voice
         Process _process;
         StreamWriter _input;
         StreamReader _output;
+        // JUH-168: set on the main thread, read when a sentence is sent; 0 is every core.
+        volatile int _threads;
+        bool _oldScriptLogged;
 
         public KokoroProcessSession(string pythonExe, string scriptPath, string modelPath, string voicesPath, string voice, float timeoutSeconds)
         {
@@ -195,6 +198,75 @@ namespace AICompanion.Voice
             _process.BeginErrorReadLine();
         }
 
+        /// <summary>
+        /// JUH-168: from the next sentence, Kokoro uses <paramref name="cores"/> threads at
+        /// below-normal priority, or every core again. The script does it (onnxruntime's thread
+        /// count can't be changed from outside: a process limit alone left its threads fighting
+        /// over the cores and made speech slower than real time). It never waits for the
+        /// sentence lock, so the main thread can call it.
+        /// </summary>
+        public void Limit(bool limited, int cores)
+        {
+            var threads = KokoroCpuLimit.RequestThreads(limited, cores);
+            var changed = threads != _threads;
+            _threads = threads;
+            // The script's first limited session takes about 16 s to build. Build it now, while
+            // the game has only just come to the front, not when she next speaks.
+            if (changed && threads > 0)
+                Task.Run(() => WarmBlocking(threads));
+        }
+
+        void WarmBlocking(int threads)
+        {
+            try
+            {
+                lock (_sync)
+                {
+                    if (_process == null || _process.HasExited || _threads != threads)
+                        return;
+                    var request = new KokoroRequest { warm = true, threads = threads, voice = _voice, speed = 1f };
+                    var reply = Exchange(request.ToJson(), CancellationToken.None);
+                    if (KokoroCpuLimit.OldScript(threads, reply.threads) && !_oldScriptLogged)
+                    {
+                        _oldScriptLogged = true;
+                        UnityEngine.Debug.Log(KokoroCpuLimit.OldScriptLine);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Warming is a head start only; the next sentence builds the session if this failed.
+            }
+        }
+
+        /// <summary>One request line out, one reply line back, within the timeout. Call under the lock.</summary>
+        KokoroReply Exchange(string json, CancellationToken cancellationToken)
+        {
+            _input.WriteLine(json);
+            _input.Flush();
+
+            var deadline = DateTime.UtcNow.AddSeconds(_timeoutSeconds);
+            string line = null;
+            var read = Task.Run(() => line = _output.ReadLine());
+            while (!read.Wait(50))
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    throw new OperationCanceledException(cancellationToken);
+                if (DateTime.UtcNow > deadline)
+                    throw new TimeoutException("Kokoro timed out after " + _timeoutSeconds.ToString("0") + " s.");
+            }
+
+            if (line == null)
+                throw new InvalidOperationException("Kokoro closed its output.");
+            return KokoroReply.Parse(line);
+        }
+
+        /// <summary>The threads the next sentence asks for; 0 is every core.</summary>
+        public int Threads
+        {
+            get { return _threads; }
+        }
+
         public Task<byte[]> Synthesize(string text, float speed, CancellationToken cancellationToken)
         {
             return Task.Run(() => SynthesizeBlocking(text, speed, cancellationToken), cancellationToken);
@@ -215,27 +287,15 @@ namespace AICompanion.Voice
 
                 EnsureStarted();
 
-                var request = new KokoroRequest { text = text, speed = speed, voice = _voice };
-                _input.WriteLine(request.ToJson());
-                _input.Flush();
-
-                var deadline = DateTime.UtcNow.AddSeconds(_timeoutSeconds);
-                string line = null;
-                var read = Task.Run(() => line = _output.ReadLine());
-                while (!read.Wait(50))
-                {
-                    if (cancellationToken.IsCancellationRequested)
-                        throw new OperationCanceledException(cancellationToken);
-                    if (DateTime.UtcNow > deadline)
-                        throw new TimeoutException("Kokoro timed out after " + _timeoutSeconds.ToString("0") + " s.");
-                }
-
-                if (line == null)
-                    throw new InvalidOperationException("Kokoro closed its output.");
-
-                var reply = KokoroReply.Parse(line);
+                var request = new KokoroRequest { text = text, speed = speed, voice = _voice, threads = _threads };
+                var reply = Exchange(request.ToJson(), cancellationToken);
                 if (!reply.ok)
                     throw new InvalidOperationException(reply.error);
+                if (KokoroCpuLimit.OldScript(request.threads, reply.threads) && !_oldScriptLogged)
+                {
+                    _oldScriptLogged = true;
+                    UnityEngine.Debug.Log(KokoroCpuLimit.OldScriptLine);
+                }
 
                 return Convert.FromBase64String(reply.wav ?? string.Empty);
             }
@@ -283,9 +343,18 @@ namespace AICompanion.Voice
         public float speed;
         public string voice;
 
+        /// <summary>JUH-168: the thread count while a game is in front; 0 leaves it out (every core).</summary>
+        public int threads;
+
+        /// <summary>JUH-168: only build the limited session; there is no text to speak.</summary>
+        public bool warm;
+
         public string ToJson()
         {
-            return "{\"text\":" + Quote(text) + ",\"speed\":" + speed.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + ",\"voice\":" + Quote(voice) + "}";
+            var json = (warm ? "{\"warm\":true," : "{") + "\"text\":" + Quote(text) + ",\"speed\":" + speed.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + ",\"voice\":" + Quote(voice);
+            if (threads > 0)
+                json += ",\"threads\":" + threads.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return json + "}";
         }
 
         static string Quote(string value)
@@ -322,6 +391,9 @@ namespace AICompanion.Voice
         public string wav;
         public string error;
 
+        /// <summary>JUH-168: the threads the script used; -1 when the reply doesn't say (an older script).</summary>
+        public int threads = -1;
+
         public static KokoroReply Parse(string line)
         {
             var reply = new KokoroReply();
@@ -329,9 +401,35 @@ namespace AICompanion.Voice
             if (ok >= 0)
                 reply.ok = line.IndexOf("true", ok, StringComparison.Ordinal) >= 0;
 
+            reply.threads = Number(line, "\"threads\"");
+
             reply.wav = Extract(line, "\"wav\"");
             reply.error = Extract(line, "\"error\"");
             return reply;
+        }
+
+        /// <summary>A small non-negative integer after the key, or -1. The script puts it before the WAV.</summary>
+        static int Number(string line, string key)
+        {
+            var start = IndexOf(line, key);
+            if (start < 0)
+                return -1;
+            var i = line.IndexOf(':', start);
+            if (i < 0)
+                return -1;
+            i++;
+            while (i < line.Length && line[i] == ' ')
+                i++;
+            var value = 0;
+            var digits = 0;
+            while (i < line.Length && line[i] >= '0' && line[i] <= '9' && digits < 4)
+            {
+                value = value * 10 + (line[i] - '0');
+                i++;
+                digits++;
+            }
+
+            return digits == 0 ? -1 : value;
         }
 
         static int IndexOf(string text, string token)

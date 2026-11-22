@@ -49,6 +49,12 @@ namespace AICompanion.Voice
         public string chatterboxVoice = "af_nicole";
         public string chatterboxDevice = "auto";
 
+        /// <summary>JUH-168: fewer cores for Kokoro while a game is in front.</summary>
+        public bool kokoroGameLimit = true;
+
+        /// <summary>JUH-168: how many logical processors Kokoro may use then.</summary>
+        public int kokoroGameCores = KokoroCpuLimit.DefaultCores;
+
         public VoiceSettings RuntimeCopy()
         {
             var copy = CreateInstance<VoiceSettings>();
@@ -74,6 +80,8 @@ namespace AICompanion.Voice
             copy.chatterboxVoices = chatterboxVoices;
             copy.chatterboxVoice = chatterboxVoice;
             copy.chatterboxDevice = chatterboxDevice;
+            copy.kokoroGameLimit = kokoroGameLimit;
+            copy.kokoroGameCores = kokoroGameCores;
             return copy;
         }
     }

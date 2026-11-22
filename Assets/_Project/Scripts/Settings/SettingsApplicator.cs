@@ -78,12 +78,21 @@ namespace AICompanion.Settings
                     voice.chatterboxVoices = settings.ChatterboxVoices;
                     voice.chatterboxVoice = settings.ChatterboxVoice;
                     voice.chatterboxDevice = settings.ChatterboxDevice;
+                    voice.kokoroGameLimit = settings.KokoroGameLimit;
+                    voice.kokoroGameCores = settings.KokoroGameCores;
                     voice.volume = settings.Volume;
                     speaker.RefreshProvider();
                 }
 
                 speaker.SetMuted(settings.Muted);
                 speaker.ApplyPlaybackVolume();
+                // JUH-168: Kokoro gets fewer cores while the overlay sees a game in front.
+                if (speaker.GameInFront == null)
+                {
+                    var overlay = host.GetComponent<OverlayWindow>();
+                    if (overlay != null)
+                        speaker.GameInFront = () => overlay != null && overlay.GameInFront;
+                }
             }
 
             var listener = host.GetComponent<SpeechListener>();
