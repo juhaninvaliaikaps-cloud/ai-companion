@@ -105,6 +105,38 @@ namespace AICompanion.Settings
         void OnEnable()
         {
             RelationshipNow.ReplyFinished += OnReply;
+            if (_claimLookup == null)
+                _claimLookup = LookupClaim;
+            SecretClaimNow.Lookup = _claimLookup;
+        }
+
+        SecretClaimLookup _claimLookup;
+
+        /// <summary>
+        /// JUH-180: a claimed secret that is not found yet, so chat checks it before it counts.
+        /// An 18+ one only while the gate is open (the keeper's Check is None otherwise).
+        /// </summary>
+        bool LookupClaim(string id, out SecretClaim claim)
+        {
+            claim = default(SecretClaim);
+            if (!_loaded || !PisaraSwitches.Relationship || string.IsNullOrEmpty(id))
+                return false;
+            if (IntimateSecretsState.IsIntimateId(id))
+            {
+                var keeper = GetComponent<IntimateSecretsKeeper>();
+                IntimateSecretItem item;
+                if (keeper == null || keeper.Check(id, out item) != SecretHitKind.First)
+                    return false;
+                claim = new SecretClaim { Id = item.Id, Text = item.Text, Intimate = true };
+                return true;
+            }
+
+            var sheet = CurrentSheet();
+            SecretItem secret;
+            if (HerSecrets.Check(_secrets, HerSecrets.From(sheet != null ? sheet.landing : null), id, out secret) != SecretHitKind.First)
+                return false;
+            claim = new SecretClaim { Id = secret.Id, Text = secret.Text, Likes = secret.Group == SecretGroup.WinsHerOver };
+            return true;
         }
 
         /// <summary>One finished reply to a user message: land it, record why, and nudge her mood.</summary>
@@ -370,6 +402,8 @@ namespace AICompanion.Settings
         void OnDisable()
         {
             RelationshipNow.ReplyFinished -= OnReply;
+            if (SecretClaimNow.Lookup == _claimLookup)
+                SecretClaimNow.Lookup = null;
             Save();
             RelationshipNow.Reset();
         }

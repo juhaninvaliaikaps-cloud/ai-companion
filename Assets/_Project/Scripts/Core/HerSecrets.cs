@@ -57,9 +57,10 @@ namespace AICompanion.Core
         /// (2026-11-15): she reacts in words, in character, when one is found.
         /// </summary>
         public const string Instruction =
-            "If the user's message clearly hits one of the things you are touchy about or warm to (their ids are in brackets, " +
+            "If the user's latest message itself clearly hits one of the things you are touchy about or warm to (their ids are in brackets, " +
             "for example (t2)), also put secret=\"t2\" in the tag, and react in your reply as if they just found out something " +
-            "about you that you had not told them. Leave secret out for anything less clear.";
+            "about you that you had not told them. Only what the user wrote counts, not your own words or the story so far. " +
+            "Leave secret out for anything less clear.";
 
         /// <summary>The secrets in a landing, stings first, in sheet order. Blank phrases are skipped and get no id.</summary>
         public static List<SecretItem> From(SheetLanding landing)

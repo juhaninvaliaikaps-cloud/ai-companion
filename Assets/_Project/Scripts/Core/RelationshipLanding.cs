@@ -42,7 +42,7 @@ namespace AICompanion.Core
         public const string TurnReminder =
             "(Start your reply with your cue tag, for example <animation emotion=\"neutral\" landed=\"neutral\" />. " +
             "Set landed to how my message landed with you: complimented, thanked, comforted, teased, insulted, dismissed, apologized, flirted or neutral. " +
-            "If my message clearly hit one of the things you are touchy about or warm to, also set secret to its id, for example secret=\"w1\".)";
+            "Only if my message itself clearly hit one of the things you are touchy about or warm to, also set secret to its id, for example secret=\"w1\"; your own words don't count.)";
 
         static readonly string[] Names =
         {
