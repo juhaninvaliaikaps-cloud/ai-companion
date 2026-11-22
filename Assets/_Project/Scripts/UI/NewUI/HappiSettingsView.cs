@@ -2422,7 +2422,7 @@ namespace AICompanion.NewUI
         /// <summary>A choice among several: the selected one is marked and highlighted.</summary>
         void Choice(string label, bool selected, Action action)
         {
-            var button = Button(selected ? "✓ " + StripMarks(label) : StripMarks(label), action);
+            var button = Button(selected ? HappiTheme.SelectedMark + StripMarks(label) : StripMarks(label), action);
             if (selected)
             {
                 var colors = button.Button.colors;

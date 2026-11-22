@@ -488,8 +488,8 @@ namespace AICompanion.NewUI
                 }));
             _form.Field("Or paste a picture's file path", string.Empty, 260, LoadPictureFrom);
             _form.Buttons(
-                new KeyValuePair<string, Action>((round ? "✓ " : string.Empty) + "Round", () => Edit(p => p.PictureShape = PersonaPictureShapes.Round)),
-                new KeyValuePair<string, Action>((!round ? "✓ " : string.Empty) + "Square", () => Edit(p => p.PictureShape = PersonaPictureShapes.Square)));
+                new KeyValuePair<string, Action>((round ? HappiTheme.SelectedMark : string.Empty) + "Round", () => Edit(p => p.PictureShape = PersonaPictureShapes.Round)),
+                new KeyValuePair<string, Action>((!round ? HappiTheme.SelectedMark : string.Empty) + "Square", () => Edit(p => p.PictureShape = PersonaPictureShapes.Square)));
             _form.Note("The centre of the picture is used. Happi keeps a copy, encrypted on this PC; the original file isn't needed afterwards.");
             BuildDescribeFromPicture();
             BuildHistory();
