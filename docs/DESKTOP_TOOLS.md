@@ -22,7 +22,7 @@ Each tool has one setting:
 2  Blocked
 ```
 
-`Ask` means the capability is off, but the first attempt shows a consent card. The answer is remembered. The user can change any tool to Allow, Ask or Block in **Settings → Tools**, or clear the action log there.
+`Ask` means the capability is off, but the first attempt shows a consent card. The answer is remembered. The user can change any tool to Allow, Ask or Block in **Settings → Senses → Tools**, or clear the action log there.
 
 ## For a new tool
 

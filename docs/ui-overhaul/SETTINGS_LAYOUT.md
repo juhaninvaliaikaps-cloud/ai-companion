@@ -1,23 +1,43 @@
-# Settings layout (JUH-121)
+# Settings layout (JUH-182)
 
-The settings window is sorted by what you want to do. Jussi approved the layout on 2026-11-14 (JUH-121). No settings key changed, so existing settings files load as before. One key is new: `showDeveloperSettings`, off by default.
+Settings looks like the Profile panel (Jussi, 2026-11-22, JUH-182):
 
-| Tab | What is on it |
+- **Tabs.** There is one row of eight top tabs, with a row of sub-tabs under it. Each tab remembers its sub-tab while the window is open.
+- **Boxes.** Every topic sits in its own rounded box with a bold title, so a page is a stack of short boxes instead of one long list. 18+ boxes have a pink title.
+- **Help text.** A help note over 170 characters shows its first sentence and a **more** link that opens the rest (`SettingsNotes.Short`). Privacy notes always show in full.
+- **Only what applies.** For example, Voice → Engine shows only the chosen local engine's files.
+
+The table of tabs and pages, and when each page shows, is `NewUI/SettingsMenu.cs`. The view is `NewUI/HappiSettingsView.cs` (`BuildPage`).
+
+No settings key changed, so existing settings files load as before. The 18+ items show under the same conditions as before.
+
+| Tab | Sub-tabs: what is on them |
 | --- | --- |
-| **Persona** | Pick a persona, New persona. Edit: display name, personality, speaking style, portrait folder. **Who she is:** what the model read (temperament, relationship), Re-read, Correct the relationship, Innocent to Perverted (18+ only), temperament Auto and presets, and nine temperament sliders for a custom profile. **Her life:** Relationship changes, Life while you are away, Her own world. **Memories:** the list, Start over, Delete all. Delete persona. |
-| **AI** | **Private mode** first, because it decides the rest. Then **Pisara model** (off by default): use a cloud model for character-sheet readings, its base URL and model. Then Grok or Local Ollama, or with Private mode on, Local Ollama or Custom server. Model, address, keys, connection tests. **Model for this persona.** |
-| **Voice** | Speak replies, Voice narration, volume, Muted (F6). **Voice engine:** cloud voice, Piper or Kokoro and their files, TTS language. **Voice for this persona.** **Speech input:** push-to-talk and its key, Whisper model, speech language. |
-| **Look** | 3D model or 2D video. The 2D video folder, size, position, walk speed, clip sounds. **3D avatar:** source, expression portrait, reset rotation, look at cursor. **3D avatar for this persona.** |
-| **Chat** | Step through replies, spoken text glow. **Text style:** chat font and text size. **Chat box:** reset size (JUH-127: the box is resized by dragging its edges and corners; the old height slider is gone), reset position. **Portrait:** reset position. **Chat history:** save, clear. |
-| **Tools** | Per-desktop-tool permissions: Files, Apps, Clipboard, Calendar and Web search. Each can be Allowed, Ask on first use, or Blocked. Includes a first-use prompt preview and the local action log. |
-| **Screen** | Screen-look consents and the window or display picker (unchanged). |
-| **Window** | Always on top (F8), size, click-through, idle frame rate, taskbar button, start with Windows. |
-| **Data** | Export (folder or zip), Run setup again, Wipe all local data, Show developer settings. |
-| **18+** | Whether 18+ is on, and what it still needs: Private mode, the adult portraits folder, the switch. The **Intimate expressions (18+)** switch. |
-| **Keys** | The hotkeys and the mouse actions, read only. **Pisara API key** (masked; empty uses the Grok key). |
-| **Developer** | Only with Data → Show developer settings. Debug info, mood readout, reply timeout, the 2D video test buttons (including the adult ones while 18+ is on). |
+| **Her** | **Persona:** the persona grid, New or import, Edit (Studio, display name, portrait folder), Export, Delete. **Personality:** what the reading found and Re-read, Correct the relationship, Temperament (Auto and presets), Custom temperament (nine sliders). **How she talks:** the reading, her voice, by mood, by closeness, her lines. **Her life:** Relationship changes, Life while you are away, Her own world. **Memories:** the summary, Start over, Smarter memory search. |
+| **AI** | **Mode:** Private mode, What public mode may know, Active now. **Chat model:** the public provider (Grok/cloud API or Local Ollama), model, address, Can it see pictures?, the cloud API key and its test. **Private model:** Local Ollama or Custom server, the custom key and its test. **Pisara:** Use a cloud model for Pisara readings, its address and model, and the **Pisara API key** (moved from Keys). **This persona:** the model override. |
+| **Voice** | **Speaking:** Speak replies, Voice narration, volume, Muted (F6). **Engine:** the local engine (Piper, Kokoro, Chatterbox, or None: cloud voice only), then only that engine's files, the xAI cloud voice and the TTS language. **This persona:** her voice ids. **Listening:** Push-to-talk and its key, the Whisper model and language, the speech model file and its download. **In games:** the mouse button and controller buttons. |
+| **Look** | **Avatar:** 3D model or 2D video. **2D video:** her clips, size and position, walking, clip sounds. **3D model:** the source, expression portrait, movement, the model for this persona. **Window:** on top (Always on top, Stay above games), size, click-through and idle frame rate, taskbar button, Start with Windows. |
+| **Chat** | **Replies:** Step through replies, Spoken text glow, Show relationship changes. **Text and box:** font and size, chat box and portrait resets. **History:** Save and Clear chat history. |
+| **Senses** | **Screen:** read a window, cloud screen analysis, whole screen, automatic looks, vision model, the window or display picker, the preview and Look. **Games:** the game companion, her lines, how often, one box per game, gacha games, status and port. **Tools:** one box per desktop tool, the web search test, the tool action log. |
+| **18+** | **Status:** what 18+ still needs, and the Intimate expressions switch. While the gate is open: **Her** (Innocent to Perverted, libido and desire), **Secrets** (her 18+ secrets), **How she talks** (in intimate scenes). Every 18+ setting is on this tab (Jussi). |
+| **App** | **Keys:** the hotkeys and the mouse, read only. **Data:** Export, Run setup again, Wipe all local data, Show developer settings. **Developer** (only with Show developer settings): readouts, reply timeout, 2D video tests. |
 
-## What moved
+The two AI model pages can be filled in whichever mode is on, so the public and private models are set up together. A connection test shows only where it tests the right model: the cloud test only in public mode, and the Local Ollama test on the page of the mode that is on. The custom server test always tests the custom server.
+
+## What moved in JUH-182
+
+| Item | Was on | Now on |
+| --- | --- | --- |
+| Tools, Screen, Games | their own tabs | Senses |
+| Window | its own tab | Look → Window |
+| Keys, Data, Developer | their own tabs | App |
+| Pisara API key | Keys | AI → Pisara |
+| Innocence, libido and desire, her 18+ secrets | Persona → Who she is | 18+ → Her, 18+ → Secrets |
+| How she talks in intimate scenes | Persona → Who she is | 18+ → How she talks |
+| How she talks (everyday) | Persona → Who she is | Her → How she talks |
+| The local engine switches (Piper, Kokoro, Chatterbox) | three switches | one choice of four on Voice → Engine |
+
+## What moved in JUH-121
 
 | Item | Was on | Now on |
 | --- | --- | --- |

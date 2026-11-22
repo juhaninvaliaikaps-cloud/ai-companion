@@ -50,7 +50,7 @@ The dated timeline (JUH-134) is searched separately from the facts, by `Timeline
 
 ### Smarter search: meaning as well as words (JUH-141)
 
-Off by default: **Settings → Persona → Memories → Smarter memory search** (`CompanionSettings.MemoryEmbeddings`, `"memoryEmbeddings"` in the settings file). When it is on, the timeline search also matches by meaning, so "how is my old man holding up?" finds "his father is in hospital" with no shared word.
+Off by default: **Settings → Her → Memories → Smarter memory search** (`CompanionSettings.MemoryEmbeddings`, `"memoryEmbeddings"` in the settings file). When it is on, the timeline search also matches by meaning, so "how is my old man holding up?" finds "his father is in hospital" with no shared word.
 
 - **The model.** `nomic-embed-text` (about 274 MB) in the local Ollama, through `/api/embed` (`OllamaEmbedder`). Install it once with `ollama pull nomic-embed-text`. It is only ever called on Ollama on this PC (a loopback address on port 11434); any other base URL is refused before anything is sent. So private mode and 18+ memories are covered too.
 - **Vectors.** Each open timeline entry gets a vector of `search_document: <summary>`; the query is `search_query: <latest message>` (with the previous message when the latest is short). The prefixes are what nomic-embed-text was trained with; Ollama does not add them. Vectors live in memory only (`EmbeddingIndex`, per persona). They are filled in the background, 64 entries per chat turn, and rebuilt after a restart. A corrected entry is embedded again. Nothing new is written to disk.

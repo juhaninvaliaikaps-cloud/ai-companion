@@ -65,7 +65,7 @@ namespace AICompanion.NewUI
             _open = true;
             _title.text = "Allow " + DesktopToolCatalog.Label(kind) + "?";
             _body.text = DesktopToolCatalog.Description(kind)
-                + "\n\nHappi will not use this until you allow it. You can revoke it at any time in Settings > Tools.";
+                + "\n\nHappi will not use this until you allow it. You can revoke it at any time in Settings > Senses > Tools.";
             _canvasObject.SetActive(true);
             _canvasObject.transform.SetAsLastSibling();
             HappiUiKit.FollowCamera(_canvas, PlaneDistance);

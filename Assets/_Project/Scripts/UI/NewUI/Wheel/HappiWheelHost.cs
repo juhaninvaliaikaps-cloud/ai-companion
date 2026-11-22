@@ -509,7 +509,7 @@ namespace AICompanion.NewUI.Wheel
                     if (look.LookNow())
                         Close();
                     else
-                        Note("Screen", "She cannot look right now. Pick a window or display in Settings > Screen. " + look.StatusText);
+                        Note("Screen", "She cannot look right now. Pick a window or display in Settings > Senses > Screen. " + look.StatusText);
                 }
             });
             definition.Slices.Add(new WheelSlice { Id = "screen_monitor", Label = "Pick a monitor", OnChoose = ShowMonitors });

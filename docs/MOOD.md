@@ -144,12 +144,12 @@ A mood starts on its floor as soon as the temperament is set (load, switch, or p
 - Confidence, when it is low, raises anxiety and fluster.
 - Curiosity is saved and shown. It does not change a mood in this phase, and it does not by itself replace a preset or a preset reading.
 
-Intimate is still never a baseline, a bias, or a generated gain. Settings → Persona keeps Auto and the preset picks, and adds the nine sliders. Moving a slider is a manual profile and overrides Auto. There is no Sensuality, Attachment or Forgiveness slider, and no prompt or speaking-style change yet.
+Intimate is still never a baseline, a bias, or a generated gain. Settings → Her → Personality keeps Auto and the preset picks, and adds the nine sliders. Moving a slider is a manual profile and overrides Auto. There is no Sensuality, Attachment or Forgiveness slider, and no prompt or speaking-style change yet.
 
 **Auto (JUH-118, sliders in JUH-136).** A user persona without a hand-picked preset or custom sliders takes its temperament from the character sheet. A reading that sets a mood slider off 50 uses those sliders. Curiosity alone does not. Otherwise it is still one preset, or a blend of two (`Mood temperament: <persona> = blend`), and the sliders show that preset's point or the mix. A pick or a slider overrides it, and built-in personas keep their preset. See [PISARA.md](PISARA.md).
 - The built-ins: Leia (`friend`) is Cheerful; Rowan (`calm`) and Avery (`coach`) are Calm.
 - The setup name, a custom persona and an unknown id get Balanced.
-- In Settings → Persona, the **Temperament** buttons pick a preset. Picking one for a built-in saves a copy, like any other edit.
+- In Settings → Her → Personality, the **Temperament** buttons pick a preset. Picking one for a built-in saves a copy, like any other edit.
 
 **Switching.** A persona switch loads that persona's mood and temperament. The keeper logs `Mood temperament: <persona> = <preset>` on load, on a switch, and when the picker changes it. The readout shows `Mood: <mood> (<Temperament>)`.
 
@@ -186,7 +186,7 @@ annoyed 0.52, sad 0.18, happy 0.05
 
 ## Windows checklist (phase 1)
 
-1. Settings → Data → turn on **Show developer settings**, then Developer → turn on **Show mood readout**. The box shows `Mood: content` and `none`.
+1. Settings → App → Data → turn on **Show developer settings**, then App → Developer → turn on **Show mood readout**. The box shows `Mood: content` and `none`.
 2. Chat in a way that makes her happy, then tease her, then say something sad. The readout and `Mood: now …` lines follow. A single mild reply should not switch the mood back and forth.
 3. Leave her alone for 10 minutes: Happy fades first, Sad and Annoyed last.
 4. Quit and start again: the mood is still there, a little weaker.
@@ -206,6 +206,6 @@ annoyed 0.52, sad 0.18, happy 0.05
 
 1. Turn on the mood readout. With Leia (`friend`), the log shows `Mood temperament: friend = cheerful`, and the readout shows `(Cheerful)`. She rests on happy (smile) straight away, and again after a restart.
 2. Switch to Rowan. The log shows `Mood temperament: calm = calm`.
-3. Make a new persona. The readout shows `(Balanced)`. Under Settings → Persona, pick **Temperament: Tsundere**. The log shows `… = tsundere` at once. Teasing now makes her annoyed faster, and affection builds more slowly.
+3. Make a new persona. The readout shows `(Balanced)`. Under Settings → Her → Personality, pick **Temperament: Tsundere**. The log shows `… = tsundere` at once. Teasing now makes her annoyed faster, and affection builds more slowly.
 4. Quit and start again: the persona still has Tsundere.
 5. With Intimate expressions off, `intimate` never appears in the readout or the log.

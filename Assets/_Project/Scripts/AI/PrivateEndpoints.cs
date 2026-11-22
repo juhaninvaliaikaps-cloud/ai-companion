@@ -52,9 +52,9 @@ namespace AICompanion.AI
         };
 
         public const string MissingAddress =
-            "No custom server address is set. Add it in Settings > AI.";
+            "No custom server address is set. Add it in Settings > AI > Private model.";
         public const string MissingModel =
-            "No custom model name is set. Add it in Settings > AI.";
+            "No custom model name is set. Add it in Settings > AI > Private model.";
 
         /// <summary>Null when the address can be used as a Private endpoint.</summary>
         public static string ValidateAddress(string baseUrl)

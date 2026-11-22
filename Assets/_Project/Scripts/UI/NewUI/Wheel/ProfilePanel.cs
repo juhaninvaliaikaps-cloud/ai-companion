@@ -320,7 +320,7 @@ namespace AICompanion.NewUI.Wheel
                     FillBar(value / 100f, i == TemperamentAxes.Curiosity ? _theme.Disabled : _theme.Hover);
                 }
 
-                Paragraph("Each runs from 0 to 100. Curiosity does not change her mood yet. Set them on Settings → Persona → Temperament.", true);
+                Paragraph("Each runs from 0 to 100. Curiosity does not change her mood yet. Set them on Settings → Her → Personality.", true);
             }
             else if (p.HasReading)
             {
@@ -348,7 +348,7 @@ namespace AICompanion.NewUI.Wheel
                     FillBar(p.Libido / 100f, _theme.Hover);
                 }
 
-                Paragraph("Set innocence and libido on Settings → Persona → Who she is. Desire moves on its own.", true);
+                Paragraph("Set innocence and libido on Settings → 18+ → Her. Desire moves on its own.", true);
                 End(box);
             }
 
@@ -562,7 +562,7 @@ namespace AICompanion.NewUI.Wheel
             var w = _data.World;
             if (w == null || w.IsEmpty)
             {
-                Paragraph("Her world has not been written yet. It is written from her description while \"Her own world\" is on (Settings → Persona → Her life).", true);
+                Paragraph("Her world has not been written yet. It is written from her description while \"Her own world\" is on (Settings → Her → Her life).", true);
                 return;
             }
 
