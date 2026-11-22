@@ -139,6 +139,19 @@ namespace AICompanion.Core
         }
     }
 
+    /// <summary>JUH-169: which way a secret named in a reply leans.</summary>
+    public enum SecretLean
+    {
+        /// <summary>No secret, or a shy one: the landing counts as it is.</summary>
+        None = 0,
+
+        /// <summary>What wins her over, a kink or a sensitive spot: always a gain.</summary>
+        Likes = 1,
+
+        /// <summary>What stings her: always a loss.</summary>
+        Stings = 2,
+    }
+
     /// <summary>
     /// The relationship leaf (JUH-115, as part of JUH-117). Plain numbers, no model:
     /// <list type="bullet">
@@ -288,6 +301,17 @@ namespace AICompanion.Core
         /// </summary>
         public static RelationshipChange Land(LandingEvent landing, float intensity, float affection, float familiarity, bool secretHit, float bonus)
         {
+            return Land(landing, intensity, affection, familiarity, secretHit, bonus, SecretLean.None);
+        }
+
+        /// <summary>
+        /// JUH-169: as above, with the way a named secret leans. A secret she likes (what wins her
+        /// over, a kink, a sensitive spot) always lands as a gain, and one that stings always as a
+        /// loss, at least as much as a compliment or a dismissal would. Before this, the first find
+        /// of a kink during a flirt with a near-stranger doubled the flirt's small loss.
+        /// </summary>
+        public static RelationshipChange Land(LandingEvent landing, float intensity, float affection, float familiarity, bool secretHit, float bonus, SecretLean lean)
+        {
             affection = ClampAffection(affection);
             familiarity = ClampFamiliarity(familiarity);
             var index = (int)landing;
@@ -300,6 +324,9 @@ namespace AICompanion.Core
             var close = familiarity / MaxFamiliarity;
             var amount = 0.5f + AnimationCue.ClampIntensity(intensity);
             var raw = StrangerDelta[index] + (CloseDelta[index] - StrangerDelta[index]) * close;
+            // The model's neutral stays neutral, secret or not.
+            if (landing != LandingEvent.Neutral)
+                raw = Lean(raw, lean, close);
             var delta = raw * amount * Standing(raw, affection);
             var critical = IsCritical(landing, intensity, secretHit) && delta != 0f;
             if (critical)
@@ -321,6 +348,33 @@ namespace AICompanion.Core
                 MoodPushes = BlendPushes(StrangerPushes[index], ClosePushes[index], close),
                 Critical = critical,
             };
+        }
+
+        /// <summary>
+        /// JUH-169: a secret she likes makes the table value a gain of at least a compliment's size;
+        /// one that stings makes it a loss of at least a dismissal's size. None changes nothing.
+        /// </summary>
+        public static float Lean(float raw, SecretLean lean, float close)
+        {
+            if (lean == SecretLean.Likes)
+            {
+                var floor = Row(LandingEvent.Complimented, close);
+                return Math.Max(Math.Abs(raw), floor);
+            }
+
+            if (lean == SecretLean.Stings)
+            {
+                var floor = Math.Abs(Row(LandingEvent.Dismissed, close));
+                return -Math.Max(Math.Abs(raw), floor);
+            }
+
+            return raw;
+        }
+
+        static float Row(LandingEvent landing, float close)
+        {
+            var i = (int)landing;
+            return StrangerDelta[i] + (CloseDelta[i] - StrangerDelta[i]) * close;
         }
 
         /// <summary>

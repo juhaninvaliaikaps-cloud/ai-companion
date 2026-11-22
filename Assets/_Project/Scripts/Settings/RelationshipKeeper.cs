@@ -143,7 +143,14 @@ namespace AICompanion.Settings
             // areas always reward a little more (x1.25); everything else lands as usual.
             var first = hit == SecretHitKind.First || intimateHit == SecretHitKind.First;
             var bonus = intimateHit == SecretHitKind.Again && intimate.Group != IntimateSecretGroup.Shy ? RelationshipMath.FavouriteMultiplier : 1f;
-            var change = RelationshipNow.Land(cue, _state.Affection, _state.Familiarity, first, bonus);
+            // JUH-169: a secret she likes always lands as a gain, one that stings as a loss.
+            var lean = SecretLean.None;
+            // Her other secrets: only the first find (found before, they land like any message).
+            if (hit == SecretHitKind.First)
+                lean = secret.Group == SecretGroup.WinsHerOver ? SecretLean.Likes : SecretLean.Stings;
+            else if (intimateHit != SecretHitKind.None && intimate.Group != IntimateSecretGroup.Shy)
+                lean = SecretLean.Likes;
+            var change = RelationshipNow.Land(cue, _state.Affection, _state.Familiarity, first, bonus, lean);
             var foundText = hit == SecretHitKind.First ? secret.Text : intimateHit == SecretHitKind.First ? intimate.Text : null;
             if (!Apply(change, foundText))
                 return;

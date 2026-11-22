@@ -89,6 +89,19 @@ namespace AICompanion.Core
         {
             get { return Kind == FeedbackKind.CritUp || Kind == FeedbackKind.CritDown; }
         }
+
+        /// <summary>
+        /// JUH-169: the piece for Player.log. A found secret's text (an 18+ kink, say) stays out of
+        /// the log, as do the private and 18+ chats it came from: only that a secret was found.
+        /// </summary>
+        public string LogText
+        {
+            get
+            {
+                var label = Kind == FeedbackKind.Secret ? "secret" : Label ?? string.Empty;
+                return Kind + " " + (!string.IsNullOrEmpty(Amount) ? Amount + " " : string.Empty) + label;
+            }
+        }
     }
 
     /// <summary>
