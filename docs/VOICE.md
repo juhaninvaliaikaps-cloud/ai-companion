@@ -123,7 +123,7 @@ The **V** key is read through Unity's input, so it works only while Happi's own 
 | Button | How Happi reads it | Default |
 | --- | --- | --- |
 | Mouse 4 or Mouse 5 (side buttons) | `GetAsyncKeyState(VK_XBUTTON1 / VK_XBUTTON2)`, the same way as the gacha look hotkey | Mouse 4 |
-| Xbox button | `XInputGetStateEx` (xinput1_4 ordinal 100); the standard `XInputGetState` hides the Guide button | on |
+| Xbox button | `XInputGetStateEx`, ordinal 100 of xinput1_4 (or xinput1_3), looked up once with `GetProcAddress`, because Unity's Mono can't bind an ordinal `DllImport` (JUH-167). The standard `XInputGetState` hides the Guide button | on |
 | PS button (DualSense, DualSense Edge) | The controller's HID input reports, read on a background thread. The device is opened read-only and shared, so the game and Steam keep their input. PS is bit 0 of byte 10 over USB, byte 11 in Bluetooth report 0x31, and byte 7 in the short Bluetooth report | on |
 
 - **Settings:** Voice tab → **Talk while gaming**. The values are `talkMouseButton` (4, 5 or 0 for off), `talkXboxButton` and `talkPsButton`. Nothing is read while push-to-talk is off.
