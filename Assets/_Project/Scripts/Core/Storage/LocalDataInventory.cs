@@ -40,6 +40,7 @@ namespace AICompanion.Core
                 || IsMoodName(rel)
                 || IsRelationshipName(rel)
                 || IsInnocenceName(rel)
+                || IsDesireName(rel)
                 || IsHerSecretsName(rel)
                 || IsIntimateSecretsName(rel)
                 || IsSheetName(rel);
@@ -135,6 +136,15 @@ namespace AICompanion.Core
             if (name == "innocence.json")
                 return true;
             return name.StartsWith("innocence-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
+        }
+
+        /// <summary>Her desire per persona (JUH-170): desire.json and desire-&lt;persona&gt;.json.</summary>
+        public static bool IsDesireName(string fileName)
+        {
+            var name = Normalize(fileName);
+            if (name == "desire.json")
+                return true;
+            return name.StartsWith("desire-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
         }
 
         /// <summary>

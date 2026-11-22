@@ -383,6 +383,31 @@ namespace AICompanion.Settings
             _rebuild = true;
         }
 
+        /// <summary>JUH-170: the active persona's desire keeper, or null. Adult mode only.</summary>
+        public DesireKeeper Desire
+        {
+            get { return GetComponent<DesireKeeper>(); }
+        }
+
+        /// <summary>JUH-170: the libido slider. Ignored while the 18+ gate is closed.</summary>
+        public void SetLibido(float value)
+        {
+            var keeper = GetComponent<DesireKeeper>();
+            if (keeper != null && AICompanion.Core.IntimateExpressions.Active)
+                keeper.SetLibidoByUser(value);
+        }
+
+        /// <summary>JUH-170: libido back to what the reading said.</summary>
+        public void UseLibidoReading()
+        {
+            var keeper = GetComponent<DesireKeeper>();
+            if (keeper == null || !AICompanion.Core.IntimateExpressions.Active)
+                return;
+            keeper.UseLibidoReading();
+            SetStatus("Libido is back to the reading of her description.");
+            _rebuild = true;
+        }
+
         /// <summary>JUH-125: the active persona's 18+ secrets keeper, or null.</summary>
         public IntimateSecretsKeeper IntimateSecrets
         {

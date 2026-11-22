@@ -437,12 +437,12 @@ Where she sits between **Innocent (0)** and **Perverted (100)**. It reflects her
 
 Only while the 18+ gate is open. While it is closed nothing is read, nothing moves, the slider is hidden and the prompt line is empty.
 
-**Start.** `InnocenceReader` reads her persona once on the local model or the user's private server, never a cloud model (`PisaraReader.MayUse` with keepsLocal; test `Read_NeverRunsWithTheGateClosed_OrOnACloudModel`). It judges what fits her most likely from her age, personality, relationships and anything the description says about her experience. A shy 18-year-old who has never dated sits near 10; a confident 26-year-old bully near 70. It is a separate request from the character sheet, because the sheet may be read by a cloud model. The reply is `{"innocence": 0-100, "reason": "..."}`. A changed prompt is read again; a failed reading is tried once more on the next launch.
+**Start.** `InnocenceReader` reads her persona once on the local model or the user's private server, never a cloud model (`PisaraReader.MayUse` with keepsLocal; test `Read_NeverRunsWithTheGateClosed_OrOnACloudModel`). It judges what fits her most likely from her age, personality, relationships and anything the description says about her experience. A shy 18-year-old who has never dated sits near 10; a confident 26-year-old bully near 70. It is a separate request from the character sheet, because the sheet may be read by a cloud model. The reply is `{"innocence": 0-100, "libido": 0-100, "reason": "..."}` (libido since JUH-170; a saved reading without it is asked once more, for libido only, and her innocence stays as it was). A changed prompt is read again; a failed reading is tried once more on the next launch.
 
 **Slider.** Settings, Persona, under the relationship correction: "Innocent to Perverted (18+)". Moving it sets where she is and her baseline, and a new reading no longer changes it. **Use the reading** goes back to the reading; **Read again** asks the model again.
 
 **Drift, both ways** (`InnocenceMath`):
-- Each intimate moment moves her toward experienced. An intimate moment is a finished reply whose cue is an intimate expression, or an adult video reaction (`strip` or a naked clip). The step is 2 points at intensity 0.5 when she is fully innocent, scaled 0.5x to 1.5x by intensity and by how much room is left above her.
+- Each intimate moment moves her toward experienced. An intimate moment is a finished reply whose cue is an intimate expression, an adult video reaction (`strip` or a naked clip), or `heat="hot"` / `heat="release"` (JUH-170: the local model often tags a sex scene `neutral`). The step is 2 points at intensity 0.5 when she is fully innocent, scaled 0.5x to 1.5x by intensity and by how much room is left above her.
 - Without intimate moments, what she gained above her baseline fades: nothing for 2 days, then half every 14 days. It never goes below the baseline, and is computed from her value at the last moment, so it does not compound.
 - A new reading keeps what she gained on top of the new baseline (`Rebase`).
 
@@ -465,6 +465,38 @@ Three more groups of secrets, only while the 18+ gate is open (Jussi, 2026-11-15
 - **Shy to do warms slowly with innocence** (JUH-116 bands, no fixed point): very innocent, she shies away; innocent, reluctant; in between, hesitant but can be coaxed; experienced, curious; perverted, open to them.
 - **Rewards** (`RelationshipKeeper.OnReply`): the first find of any 18+ secret is a critical hit (×2). After that, one of her kinks or sensitive areas always multiplies the change by `RelationshipMath.FavouriteMultiplier` (1.25), on top of a crit from intensity: "doing her kink should always be more rewarding than not doing it". A shy-to-do found before lands as usual.
 - **Shown**: the gold "Secret found" piece, and Profile → Personality → **Her 18+ secrets · 1 of 6 found** (Kinks, Sensitive areas, Shy to do, "How shy she is now"), only while the gate is open.
+
+## Desire and libido (JUH-170, 18+ only)
+
+Her **desire** (0 to 100) moves on its own, and the user cannot set it. Her **libido** (0 to 100) is how relentless her needs are (Jussi, 2026-11-22). Only while the 18+ gate is open: while it is closed nothing moves, the prompt line is empty and no desire piece floats. The numbers are in `DesireMath`. They are proposed values, tuned there only.
+
+**Libido** is read with her innocence, in the same local-only request (`InnocenceReader`, saved as `InnocenceState.ReadLibido`). Settings → Persona → **Libido and desire (18+)** has a slider that overrides the reading, and **Use the reading** goes back to it. Without a reading or a setting she runs on 50. It sets:
+- her resting level: 10 at libido 0, 40 at 50, 70 at 100
+- how fast she builds toward it: about 63 % of the way in 240 minutes at libido 0, 45 minutes at 100
+- how long desire above the level takes to fade back: 20 to 60 minutes
+- how long a release keeps her spent: 90 minutes at libido 0, 10 at 100
+- how much a moment raises her: 0.6x to 1.4x
+
+**What moves desire** (`DesireKeeper`, once a second):
+- **Time** pulls her toward her resting level, also while the app was closed (up to 3 days count). Being undressed lifts the level by 10. Her shown mood changes the pace: Intimate 1.6x, Affectionate 1.3x, Flustered 1.2x, Happy 1.1x, Anxious 0.8x, Annoyed 0.7x, Sad 0.6x, Sleepy 0.5x, scaled by the mood's strength. Above the level she fades back. During the refractory time she does not build.
+- **Moments.** The model marks each reply with the cue's `heat`: `warm` (suggestive) adds 4, `hot` (openly sexual, including something arousing she sees) adds 10, and `release` (she climaxes) keeps only 15 % and starts the refractory time. One of her kinks or sensitive areas in the same reply (`secret="k1"` / `"s1"`) adds 6, and something she is shy to do adds 2, with or without heat. Each gain is scaled by her cue intensity (0.5x to 1.5x), her libido, her affection (full while she likes the user or is neutral, down to 0.4x at -50), the room left above her, and 0.3x while she is spent. The heat instruction is part of the desire line, so the model is asked for it only while the gate is open.
+- **Her mood** follows a rising band (aroused or more). The shy side gets Flustered with a little Intimate, the bold side Intimate. A release pushes Affectionate and Happy.
+
+**What it changes** (`DesirePrompt`, through `DesireNow`, after the innocence line): five bands (calm, warm, aroused, very aroused, overwhelmed), each said in one of three ways from her innocence band:
+- Innocent or very innocent: she tries to hide it, but it slips out. At the top she cannot stop herself from asking for it.
+- In between: it shows, and she takes the initiative when very aroused.
+- Experienced or perverted: provocative and assertive. She takes the lead and says exactly what she wants.
+
+The line also says when she is conflicted (affection -10 or lower while aroused: the desire comes out prickly), when she is spent after a release, and when her libido is relentless or low. The line is rebuilt only when one of these changes (`DesirePrompt.Key`).
+
+**Shown:**
+- **Floating pieces** beside her (`RelationshipFeedback.AddDesire`): a magenta heart "+8 Desire 48" when it goes up, a dim violet one when it goes down, and "Release · desire 7". A moment shows when it moved her 0.5 or more; time alone shows once it has moved her 3. Both need "Show relationship changes while chatting" and the open gate, and the pieces are dropped the moment the gate closes.
+- **Profile** → Personality: Desire and Libido bars under Innocent to Perverted.
+- **Settings**: the current value under the libido slider.
+
+**Storage.** `desire-<persona>.json`, encrypted, in wipe and export (`LocalDataInventory.IsDesireName`). **Start over** puts her at half her resting level and keeps the user's libido setting. Log lines start with `Desire:`, with numbers and heat words only.
+
+**Not done yet:** a blush or breathing driven by desire on the avatar, and a meter that always shows on screen (today it shows in the Profile panel and with each floating piece).
 
 ## Guards
 

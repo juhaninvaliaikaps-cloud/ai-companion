@@ -36,10 +36,17 @@ namespace AICompanion.Core
         /// </summary>
         public string Secret { get; }
 
+        /// <summary>
+        /// How sexual the moment was (JUH-170), from <c>heat="hot"</c>. None when the tag did not
+        /// say. Only read while the 18+ gate is open (<see cref="DesireMath"/>).
+        /// </summary>
+        public DesireHeat Heat { get; }
+
         public AnimationCue(Emotion emotion, float intensity, string gesture, float direction = 0f, string emotionField = null, string reaction = null,
-            LandingEvent landed = LandingEvent.Neutral, string secret = null)
+            LandingEvent landed = LandingEvent.Neutral, string secret = null, DesireHeat heat = DesireHeat.None)
         {
             Landed = landed;
+            Heat = heat;
             Secret = HerSecrets.SanitizeId(secret);
             Emotion = emotion;
             Intensity = ClampIntensity(intensity);

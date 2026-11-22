@@ -130,6 +130,9 @@ namespace AICompanion.Settings
             // JUH-116: Innocent–Perverted, adult mode only; idle while the 18+ gate is closed.
             if (GetComponent<InnocenceKeeper>() == null)
                 gameObject.AddComponent<InnocenceKeeper>();
+            // JUH-170: her desire and libido, adult mode only; idle while the 18+ gate is closed.
+            if (GetComponent<DesireKeeper>() == null)
+                gameObject.AddComponent<DesireKeeper>();
             // JUH-125: her 18+ secrets, read on the local model only; idle while the gate is closed.
             if (GetComponent<IntimateSecretsKeeper>() == null)
                 gameObject.AddComponent<IntimateSecretsKeeper>();
