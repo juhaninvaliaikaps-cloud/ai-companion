@@ -50,7 +50,10 @@ namespace AICompanion.AI
                 www.uploadHandler = new UploadHandlerRaw(body);
                 www.downloadHandler = handler;
                 var timeout = request.TimeoutSeconds <= 0f ? ChatDefaults.TimeoutSeconds : request.TimeoutSeconds;
-                www.timeout = Mathf.CeilToInt(timeout);
+                // JUH-183: the timeout counts from the last data, not from the start, so a slow
+                // reply that keeps arriving is not cut off. The request's own limit is the hard cap.
+                www.timeout = StreamTimeout.HardCap(timeout);
+                handler.LastData = Time.realtimeSinceStartupAsDouble;
                 www.redirectLimit = request.FollowRedirects ? 32 : 0;
                 if (request.Headers != null)
                 {
@@ -65,6 +68,15 @@ namespace AICompanion.AI
                     {
                         www.Abort();
                         completion.TrySetResult(ChatHttpResult.Cancel());
+                        yield break;
+                    }
+
+                    if (StreamTimeout.Idle(Time.realtimeSinceStartupAsDouble, handler.LastData, timeout))
+                    {
+                        www.Abort();
+                        Debug.Log("Chat transport: nothing arrived for " + Mathf.RoundToInt(timeout) + " s"
+                            + (handler.Streamed ? " in the middle of the reply" : string.Empty) + "; stopped");
+                        completion.TrySetResult(ChatHttpResult.Timeout());
                         yield break;
                     }
 
@@ -138,6 +150,11 @@ namespace AICompanion.AI
 
             public string ErrorText => _error.ToString();
 
+            /// <summary>JUH-183: when data last arrived (realtimeSinceStartup), for the idle timeout.</summary>
+            public double LastData;
+
+            public bool Streamed => _streamed;
+
             public void ReleaseHeld()
             {
                 if (_streamed || _held.Length == 0 || _onChunk == null)
@@ -151,6 +168,7 @@ namespace AICompanion.AI
                 if (data == null || dataLength <= 0)
                     return true;
 
+                LastData = Time.realtimeSinceStartupAsDouble;
                 var text = _decoder.Take(data, dataLength);
                 if (text.Length == 0)
                     return true;

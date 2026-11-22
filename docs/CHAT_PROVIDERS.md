@@ -80,6 +80,8 @@ Jussi (2026-11-21): the user can use whatever cloud API they want, and the inter
 
 Error messages name the slot "Cloud AI" ("Cloud AI took too long to answer").
 
+**How long a reply may take (JUH-183).** The timeout (120 s by default) counts the time since the last data arrived, not since the request started. A slow reply that keeps arriving finishes, for example a 12B local model sharing the GPU with Chatterbox. A server that stops answering still times out after the same time, and the wait for the first word is the same as before. A whole request is capped at 15 minutes (`StreamTimeout`). Player.log says `Chat transport: nothing arrived for 120 s in the middle of the reply; stopped` when it happens.
+
 ## Add a provider
 
 1. Implement `IChatProvider`, or configure another `OpenAiCompatibleChatProvider` if the server speaks Chat Completions with SSE.
