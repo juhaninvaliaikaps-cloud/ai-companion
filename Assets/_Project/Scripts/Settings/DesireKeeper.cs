@@ -136,7 +136,8 @@ namespace AICompanion.Settings
                 return;
             var pace = DesireMath.MoodPace(CompanionMoodNow.Shown, CompanionMoodNow.Strength);
             var before = _state.Desire;
-            _state.Desire = DesireMath.AfterTime(before, libido, minutes, pace, IntimateExpressions.Undressed, _state.InRefractory(nowUtc));
+            // JUH-185: a heated moment in the last few minutes holds her desire; she cools only when it goes quiet.
+            _state.Desire = DesireMath.AfterTime(before, libido, minutes, pace, IntimateExpressions.Undressed, _state.InRefractory(nowUtc), _state.Holding(nowUtc));
             var delta = _state.Desire - before;
             _dirty = true;
             if (delta == 0f)
@@ -183,6 +184,7 @@ namespace AICompanion.Settings
             var libido = Libido;
             var before = _state.Desire;
             var release = heat == DesireHeat.Release;
+            _state.NoteHeat(heat, now);
             if (release)
             {
                 _state.Desire = DesireMath.AfterRelease(before);
