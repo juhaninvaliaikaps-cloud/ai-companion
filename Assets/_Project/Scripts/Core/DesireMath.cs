@@ -50,6 +50,42 @@ namespace AICompanion.Core
             }
         }
 
+        /// <summary>
+        /// JUH-179: the heat of a reply. The model's own heat wins. When it wrote none (Jussi's
+        /// log, 2026-11-22: Rocinante never wrote heat, not even with a strip reaction), the cue's
+        /// other signs count: an 18+ expression, undressing or a naked or adult clip is hot, and a
+        /// flirt is warm.
+        /// </summary>
+        public static DesireHeat Of(AnimationCue cue)
+        {
+            if (cue.Heat != DesireHeat.None)
+                return cue.Heat;
+            if (IntimateExpressions.IsIntimateId(cue.EmotionField))
+                return DesireHeat.Hot;
+            var reaction = cue.Reaction ?? string.Empty;
+            if (string.Equals(reaction, "strip", System.StringComparison.OrdinalIgnoreCase) || IntimateExpressions.IsNakedCue(reaction))
+                return DesireHeat.Hot;
+            if (cue.Landed == LandingEvent.Flirted)
+                return DesireHeat.Warm;
+            return DesireHeat.None;
+        }
+
+        /// <summary>
+        /// JUH-179: added to the turn reminder while the 18+ gate is open. Local models follow the
+        /// reminder on the newest message more than the system prompt (as with landed, JUH-122).
+        /// </summary>
+        public const string Reminder =
+            " While the moment is sexual, also set heat: heat=\"warm\" when suggestive, heat=\"hot\" when openly sexual, heat=\"release\" when you climax.";
+
+        /// <summary>The turn reminder with <see cref="Reminder"/> inside its closing parenthesis.</summary>
+        public static string WithReminder(string turnReminder)
+        {
+            var text = (turnReminder ?? string.Empty).TrimEnd();
+            if (text.EndsWith(")", System.StringComparison.Ordinal))
+                return text.Substring(0, text.Length - 1) + Reminder + ")";
+            return text + Reminder;
+        }
+
         public static string Name(DesireHeat heat)
         {
             switch (heat)

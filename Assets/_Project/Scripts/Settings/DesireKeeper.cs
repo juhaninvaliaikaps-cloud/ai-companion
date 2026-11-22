@@ -175,12 +175,14 @@ namespace AICompanion.Settings
                     group = item.Group;
             }
 
-            if (cue.Heat == DesireHeat.None && !group.HasValue)
+            // JUH-179: the model's heat, or what the cue's other signs say when it wrote none.
+            var heat = DesireHeats.Of(cue);
+            if (heat == DesireHeat.None && !group.HasValue)
                 return;
 
             var libido = Libido;
             var before = _state.Desire;
-            var release = cue.Heat == DesireHeat.Release;
+            var release = heat == DesireHeat.Release;
             if (release)
             {
                 _state.Desire = DesireMath.AfterRelease(before);
@@ -189,13 +191,13 @@ namespace AICompanion.Settings
             }
             else
             {
-                _state.Desire = DesireMath.AfterMoment(before, cue.Heat, cue.Intensity, libido, Affection(), _state.InRefractory(now), group);
+                _state.Desire = DesireMath.AfterMoment(before, heat, cue.Intensity, libido, Affection(), _state.InRefractory(now), group);
             }
 
             _dirty = true;
             _saveIn = Math.Min(_saveIn, 1f);
             var delta = _state.Desire - before;
-            Debug.Log("Desire: " + PersonaLogId() + " " + DesireHeats.Name(cue.Heat) + (group.HasValue ? " +secret" : string.Empty)
+            Debug.Log("Desire: " + PersonaLogId() + " " + DesireHeats.Name(heat) + (heat != cue.Heat ? " (from the cue)" : string.Empty) + (group.HasValue ? " +secret" : string.Empty)
                 + " " + delta.ToString("+0.0;-0.0;0.0", CultureInfo.InvariantCulture) + " = " + _state.Readout(libido));
             if (Math.Abs(delta) >= MomentShown || release)
                 DesireNow.Report(new DesireNotice { Delta = delta, Desire = _state.Desire, Release = release });
