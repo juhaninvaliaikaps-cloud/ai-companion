@@ -608,6 +608,8 @@ namespace AICompanion.UI
             prompt = WithScene(prompt, privateMode, provider);
             // JUH-156: her lorebook entries for this message.
             prompt = WithLore(prompt, text);
+            // JUH-171: the phrases her last replies kept reusing, so she varies them.
+            prompt = WithRepeats(prompt, privateMode);
             if (!string.IsNullOrEmpty(_webSearchContext))
             {
                 prompt += "\n\n" + _webSearchContext;

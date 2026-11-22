@@ -56,7 +56,8 @@ namespace AICompanion.AI
                 request.MaxTokens,
                 request.SystemPrompt,
                 request.Messages,
-                _config.ContextTokens > 0 ? _config.ContextTokens : DefaultContextTokens);
+                _config.ContextTokens > 0 ? _config.ContextTokens : DefaultContextTokens,
+                request.Roleplay);
 
             var http = new ChatHttpRequest
             {
@@ -122,6 +123,14 @@ namespace AICompanion.AI
     /// <summary>Pure JSON-lines request builder for Ollama's native chat endpoint.</summary>
     public static class OllamaChatJson
     {
+        /// <summary>
+        /// JUH-171: sampler options for her replies. Ollama's default repeat penalty looks back only
+        /// 64 tokens, so a stock line from her last reply ("you can't just...") came back again and
+        /// again. A mild penalty over the last 1024 tokens and min_p 0.05 (drops the unlikely tail
+        /// without flattening her voice). Temperature stays the user's setting.
+        /// </summary>
+        public const string RoleplayOptions = ",\"repeat_penalty\":1.08,\"repeat_last_n\":1024,\"min_p\":0.05";
+
         public static string Build(
             string model,
             float temperature,
@@ -129,6 +138,19 @@ namespace AICompanion.AI
             string systemPrompt,
             IReadOnlyList<ChatMessage> messages,
             int contextTokens)
+        {
+            return Build(model, temperature, maxTokens, systemPrompt, messages, contextTokens, false);
+        }
+
+        /// <summary>As above; <paramref name="roleplay"/> adds <see cref="RoleplayOptions"/>.</summary>
+        public static string Build(
+            string model,
+            float temperature,
+            int maxTokens,
+            string systemPrompt,
+            IReadOnlyList<ChatMessage> messages,
+            int contextTokens,
+            bool roleplay)
         {
             var sb = new StringBuilder(512);
             sb.Append("{\"model\":");
@@ -157,6 +179,8 @@ namespace AICompanion.AI
             sb.Append(ChatCompletionJson.ClampTemperature(temperature).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
             sb.Append(",\"num_predict\":");
             sb.Append(ChatCompletionJson.ClampMaxTokens(maxTokens));
+            if (roleplay)
+                sb.Append(RoleplayOptions);
             sb.Append("}}");
             return sb.ToString();
         }

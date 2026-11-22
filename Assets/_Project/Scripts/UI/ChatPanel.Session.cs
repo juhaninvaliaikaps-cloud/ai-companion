@@ -55,6 +55,11 @@ namespace AICompanion.UI
         string PersonaPrompt(bool chatMessage)
         {
             var prompt = CompanionMoodPrompt.AppendCurrent(settings != null ? settings.systemPrompt : string.Empty);
+            // JUH-171: how she carries herself, from her temperament sliders, so a mood or the
+            // relationship line colours her manner instead of replacing it. Only until the voice
+            // reading exists: its block (at the end) says it in full.
+            if (VoiceNow.PromptBlock.Length == 0)
+                prompt = PersonaMannerNow.Append(prompt);
             // JUH-118 section 4: who she is to the user now, right after the mood line.
             prompt = RelationshipNow.Append(prompt);
             // JUH-116: where she sits between Innocent and Perverted; empty while the 18+ gate is closed.
@@ -65,7 +70,10 @@ namespace AICompanion.UI
             prompt = IntimateSecretsNow.Append(prompt);
             // JUH-150: the persona's 18+ notes; empty while the gate is closed.
             prompt = AdultNotesNow.Append(prompt);
-            return WorldPromptNow.Append(prompt, chatMessage && ConversationIsEmpty());
+            prompt = WorldPromptNow.Append(prompt, chatMessage && ConversationIsEmpty());
+            // JUH-171: how she talks, last, where a small local model follows it best. Its 18+
+            // part is only there while the gate is open (and the chat is local then).
+            return VoiceNow.Append(prompt);
         }
 
         bool ConversationIsEmpty()

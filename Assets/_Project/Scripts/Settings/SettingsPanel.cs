@@ -148,6 +148,10 @@ namespace AICompanion.Settings
                 gameObject.AddComponent<PisaraReadingKeeper>();
             }
 
+            // JUH-171: how she talks, the last Pisara reading (its 18+ part on the local model only).
+            if (GetComponent<VoiceKeeper>() == null)
+                gameObject.AddComponent<VoiceKeeper>();
+
             // JUH-122: scripted messages for checking the chat by hand (-pisara-chat <file>).
             if (PisaraChatTool.Requested(Environment.GetCommandLineArgs()) && GetComponent<PisaraChatTool>() == null)
                 gameObject.AddComponent<PisaraChatTool>();

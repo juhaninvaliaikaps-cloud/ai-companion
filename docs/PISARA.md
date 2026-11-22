@@ -177,6 +177,46 @@ The character sheet may also carry `temperament.axes` with `axesSet: true`. When
 
 A mix averages gains and half-lives by share. It keeps the leader's baseline only when the leader has at least 60 %, and scales the rest bias by share. Intimate is never touched, and every number passes the same clamps as the presets. When `axesSet` is true and any mood slider is off 50, Auto uses those sliders instead of this blend (`TemperamentMood`). Curiosity alone does not. The sliders for a blend with no axes are the mix of the two presets' points, for the settings UI only.
 
+### Her manner in chat (JUH-171)
+
+Before JUH-171 the nine sliders only moved her mood and game remarks. The chat model never heard them, so a self-assured, assertive character came out timid and stammering in romantic scenes, where the mood line (flustered) and the relationship line (guarded) pulled the other way. Now `PersonaManner.Line` names every slider at 70 or more, or 30 or less, in one line right after the mood line, for example: "Her manner: takes the lead, says what she means, self-assured." The line also asks her to keep that manner in every scene, romantic and intimate ones included. When her confidence or assertiveness is 70 or more, it adds that being flustered, guarded or aroused never makes her timid. A profile at 50 gives no line. `CompanionMoodKeeper` publishes it through `PersonaMannerNow` whenever it resolves her temperament.
+
+### How she talks: the voice reading (JUH-171)
+
+The last Pisara reading. `VoiceKeeper` waits until her description has been read (and, while the 18+ gate is open, her innocence), then starts two requests together, each on its own model (`VoiceReader`; Jussi, 2026-11-22):
+
+- **Everyday**: built gate-closed. It is read by the same model as her description (the Pisara cloud model when that setting is on), and on the local model in private mode, because only the description reading may use the cloud there (JUH-126).
+- **Intimate (18+)**: read only while the gate is open, only on the local model or the user's private server, whatever the Pisara model setting says.
+
+**What it is given** (`VoiceInput`):
+- her description; the user's example lines and speaking notes come first and decide
+- her nine sliders as numbers
+- her mood temperament ("mostly tsundere")
+- how she starts with the user
+- for the 18+ request also: her 18+ notes, where she sits between innocent and perverted, and her libido (JUH-170)
+
+**What it gives** (`VoiceSheet`, `IntimateVoice`): short fixed fields.
+- **Everyday:** overall, register, rhythm, words, 3–5 habits, 3–5 things she never does when talking, one line per mood (happy, annoyed, flustered, sad, affectionate), one line with a stranger and one with someone close, and 2 sample lines.
+- **18+:** holding back, letting go, habits, never, and 2 samples.
+
+**When it reads again:** it is saved encrypted per persona (`voice-<persona>.json`, in wipe and export) with the hash of what it was given. It reads again only when that changes: her description, sliders, mood temperament or starting relationship. The 18+ part also reads again when her innocence or libido moves into a new band, so her intimate voice follows her as she gets more experienced. A changed input waits 4 seconds unchanged first (slider drags), and each input is read at most once per launch, unless the user presses **Read again**.
+
+**What chat gets** (`VoicePrompt`, through `VoiceNow`, at the very end of the persona prompt, where a small local model follows it best). Code picks what goes in:
+- the line for her mood now (strength 0.25 or more)
+- the stranger or close line from her familiarity now (50 or more is close)
+- while the gate is open: "holding back" while she is innocent, "letting go" when she is experienced or perverted, and both in between. Very high desire (very aroused or more) moves her one step toward letting go, so even a shy one gives in (`VoicePrompt.IntimateStage`)
+- the rules code always adds: the samples show the feel only and are never repeated word for word; vary how sentences start; and, only for a confident or assertive one (70 or more), do not stammer or trail off. A shy one keeps her stammer.
+
+While there is no reading yet, the short "Her manner" line stands in.
+
+**The user's text wins.** Settings → Persona → Who she is → **How she talks** shows every field. What the user types is kept, and an emptied field goes back to the reading. Lists are split by ";". **Use the reading everywhere** drops the user's text. The 18+ fields show only while the gate is open. Start over keeps her voice. Log lines say what was read and by which model, never the text.
+
+**Copied samples.** If one of her last replies has four words in a row from a sample line, that run is named in the repeated-phrases line right away (`RepeatedPhrases.AddCopied`).
+
+**Repeated phrases.** Before each typed or spoken message, `RepeatedPhrases.Find` looks at her last five replies. A phrase of two to four words that showed up in at least three of them is named in one line at the end of the prompt, with a request to vary it (up to four phrases, longest first). A phrase made only of small common words is never named. A local-only (18+) reply is looked at only when the send is private, so none of its words can reach a cloud request. Player.log gets the count only.
+
+**Sampler.** Her replies on the local model (`ChatRequest.Roleplay`, set by the conversation) add `repeat_penalty` 1.08 over the last 1024 tokens and `min_p` 0.05 (`OllamaChatJson.RoleplayOptions`). Ollama's default penalty looks back only 64 tokens. Readings, summaries and other JSON tasks keep Ollama's defaults, and the temperature stays the user's setting.
+
 ## Relationship
 
 State per persona (`RelationshipState`, JUH-119): `Affection` -100..100, `Familiarity` 0..100, `SecondsTogether`. The math below works on plain numbers, so it does not depend on that class.

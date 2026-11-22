@@ -295,7 +295,8 @@ namespace AICompanion.UI
                 SystemPrompt = string.IsNullOrWhiteSpace(systemPrompt) ? ChatDefaults.SystemPrompt : systemPrompt.Trim(),
                 Temperature = temperature,
                 MaxTokens = maxTokens,
-                Messages = messages
+                Messages = messages,
+                Roleplay = true,
             };
             return request;
         }
@@ -307,7 +308,8 @@ namespace AICompanion.UI
                 SystemPrompt = string.IsNullOrWhiteSpace(systemPrompt) ? ChatDefaults.SystemPrompt : systemPrompt.Trim(),
                 Temperature = temperature,
                 MaxTokens = maxTokens,
-                Messages = new List<ChatMessage> { new ChatMessage(ChatRole.User, userText ?? string.Empty) }
+                Messages = new List<ChatMessage> { new ChatMessage(ChatRole.User, userText ?? string.Empty) },
+                Roleplay = true,
             };
             return request;
         }

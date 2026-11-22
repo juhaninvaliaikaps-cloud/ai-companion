@@ -277,11 +277,18 @@ namespace AICompanion.Settings
         PersonaTemperament ResolveTemperament(string folder, string persona)
         {
             if (string.IsNullOrEmpty(persona))
+            {
+                PersonaMannerNow.Reset();
                 return PersonaTemperament.Default;
+            }
+
             // JUH-118: without a manual pick, the character sheet's reading decides.
             var pisara = GetComponent<PisaraReadingKeeper>();
             var sheet = pisara != null ? pisara.SheetFor(persona) : null;
-            return PersonaRuntime.TemperamentChoiceFor(PersonaCatalog.LoadDefault(folder), persona, sheet).Temperament;
+            var choice = PersonaRuntime.TemperamentChoiceFor(PersonaCatalog.LoadDefault(folder), persona, sheet);
+            // JUH-171: her nine sliders also tell chat how she carries herself.
+            PersonaMannerNow.Set(choice.Axes);
+            return choice.Temperament;
         }
 
         void LogTemperament(string persona)

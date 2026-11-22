@@ -35,6 +35,7 @@ namespace AICompanion.Core
                 || IsMemoryName(rel)
                 || IsDesktopToolLogName(rel)
                 || IsTimelineName(rel)
+                || IsVoiceName(rel)
                 || IsPendingSessionName(rel)
                 || IsHistoryName(rel)
                 || IsMoodName(rel)
@@ -88,6 +89,15 @@ namespace AICompanion.Core
         public static bool IsDesktopToolLogName(string fileName)
         {
             return string.Equals(Normalize(fileName), "desktop-tool-actions.json", StringComparison.Ordinal);
+        }
+
+        /// <summary>How she talks per persona (JUH-171): voice.json and voice-&lt;persona&gt;.json.</summary>
+        public static bool IsVoiceName(string fileName)
+        {
+            var name = Normalize(fileName);
+            if (name == "voice.json")
+                return true;
+            return name.StartsWith("voice-", StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal);
         }
 
         /// <summary>Her relationship timeline per persona (JUH-134): timeline.json and timeline-&lt;persona&gt;.json.</summary>
