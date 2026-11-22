@@ -35,12 +35,12 @@ namespace AICompanion.Core
                 || IsMemoryName(rel)
                 || IsDesktopToolLogName(rel)
                 || IsTimelineName(rel)
+                || IsVoiceName(rel)
                 || IsPendingSessionName(rel)
                 || IsHistoryName(rel)
                 || IsMoodName(rel)
                 || IsRelationshipName(rel)
                 || IsInnocenceName(rel)
-                || IsVoiceName(rel)
                 || IsHerSecretsName(rel)
                 || IsIntimateSecretsName(rel)
                 || IsSheetName(rel);

@@ -96,14 +96,14 @@ namespace AICompanion.Settings
             var innocence = GetComponent<InnocenceKeeper>();
             if (innocence != null)
                 innocence.Forget();
-            var voice = GetComponent<VoiceKeeper>();
-            if (voice != null)
-                voice.Forget();
             var intimateSecrets = GetComponent<IntimateSecretsKeeper>();
             if (intimateSecrets != null)
                 intimateSecrets.Forget();
 
             MemoryRuntime.Discard();
+            var voice = GetComponent<VoiceKeeper>();
+            if (voice != null)
+                voice.Forget();
             _settings = CompanionSettings.CreateDefault();
             // After a full wipe she starts again as on a new install: Happi.
             _settings.PersonaId = PersonaDefaults.HappiId;
