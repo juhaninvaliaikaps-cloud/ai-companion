@@ -44,6 +44,17 @@ namespace AICompanion.Settings
         }
 
         /// <summary>
+        /// Square panel edge in overlay pixels. The normal 480-wide overlay uses 480.
+        /// A larger window may go up to the clip's native 544. The video is not cropped
+        /// to reach that size.
+        /// </summary>
+        public static float PanelEdge(float screenWidth, float screenHeight)
+        {
+            var room = Mathf.Min(screenWidth, screenHeight) - Margin * 2f;
+            return Mathf.Min(NativeSize, Mathf.Max(DefaultPanelSize, room));
+        }
+
+        /// <summary>
         /// Draws the panel into the transparent overlay camera, like the avatar and the portrait.
         /// Without a camera it stays a screen-space overlay.
         /// </summary>
@@ -123,6 +134,7 @@ namespace AICompanion.Settings
             }
             if (_panel == null || !_panel.activeSelf)
                 return;
+            PlacePanel();
             if (_hideAt > 0f && Time.unscaledTime >= _hideAt)
                 Hide();
         }
@@ -160,8 +172,9 @@ namespace AICompanion.Settings
             }
 
             _panel.SetActive(true);
+            PlacePanel();
             _playing = cue;
-            _hideAt = 0f;
+            _hideAt = Time.unscaledTime + HideAfterSeconds;
             var showId = ++_showId;
             if (_onThisPrepare != null)
             {
@@ -247,10 +260,7 @@ namespace AICompanion.Settings
             rect.anchorMax = new Vector2(1f, 0f);
             rect.pivot = new Vector2(1f, 0f);
             rect.anchoredPosition = new Vector2(-Margin, Margin);
-            var available = canvas.pixelRect;
-            var edge = Mathf.Min(NativeSize,
-                Mathf.Max(DefaultPanelSize, Mathf.Min(available.width, available.height) - Margin * 2f));
-            rect.sizeDelta = new Vector2(edge, edge);
+            PlacePanel();
 
             var back = _panel.AddComponent<Image>();
             back.color = new Color(0.04f, 0.04f, 0.06f, 0.94f);
@@ -268,14 +278,20 @@ namespace AICompanion.Settings
             pictureRect.offsetMax = new Vector2(-4f, -4f);
             _image = picture.AddComponent<RawImage>();
             _image.raycastTarget = false;
+            _image.uvRect = new Rect(0f, 0f, 1f, 1f);
 
-            _texture = new RenderTexture(544, 544, 0, RenderTextureFormat.ARGB32);
+            _texture = new RenderTexture((int)NativeSize, (int)NativeSize, 0, RenderTextureFormat.ARGB32);
+            _texture.useMipMap = false;
+            _texture.autoGenerateMips = false;
+            _texture.filterMode = FilterMode.Bilinear;
+            _texture.wrapMode = TextureWrapMode.Clamp;
             _texture.Create();
             _image.texture = _texture;
 
             _video = _panel.AddComponent<VideoPlayer>();
             _video.playOnAwake = false;
             _video.isLooping = false;
+            _video.aspectRatio = VideoAspectRatio.FitInside;
             _video.renderMode = VideoRenderMode.RenderTexture;
             _video.targetTexture = _texture;
             _video.audioOutputMode = VideoAudioOutputMode.None;
@@ -286,6 +302,18 @@ namespace AICompanion.Settings
         void FollowOverlayCamera()
         {
             PlaceOnOverlay(_canvas, Camera.main);
+        }
+
+        void PlacePanel()
+        {
+            if (_panel == null)
+                return;
+            var rect = _panel.GetComponent<RectTransform>();
+            if (rect == null)
+                return;
+            var edge = PanelEdge(Screen.width, Screen.height);
+            if (rect.sizeDelta.x != edge || rect.sizeDelta.y != edge)
+                rect.sizeDelta = new Vector2(edge, edge);
         }
     }
 }

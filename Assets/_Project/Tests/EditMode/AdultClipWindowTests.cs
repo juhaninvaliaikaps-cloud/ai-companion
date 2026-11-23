@@ -21,6 +21,19 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void NormalOverlay_ShowsTheClipAt480()
+        {
+            Assert.AreEqual(480f, AdultClipWindow.PanelEdge(480f, 720f));
+        }
+
+        [Test]
+        public void LargeOverlay_ShowsTheClipAtItsNative544()
+        {
+            Assert.AreEqual(544f, AdultClipWindow.PanelEdge(960f, 1440f));
+            Assert.AreEqual(544f, AdultClipWindow.PanelEdge(1200f, 800f));
+        }
+
+        [Test]
         public void StalePrepare_DoesNotCountAsTheCurrentClip()
         {
             Assert.IsTrue(AdultClipWindow.AcceptsPrepared(2, 2));
