@@ -89,6 +89,92 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void IntimateMoment_SurvivesSaveAndReload()
+        {
+            var path = Path.Combine(_dir, "memory.json");
+            var store = MemoryStore.Load(path);
+            SessionMemories.CaptureAsync(new FakeProvider(), "User: hello\nMira: hi",
+                "Mira", 4, true, true, store, 2f, CancellationToken.None, false, null, "intimate")
+                .GetAwaiter().GetResult();
+
+            var loaded = MemoryStore.Load(path);
+            MemoryEntry marker = null;
+            Assert.Greater(loaded.Entries.Count, 0);
+            for (var i = 0; i < loaded.Entries.Count; i++)
+            {
+                var entry = loaded.Entries[i];
+                Assert.AreEqual("intimate", entry.moment);
+                Assert.IsTrue(entry.isPrivate);
+                if (entry.text == "The user and Mira were intimate.")
+                    marker = entry;
+            }
+
+            Assert.IsNotNull(marker);
+            Assert.IsTrue(marker.isPrivate);
+        }
+
+        [Test]
+        public void ModeSwitch_ClosesAPublicChapterWithItsOwnPrivacy()
+        {
+            // The switch has already turned private mode on and opened the 18+ gate.
+            var close = SessionClosePlan.For(
+                sessionKeptLocal: false,
+                sessionIntimate: false,
+                modeKeepsLocal: true,
+                gateOpen: true,
+                modeSwitch: true);
+
+            Assert.IsTrue(close.UsePublicProvider);
+            Assert.IsFalse(close.Intimate);
+            Assert.AreEqual(string.Empty, close.MomentKind);
+        }
+
+        [Test]
+        public void ModeSwitch_ClosesAPrivateChapterAsIntimateAndLocal()
+        {
+            // Switching back to public must not drop the privacy the chapter already had.
+            var close = SessionClosePlan.For(
+                sessionKeptLocal: true,
+                sessionIntimate: true,
+                modeKeepsLocal: false,
+                gateOpen: false,
+                modeSwitch: true);
+
+            Assert.IsFalse(close.UsePublicProvider);
+            Assert.IsTrue(close.Intimate);
+            Assert.AreEqual("intimate", close.MomentKind);
+        }
+
+        [Test]
+        public void IdleClose_StillFollowsTheModeThatIsOn()
+        {
+            var close = SessionClosePlan.For(false, false, true, true, false);
+            Assert.IsFalse(close.UsePublicProvider);
+            Assert.IsTrue(close.Intimate);
+        }
+
+        [Test]
+        public void Describe_SendsRecentPublicTurnsAndLeavesPrivateLinesOut()
+        {
+            var conversation = new ChatConversation();
+            conversation.ImportLine(ChatLineKind.User, "the garden is quiet", false);
+            conversation.ImportLine(ChatLineKind.Assistant, "she looks at the roses", false);
+            conversation.ImportLine(ChatLineKind.User, "a private line that must stay here", true);
+            conversation.ImportLine(ChatLineKind.Assistant, "a private reply that must stay here", true);
+
+            var recent = new List<ChatMessage>();
+            SessionLineFilter.Append(recent, conversation.Lines, 0, false);
+            var request = new ChatRequest();
+            NarrationTurn.Fill(request, recent, "the garden");
+
+            Assert.AreEqual(3, request.Messages.Count);
+            StringAssert.Contains("garden is quiet", request.Messages[0].Content);
+            StringAssert.Contains("roses", request.Messages[1].Content);
+            StringAssert.Contains("Narrate/describe: the garden", request.Messages[2].Content);
+            Assert.IsFalse(request.Messages.Exists(m => m.Content.Contains("private")));
+        }
+
+        [Test]
         public void MomentKind_RoundTripsThroughHandoff()
         {
             var store = MemoryStore.Load(Path.Combine(_dir, "memory.json"));

@@ -29,7 +29,6 @@ namespace AICompanion.Settings
 
         DateTime _nextPatchLookupUtc = DateTime.MinValue;
         bool _patchLooking;
-        string _patchGame = string.Empty;
 
         void KeepLive(CompanionSettings settings, ChatPanel chat, bool inFront)
         {
@@ -180,14 +179,11 @@ namespace AICompanion.Settings
 
             _patchLooking = true;
             _nextPatchLookupUtc = DateTime.UtcNow.AddHours(6);
-            _patchGame = CommentaryPrompt.GameName(game);
             GameKnowledge.Request(panel, game, context =>
             {
                 _patchLooking = false;
-                if (!string.IsNullOrEmpty(context) && _alive)
-                {
-                    Touch("Game reference loaded for " + _patchGame + ".");
-                }
+                if (_alive && GameKnowledge.ApplyPatch(game, context))
+                    Touch("Game reference loaded for " + CommentaryPrompt.GameName(game) + ".");
             });
         }
     }

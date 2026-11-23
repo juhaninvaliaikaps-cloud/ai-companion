@@ -283,7 +283,8 @@ namespace AICompanion.Settings
         {
             if (e == null || e.Game == GameTitle.Unknown)
                 return;
-            GameContextNow.SetGame(CommentaryPrompt.GameName(e.Game));
+            // A feed event must not replace an open gacha title, or wipe its primer and observations.
+            GameContextOwnership.NoteFeed(e.Game, GachaGame);
             var now = DateTime.UtcNow;
             var voice = CurrentVoice();
             var step = _session.Next(e, _mode, voice, now);

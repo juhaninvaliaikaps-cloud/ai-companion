@@ -361,7 +361,7 @@ Chat and the relationship keeper meet in `RelationshipNow` (Core), because the c
 
 ### Short-term memories
 
-- `WorldMemory.AddShortTerm(store, text, nowUtc, privateMode)` stores a session memory (the one to three lines the model writes at session end).
+- `WorldMemory.AddShortTerm(store, text, nowUtc, privateMode, moment)` stores a session memory (the one to three lines the model writes at session end). `moment` (for example `intimate`) is written into the entry before the file is saved, so the kind is still there after a restart. A private entry stays local-only (`isPrivate`).
 - `WorldMemory.MarkRecalled(store, entries)`: call it with the entries that went into a prompt. A short-term memory that came up twice becomes long-term.
 - `WorldMemory.Fade(store, nowUtc)`: forgets short-term memories 14 days after they were stored. Core facts and threads are never forgotten this way. Call it once per start.
 

@@ -56,7 +56,7 @@ namespace AICompanion.UI
             var lines = _conversation.Lines;
             var start = Math.Max(_sessionStartLine, lines.Count - 12);
             SessionLineFilter.Append(messages, lines, start, privateMode);
-            request.Messages.Add(new ChatMessage(ChatRole.User, "Narrate/describe: " + instruction));
+            NarrationTurn.Fill(request, messages, instruction);
 
             _conversation.AddSystem("Describing...");
             RefreshTranscript(true);
@@ -102,6 +102,33 @@ namespace AICompanion.UI
             _conversation.AddScene(text, privateMode);
             RefreshTranscript(true);
             Debug.Log("Describe: narration added (" + text.Length + " characters, local=" + privateMode + ")");
+        }
+    }
+
+    /// <summary>
+    /// JUH-188 / JUH-189: the narrator request. Recent turns go on the request, then the
+    /// instruction. The caller decides which turns are allowed (local-only lines stay out
+    /// of a public request).
+    /// </summary>
+    public static class NarrationTurn
+    {
+        public static void Fill(ChatRequest request, IList<ChatMessage> recent, string instruction)
+        {
+            if (request == null)
+                return;
+            if (request.Messages == null)
+                request.Messages = new List<ChatMessage>();
+            if (recent != null)
+            {
+                for (var i = 0; i < recent.Count; i++)
+                {
+                    if (recent[i] != null)
+                        request.Messages.Add(recent[i]);
+                }
+            }
+
+            var ask = string.IsNullOrWhiteSpace(instruction) ? "the current scene" : instruction.Trim();
+            request.Messages.Add(new ChatMessage(ChatRole.User, "Narrate/describe: " + ask));
         }
     }
 }

@@ -1393,8 +1393,10 @@ namespace AICompanion.UI
 
             // JUH-188: a mode switch is a session boundary. Capture the old side before the
             // switch note, so private lines become private memories immediately.
+            // JUH-189: the new mode is already on. Close with the chapter's own privacy,
+            // not with the gate that just opened.
             if (_sessionUserMessages > 0 && !_conversation.IsBusy)
-                EndSession("a mode switch", SessionMemories.DefaultTimeoutSeconds, null);
+                EndSession("a mode switch", SessionMemories.DefaultTimeoutSeconds, null, true);
 
             _conversation.AddSystem(PrivateChapterPrompt.SwitchNote(privateNow, PrivateChapterNow.Hint));
             Debug.Log("Chat: switched to " + (privateNow ? "private" : "public") + " mode");

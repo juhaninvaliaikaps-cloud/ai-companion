@@ -91,6 +91,45 @@ namespace AICompanion.Memory
     }
 
     /// <summary>
+    /// Which provider and moment kind a finished chapter uses (JUH-189). A Private/Public
+    /// switch closes the chapter that just ended, so it uses the privacy that chapter
+    /// recorded. The mode that was just turned on is not that chapter. Other ends (a pause,
+    /// quitting, a persona change) still follow the mode that is on.
+    /// </summary>
+    public struct SessionClosePlan
+    {
+        /// <summary>Public lines may be summarised by the public provider.</summary>
+        public bool UsePublicProvider;
+
+        /// <summary>The chapter itself held an 18+ moment.</summary>
+        public bool Intimate;
+
+        public string MomentKind
+        {
+            get { return Intimate ? "intimate" : string.Empty; }
+        }
+
+        public static SessionClosePlan For(
+            bool sessionKeptLocal, bool sessionIntimate, bool modeKeepsLocal, bool gateOpen, bool modeSwitch)
+        {
+            if (modeSwitch)
+            {
+                return new SessionClosePlan
+                {
+                    UsePublicProvider = !sessionKeptLocal,
+                    Intimate = sessionIntimate,
+                };
+            }
+
+            return new SessionClosePlan
+            {
+                UsePublicProvider = !modeKeepsLocal,
+                Intimate = sessionIntimate || gateOpen,
+            };
+        }
+    }
+
+    /// <summary>
     /// Session memories (JUH-118 section 3, docs/PISARA.md): at the end of a session the model
     /// writes one to three short memories of it, from her side. Each is stored with
     /// <see cref="WorldMemory.AddShortTerm"/>; fading and promotion are plain C# there.
@@ -446,9 +485,7 @@ namespace AICompanion.Memory
                 if (memory == null || !memory.IsValid || !MemoryDurability.IsDurable(memory.Text))
                     continue;
                 var before = store.Count;
-                var entry = WorldMemory.AddShortTerm(store, memory.Text, now, keepsLocal);
-                if (entry != null)
-                    entry.moment = moment ?? string.Empty;
+                WorldMemory.AddShortTerm(store, memory.Text, now, keepsLocal, moment);
                 if (store.Count > before)
                 {
                     stored.Add(memory.Text);
@@ -466,9 +503,7 @@ namespace AICompanion.Memory
                     ? "The user and " + name + " were intimate."
                     : "The user and " + name + " shared a private, intimate moment.";
                 var before = store.Count;
-                var entry = WorldMemory.AddShortTerm(store, marker, now, keepsLocal);
-                if (entry != null)
-                    entry.moment = "intimate";
+                WorldMemory.AddShortTerm(store, marker, now, keepsLocal, "intimate");
                 if (store.Count > before && !stored.Contains(marker))
                     stored.Add(marker);
             }

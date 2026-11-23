@@ -18,7 +18,7 @@ The system prompt lives on `ChatSettings.systemPrompt`. A persona selected in Se
 ## Private and public (JUH-177)
 
 The chat box header has a **Private / Public** switch in the place of "What do you see?" (looking at the screen stays on the wheel: Screen → Look now).
-- **The switch.** It turns private mode on or off with the saved setting, so each side uses the model and voice set up for it. It does nothing while she is still answering; that reply finishes on its own model first. Private shows in pink, Public in amber.
+- **The switch.** It turns private mode on or off with the saved setting, so each side uses the model and voice set up for it. It does nothing while she is still answering; that reply finishes on its own model first. Private shows in pink, Public in amber. When it does switch, the chapter in progress is closed first, with the privacy that chapter had. A public chapter is still summarised by the public model, and it stays a public chapter even when the 18+ gate opens with the switch.
 - **The note.** Switching writes a note in the chat ("Public mode on: what was said in private stays on this PC; …").
 
 **Everything said in private mode stays local-only.** Every user line and reply added while private mode is on is marked local-only (`ChatConversation.MarkLocalNow`), not just 18+ interaction lines, so a public request leaves it out. Before this, the first public message after private mode sent the last private messages to the cloud. In public mode, private lines also do not pick lorebook entries. Back in private mode, the local model sees the whole conversation again.

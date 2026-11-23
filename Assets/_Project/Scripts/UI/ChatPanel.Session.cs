@@ -442,12 +442,12 @@ namespace AICompanion.UI
         /// nothing to ask (too short, no provider). <paramref name="done"/> runs when the request
         /// is over, also when it failed or timed out.
         /// </summary>
-        bool EndSession(string why, float timeoutSeconds, Action done)
+        bool EndSession(string why, float timeoutSeconds, Action done, bool modeSwitch = false)
         {
             var userMessages = _sessionUserMessages;
             var startLine = _sessionStartLine;
             var keptLocal = _sessionPrivacy.KeptLocal;
-            var intimate = _sessionPrivacy.Intimate || IntimateExpressions.Active;
+            var sessionIntimate = _sessionPrivacy.Intimate;
             var sessionId = SessionId;
             DropSession();
             if (!SessionMemories.Qualifies(userMessages) || _conversation == null || settings == null || _registry == null)
@@ -455,6 +455,8 @@ namespace AICompanion.UI
 
             var privacy = GetComponent<IPrivacyMode>();
             var keepsLocalNow = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
+            var close = SessionClosePlan.For(
+                keptLocal, sessionIntimate, keepsLocalNow, IntimateExpressions.Active, modeSwitch);
             var lines = _conversation.Lines;
 
             var publicMessages = new List<ChatMessage>();
@@ -468,7 +470,7 @@ namespace AICompanion.UI
 
             IChatProvider publicProvider = null;
             IChatProvider privateProvider = null;
-            if (publicTranscript.Length > 0 && !keepsLocalNow)
+            if (publicTranscript.Length > 0 && close.UsePublicProvider)
             {
                 var publicId = PrivateChatRouting.ProviderId(false, settings.providerId, settings.privateEndpointType);
                 if (_registry.TryGet(publicId, out var provider) && PisaraReader.MayUse(provider, false))
@@ -492,7 +494,7 @@ namespace AICompanion.UI
             SessionHandoff.ClearSession(sessionId);
             PendingSession publicPending = null;
             PendingSession privatePending = null;
-            var momentKind = intimate ? "intimate" : string.Empty;
+            var momentKind = close.MomentKind;
             if (publicProvider != null)
             {
                 publicPending = SessionHandoff.SaveAt(
@@ -506,7 +508,7 @@ namespace AICompanion.UI
                 privatePending = SessionHandoff.SaveAt(
                     SessionHandoff.PathFor(MemoryPaths.Folder(), sessionId + "prv"),
                     privateTranscript, WorldPromptNow.HerName, privateProvider.ProviderId, store,
-                    why, userMessages, true, intimate, sessionId, momentKind);
+                    why, userMessages, true, close.Intimate, sessionId, momentKind);
             }
 
             _sessionsCapturing.Add(sessionId);

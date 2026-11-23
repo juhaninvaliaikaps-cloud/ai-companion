@@ -47,6 +47,7 @@ namespace AICompanion.Settings
             if (Cache.TryGetValue(game, out cached)
                 && (DateTime.UtcNow - cached.AtUtc).TotalSeconds < CacheSeconds)
             {
+                ApplyPrimer(game, cached.Text);
                 done?.Invoke(cached.Text);
                 return;
             }
@@ -76,11 +77,55 @@ namespace AICompanion.Settings
                     if (!string.IsNullOrEmpty(text))
                     {
                         Cache[game] = new Entry { Text = text, AtUtc = DateTime.UtcNow };
-                        GameContextNow.SetPrimer(text);
+                        ApplyPrimer(game, text);
                     }
                     done?.Invoke(text ?? string.Empty);
                 });
             });
+        }
+
+        /// <summary>True when <paramref name="game"/> is the title the companion is watching now.</summary>
+        public static bool AppliesTo(GameTitle game)
+        {
+            if (game == GameTitle.Unknown)
+                return false;
+            return string.Equals(GameContextNow.Game, CommentaryPrompt.GameName(game), StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Puts a cached or fetched page on the primer only while that game is still current.
+        /// A page that arrives after a title switch is kept in the cache and not attached.
+        /// </summary>
+        public static bool ApplyPrimer(GameTitle game, string text)
+        {
+            if (string.IsNullOrEmpty(text) || !AppliesTo(game))
+                return false;
+            GameContextNow.SetPrimer(text);
+            return true;
+        }
+
+        /// <summary>The same guard for the patch/meta section.</summary>
+        public static bool ApplyPatch(GameTitle game, string text)
+        {
+            if (string.IsNullOrEmpty(text) || !AppliesTo(game))
+                return false;
+            GameContextNow.SetPatchContext(text);
+            return true;
+        }
+
+        /// <summary>Remembers a page without fetching. Tests and a warm cache use this.</summary>
+        public static void Remember(GameTitle game, string text)
+        {
+            if (game == GameTitle.Unknown)
+                return;
+            Cache[game] = new Entry { Text = text ?? string.Empty, AtUtc = DateTime.UtcNow };
+        }
+
+        /// <summary>Drops the in-memory page cache.</summary>
+        public static void Forget()
+        {
+            Cache.Clear();
+            Running.Clear();
         }
 
         static async void FetchAsync(GameTitle game, Action<string> done)
