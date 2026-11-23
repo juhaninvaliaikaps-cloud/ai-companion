@@ -45,6 +45,7 @@ namespace AICompanion.Core
         public const string TouchVagina = "touch_vagina";
         public const string TouchButt = "touch_butt";
         public const string TouchButtLoop = "touch_butt_loop";
+        public const string ButtSlap = "butt_slap";
         public const string FingerMouth = "finger_mouth";
         public const string MakeOut = "make_out";
         public const string LyingKiss = "lying_kiss";
@@ -244,6 +245,17 @@ namespace AICompanion.Core
                 Adult = true,
                 BackOnly = false,
                 Loop = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = ButtSlap,
+                Label = "Butt slap",
+                Expression = "embarrassed",
+                Clip = "butt_slap",
+                Emotion = Emotion.Embarrassed,
+                Intensity = 0.8f,
+                Signal = "*User slaps your butt.*",
+                Adult = true,
             },
             new AvatarInteractionDefinition
             {

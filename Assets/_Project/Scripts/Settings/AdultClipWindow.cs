@@ -17,6 +17,7 @@ namespace AICompanion.Settings
         const string FolderName = "adult-animations";
         const string BreastFile = "breast_touch_clip_v3.mp4";
         const string ButtFile = "butt_squeeze_clip_v3.mp4";
+        const string ButtSlapFile = "butt_slap_clip_v3.mp4";
         const string KissFile = "happi_kiss_pov.mp4";
         const string KissLoopFile = "happi_kiss_loop_60s.mp4";
         const string LyingKissFile = "happi_lying_kiss_pov.mp4";
@@ -113,7 +114,7 @@ namespace AICompanion.Settings
             return id == "touch_breast" || id == "breast_touch" || id == "breast_touch_clip_v3"
                 || id == "touch_breast_loop" || id == "breast_touch_loop"
                 || id == "touch_butt" || id == "butt_touch" || id == "butt_squeeze" || id == "butt_squeeze_clip_v3"
-                || id == "touch_butt_loop" || id == "butt_squeeze_loop"
+                || id == "touch_butt_loop" || id == "butt_squeeze_loop" || id == "butt_slap"
                 || id == "kiss" || id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop"
                 || id == "lying_kiss" || id == "lying_make_out" || id == "lying_make_out_2"
                 || id == "blowjob_kneeling" || id == "blowjob_lying" || id == "blowjob_ontop"
@@ -231,6 +232,8 @@ namespace AICompanion.Settings
             if (id == "touch_butt" || id == "butt_touch" || id == "butt_squeeze" || id == "butt_squeeze_clip_v3"
                 || id == "touch_butt_loop" || id == "butt_squeeze_loop")
                 return ButtFile;
+            if (id == "butt_slap")
+                return ButtSlapFile;
             if (id == "kiss")
                 return KissFile;
             if (id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop")

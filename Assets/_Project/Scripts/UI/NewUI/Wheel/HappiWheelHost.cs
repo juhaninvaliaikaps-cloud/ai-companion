@@ -680,6 +680,7 @@ namespace AICompanion.NewUI.Wheel
                 AvatarInteractionCatalog.TouchVagina,
                 AvatarInteractionCatalog.TouchButt,
                 AvatarInteractionCatalog.TouchButtLoop,
+                AvatarInteractionCatalog.ButtSlap,
                 AvatarInteractionCatalog.FingerMouth,
                 AvatarInteractionCatalog.FingerSuckLoop,
             };
@@ -772,7 +773,8 @@ namespace AICompanion.NewUI.Wheel
                 case BodyPart.Crotch:
                     return PartWheel("18+", AvatarInteractionCatalog.TouchVagina);
                 case BodyPart.Butt:
-                    return PartWheel("18+", AvatarInteractionCatalog.TouchButt, AvatarInteractionCatalog.TouchButtLoop);
+                    return PartWheel("18+", AvatarInteractionCatalog.TouchButt, AvatarInteractionCatalog.TouchButtLoop,
+                        AvatarInteractionCatalog.ButtSlap);
                 default:
                     return Sub("Touch");
             }

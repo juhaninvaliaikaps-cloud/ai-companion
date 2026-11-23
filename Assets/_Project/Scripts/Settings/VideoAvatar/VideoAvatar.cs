@@ -228,6 +228,7 @@ namespace AICompanion.Settings
                     return TryReaction("flustered");
                 case "touch_butt":
                 case "touch_butt_loop":
+                case "butt_slap":
                     return TryReaction("embarrassed");
                 case "finger_mouth":
                     return TryReaction("flustered");
