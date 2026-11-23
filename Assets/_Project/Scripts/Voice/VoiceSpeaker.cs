@@ -35,6 +35,7 @@ namespace AICompanion.Voice
         bool _requestInFlight;
         bool _muted;
         bool _suppressed;
+        bool _clipPriority;
         bool _started;
         bool _alive = true;
         bool _talkingApplied;
@@ -327,6 +328,23 @@ namespace AICompanion.Voice
             ApplyTalking();
         }
 
+        /// <summary>
+        /// JUH-188: an adult clip owns the speakers while it plays. This silences current
+        /// speech and blocks new TTS without changing the user's mute preference.
+        /// </summary>
+        public void SetClipAudioPriority(bool on)
+        {
+            if (_clipPriority == on)
+                return;
+            _clipPriority = on;
+            if (!on)
+                return;
+            _turn.Cancel();
+            SilencePlayback();
+            InvalidateRequest();
+            ApplyTalking();
+        }
+
         public void BeginUtterance()
         {
             BeginUtterance(OriginFromSettings());
@@ -338,7 +356,7 @@ namespace AICompanion.Voice
             InvalidateRequest();
             _noted.Clear();
             ApplyUtterance(origin, true);
-            var blocked = !CompanionPause.SpeechAllowed(_muted, _suppressed);
+            var blocked = !CompanionPause.SpeechAllowed(_muted, _suppressed || _clipPriority);
             var chatId = origin.Private ? ChatDefaults.LocalId : origin.ChatProviderId;
             if (chatSettings != null)
                 chatSettings.providerId = string.IsNullOrWhiteSpace(chatId) ? chatSettings.providerId : chatId;
@@ -370,7 +388,7 @@ namespace AICompanion.Voice
                 return;
 
             _suppressed = suppressed;
-            if (CompanionPause.SpeechAllowed(_muted, _suppressed))
+            if (CompanionPause.SpeechAllowed(_muted, _suppressed || _clipPriority))
                 return;
 
             _turn.Cancel();
@@ -421,7 +439,7 @@ namespace AICompanion.Voice
             }
 
             EnsureProvider();
-            if (_provider == null || !CompanionPause.SpeechAllowed(_muted, _suppressed))
+            if (_provider == null || !CompanionPause.SpeechAllowed(_muted, _suppressed || _clipPriority))
                 return;
             if (BlocksCloud(_origin) && !VoiceRoute.IsLocalEngine(_provider.ProviderId))
             {
@@ -479,7 +497,7 @@ namespace AICompanion.Voice
                     return;
 
                 _requestInFlight = false;
-                if (!CompanionPause.SpeechAllowed(_muted, _suppressed) || !_turn.IsCurrent(generation) || result.Quiet)
+                if (!CompanionPause.SpeechAllowed(_muted, _suppressed || _clipPriority) || !_turn.IsCurrent(generation) || result.Quiet)
                     return;
 
                 if (!result.Ok)

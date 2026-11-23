@@ -38,6 +38,9 @@ namespace AICompanion.Settings
         RectTransform _panelRect;
         RawImage _image;
         VideoPlayer _video;
+        AudioSource _audio;
+        AICompanion.Voice.VoiceSpeaker _voice;
+        bool _audioPriority;
         RenderTexture _texture;
         float _hideAt;
         string _playing = string.Empty;
@@ -141,6 +144,7 @@ namespace AICompanion.Settings
                 _video.loopPointReached -= OnEnded;
                 _video.Stop();
             }
+            SetAudioPriority(false);
             if (_texture != null)
             {
                 _texture.Release();
@@ -215,6 +219,7 @@ namespace AICompanion.Settings
             _playing = cue;
             _loop = Loops(cue);
             _video.isLooping = _loop;
+            SetAudioPriority(true);
             _hideAt = _loop ? 0f : Time.unscaledTime + HideAfterSeconds;
             var showId = ++_showId;
             if (_onThisPrepare != null)
@@ -248,6 +253,19 @@ namespace AICompanion.Settings
                 Hide();
         }
 
+        void SetAudioPriority(bool on)
+        {
+            if (_audioPriority == on)
+                return;
+            _audioPriority = on;
+            if (_voice == null)
+                _voice = GetComponent<AICompanion.Voice.VoiceSpeaker>();
+            if (_voice != null)
+                _voice.SetClipAudioPriority(on);
+            if (_audio != null)
+                _audio.mute = false;
+        }
+
         void Hide()
         {
             var pending = _onThisPrepare != null;
@@ -267,6 +285,7 @@ namespace AICompanion.Settings
             _playing = string.Empty;
             _pointerActive = false;
             _resizing = false;
+            SetAudioPriority(false);
         }
 
         static string Folder()
@@ -355,13 +374,21 @@ namespace AICompanion.Settings
             _texture.Create();
             _image.texture = _texture;
 
+            _audio = _panel.AddComponent<AudioSource>();
+            _audio.playOnAwake = false;
+            _audio.loop = false;
+            _audio.volume = 1f;
+
             _video = _panel.AddComponent<VideoPlayer>();
             _video.playOnAwake = false;
             _video.isLooping = false;
             _video.aspectRatio = VideoAspectRatio.FitInside;
             _video.renderMode = VideoRenderMode.RenderTexture;
             _video.targetTexture = _texture;
-            _video.audioOutputMode = VideoAudioOutputMode.None;
+            _video.audioOutputMode = VideoAudioOutputMode.AudioSource;
+            _video.controlledAudioTrackCount = 1;
+            _video.SetTargetAudioSource(0, _audio);
+            _video.EnableAudioTrack(0, true);
             _video.loopPointReached += OnEnded;
             _panel.SetActive(false);
         }
