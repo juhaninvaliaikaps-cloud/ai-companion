@@ -62,6 +62,8 @@ namespace AICompanion.Settings
         Vector2 _panelPos;
         bool _pointerActive;
         bool _resizing;
+        bool _dragged;
+        bool _paused;
         Vector2 _pointerStart;
         Vector2 _panelStart;
         float _sizeStart;
@@ -207,7 +209,7 @@ namespace AICompanion.Settings
             var active = IsActive(_cue);
             if (_loop && !active && _video != null && _video.isPlaying)
                 _video.Pause();
-            else if (_loop && active && _video != null && _video.isPrepared && !_video.isPlaying && _hideAt <= 0f)
+            else if (_loop && active && !_paused && _video != null && _video.isPrepared && !_video.isPlaying && _hideAt <= 0f)
                 _video.Play();
             if (active != _audioPriority)
                 SetAudioPriority(active);
@@ -282,6 +284,7 @@ namespace AICompanion.Settings
             PlacePanel();
             _playing = _cue;
             _loop = Loops(_cue);
+            _paused = false;
             _video.isLooping = _loop;
             SetAudioPriority(true);
             _hideAt = _loop ? 0f : Time.unscaledTime + HideAfterSeconds;
@@ -346,6 +349,7 @@ namespace AICompanion.Settings
                 _video.Stop();
             _hideAt = 0f;
             _loop = false;
+            _paused = false;
             _playing = string.Empty;
             _pointerActive = false;
             _resizing = false;
@@ -502,16 +506,27 @@ namespace AICompanion.Settings
                 _panelRect, Input.mousePosition, camera, out local)
                 && _panelRect.rect.Contains(local);
 
+            if (inside)
+            {
+                var scroll = Input.mouseScrollDelta.y;
+                if (Mathf.Abs(scroll) > 0.01f)
+                {
+                    SetActive(_cue);
+                    _panelSize = Mathf.Clamp(_panelSize + scroll * 24f, MinPanelSize, NativeSize);
+                    PlacePanel();
+                    SavePlacement();
+                }
+            }
+
             if (Input.GetMouseButtonDown(0) && inside)
             {
                 SetActive(_cue);
                 _pointerActive = true;
+                _dragged = false;
                 _pointerStart = Input.mousePosition;
                 _panelStart = _panelPos;
                 _sizeStart = _panelSize;
-                _resizing = local.x > _panelSize - 20f && local.y < 20f;
-                if (!_resizing)
-                    _resizing = false;
+                _resizing = local.x > _panelSize - 22f && local.y < 22f;
             }
 
             if (!_pointerActive)
@@ -520,6 +535,8 @@ namespace AICompanion.Settings
             if (Input.GetMouseButton(0))
             {
                 var delta = (Vector2)Input.mousePosition - _pointerStart;
+                if (delta.magnitude > 4f)
+                    _dragged = true;
                 if (_resizing)
                 {
                     var grow = Mathf.Max(delta.x, -delta.y);
@@ -534,13 +551,31 @@ namespace AICompanion.Settings
 
             if (Input.GetMouseButtonUp(0))
             {
-                PlayerPrefs.SetFloat(SizeKey + "." + _cue, _panelSize);
-                PlayerPrefs.SetFloat(XKey + "." + _cue, _panelPos.x);
-                PlayerPrefs.SetFloat(YKey + "." + _cue, _panelPos.y);
-                PlayerPrefs.Save();
+                // A click without a drag is a pause/resume, not a move.
+                if (!_dragged && !_resizing)
+                {
+                    _paused = !_paused;
+                    if (_video != null)
+                    {
+                        if (_paused)
+                            _video.Pause();
+                        else if (_video.isPrepared)
+                            _video.Play();
+                    }
+                }
+                SavePlacement();
                 _pointerActive = false;
                 _resizing = false;
+                _dragged = false;
             }
+        }
+
+        void SavePlacement()
+        {
+            PlayerPrefs.SetFloat(SizeKey + "." + _cue, _panelSize);
+            PlayerPrefs.SetFloat(XKey + "." + _cue, _panelPos.x);
+            PlayerPrefs.SetFloat(YKey + "." + _cue, _panelPos.y);
+            PlayerPrefs.Save();
         }
     }
 }
