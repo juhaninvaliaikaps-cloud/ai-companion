@@ -3,6 +3,7 @@ using System.IO;
 using AICompanion.Core;
 using AICompanion.Overlay;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using UnityEngine.Video;
 
@@ -12,7 +13,8 @@ namespace AICompanion.Settings
     /// JUH-188: a separate adult reaction window. It sits beside the avatar and the expression
     /// portrait instead of replacing either one. It only runs while the 18+ gate is open.
     /// </summary>
-    public sealed class AdultClipWindow : MonoBehaviour, IDebugPanel
+    public sealed class AdultClipWindow : MonoBehaviour, IDebugPanel,
+        IPointerDownHandler, IDragHandler, IPointerUpHandler, IScrollHandler
     {
         const string FolderName = "adult-animations";
         const string BreastFile = "breast_touch_clip_v3.mp4";
@@ -217,7 +219,6 @@ namespace AICompanion.Settings
             }
             if (_panel == null || !_panel.activeSelf)
                 return;
-            HandlePointer();
             PlacePanel();
             var active = IsActive(_cue);
             if (_loop && !active && _video != null && _video.isPlaying)
@@ -399,6 +400,7 @@ namespace AICompanion.Settings
             var scaler = _canvasObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
             scaler.scaleFactor = 1f;
+            _canvasObject.AddComponent<GraphicRaycaster>();
 
             _panel = new GameObject("Adult clip");
             _panel.transform.SetParent(_canvasObject.transform, false);
@@ -421,7 +423,7 @@ namespace AICompanion.Settings
 
             var back = _panel.AddComponent<Image>();
             back.color = new Color(0.04f, 0.04f, 0.06f, 0.94f);
-            back.raycastTarget = false;
+            back.raycastTarget = true;
             var outline = _panel.AddComponent<Outline>();
             outline.effectColor = new Color(0.45f, 0.32f, 0.55f, 0.8f);
             outline.effectDistance = new Vector2(2f, 2f);
@@ -591,6 +593,69 @@ namespace AICompanion.Settings
             PlayerPrefs.SetFloat(XKey + "." + _cue, _panelPos.x);
             PlayerPrefs.SetFloat(YKey + "." + _cue, _panelPos.y);
             PlayerPrefs.Save();
+        }
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            if (_panelRect == null)
+                return;
+            SetActive(_cue);
+            _pointerActive = true;
+            _dragged = false;
+            _pointerStart = eventData.position;
+            _panelStart = _panelPos;
+            _sizeStart = _panelSize;
+            Vector2 local;
+            _resizing = RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                _panelRect, eventData.position, _canvas != null ? _canvas.worldCamera : null, out local)
+                && local.x > _panelSize - 22f && local.y < 22f;
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            if (!_pointerActive)
+                return;
+            if (eventData.delta.sqrMagnitude > 0.01f)
+                _dragged = true;
+            if (_resizing)
+            {
+                var grow = Mathf.Max(eventData.delta.x, -eventData.delta.y);
+                _panelSize = Mathf.Clamp(_panelSize + grow, MinPanelSize, NativeSize);
+            }
+            else
+            {
+                _panelPos += eventData.delta;
+            }
+            PlacePanel();
+        }
+
+        public void OnPointerUp(PointerEventData eventData)
+        {
+            if (!_pointerActive)
+                return;
+            if (!_dragged && !_resizing)
+            {
+                _paused = !_paused;
+                if (_video != null)
+                {
+                    if (_paused)
+                        _video.Pause();
+                    else if (_video.isPrepared)
+                        _video.Play();
+                }
+            }
+            SavePlacement();
+            _pointerActive = false;
+            _resizing = false;
+            _dragged = false;
+        }
+
+        public void OnScroll(PointerEventData eventData)
+        {
+            SetActive(_cue);
+            _panelSize = Mathf.Clamp(_panelSize + eventData.scrollDelta.y * 24f, MinPanelSize, NativeSize);
+            PlacePanel();
+            SavePlacement();
         }
     }
 }
