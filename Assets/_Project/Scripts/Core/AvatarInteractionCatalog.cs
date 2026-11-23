@@ -188,7 +188,7 @@ namespace AICompanion.Core
                 Intensity = 0.7f,
                 Signal = "*User touches your butt.*",
                 Adult = true,
-                BackOnly = true,
+                BackOnly = false,
             },
             new AvatarInteractionDefinition
             {
@@ -200,7 +200,7 @@ namespace AICompanion.Core
                 Intensity = 0.75f,
                 Signal = "*User keeps touching your butt.*",
                 Adult = true,
-                BackOnly = true,
+                BackOnly = false,
                 Loop = true,
             },
             new AvatarInteractionDefinition

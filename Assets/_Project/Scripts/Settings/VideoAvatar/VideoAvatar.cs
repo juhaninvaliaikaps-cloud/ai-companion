@@ -1286,6 +1286,15 @@ namespace AICompanion.Settings
                 return true;
             }
 
+            // Front/side hip shortcut: the butt action is available even when she is not
+            // turned around. This band sits outside the crotch and above the hands.
+            if (intimate && !backView && y >= 0.38f && y <= 0.58f
+                && ((x >= 0.20f && x <= 0.34f) || (x >= 0.66f && x <= 0.80f)))
+            {
+                part = BodyPart.Butt;
+                return true;
+            }
+
             // Shoulders sit above the hands. Their band overlaps the top of the hands region.
             if (y >= 0.58f && y <= 0.74f && x >= 0.18f && x <= 0.82f)
             {

@@ -162,7 +162,6 @@ namespace AICompanion.UI
 
         public bool Run(string id)
         {
-            AdultClipWindow.Ensure();
             if (!_resolved || _chat == null || _target == null || (_director == null && _hint == null))
             {
                 _resolved = false;

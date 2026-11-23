@@ -687,8 +687,7 @@ namespace AICompanion.NewUI.Wheel
                 var item = AvatarInteractionCatalog.Find(ids[i]);
                 if (item == null)
                     continue;
-                var backOnly = item.Id == AvatarInteractionCatalog.TouchButt
-                    || item.Id == AvatarInteractionCatalog.TouchButtLoop;
+                var backOnly = false;
                 var canRun = _interactions != null && _interactions.CanRun(item.Id);
                 definition.Slices.Add(new WheelSlice
                 {

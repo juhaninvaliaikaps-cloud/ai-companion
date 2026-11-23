@@ -46,7 +46,7 @@ namespace AICompanion.Tests.EditMode
             Assert.IsFalse(string.IsNullOrWhiteSpace(breast.Signal));
             Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchVagina).Adult);
             Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchButt).Adult);
-            Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchButt).BackOnly);
+            Assert.IsFalse(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchButt).BackOnly);
             Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.FingerMouth).Adult);
         }
 

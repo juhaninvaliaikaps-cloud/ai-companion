@@ -12,7 +12,6 @@ namespace AICompanion.Settings
     /// JUH-188: a separate adult reaction window. It sits beside the avatar and the expression
     /// portrait instead of replacing either one. It only runs while the 18+ gate is open.
     /// </summary>
-    [DisallowMultipleComponent]
     public sealed class AdultClipWindow : MonoBehaviour, IDebugPanel
     {
         const string FolderName = "adult-animations";
@@ -28,10 +27,15 @@ namespace AICompanion.Settings
         const string SizeKey = "happi.adultClip.size";
         const string XKey = "happi.adultClip.x";
         const string YKey = "happi.adultClip.y";
-
-        static AdultClipWindow _instance;
-
         const float PlaneDistance = 0.58f;
+
+        static readonly System.Collections.Generic.Dictionary<string, AdultClipWindow> Windows =
+            new System.Collections.Generic.Dictionary<string, AdultClipWindow>();
+        static string _activeCue = string.Empty;
+        static int _spawnIndex;
+
+        SettingsPanel _host;
+        string _cue = string.Empty;
 
         GameObject _canvasObject;
         Canvas _canvas;
@@ -113,37 +117,43 @@ namespace AICompanion.Settings
         {
             if (!IntimateExpressions.Active || !IsAdultCue(cue))
                 return;
-            Ensure();
-            if (_instance != null)
-                _instance.Show(cue);
-        }
+            var key = Normalize(cue);
+            var host = FindFirstObjectByType<SettingsPanel>();
+            if (host == null)
+                return;
 
-        public static void Ensure()
-        {
-            if (_instance != null)
-                return;
-            var settings = FindFirstObjectByType<SettingsPanel>();
-            if (settings == null)
-                return;
-            _instance = settings.gameObject.GetComponent<AdultClipWindow>();
-            if (_instance == null)
+            AdultClipWindow window;
+            if (!Windows.TryGetValue(key, out window) || window == null)
             {
-                _instance = settings.gameObject.AddComponent<AdultClipWindow>();
-                var window = settings.GetComponent<OverlayWindow>();
-                if (window != null)
-                    window.RefreshClickTargets();
+                window = host.gameObject.AddComponent<AdultClipWindow>();
+                window._host = host;
+                window._cue = key;
+                Windows[key] = window;
+                var overlay = host.GetComponent<OverlayWindow>();
+                if (overlay != null)
+                    overlay.RefreshClickTargets();
             }
+
+            _activeCue = key;
+            window.Show();
         }
 
-        void Awake()
+        static void SetActive(string cue)
         {
-            _instance = this;
+            _activeCue = cue;
+        }
+
+        static bool IsActive(string cue)
+        {
+            return string.Equals(cue, _activeCue, System.StringComparison.Ordinal);
         }
 
         void OnDestroy()
         {
-            if (_instance == this)
-                _instance = null;
+            if (!string.IsNullOrEmpty(_cue))
+                Windows.Remove(_cue);
+            if (string.Equals(_activeCue, _cue, System.StringComparison.Ordinal))
+                _activeCue = string.Empty;
             if (_video != null)
             {
                 if (_onThisPrepare != null)
@@ -171,6 +181,13 @@ namespace AICompanion.Settings
                 return;
             HandlePointer();
             PlacePanel();
+            var active = IsActive(_cue);
+            if (_loop && !active && _video != null && _video.isPlaying)
+                _video.Pause();
+            else if (_loop && active && _video != null && _video.isPrepared && !_video.isPlaying && _hideAt <= 0f)
+                _video.Play();
+            if (active != _audioPriority)
+                SetAudioPriority(active);
             if (_hideAt > 0f && Time.unscaledTime >= _hideAt)
                 Hide();
         }
@@ -204,9 +221,9 @@ namespace AICompanion.Settings
                 || id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop";
         }
 
-        void Show(string cue)
+        void Show()
         {
-            var file = FileFor(cue);
+            var file = FileFor(_cue);
             if (file.Length == 0)
                 return;
             if (_canvasObject == null)
@@ -223,8 +240,8 @@ namespace AICompanion.Settings
 
             _panel.SetActive(true);
             PlacePanel();
-            _playing = cue;
-            _loop = Loops(cue);
+            _playing = _cue;
+            _loop = Loops(_cue);
             _video.isLooping = _loop;
             SetAudioPriority(true);
             _hideAt = _loop ? 0f : Time.unscaledTime + HideAfterSeconds;
@@ -330,15 +347,17 @@ namespace AICompanion.Settings
             _panelRect.anchorMin = new Vector2(0f, 0f);
             _panelRect.anchorMax = new Vector2(0f, 0f);
             _panelRect.pivot = new Vector2(0f, 0f);
-            _panelSize = PlayerPrefs.GetFloat(SizeKey, 0f);
+            _panelSize = PlayerPrefs.GetFloat(SizeKey + "." + _cue, PlayerPrefs.GetFloat(SizeKey, 0f));
             if (_panelSize < MinPanelSize)
                 _panelSize = PanelEdge(Screen.width, Screen.height);
             var area = _canvas.pixelRect;
             if (area.width < 1f || area.height < 1f)
                 area = new Rect(0f, 0f, Screen.width, Screen.height);
+            var cascade = Mathf.Min(4, Windows.Count) * 26f;
             _panelPos = new Vector2(
-                PlayerPrefs.GetFloat(XKey, Mathf.Max(0f, area.width - _panelSize - Margin)),
-                PlayerPrefs.GetFloat(YKey, Margin));
+                PlayerPrefs.GetFloat(XKey + "." + _cue,
+                    Mathf.Max(0f, area.width - _panelSize - Margin - cascade)),
+                PlayerPrefs.GetFloat(YKey + "." + _cue, Margin + cascade));
             PlacePanel();
 
             var back = _panel.AddComponent<Image>();
@@ -445,6 +464,7 @@ namespace AICompanion.Settings
 
             if (Input.GetMouseButtonDown(0) && inside)
             {
+                SetActive(_cue);
                 _pointerActive = true;
                 _pointerStart = Input.mousePosition;
                 _panelStart = _panelPos;
@@ -474,9 +494,9 @@ namespace AICompanion.Settings
 
             if (Input.GetMouseButtonUp(0))
             {
-                PlayerPrefs.SetFloat(SizeKey, _panelSize);
-                PlayerPrefs.SetFloat(XKey, _panelPos.x);
-                PlayerPrefs.SetFloat(YKey, _panelPos.y);
+                PlayerPrefs.SetFloat(SizeKey + "." + _cue, _panelSize);
+                PlayerPrefs.SetFloat(XKey + "." + _cue, _panelPos.x);
+                PlayerPrefs.SetFloat(YKey + "." + _cue, _panelPos.y);
                 PlayerPrefs.Save();
                 _pointerActive = false;
                 _resizing = false;
