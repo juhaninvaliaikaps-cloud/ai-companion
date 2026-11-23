@@ -22,6 +22,8 @@ namespace AICompanion.Core
         public bool Adult;
         /// <summary>Only offered while the back-view clip is showing.</summary>
         public bool BackOnly;
+        /// <summary>Plays the third-window clip as a loop instead of once.</summary>
+        public bool Loop;
     }
 
     /// <summary>
@@ -39,9 +41,12 @@ namespace AICompanion.Core
         public const string LetGo = "let_go";
         public const string TouchShoulder = "touch_shoulder";
         public const string TouchBreast = "touch_breast";
+        public const string TouchBreastLoop = "touch_breast_loop";
         public const string TouchVagina = "touch_vagina";
         public const string TouchButt = "touch_butt";
+        public const string TouchButtLoop = "touch_butt_loop";
         public const string FingerMouth = "finger_mouth";
+        public const string MakeOut = "make_out";
 
         public static readonly IReadOnlyList<AvatarInteractionDefinition> All = new[]
         {
@@ -97,6 +102,18 @@ namespace AICompanion.Core
             },
             new AvatarInteractionDefinition
             {
+                Id = MakeOut,
+                Label = "Make out",
+                Expression = "flustered",
+                Clip = "kiss_loop",
+                Emotion = Emotion.Flustered,
+                Intensity = 0.9f,
+                Signal = "*User deepens the kiss.*",
+                Adult = true,
+                Loop = true,
+            },
+            new AvatarInteractionDefinition
+            {
                 Id = HoldHand,
                 Label = "Hold hand",
                 Expression = "shy",
@@ -140,6 +157,18 @@ namespace AICompanion.Core
             },
             new AvatarInteractionDefinition
             {
+                Id = TouchBreastLoop,
+                Label = "Touch breast +loop",
+                Expression = "flustered",
+                Clip = "touch_breast_loop",
+                Emotion = Emotion.Flustered,
+                Intensity = 0.75f,
+                Signal = "*User keeps cupping your breast.*",
+                Adult = true,
+                Loop = true,
+            },
+            new AvatarInteractionDefinition
+            {
                 Id = TouchVagina,
                 Label = "Touch vagina",
                 Expression = "flustered",
@@ -160,6 +189,19 @@ namespace AICompanion.Core
                 Signal = "*User touches your butt.*",
                 Adult = true,
                 BackOnly = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = TouchButtLoop,
+                Label = "Touch butt +loop",
+                Expression = "embarrassed",
+                Clip = "touch_butt_loop",
+                Emotion = Emotion.Embarrassed,
+                Intensity = 0.75f,
+                Signal = "*User keeps touching your butt.*",
+                Adult = true,
+                BackOnly = true,
+                Loop = true,
             },
             new AvatarInteractionDefinition
             {

@@ -676,8 +676,10 @@ namespace AICompanion.NewUI.Wheel
             var ids = new[]
             {
                 AvatarInteractionCatalog.TouchBreast,
+                AvatarInteractionCatalog.TouchBreastLoop,
                 AvatarInteractionCatalog.TouchVagina,
                 AvatarInteractionCatalog.TouchButt,
+                AvatarInteractionCatalog.TouchButtLoop,
                 AvatarInteractionCatalog.FingerMouth,
             };
             for (var i = 0; i < ids.Length; i++)
@@ -685,7 +687,8 @@ namespace AICompanion.NewUI.Wheel
                 var item = AvatarInteractionCatalog.Find(ids[i]);
                 if (item == null)
                     continue;
-                var backOnly = item.Id == AvatarInteractionCatalog.TouchButt;
+                var backOnly = item.Id == AvatarInteractionCatalog.TouchButt
+                    || item.Id == AvatarInteractionCatalog.TouchButtLoop;
                 var canRun = _interactions != null && _interactions.CanRun(item.Id);
                 definition.Slices.Add(new WheelSlice
                 {
@@ -713,18 +716,19 @@ namespace AICompanion.NewUI.Wheel
                 case BodyPart.Hands:
                     return PartWheel("Hands", AvatarInteractionCatalog.HoldHand, AvatarInteractionCatalog.LetGo);
                 case BodyPart.Lips:
-                    return PartWheel("Lips", AvatarInteractionCatalog.Kiss, AvatarInteractionCatalog.FingerMouth);
+                    return PartWheel("Lips", AvatarInteractionCatalog.Kiss, AvatarInteractionCatalog.MakeOut,
+                        AvatarInteractionCatalog.FingerMouth);
                 case BodyPart.Face:
                 case BodyPart.Cheeks:
                     return PartWheel("Face", AvatarInteractionCatalog.CupCheek, AvatarInteractionCatalog.TouchFace);
                 case BodyPart.Shoulder:
                     return PartWheel("Shoulder", AvatarInteractionCatalog.TouchShoulder);
                 case BodyPart.Chest:
-                    return PartWheel("18+", AvatarInteractionCatalog.TouchBreast);
+                    return PartWheel("18+", AvatarInteractionCatalog.TouchBreast, AvatarInteractionCatalog.TouchBreastLoop);
                 case BodyPart.Crotch:
                     return PartWheel("18+", AvatarInteractionCatalog.TouchVagina);
                 case BodyPart.Butt:
-                    return PartWheel("18+", AvatarInteractionCatalog.TouchButt);
+                    return PartWheel("18+", AvatarInteractionCatalog.TouchButt, AvatarInteractionCatalog.TouchButtLoop);
                 default:
                     return Sub("Touch");
             }

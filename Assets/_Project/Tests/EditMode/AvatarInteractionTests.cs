@@ -7,9 +7,9 @@ namespace AICompanion.Tests.EditMode
     public sealed class AvatarInteractionTests
     {
         [Test]
-        public void Catalog_HasAllTwelveActions()
+        public void Catalog_HasAllFifteenActions()
         {
-            Assert.AreEqual(12, AvatarInteractionCatalog.All.Count);
+            Assert.AreEqual(15, AvatarInteractionCatalog.All.Count);
             Assert.IsNotNull(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.PatHead));
             Assert.IsNotNull(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.StrokeHair));
             Assert.IsNotNull(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.CupCheek));

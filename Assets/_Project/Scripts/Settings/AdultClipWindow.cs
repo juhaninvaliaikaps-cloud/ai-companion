@@ -12,15 +12,21 @@ namespace AICompanion.Settings
     /// portrait instead of replacing either one. It only runs while the 18+ gate is open.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class AdultClipWindow : MonoBehaviour
+    public sealed class AdultClipWindow : MonoBehaviour, IDebugPanel
     {
         const string FolderName = "adult-animations";
         const string BreastFile = "breast_touch_clip_v3.mp4";
         const string ButtFile = "butt_squeeze_clip_v3.mp4";
+        const string KissFile = "happi_kiss_pov.mp4";
+        const string KissLoopFile = "happi_kiss_loop_60s.mp4";
         const float NativeSize = 544f;
         const float DefaultPanelSize = 480f;
         const float Margin = 12f;
+        const float MinPanelSize = 180f;
         const float HideAfterSeconds = 7f;
+        const string SizeKey = "happi.adultClip.size";
+        const string XKey = "happi.adultClip.x";
+        const string YKey = "happi.adultClip.y";
 
         static AdultClipWindow _instance;
 
@@ -29,6 +35,7 @@ namespace AICompanion.Settings
         GameObject _canvasObject;
         Canvas _canvas;
         GameObject _panel;
+        RectTransform _panelRect;
         RawImage _image;
         VideoPlayer _video;
         RenderTexture _texture;
@@ -36,6 +43,15 @@ namespace AICompanion.Settings
         string _playing = string.Empty;
         int _showId;
         VideoPlayer.EventHandler _onThisPrepare;
+        float _panelSize;
+        Vector2 _panelPos;
+        bool _pointerActive;
+        bool _resizing;
+        Vector2 _pointerStart;
+        Vector2 _panelStart;
+        float _sizeStart;
+        Rect _interactive;
+        bool _loop;
 
         /// <summary>A prepare callback is for the clip that was just asked for, not an earlier one.</summary>
         public static bool AcceptsPrepared(int requestId, int latestId)
@@ -77,7 +93,15 @@ namespace AICompanion.Settings
         {
             var id = Normalize(name);
             return id == "touch_breast" || id == "breast_touch" || id == "breast_touch_clip_v3"
-                || id == "touch_butt" || id == "butt_touch" || id == "butt_squeeze" || id == "butt_squeeze_clip_v3";
+                || id == "touch_breast_loop" || id == "breast_touch_loop"
+                || id == "touch_butt" || id == "butt_touch" || id == "butt_squeeze" || id == "butt_squeeze_clip_v3"
+                || id == "touch_butt_loop" || id == "butt_squeeze_loop"
+                || id == "kiss" || id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop";
+        }
+
+        public Rect InteractiveRect
+        {
+            get { return _panel != null && _panel.activeSelf ? _interactive : new Rect(0f, 0f, 0f, 0f); }
         }
 
         public static void Play(string cue)
@@ -134,6 +158,7 @@ namespace AICompanion.Settings
             }
             if (_panel == null || !_panel.activeSelf)
                 return;
+            HandlePointer();
             PlacePanel();
             if (_hideAt > 0f && Time.unscaledTime >= _hideAt)
                 Hide();
@@ -147,11 +172,25 @@ namespace AICompanion.Settings
         string FileFor(string cue)
         {
             var id = Normalize(cue);
-            if (id == "touch_breast" || id == "breast_touch" || id == "breast_touch_clip_v3")
+            if (id == "touch_breast" || id == "breast_touch" || id == "breast_touch_clip_v3"
+                || id == "touch_breast_loop" || id == "breast_touch_loop")
                 return BreastFile;
-            if (id == "touch_butt" || id == "butt_touch" || id == "butt_squeeze" || id == "butt_squeeze_clip_v3")
+            if (id == "touch_butt" || id == "butt_touch" || id == "butt_squeeze" || id == "butt_squeeze_clip_v3"
+                || id == "touch_butt_loop" || id == "butt_squeeze_loop")
                 return ButtFile;
+            if (id == "kiss")
+                return KissFile;
+            if (id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop")
+                return KissLoopFile;
             return string.Empty;
+        }
+
+        static bool Loops(string cue)
+        {
+            var id = Normalize(cue);
+            return id == "touch_breast_loop" || id == "breast_touch_loop"
+                || id == "touch_butt_loop" || id == "butt_squeeze_loop"
+                || id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop";
         }
 
         void Show(string cue)
@@ -174,7 +213,9 @@ namespace AICompanion.Settings
             _panel.SetActive(true);
             PlacePanel();
             _playing = cue;
-            _hideAt = Time.unscaledTime + HideAfterSeconds;
+            _loop = Loops(cue);
+            _video.isLooping = _loop;
+            _hideAt = _loop ? 0f : Time.unscaledTime + HideAfterSeconds;
             var showId = ++_showId;
             if (_onThisPrepare != null)
             {
@@ -192,7 +233,7 @@ namespace AICompanion.Settings
                     _onThisPrepare = null;
                 if (!AcceptsPrepared(showId, _showId) || player == null || _panel == null || !_panel.activeSelf)
                     return;
-                _hideAt = Time.unscaledTime + HideAfterSeconds;
+                _hideAt = _loop ? 0f : Time.unscaledTime + HideAfterSeconds;
                 player.Play();
             };
             _onThisPrepare = prepared;
@@ -203,7 +244,8 @@ namespace AICompanion.Settings
 
         void OnEnded(VideoPlayer player)
         {
-            Hide();
+            if (!_loop)
+                Hide();
         }
 
         void Hide()
@@ -221,7 +263,10 @@ namespace AICompanion.Settings
             if (_video != null && (showing || pending || _video.isPlaying))
                 _video.Stop();
             _hideAt = 0f;
+            _loop = false;
             _playing = string.Empty;
+            _pointerActive = false;
+            _resizing = false;
         }
 
         static string Folder()
@@ -255,11 +300,19 @@ namespace AICompanion.Settings
 
             _panel = new GameObject("Adult clip");
             _panel.transform.SetParent(_canvasObject.transform, false);
-            var rect = _panel.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(1f, 0f);
-            rect.anchorMax = new Vector2(1f, 0f);
-            rect.pivot = new Vector2(1f, 0f);
-            rect.anchoredPosition = new Vector2(-Margin, Margin);
+            _panelRect = _panel.AddComponent<RectTransform>();
+            _panelRect.anchorMin = new Vector2(0f, 0f);
+            _panelRect.anchorMax = new Vector2(0f, 0f);
+            _panelRect.pivot = new Vector2(0f, 0f);
+            _panelSize = PlayerPrefs.GetFloat(SizeKey, 0f);
+            if (_panelSize < MinPanelSize)
+                _panelSize = PanelEdge(Screen.width, Screen.height);
+            var area = _canvas.pixelRect;
+            if (area.width < 1f || area.height < 1f)
+                area = new Rect(0f, 0f, Screen.width, Screen.height);
+            _panelPos = new Vector2(
+                PlayerPrefs.GetFloat(XKey, Mathf.Max(0f, area.width - _panelSize - Margin)),
+                PlayerPrefs.GetFloat(YKey, Margin));
             PlacePanel();
 
             var back = _panel.AddComponent<Image>();
@@ -279,6 +332,20 @@ namespace AICompanion.Settings
             _image = picture.AddComponent<RawImage>();
             _image.raycastTarget = false;
             _image.uvRect = new Rect(0f, 0f, 1f, 1f);
+
+            // A visible grip in the bottom-right corner: drag it to resize; drag the picture
+            // to move the window. Both work through the overlay's clickable panel rect.
+            var grip = new GameObject("Resize");
+            grip.transform.SetParent(_panel.transform, false);
+            var gripRect = grip.AddComponent<RectTransform>();
+            gripRect.anchorMin = new Vector2(1f, 0f);
+            gripRect.anchorMax = new Vector2(1f, 0f);
+            gripRect.pivot = new Vector2(1f, 0f);
+            gripRect.anchoredPosition = new Vector2(-2f, 2f);
+            gripRect.sizeDelta = new Vector2(18f, 18f);
+            var gripImage = grip.AddComponent<Image>();
+            gripImage.color = new Color(0.75f, 0.6f, 0.85f, 0.65f);
+            gripImage.raycastTarget = false;
 
             _texture = new RenderTexture((int)NativeSize, (int)NativeSize, 0, RenderTextureFormat.ARGB32);
             _texture.useMipMap = false;
@@ -306,14 +373,81 @@ namespace AICompanion.Settings
 
         void PlacePanel()
         {
-            if (_panel == null)
+            if (_panelRect == null || _canvas == null)
                 return;
-            var rect = _panel.GetComponent<RectTransform>();
-            if (rect == null)
+            var area = _canvas.pixelRect;
+            var edge = Mathf.Clamp(_panelSize, MinPanelSize, NativeSize);
+            _panelSize = edge;
+            _panelRect.sizeDelta = new Vector2(edge, edge);
+            var maxX = Mathf.Max(0f, area.width - edge);
+            var maxY = Mathf.Max(0f, area.height - edge);
+            _panelPos.x = Mathf.Clamp(_panelPos.x, 0f, maxX);
+            _panelPos.y = Mathf.Clamp(_panelPos.y, 0f, maxY);
+            _panelRect.anchoredPosition = _panelPos;
+            UpdateInteractiveRect();
+        }
+
+        void UpdateInteractiveRect()
+        {
+            if (_panelRect == null)
                 return;
-            var edge = PanelEdge(Screen.width, Screen.height);
-            if (rect.sizeDelta.x != edge || rect.sizeDelta.y != edge)
-                rect.sizeDelta = new Vector2(edge, edge);
+            var corners = new Vector3[4];
+            _panelRect.GetWorldCorners(corners);
+            var camera = _canvas != null ? _canvas.worldCamera : null;
+            var bl = RectTransformUtility.WorldToScreenPoint(camera, corners[0]);
+            var tr = RectTransformUtility.WorldToScreenPoint(camera, corners[2]);
+            _interactive = Rect.MinMaxRect(bl.x, Screen.height - tr.y, tr.x, Screen.height - bl.y);
+        }
+
+        void HandlePointer()
+        {
+            if (_panelRect == null || _canvas == null)
+                return;
+
+            var camera = _canvas.worldCamera;
+            Vector2 local;
+            var inside = RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                _panelRect, Input.mousePosition, camera, out local)
+                && _panelRect.rect.Contains(local);
+
+            if (Input.GetMouseButtonDown(0) && inside)
+            {
+                _pointerActive = true;
+                _pointerStart = Input.mousePosition;
+                _panelStart = _panelPos;
+                _sizeStart = _panelSize;
+                _resizing = local.x > _panelSize - 20f && local.y < 20f;
+                if (!_resizing)
+                    _resizing = false;
+            }
+
+            if (!_pointerActive)
+                return;
+
+            if (Input.GetMouseButton(0))
+            {
+                var delta = (Vector2)Input.mousePosition - _pointerStart;
+                if (_resizing)
+                {
+                    var grow = Mathf.Max(delta.x, -delta.y);
+                    _panelSize = Mathf.Clamp(_sizeStart + grow, MinPanelSize, NativeSize);
+                }
+                else
+                {
+                    _panelPos = _panelStart + delta;
+                }
+                PlacePanel();
+            }
+
+            if (Input.GetMouseButtonUp(0))
+            {
+                PlayerPrefs.SetFloat(SizeKey, _panelSize);
+                PlayerPrefs.SetFloat(XKey, _panelPos.x);
+                PlayerPrefs.SetFloat(YKey, _panelPos.y);
+                PlayerPrefs.Save();
+                _pointerActive = false;
+                _resizing = false;
+            }
         }
     }
 }
