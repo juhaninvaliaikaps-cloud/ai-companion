@@ -71,7 +71,7 @@ Jussi (2026-11-21): the user can use whatever cloud API they want, and the inter
   The request shape depends on the host:
   - xAI: the Responses API, as before.
   - Other OpenAI-compatible APIs (DeepSeek, OpenAI, OpenRouter and others): chat completions with an `image_url` data URL (`VisionChatJson`), not streamed, with DeepSeek's thinking off.
-  - Anthropic: a base64 `image` block on the last user message.
+  - Anthropic: a base64 `image` block on the last user message. The copy of that JPEG is cleared after the body is built, and also when the request stops first because the API key or the transport is missing.
 
   With a model that can't read pictures, the screen look uses the local vision model when one is set (`ScreenLookPolicy.UseLocalVision`); without one it is refused and nothing is sent. `CloudChatProvider` wipes and refuses an image for such a model before anything is sent.
 - **Backstop.** A request marked `BlockCloud` (private, 18+ and observation turns) is refused by the cloud slot before any provider sees it. Routing already keeps those requests local; this only catches a mistake.
@@ -80,7 +80,7 @@ Jussi (2026-11-21): the user can use whatever cloud API they want, and the inter
 
 Error messages name the slot "Cloud AI" ("Cloud AI took too long to answer").
 
-**How long a reply may take (JUH-183).** The timeout (120 s by default) counts the time since the last data arrived, not since the request started. A slow reply that keeps arriving finishes, for example a 12B local model sharing the GPU with Chatterbox. A server that stops answering still times out after the same time, and the wait for the first word is the same as before. A whole request is capped at 15 minutes (`StreamTimeout`). Player.log says `Chat transport: nothing arrived for 120 s in the middle of the reply; stopped` when it happens.
+**How long a reply may take (JUH-183).** The timeout (120 s by default) counts the time since the last data arrived, not since the request started. A slow reply that keeps arriving finishes, for example a 12B local model sharing the GPU with Chatterbox. A server that stops answering still times out after the same time, and the wait for the first word is the same as before. A whole request is capped at 15 minutes (`StreamTimeout`). The last-data time is a stopwatch stamp (`StreamTimeout.Clock`). The download callback may run off the main thread, so it records that stamp with no Unity API, and the waiting loop reads it with an interlocked read. Player.log says `Chat transport: nothing arrived for 120 s in the middle of the reply; stopped` when it happens.
 
 ## Add a provider
 
