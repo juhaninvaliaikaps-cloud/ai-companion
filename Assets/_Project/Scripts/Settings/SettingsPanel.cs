@@ -102,6 +102,7 @@ namespace AICompanion.Settings
                 return;
 
             _started = true;
+            AdultClipWindow.InstallRouter();
             try
             {
                 LocalDataActions.MigratePlaintext(Folder());

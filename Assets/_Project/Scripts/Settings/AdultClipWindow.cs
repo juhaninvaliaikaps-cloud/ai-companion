@@ -128,6 +128,11 @@ namespace AICompanion.Settings
             AdultCueRouter.Handler = Play;
         }
 
+        public static void InstallRouter()
+        {
+            InstallCueRouter();
+        }
+
         public Rect InteractiveRect
         {
             get { return _panel != null && _panel.activeSelf ? _interactive : new Rect(0f, 0f, 0f, 0f); }

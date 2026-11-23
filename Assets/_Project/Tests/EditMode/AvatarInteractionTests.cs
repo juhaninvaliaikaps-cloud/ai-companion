@@ -97,6 +97,29 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void TypedScene_DetectsBlowjobAndLyingKiss()
+        {
+            IntimateExpressions.Configure(true, true, true);
+            try
+            {
+                Assert.AreEqual(AvatarInteractionCatalog.BlowjobKneeling,
+                    AdultSceneIntent.Detect("She kneels down and gives him a blowjob."));
+                Assert.AreEqual(AvatarInteractionCatalog.BlowjobLying,
+                    AdultSceneIntent.Detect("She lies down and takes him in her mouth."));
+                Assert.AreEqual(AvatarInteractionCatalog.BlowjobOnTop,
+                    AdultSceneIntent.Detect("She is on top, giving him a blowjob."));
+                Assert.AreEqual(AvatarInteractionCatalog.LyingKiss,
+                    AdultSceneIntent.Detect("They lie together and kiss."));
+                Assert.AreEqual(AvatarInteractionCatalog.ButtSlap,
+                    AdultSceneIntent.Detect("He slaps your butt."));
+            }
+            finally
+            {
+                IntimateExpressions.Reset();
+            }
+        }
+
+        [Test]
         public void InteractionLine_IsNotScoredAsTheUsersMood()
         {
             // "kisses" is an affectionate word. Scoring the kiss event would play the shy

@@ -552,6 +552,9 @@ namespace AICompanion.UI
                 || text.StartsWith("/describe ", StringComparison.OrdinalIgnoreCase)))
                 return TryDescribe(text.Length > "/describe".Length ? text.Substring("/describe".Length).Trim() : string.Empty);
 
+            if (!interactionLine)
+                AdultSceneIntent.Trigger(text);
+
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             // Adult interaction text stays on the local model even if the privacy flag is stale.
