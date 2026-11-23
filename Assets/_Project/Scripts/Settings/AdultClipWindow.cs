@@ -17,8 +17,9 @@ namespace AICompanion.Settings
         const string FolderName = "adult-animations";
         const string BreastFile = "breast_touch_clip_v3.mp4";
         const string ButtFile = "butt_squeeze_clip_v3.mp4";
-        const float PanelSize = 280f;
-        const float Margin = 18f;
+        const float NativeSize = 544f;
+        const float DefaultPanelSize = 480f;
+        const float Margin = 12f;
         const float HideAfterSeconds = 7f;
 
         static AdultClipWindow _instance;
@@ -246,7 +247,10 @@ namespace AICompanion.Settings
             rect.anchorMax = new Vector2(1f, 0f);
             rect.pivot = new Vector2(1f, 0f);
             rect.anchoredPosition = new Vector2(-Margin, Margin);
-            rect.sizeDelta = new Vector2(PanelSize, PanelSize);
+            var available = canvas.pixelRect;
+            var edge = Mathf.Min(NativeSize,
+                Mathf.Max(DefaultPanelSize, Mathf.Min(available.width, available.height) - Margin * 2f));
+            rect.sizeDelta = new Vector2(edge, edge);
 
             var back = _panel.AddComponent<Image>();
             back.color = new Color(0.04f, 0.04f, 0.06f, 0.94f);
