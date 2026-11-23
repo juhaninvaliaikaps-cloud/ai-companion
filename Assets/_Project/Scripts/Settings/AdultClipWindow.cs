@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using AICompanion.Core;
+using AICompanion.Overlay;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Video;
@@ -55,6 +56,7 @@ namespace AICompanion.Settings
         float _sizeStart;
         Rect _interactive;
         bool _loop;
+        readonly Vector3[] _corners = new Vector3[4];
 
         /// <summary>A prepare callback is for the clip that was just asked for, not an earlier one.</summary>
         public static bool AcceptsPrepared(int requestId, int latestId)
@@ -125,7 +127,12 @@ namespace AICompanion.Settings
                 return;
             _instance = settings.gameObject.GetComponent<AdultClipWindow>();
             if (_instance == null)
+            {
                 _instance = settings.gameObject.AddComponent<AdultClipWindow>();
+                var window = settings.GetComponent<OverlayWindow>();
+                if (window != null)
+                    window.RefreshClickTargets();
+            }
         }
 
         void Awake()
@@ -418,11 +425,10 @@ namespace AICompanion.Settings
         {
             if (_panelRect == null)
                 return;
-            var corners = new Vector3[4];
-            _panelRect.GetWorldCorners(corners);
+            _panelRect.GetWorldCorners(_corners);
             var camera = _canvas != null ? _canvas.worldCamera : null;
-            var bl = RectTransformUtility.WorldToScreenPoint(camera, corners[0]);
-            var tr = RectTransformUtility.WorldToScreenPoint(camera, corners[2]);
+            var bl = RectTransformUtility.WorldToScreenPoint(camera, _corners[0]);
+            var tr = RectTransformUtility.WorldToScreenPoint(camera, _corners[2]);
             _interactive = Rect.MinMaxRect(bl.x, Screen.height - tr.y, tr.x, Screen.height - bl.y);
         }
 

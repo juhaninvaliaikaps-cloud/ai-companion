@@ -838,6 +838,21 @@ namespace AICompanion.Overlay
             }
         }
 
+        /// <summary>
+        /// Drops the cached list of clickable panels. A panel added after the first frame
+        /// (the adult clip window) is otherwise invisible to click-through.
+        /// </summary>
+        public void RefreshClickTargets()
+        {
+            _behaviours = null;
+        }
+
+        /// <summary>True when a clickable panel covers this Unity screen point.</summary>
+        public bool DebugPanelContains(Vector2 unityScreen)
+        {
+            return IsOverDebugPanel(unityScreen);
+        }
+
         bool IsOverDebugPanel(Vector2 unityScreen)
         {
             if (_behaviours == null)

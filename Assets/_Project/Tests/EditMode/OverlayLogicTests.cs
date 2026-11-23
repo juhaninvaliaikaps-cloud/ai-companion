@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
+using AICompanion.Core;
 using AICompanion.Overlay;
 using NUnit.Framework;
 using UnityEngine;
@@ -247,6 +248,29 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("panels", OverlayClickThroughPolicy.Name(OverlayClickThrough.PanelsOnly));
         }
 
+        [Test]
+        public void ClickTargetAddedLater_IsSeenAfterRefresh()
+        {
+            var host = new GameObject("overlay-click-host");
+            try
+            {
+                var window = host.AddComponent<OverlayWindow>();
+                var inside = new Vector2(10f, Mathf.Max(0f, Screen.height - 10f));
+                Assert.IsFalse(window.DebugPanelContains(inside));
+
+                var stub = host.AddComponent<ClickRectStub>();
+                stub.Area = new Rect(0f, 0f, 80f, 80f);
+                Assert.IsFalse(window.DebugPanelContains(inside));
+
+                window.RefreshClickTargets();
+                Assert.IsTrue(window.DebugPanelContains(inside));
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
         sealed class FakeHit : IOverlayHitQuery
         {
             public FakeHit(bool overCollider, bool overUi, bool opaquePixel)
@@ -260,5 +284,11 @@ namespace AICompanion.Tests.EditMode
             public bool OverUi { get; }
             public bool OpaquePixel { get; }
         }
+    }
+
+    public sealed class ClickRectStub : MonoBehaviour, IDebugPanel
+    {
+        public Rect Area;
+        public Rect InteractiveRect { get { return Area; } }
     }
 }
