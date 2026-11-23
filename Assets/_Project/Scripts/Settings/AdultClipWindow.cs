@@ -23,13 +23,43 @@ namespace AICompanion.Settings
 
         static AdultClipWindow _instance;
 
+        const float PlaneDistance = 0.58f;
+
         GameObject _canvasObject;
+        Canvas _canvas;
         GameObject _panel;
         RawImage _image;
         VideoPlayer _video;
         RenderTexture _texture;
         float _hideAt;
         string _playing = string.Empty;
+        int _showId;
+        VideoPlayer.EventHandler _onThisPrepare;
+
+        /// <summary>A prepare callback is for the clip that was just asked for, not an earlier one.</summary>
+        public static bool AcceptsPrepared(int requestId, int latestId)
+        {
+            return requestId > 0 && requestId == latestId;
+        }
+
+        /// <summary>
+        /// Draws the panel into the transparent overlay camera, like the avatar and the portrait.
+        /// Without a camera it stays a screen-space overlay.
+        /// </summary>
+        public static void PlaceOnOverlay(Canvas canvas, Camera camera)
+        {
+            if (canvas == null)
+                return;
+            if (camera == null)
+            {
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                return;
+            }
+
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = camera;
+            canvas.planeDistance = PlaneDistance;
+        }
 
         public static bool IsAdultCue(string name)
         {
@@ -70,7 +100,8 @@ namespace AICompanion.Settings
                 _instance = null;
             if (_video != null)
             {
-                _video.prepareCompleted -= OnPrepared;
+                if (_onThisPrepare != null)
+                    _video.prepareCompleted -= _onThisPrepare;
                 _video.loopPointReached -= OnEnded;
                 _video.Stop();
             }
@@ -83,6 +114,7 @@ namespace AICompanion.Settings
 
         void Update()
         {
+            FollowOverlayCamera();
             if (!IntimateExpressions.Active)
             {
                 Hide();
@@ -129,17 +161,30 @@ namespace AICompanion.Settings
             _panel.SetActive(true);
             _playing = cue;
             _hideAt = 0f;
+            var showId = ++_showId;
+            if (_onThisPrepare != null)
+            {
+                _video.prepareCompleted -= _onThisPrepare;
+                _onThisPrepare = null;
+            }
+
+            _video.Stop();
             _video.url = new Uri(path).AbsoluteUri;
+            VideoPlayer.EventHandler prepared = null;
+            prepared = player =>
+            {
+                player.prepareCompleted -= prepared;
+                if (_onThisPrepare == prepared)
+                    _onThisPrepare = null;
+                if (!AcceptsPrepared(showId, _showId) || player == null || _panel == null || !_panel.activeSelf)
+                    return;
+                _hideAt = Time.unscaledTime + HideAfterSeconds;
+                player.Play();
+            };
+            _onThisPrepare = prepared;
+            _video.prepareCompleted += prepared;
             _video.Prepare();
             Debug.Log("Adult clip window: playing " + file);
-        }
-
-        void OnPrepared(VideoPlayer player)
-        {
-            if (player == null || _panel == null || !_panel.activeSelf)
-                return;
-            _hideAt = Time.unscaledTime + HideAfterSeconds;
-            player.Play();
         }
 
         void OnEnded(VideoPlayer player)
@@ -149,9 +194,17 @@ namespace AICompanion.Settings
 
         void Hide()
         {
-            if (_panel != null && _panel.activeSelf)
+            var pending = _onThisPrepare != null;
+            if (pending && _video != null)
+            {
+                _video.prepareCompleted -= _onThisPrepare;
+                _onThisPrepare = null;
+                _showId++;
+            }
+            var showing = _panel != null && _panel.activeSelf;
+            if (showing)
                 _panel.SetActive(false);
-            if (_video != null && _video.isPlaying)
+            if (_video != null && (showing || pending || _video.isPlaying))
                 _video.Stop();
             _hideAt = 0f;
             _playing = string.Empty;
@@ -179,8 +232,9 @@ namespace AICompanion.Settings
             _canvasObject = new GameObject("AdultClipCanvas");
             _canvasObject.transform.SetParent(transform, false);
             _canvasObject.hideFlags = HideFlags.DontSave;
-            var canvas = _canvasObject.AddComponent<Canvas>();
-            canvas.sortingOrder = 6; // above the video avatar, below the portrait and chat
+            _canvas = _canvasObject.AddComponent<Canvas>();
+            _canvas.sortingOrder = 6; // above the video avatar, below the portrait and chat
+            FollowOverlayCamera();
             var scaler = _canvasObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
             scaler.scaleFactor = 1f;
@@ -221,9 +275,13 @@ namespace AICompanion.Settings
             _video.renderMode = VideoRenderMode.RenderTexture;
             _video.targetTexture = _texture;
             _video.audioOutputMode = VideoAudioOutputMode.None;
-            _video.prepareCompleted += OnPrepared;
             _video.loopPointReached += OnEnded;
             _panel.SetActive(false);
+        }
+
+        void FollowOverlayCamera()
+        {
+            PlaceOnOverlay(_canvas, Camera.main);
         }
     }
 }
