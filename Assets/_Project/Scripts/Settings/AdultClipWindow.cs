@@ -150,13 +150,17 @@ namespace AICompanion.Settings
                 return;
 
             AdultClipWindow window;
+            if (Windows.TryGetValue(key, out window) && window != null
+                && window._panel != null && window._panel.activeSelf && IsActive(key))
+                return;
             if (!Windows.TryGetValue(key, out window) || window == null)
             {
-                window = host.gameObject.AddComponent<AdultClipWindow>();
+                var overlay = FindFirstObjectByType<OverlayWindow>();
+                var target = overlay != null ? overlay.gameObject : host.gameObject;
+                window = target.AddComponent<AdultClipWindow>();
                 window._host = host;
                 window._cue = key;
                 Windows[key] = window;
-                var overlay = host.GetComponent<OverlayWindow>();
                 if (overlay != null)
                     overlay.RefreshClickTargets();
             }
@@ -424,9 +428,43 @@ namespace AICompanion.Settings
             var back = _panel.AddComponent<Image>();
             back.color = new Color(0.04f, 0.04f, 0.06f, 0.94f);
             back.raycastTarget = true;
+            var input = _panel.AddComponent<AdultClipWindowInput>();
+            input.Owner = this;
             var outline = _panel.AddComponent<Outline>();
             outline.effectColor = new Color(0.45f, 0.32f, 0.55f, 0.8f);
             outline.effectDistance = new Vector2(2f, 2f);
+
+            var close = new GameObject("Close");
+            close.transform.SetParent(_panel.transform, false);
+            var closeRect = close.AddComponent<RectTransform>();
+            closeRect.anchorMin = new Vector2(1f, 1f);
+            closeRect.anchorMax = new Vector2(1f, 1f);
+            closeRect.pivot = new Vector2(1f, 1f);
+            closeRect.anchoredPosition = new Vector2(-4f, -4f);
+            closeRect.sizeDelta = new Vector2(36f, 36f);
+            var closeImage = close.AddComponent<Image>();
+            closeImage.color = new Color(0.72f, 0.2f, 0.28f, 0.95f);
+            closeImage.raycastTarget = true;
+            var closeButton = close.AddComponent<Button>();
+            closeButton.targetGraphic = closeImage;
+            closeButton.onClick.AddListener(Hide);
+
+            var closeLabel = new GameObject("X");
+            closeLabel.transform.SetParent(close.transform, false);
+            var closeLabelRect = closeLabel.AddComponent<RectTransform>();
+            closeLabelRect.anchorMin = Vector2.zero;
+            closeLabelRect.anchorMax = Vector2.one;
+            closeLabelRect.offsetMin = Vector2.zero;
+            closeLabelRect.offsetMax = Vector2.zero;
+            var closeText = closeLabel.AddComponent<Text>();
+            closeText.text = "X";
+            closeText.alignment = TextAnchor.MiddleCenter;
+            closeText.color = Color.white;
+            closeText.fontSize = 22;
+            closeText.raycastTarget = false;
+            closeText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (closeText.font == null)
+                closeText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
 
             var picture = new GameObject("Picture");
             picture.transform.SetParent(_panel.transform, false);
@@ -477,6 +515,7 @@ namespace AICompanion.Settings
             _video.SetTargetAudioSource(0, _audio);
             _video.EnableAudioTrack(0, true);
             _video.loopPointReached += OnEnded;
+            close.transform.SetAsLastSibling();
             _panel.SetActive(false);
         }
 
