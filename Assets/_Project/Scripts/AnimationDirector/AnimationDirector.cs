@@ -79,6 +79,9 @@ namespace AICompanion.AnimationDirector
                 var reactions = AvatarReactionCatalog.PromptLine();
                 if (reactions.Length > 0)
                     text.Append(reactions).Append('\n');
+                var adultClips = AdultSceneCatalog.PromptLine();
+                if (adultClips.Length > 0)
+                    text.Append(adultClips).Append('\n');
 
                 text.Append(AnimationCueParser.Instruction);
                 // JUH-118 section 4: how the user's message landed, for the relationship.

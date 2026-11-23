@@ -682,9 +682,6 @@ namespace AICompanion.NewUI.Wheel
                 AvatarInteractionCatalog.TouchButtLoop,
                 AvatarInteractionCatalog.FingerMouth,
                 AvatarInteractionCatalog.FingerSuckLoop,
-                AvatarInteractionCatalog.BlowjobKneeling,
-                AvatarInteractionCatalog.BlowjobLying,
-                AvatarInteractionCatalog.BlowjobOnTop,
             };
             for (var i = 0; i < ids.Length; i++)
             {
@@ -699,6 +696,48 @@ namespace AICompanion.NewUI.Wheel
                     Label = item.Label,
                     Enabled = canRun,
                     DisabledReason = backOnly ? "Turn her around first." : "Turn on Private mode and the adult portrait set first.",
+                    RequiresIntimateGate = true,
+                    OnChoose = () => Do(() =>
+                    {
+                        if (_interactions != null)
+                            _interactions.Run(item.Id);
+                    })
+                });
+            }
+
+            definition.Slices.Add(new WheelSlice
+            {
+                Id = "blowjob_menu",
+                Label = "Blowjob…",
+                Enabled = true,
+                RequiresIntimateGate = true,
+                OnChoose = () => Push(BuildBlowjobs)
+            });
+
+            return definition;
+        }
+
+        WheelDefinition BuildBlowjobs()
+        {
+            var definition = Sub("Blowjob");
+            var ids = new[]
+            {
+                AvatarInteractionCatalog.BlowjobKneeling,
+                AvatarInteractionCatalog.BlowjobLying,
+                AvatarInteractionCatalog.BlowjobOnTop,
+            };
+            for (var i = 0; i < ids.Length; i++)
+            {
+                var item = AvatarInteractionCatalog.Find(ids[i]);
+                if (item == null)
+                    continue;
+                var canRun = _interactions != null && _interactions.CanRun(item.Id);
+                definition.Slices.Add(new WheelSlice
+                {
+                    Id = item.Id,
+                    Label = item.Label,
+                    Enabled = canRun,
+                    DisabledReason = "Turn on Private mode and the adult portrait set first.",
                     RequiresIntimateGate = true,
                     OnChoose = () => Do(() =>
                     {
