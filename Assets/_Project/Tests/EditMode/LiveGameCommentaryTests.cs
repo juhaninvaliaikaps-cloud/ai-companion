@@ -1,3 +1,4 @@
+using System;
 using AICompanion.Core;
 using AICompanion.GameCompanion;
 using AICompanion.Settings;
@@ -53,6 +54,20 @@ namespace AICompanion.Tests.EditMode
             var prompt = GameContextNow.Append("prompt");
             StringAssert.Contains("Game primer", prompt);
             StringAssert.Contains("Endfield hub", prompt);
+            StringAssert.DoesNotContain("patch/meta", prompt);
+        }
+
+        [Test]
+        public void PatchNotes_StaySeparateFromTheGamePage()
+        {
+            GameContextNow.SetGame(CommentaryPrompt.GameName(GameTitle.ArknightsEndfield));
+            Assert.IsTrue(GameKnowledge.ApplyPrimer(GameTitle.ArknightsEndfield, "Endfield hub and squad combat."));
+            Assert.IsTrue(GameKnowledge.ApplyPatch(GameTitle.ArknightsEndfield, "Patch 1.2 changed the stamina cap."));
+
+            var prompt = GameContextNow.Append("prompt");
+            StringAssert.Contains("Endfield hub", prompt);
+            StringAssert.Contains("stamina cap", prompt);
+            Assert.AreEqual(prompt.IndexOf("Endfield hub", StringComparison.Ordinal), prompt.LastIndexOf("Endfield hub", StringComparison.Ordinal));
         }
 
         [Test]

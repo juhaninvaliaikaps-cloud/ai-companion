@@ -166,7 +166,10 @@ namespace AICompanion.Settings
             return sum / (float)previous.Length >= LiveFrameDifference;
         }
 
-        /// <summary>One public patch/meta lookup per game every six hours, behind the Web permission.</summary>
+        /// <summary>
+        /// One game page and one patch/meta search per game every six hours, behind the Web permission.
+        /// The page is the primer. The search is the patch section. They are not the same text.
+        /// </summary>
         void KeepPatchContext(CompanionSettings settings, GameTitle game)
         {
             if (settings == null || !settings.GamePatchContext || game == GameTitle.Unknown)
@@ -179,11 +182,20 @@ namespace AICompanion.Settings
 
             _patchLooking = true;
             _nextPatchLookupUtc = DateTime.UtcNow.AddHours(6);
-            GameKnowledge.Request(panel, game, context =>
+            var name = CommentaryPrompt.GameName(game);
+            // The game page is the primer. Patch notes are a separate public search, so the
+            // page is not copied into the patch section.
+            GameKnowledge.Request(panel, game, page =>
             {
                 _patchLooking = false;
-                if (_alive && GameKnowledge.ApplyPatch(game, context))
-                    Touch("Game reference loaded for " + CommentaryPrompt.GameName(game) + ".");
+                if (_alive && !string.IsNullOrEmpty(page) && GameKnowledge.AppliesTo(game))
+                    Touch("Game reference loaded for " + name + ".");
+            });
+            WebSearchTool.RequestForGame(panel, name, response =>
+            {
+                _patchLooking = false;
+                if (_alive && GameKnowledge.ApplyPatch(game, WebSearchTool.BuildContext(response)))
+                    Touch("Patch notes loaded for " + name + ".");
             });
         }
     }
