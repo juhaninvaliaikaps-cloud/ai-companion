@@ -28,6 +28,7 @@ namespace AICompanion.UI
         }
 
         readonly Queue<PendingLine> _signals = new Queue<PendingLine>(4);
+        readonly InteractionPromptLimiter _promptLimiter = new InteractionPromptLimiter();
         ChatPanel _chat;
         AnimationDirector.AnimationDirector _director;
         IExpressionHint _hint;
@@ -208,8 +209,11 @@ namespace AICompanion.UI
                 _target.TryPlayInteraction(item.Id);
             AdultClipWindow.Play(item.Id);
 
-            if (!loopAlreadyOpen && !string.IsNullOrEmpty(item.Signal))
+            var wantsPrompt = !loopAlreadyOpen && !string.IsNullOrEmpty(item.Signal);
+            if (wantsPrompt && _promptLimiter.TryTake(System.DateTime.UtcNow))
                 _signals.Enqueue(new PendingLine(item.Signal, item.Adult));
+            else if (wantsPrompt)
+                Debug.Log("Interaction: model prompt cap reached; visual only");
             return true;
         }
     }

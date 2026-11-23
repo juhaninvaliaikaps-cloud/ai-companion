@@ -1,3 +1,4 @@
+using System;
 using AICompanion.Core;
 using NUnit.Framework;
 
@@ -66,6 +67,20 @@ namespace AICompanion.Tests.EditMode
                 var choice = InteractionSignalDelivery.Decide(item.Adult, false, true);
                 Assert.AreEqual(item.Adult ? InteractionSignalDelivery.Choice.Drop : InteractionSignalDelivery.Choice.Send, choice, item.Id);
             }
+        }
+
+        [Test]
+        public void InteractionPromptCap_AllowsTwoPerMinute()
+        {
+            var limiter = new InteractionPromptLimiter();
+            var now = DateTime.UtcNow;
+            Assert.IsTrue(limiter.TryTake(now));
+            Assert.IsTrue(limiter.TryTake(now.AddSeconds(5)));
+            Assert.IsFalse(limiter.TryTake(now.AddSeconds(10)));
+            Assert.IsTrue(limiter.TryTake(now.AddSeconds(61)));
+            Assert.AreEqual(2, limiter.Count);
+            limiter.Reset();
+            Assert.IsTrue(limiter.TryTake(now.AddSeconds(62)));
         }
 
         [Test]
