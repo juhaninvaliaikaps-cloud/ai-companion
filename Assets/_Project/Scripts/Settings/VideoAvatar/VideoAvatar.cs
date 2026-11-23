@@ -207,6 +207,14 @@ namespace AICompanion.Settings
                 case "kiss":
                     return TryReaction("flustered");
                 case "make_out":
+                case "lying_kiss":
+                case "lying_make_out":
+                case "lying_make_out_2":
+                case "blowjob_kneeling":
+                case "blowjob_lying":
+                case "blowjob_ontop":
+                    return TryReaction("flustered");
+                case "finger_suck_loop":
                     return TryReaction("flustered");
                 case "hold_hand":
                 case "let_go":

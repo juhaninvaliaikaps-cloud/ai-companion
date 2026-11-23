@@ -681,6 +681,10 @@ namespace AICompanion.NewUI.Wheel
                 AvatarInteractionCatalog.TouchButt,
                 AvatarInteractionCatalog.TouchButtLoop,
                 AvatarInteractionCatalog.FingerMouth,
+                AvatarInteractionCatalog.FingerSuckLoop,
+                AvatarInteractionCatalog.BlowjobKneeling,
+                AvatarInteractionCatalog.BlowjobLying,
+                AvatarInteractionCatalog.BlowjobOnTop,
             };
             for (var i = 0; i < ids.Length; i++)
             {
@@ -715,8 +719,10 @@ namespace AICompanion.NewUI.Wheel
                 case BodyPart.Hands:
                     return PartWheel("Hands", AvatarInteractionCatalog.HoldHand, AvatarInteractionCatalog.LetGo);
                 case BodyPart.Lips:
-                    return PartWheel("Lips", AvatarInteractionCatalog.Kiss, AvatarInteractionCatalog.MakeOut,
-                        AvatarInteractionCatalog.FingerMouth);
+                    return PartWheel("Kiss her", AvatarInteractionCatalog.Kiss, AvatarInteractionCatalog.MakeOut,
+                        AvatarInteractionCatalog.LyingKiss, AvatarInteractionCatalog.LyingMakeOut,
+                        AvatarInteractionCatalog.LyingMakeOut2, AvatarInteractionCatalog.FingerMouth,
+                        AvatarInteractionCatalog.FingerSuckLoop);
                 case BodyPart.Face:
                 case BodyPart.Cheeks:
                     return PartWheel("Face", AvatarInteractionCatalog.CupCheek, AvatarInteractionCatalog.TouchFace);

@@ -47,6 +47,13 @@ namespace AICompanion.Core
         public const string TouchButtLoop = "touch_butt_loop";
         public const string FingerMouth = "finger_mouth";
         public const string MakeOut = "make_out";
+        public const string LyingKiss = "lying_kiss";
+        public const string LyingMakeOut = "lying_make_out";
+        public const string LyingMakeOut2 = "lying_make_out_2";
+        public const string BlowjobKneeling = "blowjob_kneeling";
+        public const string BlowjobLying = "blowjob_lying";
+        public const string BlowjobOnTop = "blowjob_ontop";
+        public const string FingerSuckLoop = "finger_suck_loop";
 
         public static readonly IReadOnlyList<AvatarInteractionDefinition> All = new[]
         {
@@ -109,6 +116,41 @@ namespace AICompanion.Core
                 Emotion = Emotion.Flustered,
                 Intensity = 0.9f,
                 Signal = "*User deepens the kiss.*",
+                Adult = true,
+                Loop = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = LyingKiss,
+                Label = "Lying kiss",
+                Expression = "kiss",
+                Clip = "lying_kiss",
+                Emotion = Emotion.Happy,
+                Intensity = 0.8f,
+                Signal = "*User kisses you while you lie together.*",
+                Adult = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = LyingMakeOut,
+                Label = "Lying make out",
+                Expression = "flustered",
+                Clip = "lying_make_out",
+                Emotion = Emotion.Flustered,
+                Intensity = 0.9f,
+                Signal = "*User keeps kissing you while you lie together.*",
+                Adult = true,
+                Loop = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = LyingMakeOut2,
+                Label = "Lying make out 2",
+                Expression = "flustered",
+                Clip = "lying_make_out_2",
+                Emotion = Emotion.Flustered,
+                Intensity = 0.9f,
+                Signal = "*User keeps kissing you slowly while you lie together.*",
                 Adult = true,
                 Loop = true,
             },
@@ -213,6 +255,54 @@ namespace AICompanion.Core
                 Intensity = 0.7f,
                 Signal = "*User slides a finger into your mouth.*",
                 Adult = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = BlowjobKneeling,
+                Label = "Blowjob, kneeling",
+                Expression = "flustered",
+                Clip = "blowjob_kneeling",
+                Emotion = Emotion.Flustered,
+                Intensity = 0.85f,
+                Signal = "*User guides you to kneel and take him in your mouth.*",
+                Adult = true,
+                Loop = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = BlowjobLying,
+                Label = "Blowjob, lying",
+                Expression = "flustered",
+                Clip = "blowjob_lying",
+                Emotion = Emotion.Flustered,
+                Intensity = 0.85f,
+                Signal = "*User lies back and you take him in your mouth.*",
+                Adult = true,
+                Loop = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = BlowjobOnTop,
+                Label = "Blowjob, on top",
+                Expression = "flustered",
+                Clip = "blowjob_ontop",
+                Emotion = Emotion.Flustered,
+                Intensity = 0.85f,
+                Signal = "*User pulls you over him and you take him in your mouth.*",
+                Adult = true,
+                Loop = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = FingerSuckLoop,
+                Label = "Finger suck +loop",
+                Expression = "finger_suck",
+                Clip = "finger_suck_loop",
+                Emotion = Emotion.Flustered,
+                Intensity = 0.75f,
+                Signal = "*User keeps a finger in your mouth.*",
+                Adult = true,
+                Loop = true,
             },
         };
 

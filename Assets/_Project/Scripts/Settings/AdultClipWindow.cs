@@ -19,6 +19,13 @@ namespace AICompanion.Settings
         const string ButtFile = "butt_squeeze_clip_v3.mp4";
         const string KissFile = "happi_kiss_pov.mp4";
         const string KissLoopFile = "happi_kiss_loop_60s.mp4";
+        const string LyingKissFile = "happi_lying_kiss_pov.mp4";
+        const string LyingKissLoopFile = "happi_lying_kiss_loop_60s.mp4";
+        const string LyingKissLoop2File = "happi_lying_kiss_loop2_60s.mp4";
+        const string KneelingFingerFile = "happi_kneeling_finger_loop_60s.mp4";
+        const string LyingFingerFile = "happi_lying_finger_loop_60s.mp4";
+        const string OnTopFingerFile = "happi_ontop_finger_loop_60s.mp4";
+        const string FingerSuckFile = "fingersuckloop60s.mp4";
         const float NativeSize = 544f;
         const float DefaultPanelSize = 480f;
         const float Margin = 12f;
@@ -105,7 +112,10 @@ namespace AICompanion.Settings
                 || id == "touch_breast_loop" || id == "breast_touch_loop"
                 || id == "touch_butt" || id == "butt_touch" || id == "butt_squeeze" || id == "butt_squeeze_clip_v3"
                 || id == "touch_butt_loop" || id == "butt_squeeze_loop"
-                || id == "kiss" || id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop";
+                || id == "kiss" || id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop"
+                || id == "lying_kiss" || id == "lying_make_out" || id == "lying_make_out_2"
+                || id == "blowjob_kneeling" || id == "blowjob_lying" || id == "blowjob_ontop"
+                || id == "finger_suck_loop";
         }
 
         public Rect InteractiveRect
@@ -223,6 +233,20 @@ namespace AICompanion.Settings
                 return KissFile;
             if (id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop")
                 return KissLoopFile;
+            if (id == "lying_kiss")
+                return LyingKissFile;
+            if (id == "lying_make_out")
+                return LyingKissLoopFile;
+            if (id == "lying_make_out_2")
+                return LyingKissLoop2File;
+            if (id == "blowjob_kneeling")
+                return KneelingFingerFile;
+            if (id == "blowjob_lying")
+                return LyingFingerFile;
+            if (id == "blowjob_ontop")
+                return OnTopFingerFile;
+            if (id == "finger_suck_loop")
+                return FingerSuckFile;
             return string.Empty;
         }
 
@@ -231,7 +255,10 @@ namespace AICompanion.Settings
             var id = Normalize(cue);
             return id == "touch_breast_loop" || id == "breast_touch_loop"
                 || id == "touch_butt_loop" || id == "butt_squeeze_loop"
-                || id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop";
+                || id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop"
+                || id == "lying_make_out" || id == "lying_make_out_2"
+                || id == "blowjob_kneeling" || id == "blowjob_lying" || id == "blowjob_ontop"
+                || id == "finger_suck_loop";
         }
 
         void Show()
