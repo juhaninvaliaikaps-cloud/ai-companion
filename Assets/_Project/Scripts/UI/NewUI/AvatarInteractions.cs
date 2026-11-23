@@ -163,7 +163,7 @@ namespace AICompanion.UI
 
         public bool Run(string id)
         {
-            if (!_resolved || _chat == null || _target == null || (_director == null && _hint == null))
+            if (!_resolved || _chat == null || (_director == null && _hint == null))
             {
                 _resolved = false;
                 Resolve();
