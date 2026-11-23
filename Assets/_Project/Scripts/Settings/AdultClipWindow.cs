@@ -148,6 +148,19 @@ namespace AICompanion.Settings
             return string.Equals(cue, _activeCue, System.StringComparison.Ordinal);
         }
 
+        /// <summary>True while this cue's window is on screen and is the active loop.</summary>
+        public static bool IsActiveCue(string cue)
+        {
+            var key = Normalize(cue);
+            if (!IsActive(key))
+                return false;
+            AdultClipWindow window;
+            return Windows.TryGetValue(key, out window)
+                && window != null
+                && window._panel != null
+                && window._panel.activeSelf;
+        }
+
         void OnDestroy()
         {
             if (!string.IsNullOrEmpty(_cue))

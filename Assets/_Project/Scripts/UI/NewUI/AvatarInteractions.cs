@@ -203,11 +203,12 @@ namespace AICompanion.UI
             Debug.Log("Interaction: " + item.Id + " expression=" + item.Expression
                 + " director=" + (_director != null) + " hint=" + (_hint != null) + " target=" + (_target != null));
 
+            var loopAlreadyOpen = item.Loop && AdultClipWindow.IsActiveCue(item.Id);
             if (_target != null)
                 _target.TryPlayInteraction(item.Id);
             AdultClipWindow.Play(item.Id);
 
-            if (!string.IsNullOrEmpty(item.Signal))
+            if (!loopAlreadyOpen && !string.IsNullOrEmpty(item.Signal))
                 _signals.Enqueue(new PendingLine(item.Signal, item.Adult));
             return true;
         }
