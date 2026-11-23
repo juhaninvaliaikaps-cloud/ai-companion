@@ -114,6 +114,10 @@ namespace AICompanion.AnimationDirector
             if (name.Length == 0)
                 return;
 
+            // JUH-188: adult third-window cues must work in 3D mode too. The router ignores
+            // ordinary reactions and only opens an 18+ window while the gate is open.
+            AdultCueRouter.Request(name);
+
             var target = GetComponent<IAvatarReactions>();
             if (target == null || !(target is Component))
             {

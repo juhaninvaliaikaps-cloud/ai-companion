@@ -116,9 +116,16 @@ namespace AICompanion.Settings
                 || id == "touch_butt" || id == "butt_touch" || id == "butt_squeeze" || id == "butt_squeeze_clip_v3"
                 || id == "touch_butt_loop" || id == "butt_squeeze_loop" || id == "butt_slap"
                 || id == "kiss" || id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop"
+                || id == "blowjob"
                 || id == "lying_kiss" || id == "lying_make_out" || id == "lying_make_out_2"
                 || id == "blowjob_kneeling" || id == "blowjob_lying" || id == "blowjob_ontop"
-                || id == "finger_suck_loop";
+                || id == "blowjob" || id == "finger_suck_loop";
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void InstallCueRouter()
+        {
+            AdultCueRouter.Handler = Play;
         }
 
         public Rect InteractiveRect
@@ -244,7 +251,7 @@ namespace AICompanion.Settings
                 return LyingKissLoopFile;
             if (id == "lying_make_out_2")
                 return LyingKissLoop2File;
-            if (id == "blowjob_kneeling")
+            if (id == "blowjob_kneeling" || id == "blowjob")
                 return KneelingFingerFile;
             if (id == "blowjob_lying")
                 return LyingFingerFile;
@@ -263,7 +270,7 @@ namespace AICompanion.Settings
                 || id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop"
                 || id == "lying_make_out" || id == "lying_make_out_2"
                 || id == "blowjob_kneeling" || id == "blowjob_lying" || id == "blowjob_ontop"
-                || id == "finger_suck_loop";
+                || id == "blowjob" || id == "finger_suck_loop";
         }
 
         void Show()
