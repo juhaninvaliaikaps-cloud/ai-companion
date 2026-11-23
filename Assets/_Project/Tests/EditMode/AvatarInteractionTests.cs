@@ -84,6 +84,19 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void AdultScene_ContinuesTouchText()
+        {
+            AdultSceneNow.Reset();
+            AdultSceneNow.Compose(AvatarInteractionCatalog.BlowjobKneeling, "*User guides you down.*");
+            Assert.AreEqual("*User grabs your butt, while you are on your knees, giving him a blowjob.*",
+                AdultSceneNow.Compose(AvatarInteractionCatalog.TouchButt, "*User touches your butt.*"));
+            Assert.AreEqual("*User grabs your breasts, and butt while you are on your knees, giving him a blowjob.*",
+                AdultSceneNow.Compose(AvatarInteractionCatalog.TouchBreast, "*User cups your breast.*"));
+            AdultSceneNow.Reset();
+            Assert.IsFalse(AdultSceneNow.Active);
+        }
+
+        [Test]
         public void InteractionLine_IsNotScoredAsTheUsersMood()
         {
             // "kisses" is an affectionate word. Scoring the kiss event would play the shy

@@ -118,6 +118,8 @@ namespace AICompanion.UI
 
         void Update()
         {
+            if (!IntimateExpressions.Active)
+                AdultSceneNow.Reset();
             if (_signals.Count == 0)
                 return;
             if (!_resolved)
@@ -210,8 +212,9 @@ namespace AICompanion.UI
             AdultClipWindow.Play(item.Id);
 
             var wantsPrompt = !loopAlreadyOpen && !string.IsNullOrEmpty(item.Signal);
+            var signal = wantsPrompt ? AdultSceneNow.Compose(item.Id, item.Signal) : item.Signal;
             if (wantsPrompt && _promptLimiter.TryTake(System.DateTime.UtcNow))
-                _signals.Enqueue(new PendingLine(item.Signal, item.Adult));
+                _signals.Enqueue(new PendingLine(signal, item.Adult));
             else if (wantsPrompt)
                 Debug.Log("Interaction: model prompt cap reached; visual only");
             return true;
