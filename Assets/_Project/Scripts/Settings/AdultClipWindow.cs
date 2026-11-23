@@ -30,6 +30,7 @@ namespace AICompanion.Settings
         const string OnTopFingerFile = "happi_ontop_finger_loop_60s.mp4";
         const string FingerSuckFile = "fingersuckloop60s.mp4";
         const float NativeSize = 544f;
+        const float MaxPanelSize = 1088f;
         const float DefaultPanelSize = 480f;
         const float Margin = 12f;
         const float MinPanelSize = 180f;
@@ -529,13 +530,11 @@ namespace AICompanion.Settings
             if (_panelRect == null || _canvas == null)
                 return;
             var area = _canvas.pixelRect;
-            var edge = Mathf.Clamp(_panelSize, MinPanelSize, NativeSize);
+            var edge = Mathf.Clamp(_panelSize, MinPanelSize, MaxPanelSize);
             _panelSize = edge;
             _panelRect.sizeDelta = new Vector2(edge, edge);
-            var maxX = Mathf.Max(0f, area.width - edge);
-            var maxY = Mathf.Max(0f, area.height - edge);
-            _panelPos.x = Mathf.Clamp(_panelPos.x, 0f, maxX);
-            _panelPos.y = Mathf.Clamp(_panelPos.y, 0f, maxY);
+            // Deliberately no position clamp: the adult window may be dragged across the
+            // desktop instead of being pinned inside the avatar overlay.
             _panelRect.anchoredPosition = _panelPos;
             UpdateInteractiveRect();
         }
@@ -568,7 +567,7 @@ namespace AICompanion.Settings
                 if (Mathf.Abs(scroll) > 0.01f)
                 {
                     SetActive(_cue);
-                    _panelSize = Mathf.Clamp(_panelSize + scroll * 24f, MinPanelSize, NativeSize);
+                    _panelSize = Mathf.Clamp(_panelSize + scroll * 24f, MinPanelSize, MaxPanelSize);
                     PlacePanel();
                     SavePlacement();
                 }
@@ -596,7 +595,7 @@ namespace AICompanion.Settings
                 if (_resizing)
                 {
                     var grow = Mathf.Max(delta.x, -delta.y);
-                    _panelSize = Mathf.Clamp(_sizeStart + grow, MinPanelSize, NativeSize);
+                    _panelSize = Mathf.Clamp(_sizeStart + grow, MinPanelSize, MaxPanelSize);
                 }
                 else
                 {
@@ -659,7 +658,7 @@ namespace AICompanion.Settings
             if (_resizing)
             {
                 var grow = Mathf.Max(eventData.delta.x, -eventData.delta.y);
-                _panelSize = Mathf.Clamp(_panelSize + grow, MinPanelSize, NativeSize);
+                _panelSize = Mathf.Clamp(_panelSize + grow, MinPanelSize, MaxPanelSize);
             }
             else
             {
@@ -692,7 +691,7 @@ namespace AICompanion.Settings
         public void OnScroll(PointerEventData eventData)
         {
             SetActive(_cue);
-            _panelSize = Mathf.Clamp(_panelSize + eventData.scrollDelta.y * 24f, MinPanelSize, NativeSize);
+            _panelSize = Mathf.Clamp(_panelSize + eventData.scrollDelta.y * 24f, MinPanelSize, MaxPanelSize);
             PlacePanel();
             SavePlacement();
         }
