@@ -237,6 +237,9 @@ namespace AICompanion.Settings
         /// </summary>
         public AvatarReactionResult RequestReaction(string name)
         {
+            if (AdultClipWindow.IsAdultCue(name))
+                AdultClipWindow.Play(name);
+
             if (string.Equals(name, "dress", StringComparison.OrdinalIgnoreCase))
             {
                 if (!IntimateExpressions.Undressed)

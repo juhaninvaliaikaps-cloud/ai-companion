@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using AICompanion.AnimationDirector;
 using AICompanion.Core;
+using AICompanion.Settings;
 using UnityEngine;
 
 namespace AICompanion.UI
@@ -161,6 +162,7 @@ namespace AICompanion.UI
 
         public bool Run(string id)
         {
+            AdultClipWindow.Ensure();
             if (!_resolved || _chat == null || _target == null || (_director == null && _hint == null))
             {
                 _resolved = false;
@@ -204,6 +206,7 @@ namespace AICompanion.UI
 
             if (_target != null)
                 _target.TryPlayInteraction(item.Id);
+            AdultClipWindow.Play(item.Id);
 
             if (!string.IsNullOrEmpty(item.Signal))
                 _signals.Enqueue(new PendingLine(item.Signal, item.Adult));
