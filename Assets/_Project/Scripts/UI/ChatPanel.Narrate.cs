@@ -121,10 +121,7 @@ namespace AICompanion.UI
             if (recent != null)
             {
                 for (var i = 0; i < recent.Count; i++)
-                {
-                    if (recent[i] != null)
-                        request.Messages.Add(recent[i]);
-                }
+                    request.Messages.Add(recent[i]);
             }
 
             var ask = string.IsNullOrWhiteSpace(instruction) ? "the current scene" : instruction.Trim();
