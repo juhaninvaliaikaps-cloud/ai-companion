@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -87,6 +87,19 @@ namespace AICompanion.Settings
                 Stop(process);
             Running.Clear();
             SetAudioPriority(false);
+        }
+
+        /// <summary>Closes gated windows but leaves the public make-out clip alone.</summary>
+        public static void HideGateClosed()
+        {
+            var close = new List<string>();
+            foreach (var pair in Running)
+            {
+                if (!AdultClipWindow.IsPublicCue(pair.Key))
+                    close.Add(pair.Key);
+            }
+            for (var i = 0; i < close.Count; i++)
+                Hide(close[i]);
         }
 
         /// <summary>Drops dead windows and releases voice priority when the last one closes.</summary>

@@ -117,7 +117,6 @@ namespace AICompanion.Core
                 Emotion = Emotion.Flustered,
                 Intensity = 0.9f,
                 Signal = "*User deepens the kiss.*",
-                Adult = true,
                 Loop = true,
             },
             new AvatarInteractionDefinition

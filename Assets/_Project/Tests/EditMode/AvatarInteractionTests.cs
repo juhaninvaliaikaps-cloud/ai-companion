@@ -49,6 +49,23 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchButt).Adult);
             Assert.IsFalse(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchButt).BackOnly);
             Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.FingerMouth).Adult);
+            Assert.IsFalse(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.MakeOut).Adult);
+        }
+
+        [Test]
+        public void MakeOut_IsAvailableOutsideTheAdultGate()
+        {
+            IntimateExpressions.Reset();
+            try
+            {
+                Assert.AreEqual(AvatarInteractionCatalog.MakeOut,
+                    AdultSceneIntent.Detect("They make out on the couch."));
+                Assert.IsFalse(AdultSceneIntent.Detect("She gives him a blowjob.").Length > 0);
+            }
+            finally
+            {
+                IntimateExpressions.Reset();
+            }
         }
 
         [Test]

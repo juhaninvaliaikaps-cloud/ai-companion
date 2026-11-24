@@ -11,10 +11,12 @@ namespace AICompanion.Core
     {
         public static string PromptLine()
         {
+            const string publicLine = "A public romantic cue is available: reaction=\"make_out\" for a cute, non-explicit make-out loop. ";
             if (!IntimateExpressions.Active)
-                return string.Empty;
+                return publicLine;
 
-            return "Third-window 18+ clip cues. Use reaction=\"name\" when the scene clearly matches one: "
+            return publicLine
+                + "Third-window 18+ clip cues. Use reaction=\"name\" when the scene clearly matches one: "
                 + "blowjob_kneeling (she kneels and gives him a blowjob), "
                 + "blowjob_lying (she lies down and gives him a blowjob), "
                 + "blowjob_ontop (she is on top and gives him a blowjob), "

@@ -145,11 +145,19 @@ namespace AICompanion.Settings
             get { return _panel != null && _panel.activeSelf ? _interactive : new Rect(0f, 0f, 0f, 0f); }
         }
 
+        public static bool IsPublicCue(string name)
+        {
+            var id = Normalize(name);
+            return id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop";
+        }
+
         public static void Play(string cue)
         {
-            if (!IntimateExpressions.Active || !IsAdultCue(cue))
+            if (!IsAdultCue(cue))
                 return;
             var key = Normalize(cue);
+            if (!IntimateExpressions.Active && !IsPublicCue(key))
+                return;
             var host = FindFirstObjectByType<SettingsPanel>();
             if (host == null)
                 return;
@@ -230,7 +238,7 @@ namespace AICompanion.Settings
         void Update()
         {
             FollowOverlayCamera();
-            if (!IntimateExpressions.Active)
+            if (!IntimateExpressions.Active && !IsPublicCue(_cue))
             {
                 Hide();
                 return;
