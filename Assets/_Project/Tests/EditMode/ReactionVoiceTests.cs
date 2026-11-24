@@ -235,6 +235,14 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void AdultPackHasItsOwnFolder()
+        {
+            Assert.AreEqual(
+                Path.Combine(@"C:\Users\Test\AppData\Roaming", "ProjectLeia", "reaction-voices-adult-18plus"),
+                ReactionVoicePaths.AdultExpected(@"C:\Users\Test\AppData\Roaming", null));
+        }
+
+        [Test]
         public void PackFolderPrefersTheRoamingFolder()
         {
             var seen = new List<string>();

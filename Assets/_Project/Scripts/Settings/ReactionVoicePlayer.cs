@@ -20,6 +20,7 @@ namespace AICompanion.Settings
         const int MaxWavBytes = 8 * 1024 * 1024;
 
         ReactionVoiceCatalog _catalog = ReactionVoiceCatalog.Empty;
+        ReactionVoiceCatalog _adultCatalog = ReactionVoiceCatalog.Empty;
         readonly ReactionVoiceSession _session = new ReactionVoiceSession();
         readonly HashSet<string> _logged = new HashSet<string>(StringComparer.Ordinal);
         AudioSource _source;
@@ -30,7 +31,9 @@ namespace AICompanion.Settings
         string _appData;
         string _persistent;
         string _folder = string.Empty;
+        string _adultFolder = string.Empty;
         DateTime _stamp;
+        DateTime _adultStamp;
         float _nextReload;
         bool _loggedMissingPack;
 
@@ -78,10 +81,15 @@ namespace AICompanion.Settings
             if (!Allowed())
                 return;
 
-            ReactionVoiceClip chosen;
-            if (!_session.TryChoose(_catalog, expression, cause, now, Index, out chosen))
+            ReactionVoiceClip chosen = default(ReactionVoiceClip);
+            var folder = _folder;
+            var adult = IntimateExpressions.Active && _adultCatalog.ClipCount > 0
+                && _session.TryChoose(_adultCatalog, expression, cause, now, Index, out chosen);
+            if (adult)
+                folder = _adultFolder;
+            else if (!_session.TryChoose(_catalog, expression, cause, now, Index, out chosen))
                 return;
-            if (!TryPlay(chosen))
+            if (!TryPlay(chosen, folder))
                 return;
             Debug.Log("Reaction voice: " + chosen.Id + " → " + chosen.Expression);
         }
@@ -106,6 +114,7 @@ namespace AICompanion.Settings
 
         void Refresh()
         {
+            RefreshAdult();
             try
             {
                 var folder = ReactionVoicePaths.Resolve(_appData, _persistent, Directory.Exists);
@@ -154,12 +163,46 @@ namespace AICompanion.Settings
             }
         }
 
-        bool TryPlay(ReactionVoiceClip chosen)
+        void RefreshAdult()
         {
-            if (_source == null || string.IsNullOrEmpty(_folder))
+            var folder = ReactionVoicePaths.AdultExpected(_appData, _persistent);
+            if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder))
+            {
+                _adultFolder = string.Empty;
+                _adultCatalog = ReactionVoiceCatalog.Empty;
+                return;
+            }
+
+            var manifest = Path.Combine(folder, ReactionVoicePaths.AdultManifestFileName);
+            DateTime stamp;
+            try
+            {
+                stamp = File.GetLastWriteTimeUtc(manifest);
+            }
+            catch (Exception)
+            {
+                stamp = DateTime.MinValue;
+            }
+
+            if (string.Equals(folder, _adultFolder, StringComparison.OrdinalIgnoreCase) && stamp == _adultStamp)
+                return;
+
+            List<string> warnings;
+            _adultCatalog = ReactionVoiceCatalog.Load(folder, ReactionVoicePaths.AdultManifestFileName, out warnings);
+            _adultFolder = folder;
+            _adultStamp = stamp;
+            for (var i = 0; i < warnings.Count; i++)
+                LogOnce(warnings[i]);
+            if (_adultCatalog.ClipCount > 0)
+                LogOnce("Reaction voice: " + _adultCatalog.ClipCount.ToString() + " adult clips from " + folder);
+        }
+
+        bool TryPlay(ReactionVoiceClip chosen, string folder)
+        {
+            if (_source == null || string.IsNullOrEmpty(folder))
                 return false;
 
-            var path = Path.Combine(_folder, chosen.FileName);
+            var path = Path.Combine(folder, chosen.FileName);
             byte[] bytes;
             try
             {
