@@ -42,7 +42,7 @@ namespace AICompanion.Tests.EditMode
         {
             Assert.AreEqual(DesireHeat.Release, DesireHeats.Of(Cue("neutral", "climax_shiver", LandingEvent.Neutral)));
             Assert.AreEqual(DesireHeat.Release, DesireHeats.Of(Cue("x_orgasm", null, LandingEvent.Neutral)));
-            Assert.AreEqual(9f, DesireMath.AfterRelease(60f), 0.001f, "a release keeps 15 %");
+            Assert.AreEqual(45f, DesireMath.AfterRelease(60f), 0.001f, "a climax drops desire by 25 %");
         }
 
         [Test]

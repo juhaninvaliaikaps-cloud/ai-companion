@@ -155,8 +155,8 @@ namespace AICompanion.Core
         /// <summary>Something she is shy to do adds this: it flusters her more than it arouses her.</summary>
         public const float ShyGain = 2f;
 
-        /// <summary>A release keeps this share of her desire.</summary>
-        public const float ReleaseKeeps = 0.15f;
+        /// <summary>A climax keeps this share of her desire: JUH-190 changed this from 15% to 75%, a 25% drop.</summary>
+        public const float ReleaseKeeps = 0.75f;
 
         /// <summary>During the refractory time, moments raise her desire this much less.</summary>
         public const float RefractoryGainShare = 0.3f;

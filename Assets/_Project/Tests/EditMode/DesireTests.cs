@@ -54,6 +54,16 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void MaximumDesire_HasTheExtremeLine()
+        {
+            var high = DesirePrompt.Line(94f, 50f, 50f, 50f, false, true);
+            var max = DesirePrompt.Line(95f, 50f, 50f, 50f, false, true);
+            StringAssert.DoesNotContain("only things she can think", high);
+            StringAssert.Contains("only things she can think", max);
+            StringAssert.Contains("barely hold a conversation", max);
+        }
+
+        [Test]
         public void RelationshipLibido_AddsUpToFiftyForAPartnerOrHighAffection()
         {
             Assert.AreEqual(75f, DesireMath.RelationshipLibido(25f, 0f, true), 0.001f);

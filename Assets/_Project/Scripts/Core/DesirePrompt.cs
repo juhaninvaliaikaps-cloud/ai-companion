@@ -46,6 +46,10 @@ namespace AICompanion.Core
         public const string Conflict = "She does not like the user much right now, and wanting them anyway frustrates her, so her desire comes out prickly and grudging.";
         public const string Relentless = "Her libido is relentless: her needs come back quickly and never stay satisfied for long.";
         public const string Low = "Her libido is low: desire is rare for her and fades quickly.";
+        public const string Maximum = "Her desire has taken over completely: sex and pleasure are the only things she can think about. She can barely hold a conversation or function; every thought bends back to wanting the user, and she is desperate for relief.";
+
+        /// <summary>At this desire the maximum line is added on top of the overwhelmed band.</summary>
+        public const float MaximumDesire = 95f;
 
         /// <summary>The line for these numbers, or empty while the gate is closed.</summary>
         public static string Line(float desire, float libido, float innocence, float affection, bool refractory, bool gateOpen)
@@ -58,6 +62,8 @@ namespace AICompanion.Core
                 line += " " + Spent;
             else if (band >= 1)
                 line += " " + Shows[band - 1][DesireMath.Openness(innocence)];
+            if (desire >= MaximumDesire)
+                line += " " + Maximum;
             if (DesireMath.Conflicted(affection, desire))
                 line += " " + Conflict;
             var libidoBand = DesireMath.LibidoBand(libido);
@@ -79,7 +85,8 @@ namespace AICompanion.Core
                 + 10 * DesireMath.Openness(innocence)
                 + 100 * (DesireMath.Conflicted(affection, desire) ? 1 : 0)
                 + 1000 * (refractory && band <= 1 ? 1 : 0)
-                + 10000 * libidoBand;
+                + 10000 * libidoBand
+                + 100000 * (desire >= MaximumDesire ? 1 : 0);
         }
     }
 }
