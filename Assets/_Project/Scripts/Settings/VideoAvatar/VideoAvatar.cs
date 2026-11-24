@@ -206,16 +206,29 @@ namespace AICompanion.Settings
                     return TryReaction("embarrassed");
                 case "kiss":
                     return TryReaction("flustered");
+                case "make_out":
+                case "lying_kiss":
+                case "lying_make_out":
+                case "lying_make_out_2":
+                case "blowjob_kneeling":
+                case "blowjob_lying":
+                case "blowjob_ontop":
+                    return TryReaction("flustered");
+                case "finger_suck_loop":
+                    return TryReaction("flustered");
                 case "hold_hand":
                 case "let_go":
                     return TryReaction("happy");
                 case "touch_shoulder":
                     return TryReaction("concerned");
                 case "touch_breast":
+                case "touch_breast_loop":
                     return TryReaction("flustered");
                 case "touch_vagina":
                     return TryReaction("flustered");
                 case "touch_butt":
+                case "touch_butt_loop":
+                case "butt_slap":
                     return TryReaction("embarrassed");
                 case "finger_mouth":
                     return TryReaction("flustered");
@@ -237,6 +250,9 @@ namespace AICompanion.Settings
         /// </summary>
         public AvatarReactionResult RequestReaction(string name)
         {
+            if (AdultClipWindow.IsAdultCue(name))
+                AdultClipWindow.Play(name);
+
             if (string.Equals(name, "dress", StringComparison.OrdinalIgnoreCase))
             {
                 if (!IntimateExpressions.Undressed)
@@ -1276,6 +1292,15 @@ namespace AICompanion.Settings
             if (intimate && !backView && y >= 0.42f && y <= 0.56f && x >= 0.38f && x <= 0.62f)
             {
                 part = BodyPart.Crotch;
+                return true;
+            }
+
+            // Front/side hip shortcut: the butt action is available even when she is not
+            // turned around. This band sits outside the crotch and above the hands.
+            if (intimate && !backView && y >= 0.38f && y <= 0.58f
+                && ((x >= 0.20f && x <= 0.34f) || (x >= 0.66f && x <= 0.80f)))
+            {
+                part = BodyPart.Butt;
                 return true;
             }
 

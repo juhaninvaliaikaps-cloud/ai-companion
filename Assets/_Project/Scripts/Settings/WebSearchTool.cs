@@ -29,8 +29,9 @@ namespace AICompanion.Settings
 
     /// <summary>
     /// Courteous, keyless web context for a desktop tool. Google News RSS is used because it
-    /// is a public feed and returns current game-patch coverage without an API key. Requests
-    /// are cached and rate-limited; nothing runs in the background.
+    /// is a public feed and returns current game-patch coverage without an API key. A search
+    /// the user typed is cached and rate-limited. The game companion's patch lookup is a
+    /// separate lane: it does not start that cooldown or replace that cached result.
     /// </summary>
     public static class WebSearchTool
     {
@@ -52,29 +53,89 @@ namespace AICompanion.Settings
         static DateTime _cachedAtUtc;
         static DateTime _lastRequestUtc;
 
+        /// <summary>What one claim of the user-search slot decided. A background claim leaves the slot alone.</summary>
+        public struct SearchSlot
+        {
+            public bool Refused;
+            public string Reason;
+            public WebSearchResponse Cached;
+        }
+
         public static async System.Threading.Tasks.Task<WebSearchResponse> SearchAsync(string query)
+        {
+            return await RunSearch(query, false);
+        }
+
+        /// <summary>
+        /// Claims the user-search slot, or does nothing when <paramref name="background"/> is true.
+        /// A background patch lookup must not refuse the next <c>/search</c> or replace its cache.
+        /// </summary>
+        public static SearchSlot Claim(bool background, string query, DateTime nowUtc)
+        {
+            if (background)
+                return new SearchSlot();
+
+            if (_cached != null && string.Equals(_cachedQuery, query ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+                && (nowUtc - _cachedAtUtc).TotalSeconds < CacheSeconds)
+            {
+                return new SearchSlot
+                {
+                    Cached = new WebSearchResponse
+                    {
+                        Ok = _cached.Ok,
+                        Error = _cached.Error,
+                        Query = _cached.Query,
+                        FromCache = true,
+                        Results = new List<WebSearchResult>(_cached.Results),
+                    },
+                };
+            }
+
+            if ((nowUtc - _lastRequestUtc).TotalSeconds < CooldownSeconds)
+            {
+                return new SearchSlot
+                {
+                    Refused = true,
+                    Reason = "Give the last web lookup a moment before searching again.",
+                };
+            }
+
+            _lastRequestUtc = nowUtc;
+            return new SearchSlot();
+        }
+
+        /// <summary>Stores a user-search result. A background result is not stored in that slot.</summary>
+        public static void Remember(bool background, string query, WebSearchResponse response, DateTime nowUtc)
+        {
+            if (background || response == null)
+                return;
+            _cached = response;
+            _cachedQuery = query ?? string.Empty;
+            _cachedAtUtc = nowUtc;
+        }
+
+        /// <summary>Clears the user-search cooldown and cache. Tests call this.</summary>
+        public static void ResetLookupSlot()
+        {
+            _cached = null;
+            _cachedQuery = string.Empty;
+            _cachedAtUtc = DateTime.MinValue;
+            _lastRequestUtc = DateTime.MinValue;
+        }
+
+        static async System.Threading.Tasks.Task<WebSearchResponse> RunSearch(string query, bool background)
         {
             var cleaned = CleanQuery(query);
             if (cleaned.Length == 0)
                 return Fail("Type something to search for.");
 
-            if (_cached != null && string.Equals(_cachedQuery, cleaned, StringComparison.OrdinalIgnoreCase)
-                && (DateTime.UtcNow - _cachedAtUtc).TotalSeconds < CacheSeconds)
-            {
-                return new WebSearchResponse
-                {
-                    Ok = _cached.Ok,
-                    Error = _cached.Error,
-                    Query = _cached.Query,
-                    FromCache = true,
-                    Results = new List<WebSearchResult>(_cached.Results),
-                };
-            }
+            var now = DateTime.UtcNow;
+            var slot = Claim(background, cleaned, now);
+            if (slot.Cached != null)
+                return slot.Cached;
+            if (slot.Refused)
+                return Fail(slot.Reason);
 
-            if ((DateTime.UtcNow - _lastRequestUtc).TotalSeconds < CooldownSeconds)
-                return Fail("Give the last web lookup a moment before searching again.");
-
-            _lastRequestUtc = DateTime.UtcNow;
             var url = "https://news.google.com/rss/search?q=" + Uri.EscapeDataString(cleaned)
                 + "&hl=en-US&gl=US&ceid=US:en";
             using (var request = UnityWebRequest.Get(url))
@@ -85,29 +146,52 @@ namespace AICompanion.Settings
                 if (request.result != UnityWebRequest.Result.Success)
                 {
                     var failure = Fail("The web search could not be reached.");
-                    _cached = failure;
-                    _cachedQuery = cleaned;
-                    _cachedAtUtc = DateTime.UtcNow;
+                    Remember(background, cleaned, failure, DateTime.UtcNow);
                     return failure;
                 }
 
                 var response = Parse(cleaned, request.downloadHandler != null ? request.downloadHandler.text : string.Empty);
-                _cached = response;
-                _cachedQuery = cleaned;
-                _cachedAtUtc = DateTime.UtcNow;
+                Remember(background, cleaned, response, DateTime.UtcNow);
                 return response;
             }
         }
 
         public static System.Threading.Tasks.Task<WebSearchResponse> SearchForGameAsync(string gameName)
         {
-            return SearchAsync((gameName ?? string.Empty).Trim() + " latest patch notes what changed meta");
+            return RunSearch(GameQuery(gameName), true);
         }
 
-        /// <summary>Permission-gated game context for the game companion.</summary>
+        /// <summary>Permission-gated patch lookup for the game companion. It does not use the /search slot.</summary>
         public static void RequestForGame(SettingsPanel panel, string gameName, Action<WebSearchResponse> done)
         {
-            Request(panel, (gameName ?? string.Empty).Trim() + " latest patch notes what changed meta", done);
+            if (panel == null)
+            {
+                done?.Invoke(Fail("Web search is unavailable without Settings."));
+                return;
+            }
+
+            var query = GameQuery(gameName);
+            DesktopToolPermissions.Request(panel, DesktopToolKind.Web, "search the web", allowed =>
+            {
+                if (!allowed)
+                {
+                    done?.Invoke(Fail("Web search is not allowed. Enable it in Settings > Senses > Tools."));
+                    return;
+                }
+
+                RunSearch(query, true).ContinueWith(task =>
+                {
+                    var response = task.Status == System.Threading.Tasks.TaskStatus.RanToCompletion && task.Result != null
+                        ? task.Result
+                        : Fail("The web search failed.");
+                    done?.Invoke(response);
+                }, System.Threading.Tasks.TaskScheduler.FromCurrentSynchronizationContext());
+            });
+        }
+
+        static string GameQuery(string gameName)
+        {
+            return (gameName ?? string.Empty).Trim() + " latest patch notes what changed meta";
         }
 
         public static void Request(SettingsPanel panel, string query, Action<WebSearchResponse> done)

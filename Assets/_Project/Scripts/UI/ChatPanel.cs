@@ -548,6 +548,13 @@ namespace AICompanion.UI
             if (!interactionLine && text.StartsWith("/search ", StringComparison.OrdinalIgnoreCase))
                 return TryWebSearch(text.Substring("/search ".Length));
 
+            if (!interactionLine && (text.Equals("/describe", StringComparison.OrdinalIgnoreCase)
+                || text.StartsWith("/describe ", StringComparison.OrdinalIgnoreCase)))
+                return TryDescribe(text.Length > "/describe".Length ? text.Substring("/describe".Length).Trim() : string.Empty);
+
+            if (!interactionLine)
+                AdultSceneIntent.Trigger(text);
+
             var privacy = GetComponent<IPrivacyMode>();
             var privateMode = IntimateExpressions.KeepsLocal(privacy != null && privacy.PrivateMode);
             // Adult interaction text stays on the local model even if the privacy flag is stale.
@@ -610,6 +617,8 @@ namespace AICompanion.UI
 
             // JUH-129: keep the scene (place, time, clothes, who does what) once it is older than the window.
             prompt = WithScene(prompt, privateMode, provider);
+            if (!privateMode)
+                prompt = GameContextNow.Append(prompt);
             // JUH-156: her lorebook entries for this message.
             prompt = WithLore(prompt, text);
             // JUH-171: the phrases her last replies kept reusing, so she varies them.
@@ -1384,6 +1393,14 @@ namespace AICompanion.UI
             _privacyShown = shown;
             if (first)
                 return;
+
+            // JUH-188: a mode switch is a session boundary. Capture the old side before the
+            // switch note, so private lines become private memories immediately.
+            // JUH-189: the new mode is already on. Close with the chapter's own privacy,
+            // not with the gate that just opened.
+            if (_sessionUserMessages > 0 && !_conversation.IsBusy)
+                EndSession("a mode switch", SessionMemories.DefaultTimeoutSeconds, null, true);
+
             _conversation.AddSystem(PrivateChapterPrompt.SwitchNote(privateNow, PrivateChapterNow.Hint));
             Debug.Log("Chat: switched to " + (privateNow ? "private" : "public") + " mode");
             RefreshTranscript(true);

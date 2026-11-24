@@ -61,11 +61,20 @@ namespace AICompanion.Memory
         /// <summary>True when any send of this session had to stay local.</summary>
         public bool KeptLocal { get; private set; }
 
+        /// <summary>True when the 18+ gate was open at any send of this session.</summary>
+        public bool Intimate { get; private set; }
+
         /// <summary>One send of the session, with its private flag.</summary>
         public void Note(bool keepsLocal)
         {
             if (keepsLocal)
                 KeptLocal = true;
+        }
+
+        public void NoteMoment(bool intimate)
+        {
+            if (intimate)
+                Intimate = true;
         }
 
         /// <summary>The private flag for the session-end request: the sticky one, or the current one.</summary>
@@ -77,6 +86,46 @@ namespace AICompanion.Memory
         public void Reset()
         {
             KeptLocal = false;
+            Intimate = false;
+        }
+    }
+
+    /// <summary>
+    /// Which provider and moment kind a finished chapter uses (JUH-189). A Private/Public
+    /// switch closes the chapter that just ended, so it uses the privacy that chapter
+    /// recorded. The mode that was just turned on is not that chapter. Other ends (a pause,
+    /// quitting, a persona change) still follow the mode that is on.
+    /// </summary>
+    public struct SessionClosePlan
+    {
+        /// <summary>Public lines may be summarised by the public provider.</summary>
+        public bool UsePublicProvider;
+
+        /// <summary>The chapter itself held an 18+ moment.</summary>
+        public bool Intimate;
+
+        public string MomentKind
+        {
+            get { return Intimate ? "intimate" : string.Empty; }
+        }
+
+        public static SessionClosePlan For(
+            bool sessionKeptLocal, bool sessionIntimate, bool modeKeepsLocal, bool gateOpen, bool modeSwitch)
+        {
+            if (modeSwitch)
+            {
+                return new SessionClosePlan
+                {
+                    UsePublicProvider = !sessionKeptLocal,
+                    Intimate = sessionIntimate,
+                };
+            }
+
+            return new SessionClosePlan
+            {
+                UsePublicProvider = !modeKeepsLocal,
+                Intimate = sessionIntimate || gateOpen,
+            };
         }
     }
 
@@ -378,7 +427,8 @@ namespace AICompanion.Memory
             float timeoutSeconds,
             CancellationToken cancellation,
             bool askThread = false,
-            DateTime? sessionLocalDate = null)
+            DateTime? sessionLocalDate = null,
+            string moment = null)
         {
             var capture = new SessionCapture();
             var stored = capture.Memories;
@@ -435,12 +485,27 @@ namespace AICompanion.Memory
                 if (memory == null || !memory.IsValid || !MemoryDurability.IsDurable(memory.Text))
                     continue;
                 var before = store.Count;
-                WorldMemory.AddShortTerm(store, memory.Text, now, keepsLocal);
+                WorldMemory.AddShortTerm(store, memory.Text, now, keepsLocal, moment);
                 if (store.Count > before)
                 {
                     stored.Add(memory.Text);
                     capture.Details.Add(memory);
                 }
+            }
+
+            // JUH-188: an intimate session must leave one memory of the event, not the
+            // physical details. The private copy is for private mode; the public copy is a
+            // deliberately vague marker so public mode is not blind after a restart.
+            if (string.Equals(moment, "intimate", StringComparison.OrdinalIgnoreCase))
+            {
+                var name = string.IsNullOrWhiteSpace(herName) ? "her" : herName.Trim();
+                var marker = keepsLocal
+                    ? "The user and " + name + " were intimate."
+                    : "The user and " + name + " shared a private, intimate moment.";
+                var before = store.Count;
+                WorldMemory.AddShortTerm(store, marker, now, keepsLocal, "intimate");
+                if (store.Count > before && !stored.Contains(marker))
+                    stored.Add(marker);
             }
 
             if (askThread)

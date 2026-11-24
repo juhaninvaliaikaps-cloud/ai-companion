@@ -155,11 +155,15 @@ namespace AICompanion.Memory
         /// <summary>
         /// Stores something from this session as a short-term memory (the session-end
         /// summaries of JUH-118). It fades unless it keeps coming up.
+        /// <paramref name="moment"/> (for example "intimate") is written before the file is
+        /// saved, so the kind is still there after a restart. A private entry stays local-only.
         /// </summary>
-        public static MemoryEntry AddShortTerm(MemoryStore store, string text, DateTime nowUtc, bool privateMode)
+        public static MemoryEntry AddShortTerm(MemoryStore store, string text, DateTime nowUtc, bool privateMode, string moment = null)
         {
             if (store == null || string.IsNullOrWhiteSpace(text))
                 return null;
+
+            var tag = moment ?? string.Empty;
 
             // A session summary often paraphrases a fact already extracted after an exchange.
             // Do not store it twice just because the wording changed.
@@ -167,7 +171,14 @@ namespace AICompanion.Memory
             {
                 var fact = store.Entries[i];
                 if (fact != null && fact.kind == MemoryKind.Fact && MemoryDurability.Similar(fact.text, text))
+                {
+                    if (tag.Length > 0 && !string.Equals(fact.moment ?? string.Empty, tag, StringComparison.Ordinal))
+                    {
+                        fact.moment = tag;
+                        store.Save();
+                    }
                     return fact;
+                }
             }
 
             var entry = store.AddEntry(new MemoryEntry
@@ -179,6 +190,7 @@ namespace AICompanion.Memory
                 happenedAtUtc = nowUtc.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture),
                 createdAtUtc = nowUtc.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture),
                 isPrivate = privateMode,
+                moment = tag,
             });
             store.Save();
             return entry;

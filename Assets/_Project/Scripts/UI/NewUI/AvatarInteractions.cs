@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using AICompanion.AnimationDirector;
 using AICompanion.Core;
+using AICompanion.Settings;
 using UnityEngine;
 
 namespace AICompanion.UI
@@ -27,6 +28,7 @@ namespace AICompanion.UI
         }
 
         readonly Queue<PendingLine> _signals = new Queue<PendingLine>(4);
+        readonly InteractionPromptLimiter _promptLimiter = new InteractionPromptLimiter();
         ChatPanel _chat;
         AnimationDirector.AnimationDirector _director;
         IExpressionHint _hint;
@@ -116,6 +118,8 @@ namespace AICompanion.UI
 
         void Update()
         {
+            if (!IntimateExpressions.Active)
+                AdultSceneNow.Reset();
             if (_signals.Count == 0)
                 return;
             if (!_resolved)
@@ -161,7 +165,7 @@ namespace AICompanion.UI
 
         public bool Run(string id)
         {
-            if (!_resolved || _chat == null || _target == null || (_director == null && _hint == null))
+            if (!_resolved || _chat == null || (_director == null && _hint == null))
             {
                 _resolved = false;
                 Resolve();
@@ -202,11 +206,17 @@ namespace AICompanion.UI
             Debug.Log("Interaction: " + item.Id + " expression=" + item.Expression
                 + " director=" + (_director != null) + " hint=" + (_hint != null) + " target=" + (_target != null));
 
+            var loopAlreadyOpen = item.Loop && AdultClipWindow.IsActiveCue(item.Id);
             if (_target != null)
                 _target.TryPlayInteraction(item.Id);
+            AdultClipWindow.Play(item.Id);
 
-            if (!string.IsNullOrEmpty(item.Signal))
-                _signals.Enqueue(new PendingLine(item.Signal, item.Adult));
+            var wantsPrompt = !loopAlreadyOpen && !string.IsNullOrEmpty(item.Signal);
+            var signal = wantsPrompt ? AdultSceneNow.Compose(item.Id, item.Signal) : item.Signal;
+            if (wantsPrompt && _promptLimiter.TryTake(System.DateTime.UtcNow))
+                _signals.Enqueue(new PendingLine(signal, item.Adult));
+            else if (wantsPrompt)
+                Debug.Log("Interaction: model prompt cap reached; visual only");
             return true;
         }
     }

@@ -292,10 +292,19 @@ namespace AICompanion.UI
         /// <summary>JUH-174: scene text (the first scene, "While you were away"), drawn green.</summary>
         public void AddScene(string text)
         {
+            AddScene(text, false);
+        }
+
+        public void AddScene(string text, bool localOnly)
+        {
             if (string.IsNullOrWhiteSpace(text))
                 return;
 
-            _lines.Add(new ChatLine(ChatLineKind.System, text.Trim(), false) { Tag = ChatLineTag.Scene });
+            _lines.Add(new ChatLine(ChatLineKind.System, text.Trim(), false)
+            {
+                Tag = ChatLineTag.Scene,
+                LocalOnly = localOnly,
+            });
             Touch();
         }
 

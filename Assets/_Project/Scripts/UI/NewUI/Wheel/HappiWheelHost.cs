@@ -676,16 +676,23 @@ namespace AICompanion.NewUI.Wheel
             var ids = new[]
             {
                 AvatarInteractionCatalog.TouchBreast,
+                AvatarInteractionCatalog.TouchBreastLoop,
                 AvatarInteractionCatalog.TouchVagina,
                 AvatarInteractionCatalog.TouchButt,
+                AvatarInteractionCatalog.TouchButtLoop,
+                AvatarInteractionCatalog.ButtSlap,
                 AvatarInteractionCatalog.FingerMouth,
+                AvatarInteractionCatalog.FingerSuckLoop,
+                AvatarInteractionCatalog.BlowjobKneeling,
+                AvatarInteractionCatalog.BlowjobLying,
+                AvatarInteractionCatalog.BlowjobOnTop,
             };
             for (var i = 0; i < ids.Length; i++)
             {
                 var item = AvatarInteractionCatalog.Find(ids[i]);
                 if (item == null)
                     continue;
-                var backOnly = item.Id == AvatarInteractionCatalog.TouchButt;
+                var backOnly = false;
                 var canRun = _interactions != null && _interactions.CanRun(item.Id);
                 definition.Slices.Add(new WheelSlice
                 {
@@ -693,6 +700,48 @@ namespace AICompanion.NewUI.Wheel
                     Label = item.Label,
                     Enabled = canRun,
                     DisabledReason = backOnly ? "Turn her around first." : "Turn on Private mode and the adult portrait set first.",
+                    RequiresIntimateGate = true,
+                    OnChoose = () => Do(() =>
+                    {
+                        if (_interactions != null)
+                            _interactions.Run(item.Id);
+                    })
+                });
+            }
+
+            definition.Slices.Add(new WheelSlice
+            {
+                Id = "blowjob_menu",
+                Label = "Blowjob…",
+                Enabled = true,
+                RequiresIntimateGate = true,
+                OnChoose = () => Push(BuildBlowjobs)
+            });
+
+            return definition;
+        }
+
+        WheelDefinition BuildBlowjobs()
+        {
+            var definition = Sub("Blowjob");
+            var ids = new[]
+            {
+                AvatarInteractionCatalog.BlowjobKneeling,
+                AvatarInteractionCatalog.BlowjobLying,
+                AvatarInteractionCatalog.BlowjobOnTop,
+            };
+            for (var i = 0; i < ids.Length; i++)
+            {
+                var item = AvatarInteractionCatalog.Find(ids[i]);
+                if (item == null)
+                    continue;
+                var canRun = _interactions != null && _interactions.CanRun(item.Id);
+                definition.Slices.Add(new WheelSlice
+                {
+                    Id = item.Id,
+                    Label = item.Label,
+                    Enabled = canRun,
+                    DisabledReason = "Turn on Private mode and the adult portrait set first.",
                     RequiresIntimateGate = true,
                     OnChoose = () => Do(() =>
                     {
@@ -713,18 +762,22 @@ namespace AICompanion.NewUI.Wheel
                 case BodyPart.Hands:
                     return PartWheel("Hands", AvatarInteractionCatalog.HoldHand, AvatarInteractionCatalog.LetGo);
                 case BodyPart.Lips:
-                    return PartWheel("Lips", AvatarInteractionCatalog.Kiss, AvatarInteractionCatalog.FingerMouth);
+                    return PartWheel("Kiss her", AvatarInteractionCatalog.Kiss, AvatarInteractionCatalog.MakeOut,
+                        AvatarInteractionCatalog.LyingKiss, AvatarInteractionCatalog.LyingMakeOut,
+                        AvatarInteractionCatalog.LyingMakeOut2, AvatarInteractionCatalog.FingerMouth,
+                        AvatarInteractionCatalog.FingerSuckLoop);
                 case BodyPart.Face:
                 case BodyPart.Cheeks:
                     return PartWheel("Face", AvatarInteractionCatalog.CupCheek, AvatarInteractionCatalog.TouchFace);
                 case BodyPart.Shoulder:
                     return PartWheel("Shoulder", AvatarInteractionCatalog.TouchShoulder);
                 case BodyPart.Chest:
-                    return PartWheel("18+", AvatarInteractionCatalog.TouchBreast);
+                    return PartWheel("18+", AvatarInteractionCatalog.TouchBreast, AvatarInteractionCatalog.TouchBreastLoop);
                 case BodyPart.Crotch:
                     return PartWheel("18+", AvatarInteractionCatalog.TouchVagina);
                 case BodyPart.Butt:
-                    return PartWheel("18+", AvatarInteractionCatalog.TouchButt);
+                    return PartWheel("18+", AvatarInteractionCatalog.TouchButt, AvatarInteractionCatalog.TouchButtLoop,
+                        AvatarInteractionCatalog.ButtSlap);
                 default:
                     return Sub("Touch");
             }

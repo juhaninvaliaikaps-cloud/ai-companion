@@ -79,6 +79,9 @@ namespace AICompanion.AnimationDirector
                 var reactions = AvatarReactionCatalog.PromptLine();
                 if (reactions.Length > 0)
                     text.Append(reactions).Append('\n');
+                var adultClips = AdultSceneCatalog.PromptLine();
+                if (adultClips.Length > 0)
+                    text.Append(adultClips).Append('\n');
 
                 text.Append(AnimationCueParser.Instruction);
                 // JUH-118 section 4: how the user's message landed, for the relationship.
@@ -110,6 +113,10 @@ namespace AICompanion.AnimationDirector
             var name = ReactionName(cue);
             if (name.Length == 0)
                 return;
+
+            // JUH-188: adult third-window cues must work in 3D mode too. The router ignores
+            // ordinary reactions and only opens an 18+ window while the gate is open.
+            AdultCueRouter.Request(name);
 
             var target = GetComponent<IAvatarReactions>();
             if (target == null || !(target is Component))

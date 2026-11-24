@@ -102,6 +102,7 @@ namespace AICompanion.Settings
                 return;
 
             _started = true;
+            AdultClipWindow.InstallRouter();
             try
             {
                 LocalDataActions.MigratePlaintext(Folder());
@@ -214,6 +215,10 @@ namespace AICompanion.Settings
         {
             if (!_started)
                 return;
+
+            AdultExternalPlayer.Tick();
+            if (!IntimateExpressions.Active)
+                AdultExternalPlayer.HideAll();
 
             if (Input.GetKeyDown(HotkeyCatalog.SettingsKey) && !DebugInputGuard.IsBlocked(HotkeyCatalog.SettingsKey))
             {

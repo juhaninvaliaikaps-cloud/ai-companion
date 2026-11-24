@@ -10,7 +10,7 @@ namespace AICompanion.UI
     /// </summary>
     public static class ChatHistoryCodec
     {
-        public const int MaxLines = 200;
+        public const int MaxLines = 1000;
 
         public static string Write(IReadOnlyList<ChatLine> lines)
         {
@@ -19,7 +19,9 @@ namespace AICompanion.UI
             var written = 0;
             if (lines != null)
             {
-                for (var i = 0; i < lines.Count && written < MaxLines; i++)
+                // Keep the newest lines when the transcript is longer than the file cap.
+                var kept = new List<ChatLine>();
+                for (var i = 0; i < lines.Count; i++)
                 {
                     var line = lines[i];
                     if (line == null || !line.KeepInHistory)
@@ -28,6 +30,13 @@ namespace AICompanion.UI
                         continue;
                     if (string.IsNullOrEmpty(line.Text))
                         continue;
+                    kept.Add(line);
+                }
+
+                var start = Math.Max(0, kept.Count - MaxLines);
+                for (var i = start; i < kept.Count; i++)
+                {
+                    var line = kept[i];
                     if (written > 0)
                         sb.Append(',');
                     sb.Append("{\"role\":");
