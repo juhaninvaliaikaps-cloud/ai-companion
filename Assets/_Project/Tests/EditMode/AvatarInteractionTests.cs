@@ -61,6 +61,8 @@ namespace AICompanion.Tests.EditMode
             {
                 Assert.AreEqual(AvatarInteractionCatalog.MakeOut,
                     AdultSceneIntent.Detect("They make out on the couch."));
+                Assert.AreEqual(AvatarInteractionCatalog.Kiss,
+                    AdultSceneIntent.Detect("He leans in and kisses her."));
                 Assert.AreEqual(AvatarInteractionCatalog.TouchBreast,
                     AdultSceneIntent.Detect("He cups her breast."));
                 Assert.AreEqual(AvatarInteractionCatalog.TouchButt,

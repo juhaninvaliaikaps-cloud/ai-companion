@@ -149,6 +149,7 @@ namespace AICompanion.Settings
         {
             var id = Normalize(name);
             return id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop"
+                || id == "kiss" || id == "kiss_pov"
                 || id == "touch_breast" || id == "breast_touch" || id == "breast_touch_clip_v3"
                 || id == "touch_breast_loop" || id == "breast_touch_loop"
                 || id == "touch_butt" || id == "butt_touch" || id == "butt_squeeze"
