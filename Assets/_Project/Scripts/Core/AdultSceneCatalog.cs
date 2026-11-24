@@ -11,7 +11,7 @@ namespace AICompanion.Core
     {
         public static string PromptLine()
         {
-            const string publicLine = "A public romantic cue is available: reaction=\"make_out\" for a cute, non-explicit make-out loop. ";
+            const string publicLine = "Public romantic cues are available without 18+: reaction=\"make_out\" for a cute make-out loop, reaction=\"touch_breast\" for a gentle breast touch, and reaction=\"touch_butt\" for a butt touch. Use them only when the moment is affectionate and welcome. ";
             if (!IntimateExpressions.Active)
                 return publicLine;
 

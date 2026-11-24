@@ -148,7 +148,11 @@ namespace AICompanion.Settings
         public static bool IsPublicCue(string name)
         {
             var id = Normalize(name);
-            return id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop";
+            return id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop"
+                || id == "touch_breast" || id == "breast_touch" || id == "breast_touch_clip_v3"
+                || id == "touch_breast_loop" || id == "breast_touch_loop"
+                || id == "touch_butt" || id == "butt_touch" || id == "butt_squeeze"
+                || id == "butt_squeeze_clip_v3" || id == "touch_butt_loop" || id == "butt_squeeze_loop";
         }
 
         public static void Play(string cue)
