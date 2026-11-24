@@ -23,8 +23,9 @@ namespace AICompanion.AI
 
     /// <summary>
     /// JUH-116: reads where she most likely sits between Innocent (0) and Perverted (100)
-    /// from her persona: her age, personality and anything the description says about her
-    /// experience. A separate request from the character sheet, because the sheet may be read
+    /// from her persona: her personality, assertiveness, openness and anything the description
+    /// says about her experience. Age is deliberately not a factor. A separate request from the
+    /// character sheet, because the sheet may be read
     /// by a cloud model and this one never is: it runs only while the 18+ gate is open, and only
     /// on the local model or the user's private server (<see cref="PisaraReader.MayUse"/> with
     /// keepsLocal). The call skips the memory layer.
@@ -47,9 +48,11 @@ namespace AICompanion.AI
             "0 = completely innocent: little or no sexual experience, easily embarrassed, never makes the first move.\n" +
             "50 = in between: some experience, curious, neither shy nor bold.\n" +
             "100 = perverted: very experienced and used to sexual things, bold, often makes the first move.\n" +
-            "Judge what fits her most likely. Use everything the description gives: her age, her personality and how confident or shy she is, " +
-            "her relationships and anything it says about her experience. A shy 18-year-old who has never dated is near 10; " +
-            "a confident 26-year-old who bullies and teases is near 70. When the description says little, stay near 50.\n" +
+            "Judge what fits her most likely from her persona alone. " +
+            "Use her personality: how assertive, open, playful, confident and curious she is; how comfortable she is with desire; " +
+            "how well a lot of sex fits who she is; her relationships; and anything it says about her experience. " +
+            "A shy, reserved persona who has never dated is near 10; a bold, teasing persona who is comfortable with desire and takes the lead is near 70. " +
+            "When the description says little, stay near 50.\n" +
             "What the user wrote comes first: when her 18+ notes say how experienced, shy or bold she is, that decides it.\n" +
             "Second, libido: how strong and relentless her sexual needs are. This is separate from experience: a shy virgin can have a high libido. " +
             "0 = she rarely feels desire; 50 = ordinary; 100 = insatiable, her needs come back again and again. " +

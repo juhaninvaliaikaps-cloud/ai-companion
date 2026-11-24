@@ -325,7 +325,9 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(request.BlockCloud);
             Assert.IsTrue(request.NoMemory);
             Assert.AreEqual(InnocenceReader.TimeoutSeconds, request.TimeoutSeconds);
-            StringAssert.Contains("age", request.SystemPrompt);
+            StringAssert.DoesNotContain("age", request.SystemPrompt);
+            StringAssert.Contains("assertive", request.SystemPrompt);
+            StringAssert.Contains("open", request.SystemPrompt);
             StringAssert.Contains("Aino is a shy 19-year-old", request.Messages[0].Content);
         }
 
