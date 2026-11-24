@@ -58,7 +58,17 @@ namespace AICompanion.Core
                 case "anxious":
                 case "nervous":
                 case "upset":
+                // JUH-186: the 2026-11-22 log wrote these, and her face fell back to neutral.
+                case "conflicted":
+                case "torn":
+                case "hesitant":
                     emotion = Emotion.Concerned;
+                    return true;
+                case "guilty":
+                case "ashamed":
+                case "remorseful":
+                case "sorry":
+                    emotion = Emotion.Sad;
                     return true;
                 // Mood-table words that did not parse as a face before (JUH-113).
                 case "hurt":

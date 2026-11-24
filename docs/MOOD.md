@@ -56,6 +56,8 @@ One table, `CompanionMoodTable` (`Assets/_Project/Scripts/Core/CompanionMoodTabl
 
 JUH-113: `distressed`, `anxious`, `nervous` and `upset` now also read as the concerned face (before, the whole tag fell back to neutral). `hurt` and `grumpy` read as sad; `playful` and `affectionate` read as happy. As a gesture or reaction word, `teary_happy` plays the `happy` clip, and `distressed`, `anxious` and `upset` play `concerned`.
 
+JUH-186: `conflicted`, `torn` and `hesitant` read as the concerned face, and `guilty`, `ashamed`, `remorseful` and `sorry` as sad (Jussi's log, 2026-11-22: before, the whole tag fell back to neutral).
+
 Otherwise the emotion: happy → happy 0.25, sad → sad 0.3, surprised → anxious 0.1, embarrassed → flustered 0.3, shy → flustered 0.2 + affectionate 0.1, flustered → flustered 0.35, concerned → anxious 0.2 + sad 0.1. Neutral and thinking move nothing.
 
 Her cue counts once per chat turn. The screen-look remarks, which reuse the last reply's cue, do not push it again.
