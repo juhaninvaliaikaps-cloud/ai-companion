@@ -303,6 +303,7 @@ namespace AICompanion.Voice
                     SetMuted(!_muted);
 
                 PumpDecoded();
+                StartQueuedPlayback();
                 PumpPlayback();
                 PumpSynthesis();
                 ApplyTalking();
@@ -664,11 +665,7 @@ namespace AICompanion.Voice
             _clips.Enqueue(clip);
             _clipTexts.Enqueue(text ?? string.Empty);
             _playback.EnqueueClip();
-            if (_playback.Playing || _held)
-                return;
-
-            _playback.Pump();
-            PlayHead();
+            StartQueuedPlayback();
         }
 
         void PumpPlayback()

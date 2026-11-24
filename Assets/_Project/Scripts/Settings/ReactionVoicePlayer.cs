@@ -8,10 +8,12 @@ using UnityEngine;
 namespace AICompanion.Settings
 {
     /// <summary>
-    /// Plays one short reaction wav when a cue, a mood rest look, or an interaction
-    /// offers an expression (JUH-192). The pack is read from disk. A missing folder,
-    /// a bad manifest, or a missing wav stays quiet. Added by <see cref="SettingsPanel"/>.
-    /// The clip lives on its own object so it does not take the speech <c>AudioSource</c>.
+    /// Plays one short reaction wav when a cue, a mood rest look, an interaction, or a
+    /// 2D portrait change offers an expression (JUH-192, JUH-193). The pack is read from
+    /// disk. A missing folder, a bad manifest, or a missing wav stays quiet. Added by
+    /// <see cref="SettingsPanel"/>. The clip lives on its own object so it does not take
+    /// the speech <c>AudioSource</c>. When a spoken line armed <see cref="ReactionSpeechLead"/>,
+    /// playback of that line waits until this clip ends.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class ReactionVoicePlayer : MonoBehaviour
@@ -32,6 +34,7 @@ namespace AICompanion.Settings
         string _folder = string.Empty;
         DateTime _stamp;
         float _nextReload;
+        double _playingUntil;
         bool _loggedMissingPack;
 
         void Awake()
@@ -62,6 +65,7 @@ namespace AICompanion.Settings
             {
                 _source.Stop();
                 ReleaseClip();
+                _playingUntil = Time.unscaledTime;
             }
 
             var now = Time.unscaledTime;
@@ -73,17 +77,41 @@ namespace AICompanion.Settings
 
             string expression;
             ReactionVoiceCause cause;
-            if (!ReactionVoiceRequests.TryTake(out expression, out cause))
-                return;
-            if (!Allowed())
-                return;
+            var taken = ReactionVoiceRequests.TryTake(out expression, out cause);
+            var started = false;
+            if (taken && Allowed())
+            {
+                ReactionVoiceClip chosen;
+                if (_session.TryChoose(_catalog, expression, cause, now, Index, out chosen) && TryPlay(chosen))
+                {
+                    started = true;
+                    _playingUntil = now + PlaybackSeconds(_clip, chosen);
+                    Debug.Log("Reaction voice: " + chosen.Id + " → " + chosen.Expression);
+                    if (ReactionSpeechLead.NeedsAnswer || ReactionSpeechLead.Blocks(now))
+                        ReactionSpeechLead.NotePlayback(_playingUntil);
+                }
+            }
 
-            ReactionVoiceClip chosen;
-            if (!_session.TryChoose(_catalog, expression, cause, now, Index, out chosen))
-                return;
-            if (!TryPlay(chosen))
-                return;
-            Debug.Log("Reaction voice: " + chosen.Id + " → " + chosen.Expression);
+            if (!Allowed())
+            {
+                // F6 or tray pause stopped the clip. Do not keep the next line waiting
+                // for a sound that is no longer playing.
+                ReactionSpeechLead.Release(now);
+            }
+            else if (!started && ReactionSpeechLead.NeedsAnswer)
+            {
+                // No new clip. A sound that is already playing still finishes before the line.
+                var until = _source != null && _source.isPlaying ? _playingUntil : now;
+                ReactionSpeechLead.NotePlayback(until);
+            }
+        }
+
+        static double PlaybackSeconds(AudioClip clip, ReactionVoiceClip chosen)
+        {
+            var seconds = clip != null ? clip.length : 0d;
+            if (double.IsNaN(seconds) || double.IsInfinity(seconds) || seconds <= 0d)
+                seconds = chosen.DurationSeconds;
+            return ReactionVoiceSession.ClampSeconds(seconds);
         }
 
         static int Index(int count)

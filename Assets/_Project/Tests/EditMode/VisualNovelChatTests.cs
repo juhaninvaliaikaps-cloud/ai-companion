@@ -146,6 +146,12 @@ namespace AICompanion.Tests.EditMode
 
     public sealed class VnPlayerTests
     {
+        [TearDown]
+        public void ClearReactionLead()
+        {
+            ReactionSpeechLead.Clear();
+        }
+
         static VnTiming Timing()
         {
             return new VnTiming
@@ -341,6 +347,54 @@ namespace AICompanion.Tests.EditMode
             player.Update(VnScriptParser.Parse("*smiles* Hello!", true), true);
             Assert.AreEqual(1, player.Current);
             CollectionAssert.AreEqual(new[] { "Hello!" }, voice.Spoken);
+        }
+
+        [Test]
+        public void SpokenLineWithACue_ArmsTheReactionBeforeTheLine()
+        {
+            ReactionSpeechLead.Clear();
+            var voice = new FakeVnVoice { SupportsPrefetch = false };
+            var player = Make(voice, new FakeCues(), VnMode.Auto, false);
+            player.Update(VnScriptParser.Parse("<animation emotion=\"happy\" />Hello.", true), true);
+
+            Assert.IsTrue(ReactionSpeechLead.NeedsAnswer);
+            Assert.IsTrue(ReactionSpeechLead.Blocks(0d));
+            CollectionAssert.AreEqual(new[] { "Hello." }, voice.Spoken);
+            ReactionSpeechLead.NotePlayback(0.4d);
+            Assert.IsTrue(ReactionSpeechLead.Blocks(0.1d));
+            Assert.IsFalse(ReactionSpeechLead.Blocks(0.4d));
+        }
+
+        [Test]
+        public void NarrationCue_KeepsTheLeadUntilTheSpokenLine()
+        {
+            ReactionSpeechLead.Clear();
+            var voice = new FakeVnVoice { SupportsPrefetch = false };
+            var player = Make(voice, new FakeCues(), VnMode.Step, false);
+            player.Update(VnScriptParser.Parse("<animation emotion=\"happy\" />*smiles* Hello.", true), true);
+
+            Assert.AreEqual(0, voice.Spoken.Count);
+            Assert.IsTrue(ReactionSpeechLead.NeedsAnswer);
+            var serial = ReactionSpeechLead.Serial;
+            ReactionSpeechLead.NotePlayback(2d);
+            player.Next();
+
+            Assert.AreEqual(serial, ReactionSpeechLead.Serial);
+            CollectionAssert.AreEqual(new[] { "Hello." }, voice.Spoken);
+            Assert.IsTrue(ReactionSpeechLead.Blocks(0.5d));
+        }
+
+        [Test]
+        public void SpokenLineWithoutACue_DoesNotArmALead()
+        {
+            ReactionSpeechLead.Clear();
+            var voice = new FakeVnVoice { SupportsPrefetch = false };
+            var player = Make(voice, new FakeCues(), VnMode.Auto, false);
+            player.Update(VnScriptParser.Parse("Hello.", true), true);
+
+            Assert.AreEqual(0, ReactionSpeechLead.Serial);
+            Assert.IsFalse(ReactionSpeechLead.Blocks(0d));
+            CollectionAssert.AreEqual(new[] { "Hello." }, voice.Spoken);
         }
 
         [Test]

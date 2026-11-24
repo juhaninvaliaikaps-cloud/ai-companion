@@ -37,10 +37,13 @@ Clips are 48 kHz mono wav. When an expression has more than one file, the next p
 
 The existing systems already choose her expression. This only listens:
 
+- The 2D portrait's expression name changes. She plays the clip for the face that just appeared, when the pack has one. Neutral does not play. A blink or a talk frame of the same expression does not play again.
 - A chat cue, including the quick face for the user's mood, offers the portrait the director just applied (or the emotion name when the cue did not name a portrait).
-- A change of her mood rest look offers that rest expression. The same rest face does not play again.
+- A change of her mood rest look offers that rest expression. Repeating the same rest tick does not play again. Coming back to that face after another expression does, because the portrait changed.
 - An interaction offers the expression it just set. That wins over the cue in the same moment, because the touch keeps its own portrait.
 - **F9** offers the preview expression, so a pack can be heard without a reply. Neutral does not play.
+
+When the line she is about to say carries a cue, the reaction for that cue finishes before the voice model starts the line. The voice may prepare the line while the reaction plays. A cue written on the narration just before the words (`*smiles*` then the sentence) holds that sentence the same way. If no clip is actually playing (the pack has none, **F6** is on, or the tray is paused), the line is not held. Turning mute or pause on while a clip is playing releases a wait that had already started.
 
 One moment plays one clip. A different expression replaces a clip that is still going. The same expression does not start a second copy until that clip's `duration_s` has passed (half a second when the manifest omits it, and never longer than 8 seconds).
 
@@ -54,20 +57,20 @@ The Console line is `Reaction voice: happy_giggle → teary_happy`. It names the
 2. Copy `manifest.json` and the wav files into that folder. The six test rows above match the current test pack.
 3. Start Happi. The Console shows `Reaction voice: N clips from ...` or `Reaction voice: no pack at ...` when the folder is missing. A missing wav logs once and does not stop the others.
 4. Press **F9** until the preview is `embarrassed_worried`. With `flustered_eh.wav` in the folder she says "eh?". `sleepy` on F9 stays quiet until that expression has a file.
-5. Chat until a reply cue uses `teary_happy`, `tsundere`, `shocked`, `smug_wink`, or `smug`. She plays the matching clip. The spoken reply can overlap it; they use different audio sources.
+5. Chat until a reply cue uses an expression the pack has, such as `teary_happy`, `tsundere`, `shocked`, `smug_wink`, or `smug`. She plays the matching clip, and the spoken line starts after that clip finishes. They still use different audio sources. A portrait change during a line that is already being said can overlap the rest of that line.
 6. Move her mood (see [MOOD.md](MOOD.md)) until the rest face changes to an expression the pack has, such as `embarrassed_worried` when she is anxious. She plays it once for that face, not on every tick.
 7. Run an interaction whose expression is in the pack. That expression is the one that plays.
 8. Turn on **F6** mute, or pause from the tray, and repeat. She stays quiet. Turn mute off and the next expression can play. The one that was skipped is not saved up.
 9. Rename the folder away and start again. Chat, mood, and interactions still work. The Console has one missing-pack line.
 
-`ReactionVoiceTests` covers the manifest, the missing file, the random variation, and when a cue, a mood change, or an event gets a clip. Hearing the wav is a check on the Windows player.
+`ReactionVoiceTests` covers the manifest, the missing file, the random variation, a portrait change, the wait before a cued line, and when a cue, a mood change, or an event gets a clip. Hearing the wav, and that the spoken line starts after it, is a check on the Windows player.
 
 ## Open questions
 
 These are the small choices this version makes. They are easy to change.
 
-- She plays on each new cue or interaction whose expression has a clip, and once when a mood rest expression changes. There is no extra cooldown. A screen-look remark replays the last cue, so it can play the sound again.
-- The reaction uses its own audio source, so it can overlap her spoken reply.
+- She plays on each new cue, interaction, or 2D portrait change whose expression has a clip, and once when a mood rest expression changes. There is no extra cooldown. A screen-look remark replays the last cue, so it can play the sound again.
+- A cue on the line she is about to say holds the start of that line until the reaction clip ends. The wait is the wav length, and never more than 8 seconds. If another face replaces that clip while the line is still waiting, the wait moves to the new clip. A portrait change while she is already talking does not pause the line. Next does not cancel a wait that is already running. A new message, Show all, or Stop clears the hold.
 - **F6** mute and tray pause silence reactions as well as speech. There is no separate switch.
 - The first rest look after startup can play once, if that expression has a clip.
 - Mood rest faces such as `pouty` and `smile` are not the thirteen pack names. The test hmph is `tsundere`, so an annoyed mood does not play it.

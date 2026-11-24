@@ -82,6 +82,7 @@ namespace AICompanion.Settings
         public static Vector2 NativeSize = new Vector2(PortraitPlacement.Width, PortraitPlacement.Height);
         string _heldExpression = string.Empty;
         float _quietFor;
+        readonly PortraitExpressionWatch _portraitVoice = new PortraitExpressionWatch();
         PortraitPreview _preview;
         bool _shown;
         bool _logged;
@@ -214,6 +215,9 @@ namespace AICompanion.Settings
             _logged = false;
             _loggedReason = PortraitHideReason.None;
             _shown = true;
+            string reaction;
+            if (_portraitVoice.TryChange(emotion, out reaction))
+                ReactionVoiceRequests.Offer(reaction, ReactionVoiceCause.Portrait);
             if (_canvasObject != null && !_canvasObject.activeSelf)
                 _canvasObject.SetActive(true);
             Place(delta);
