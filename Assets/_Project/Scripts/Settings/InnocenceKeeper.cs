@@ -134,13 +134,15 @@ namespace AICompanion.Settings
                 return;
             var now = DateTime.UtcNow;
             ApplyDrift(now);
-            var after = InnocenceMath.AfterMoment(_state.Current, cue.Intensity);
+            var boost = KinkBoost(cue);
+            var after = InnocenceMath.AfterMoment(_state.Current, cue.Intensity, boost);
             _state.Current = RelationshipCeiling.ClampInnocence(_state.Current, after, InnocenceCeiling());
             _state.AtLastMoment = _state.Current;
             _state.LastMomentTicks = now.Ticks;
             _dirty = true;
             PushMoods(InnocenceMath.MomentPushes(_state.Current), "an intimate moment");
-            Debug.Log("Innocence: " + PersonaLogId() + " = " + _state.Current.ToString("0.0") + " after an intimate moment");
+            Debug.Log("Innocence: " + PersonaLogId() + " = " + _state.Current.ToString("0.0")
+                + " after an intimate moment" + (boost > 1f ? " (favourite x" + boost.ToString("0.0") + ")" : string.Empty));
             Revision++;
             Publish(false);
         }
@@ -163,6 +165,26 @@ namespace AICompanion.Settings
             return secrets == null
                 ? RelationshipCeiling.InnocenceTop
                 : RelationshipCeiling.Innocence(secrets.KinkSensitiveFound, secrets.KinkSensitiveTotal);
+        }
+
+        /// <summary>
+        /// Acting out one of her kinks moves her much faster; a sensitive spot is a smaller
+        /// boost. Only a 18+ secret named in the cue counts, so an ordinary intimate moment is
+        /// still the baseline.
+        /// </summary>
+        float KinkBoost(AnimationCue cue)
+        {
+            if (string.IsNullOrEmpty(cue.Secret))
+                return 1f;
+            var secrets = GetComponent<IntimateSecretsKeeper>();
+            IntimateSecretItem item;
+            if (secrets == null || secrets.Check(cue.Secret, out item) == SecretHitKind.None)
+                return 1f;
+            if (item.Group == IntimateSecretGroup.Kink)
+                return InnocenceMath.KinkMomentBoost;
+            if (item.Group == IntimateSecretGroup.Sensitive)
+                return InnocenceMath.SensitiveMomentBoost;
+            return 1f;
         }
 
         void PushMoods(CompanionMoodPush[] pushes, string cause)

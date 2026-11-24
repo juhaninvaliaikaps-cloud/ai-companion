@@ -61,6 +61,17 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void KinkMoment_MovesHerMoreThanAnOrdinaryMoment()
+        {
+            var normal = InnocenceMath.AfterMoment(20f, 0.5f);
+            var sensitive = InnocenceMath.AfterMoment(20f, 0.5f, InnocenceMath.SensitiveMomentBoost);
+            var kink = InnocenceMath.AfterMoment(20f, 0.5f, InnocenceMath.KinkMomentBoost);
+            Assert.Greater(sensitive, normal);
+            Assert.Greater(kink, sensitive);
+            Assert.LessOrEqual(kink, InnocenceMath.Max);
+        }
+
+        [Test]
         public void DriftBack_WaitsTwoDays_ThenHalvesTheGainEveryTwoWeeks_NeverBelowTheBaseline()
         {
             Assert.AreEqual(60f, InnocenceMath.DriftBack(60f, 20f, 1d), 0.001f, "nothing fades within the grace days");

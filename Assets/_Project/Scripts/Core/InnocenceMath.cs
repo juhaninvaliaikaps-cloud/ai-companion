@@ -18,6 +18,12 @@ namespace AICompanion.Core
         /// <summary>One intimate moment at intensity 0.5 moves her this far when fully innocent; less the closer she is to the top.</summary>
         public const float MomentStep = 2f;
 
+        /// <summary>JUH-190: acting out one of her kinks moves her this much more than an ordinary intimate moment.</summary>
+        public const float KinkMomentBoost = 2f;
+
+        /// <summary>A sensitive spot is a smaller boost than a full kink.</summary>
+        public const float SensitiveMomentBoost = 1.5f;
+
         /// <summary>No drift back for this long after the last intimate moment.</summary>
         public const double GraceDays = 2d;
 
@@ -34,15 +40,18 @@ namespace AICompanion.Core
         /// <summary>
         /// After one intimate moment: a step toward experienced, scaled by intensity
         /// (0.5 to 1.5 of the step) and by how much room is left above her.
+        /// JUH-190: <paramref name="boost"/> makes a kink or sensitive-spot moment move her more.
         /// </summary>
-        public static float AfterMoment(float value, float intensity)
+        public static float AfterMoment(float value, float intensity, float boost = 1f)
         {
             value = Clamp(value);
             if (float.IsNaN(intensity))
                 intensity = 0.5f;
+            if (float.IsNaN(boost) || boost < 1f)
+                boost = 1f;
             intensity = Math.Max(0f, Math.Min(1f, intensity));
             var room = (Max - value) / Max;
-            return Clamp(value + MomentStep * (0.5f + intensity) * room);
+            return Clamp(value + MomentStep * (0.5f + intensity) * room * boost);
         }
 
         /// <summary>
