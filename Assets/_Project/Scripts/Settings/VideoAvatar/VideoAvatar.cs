@@ -761,12 +761,19 @@ namespace AICompanion.Settings
         }
 
         /// <summary>
+        /// JUH-192 temporary: keep the 2D full-person animation clips silent while reaction
+        /// voices are being tuned, so the two sound layers do not mix. Set back to false when
+        /// the clip-sound layer is wanted again.
+        /// </summary>
+        const bool ClipSoundsTemporarilyOff = true;
+
+        /// <summary>
         /// Only the clip on screen may sound, at the setting's volume, and never while speech
         /// is muted or she speaks: the clip then runs on silently.
         /// </summary>
         void ApplyClipSound(CompanionSettings settings)
         {
-            _clipSoundsOn = settings.PlayClipSounds;
+            _clipSoundsOn = settings.PlayClipSounds && !ClipSoundsTemporarilyOff;
             var muted = SpeechMuted;
             var speaking = Speaking;
             for (var i = 0; i < _players.Length; i++)
@@ -774,7 +781,7 @@ namespace AICompanion.Settings
                 var player = _players[i];
                 if (player == null || !player.HasSound)
                     continue;
-                player.SetVolume(i == _shown
+                player.SetVolume(i == _shown && !ClipSoundsTemporarilyOff
                     ? VideoClipSound.Volume(settings.PlayClipSounds, settings.ClipSoundVolume, true, muted, speaking)
                     : 0f);
             }
