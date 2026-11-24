@@ -60,6 +60,29 @@ namespace AICompanion.Core
                 || value.Contains("spanks your butt") || value.Contains("slap her butt"))
                 return AvatarInteractionCatalog.ButtSlap;
 
+            // Actual intercourse. Facing/on-top comes first only after the behind tests, so
+            // "fucking her from behind" cannot be read as cowgirl.
+            var behind = value.Contains("doggystyle") || value.Contains("doggy style")
+                || value.Contains("from behind") || value.Contains("fucking her ass")
+                || value.Contains("fuck her ass") || value.Contains("in the ass") || value.Contains("anal")
+                || value.Contains("bent over")
+                || (value.Contains("behind") && (value.Contains("fuck") || value.Contains("sex")
+                    || value.Contains("ride") || value.Contains("penetrat")));
+            if (behind)
+                return AvatarInteractionCatalog.LapdanceBehind;
+
+            var facing = value.Contains("cowgirl") || value.Contains("missionary")
+                || value.Contains("on top of you") || value.Contains("on top of me")
+                || value.Contains("riding you") || value.Contains("riding me")
+                || value.Contains("rides me") || value.Contains("straddl")
+                || value.Contains("facing you") || value.Contains("penetrat");
+            if (facing)
+                return AvatarInteractionCatalog.LapdanceFacing;
+
+            // A plain "we have sex" has no position; the facing loop is the neutral default.
+            if (value.Contains("sex") || value.Contains("fuck") || value.Contains("thrust"))
+                return AvatarInteractionCatalog.LapdanceFacing;
+
             if (lying && (value.Contains("make out") || value.Contains("making out")))
                 return value.Contains("slow") || value.Contains("second")
                     ? AvatarInteractionCatalog.LyingMakeOut2
@@ -120,6 +143,12 @@ namespace AICompanion.Core
             if (Regex.IsMatch(value, @"\b(i|we|they|he|she)\b.{0,40}\b(blowjob|blow job|suck|sucks|sucking|give|gives|giving|gave|takes him|took him|going down on)\b"))
                 return true;
 
+            // Intercourse and the positions that only happen during it.
+            if (Regex.IsMatch(value, @"\b(i|we|they|he|she)\b.{0,40}\b(sex|fuck|fucks|fucked|fucking|penetrat|penetrated|riding|rides|rode|straddl|cowgirl|missionary|doggystyle|doggy style|anal|thrust|thrusts|thrusting|on top of you|on top of me)\b"))
+                return true;
+            if (Regex.IsMatch(value, @"\b(cowgirl|missionary|doggystyle|doggy style|from behind|anal sex|penetration)\b"))
+                return true;
+
             // A touch must name what is being grabbed, cupped or touched.
             if (Regex.IsMatch(value, @"\b(i|we|they|he|she)\b.{0,30}\b(grab|grabs|grabbed|touch|touches|touched|cup|cups|cupped|feel|feels|felt|fondle|fondles|fondled|kiss|kisses|kissed|suck|sucks|sucked|slap|slaps|slapped|spank|spanks|spanked|pat|pats|patted|stroke|strokes|stroked|hold|holds|held)\b.{0,22}\b(breast|breasts|chest|butt|ass|shoulder|hair|head|cheek|face|hand|vagina|pussy|crotch|finger)\b"))
                 return true;
@@ -136,7 +165,8 @@ namespace AICompanion.Core
                 "think about", "thought about", "thinking about", "imagine", "imagined", "imagining",
                 "fantasize", "fantasized", "fantasising", "fantasizing", "dream", "dreamed", "dreamt",
                 "what if", "if we ", "if you ", "should", "could", "would", "maybe", "might",
-                "want to", "wanted to", "wanting to", "plan to", "planned to", "planning to",
+                "want to", "wanted to", "wanting to", "want ", "wanted ", "need ", "needed ",
+                "plan to", "planned to", "planning to",
                 "like ", "love ", "enjoy", "joke", "joking", "joked", "not ", "don't", "didn't",
                 "doesn't", "never", "without", "?", "idea of", "thought of", "mention of",
             };

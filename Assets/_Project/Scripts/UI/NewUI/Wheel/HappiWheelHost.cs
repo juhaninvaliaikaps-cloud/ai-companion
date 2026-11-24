@@ -686,6 +686,8 @@ namespace AICompanion.NewUI.Wheel
                 AvatarInteractionCatalog.BlowjobKneeling,
                 AvatarInteractionCatalog.BlowjobLying,
                 AvatarInteractionCatalog.BlowjobOnTop,
+                AvatarInteractionCatalog.LapdanceFacing,
+                AvatarInteractionCatalog.LapdanceBehind,
             };
             for (var i = 0; i < ids.Length; i++)
             {

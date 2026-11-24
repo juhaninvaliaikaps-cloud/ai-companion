@@ -54,6 +54,8 @@ namespace AICompanion.Core
         public const string BlowjobKneeling = "blowjob_kneeling";
         public const string BlowjobLying = "blowjob_lying";
         public const string BlowjobOnTop = "blowjob_ontop";
+        public const string LapdanceFacing = "lapdance_facing";
+        public const string LapdanceBehind = "lapdance_behind";
         public const string FingerSuckLoop = "finger_suck_loop";
 
         public static readonly IReadOnlyList<AvatarInteractionDefinition> All = new[]
@@ -296,6 +298,30 @@ namespace AICompanion.Core
                 Emotion = Emotion.Flustered,
                 Intensity = 0.85f,
                 Signal = "*User pulls you over him and you take him in your mouth.*",
+                Adult = true,
+                Loop = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = LapdanceFacing,
+                Label = "Lapdance, facing",
+                Expression = "flustered",
+                Clip = "lapdance_facing",
+                Emotion = Emotion.Flustered,
+                Intensity = 0.9f,
+                Signal = "*User pulls you onto him and you ride him facing him.*",
+                Adult = true,
+                Loop = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = LapdanceBehind,
+                Label = "Lapdance, behind",
+                Expression = "flustered",
+                Clip = "lapdance_behind",
+                Emotion = Emotion.Flustered,
+                Intensity = 0.9f,
+                Signal = "*User takes you from behind and fucks you.*",
                 Adult = true,
                 Loop = true,
             },
