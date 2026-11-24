@@ -134,7 +134,8 @@ namespace AICompanion.Settings
                 return;
             var now = DateTime.UtcNow;
             ApplyDrift(now);
-            _state.Current = InnocenceMath.AfterMoment(_state.Current, cue.Intensity);
+            var after = InnocenceMath.AfterMoment(_state.Current, cue.Intensity);
+            _state.Current = RelationshipCeiling.ClampInnocence(_state.Current, after, InnocenceCeiling());
             _state.AtLastMoment = _state.Current;
             _state.LastMomentTicks = now.Ticks;
             _dirty = true;
@@ -151,8 +152,17 @@ namespace AICompanion.Settings
             var drifted = InnocenceMath.DriftBack(_state.AtLastMoment, _state.Baseline, _state.DaysSinceMoment(nowUtc));
             if (Math.Abs(drifted - _state.Current) < 0.01f)
                 return;
-            _state.Current = drifted;
+            _state.Current = RelationshipCeiling.ClampInnocence(_state.Current, drifted, InnocenceCeiling());
             _dirty = true;
+        }
+
+        /// <summary>JUH-190: kinks and sensitive spots raise this from 70 toward 100.</summary>
+        public float InnocenceCeiling()
+        {
+            var secrets = GetComponent<IntimateSecretsKeeper>();
+            return secrets == null
+                ? RelationshipCeiling.InnocenceTop
+                : RelationshipCeiling.Innocence(secrets.KinkSensitiveFound, secrets.KinkSensitiveTotal);
         }
 
         void PushMoods(CompanionMoodPush[] pushes, string cause)
@@ -170,6 +180,7 @@ namespace AICompanion.Settings
             if (!_loaded)
                 return;
             _state.UserSet = true;
+            value = Math.Min(value, InnocenceCeiling());
             _state.SetAt(value, value);
             _dirty = true;
             _saveIn = Math.Min(_saveIn, SaveSeconds);
@@ -184,6 +195,7 @@ namespace AICompanion.Settings
                 return;
             _state.UserSet = false;
             var value = _state.HasReading ? _state.ReadValue : InnocenceMath.Default;
+            value = Math.Min(value, InnocenceCeiling());
             _state.SetAt(value, value);
             _dirty = true;
             Save(true);
@@ -318,13 +330,16 @@ namespace AICompanion.Settings
             {
                 if (!hadReading && _state.LastMomentTicks <= 0L)
                 {
-                    _state.SetAt(result.Value, result.Value);
+                    var readValue = Math.Min(result.Value, InnocenceCeiling());
+                    _state.SetAt(readValue, readValue);
                 }
                 else
                 {
                     var oldBaseline = _state.Baseline;
-                    _state.Current = InnocenceMath.Rebase(_state.Current, oldBaseline, result.Value);
-                    _state.AtLastMoment = InnocenceMath.Rebase(_state.AtLastMoment, oldBaseline, result.Value);
+                    _state.Current = RelationshipCeiling.ClampInnocence(_state.Current,
+                        InnocenceMath.Rebase(_state.Current, oldBaseline, result.Value), InnocenceCeiling());
+                    _state.AtLastMoment = RelationshipCeiling.ClampInnocence(_state.AtLastMoment,
+                        InnocenceMath.Rebase(_state.AtLastMoment, oldBaseline, result.Value), InnocenceCeiling());
                     _state.Baseline = result.Value;
                 }
             }
@@ -403,7 +418,7 @@ namespace AICompanion.Settings
         {
             if (!_loaded)
                 return;
-            _state.SetAt(_state.Baseline, _state.Baseline);
+            _state.SetAt(Math.Min(_state.Baseline, InnocenceCeiling()), _state.Baseline);
             _dirty = true;
             Save(true);
             Debug.Log("Innocence: start over for " + PersonaLogId() + " (" + _state.Readout() + ")");

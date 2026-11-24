@@ -183,6 +183,9 @@ namespace AICompanion.Settings
             else if (intimateHit != SecretHitKind.None && intimate.Group != IntimateSecretGroup.Shy)
                 lean = SecretLean.Likes;
             var change = RelationshipNow.Land(cue, _state.Affection, _state.Familiarity, first, bonus, lean);
+            var ceiling = AffectionCeiling();
+            change.Affection = RelationshipCeiling.ClampAffection(_state.Affection, change.Affection, ceiling);
+            change.AffectionDelta = change.Affection - _state.Affection;
             var foundText = hit == SecretHitKind.First ? secret.Text : intimateHit == SecretHitKind.First ? intimate.Text : null;
             var foundAdult = hit != SecretHitKind.First && intimateHit == SecretHitKind.First;
             if (!Apply(change, foundText, foundAdult))
@@ -275,8 +278,21 @@ namespace AICompanion.Settings
             var sheet = reading != null && _loaded ? reading.SheetFor(_personaId) : null;
             // The setup name has no sheet: its own relationship text stays the only one.
             RelationshipNow.SetPromptLine(on && sheet != null && !string.IsNullOrEmpty(_personaId)
-                ? RelationshipPrompt.Line(sheet.relationship, sheet.landing, _state.Affection, _state.Familiarity)
+                ? RelationshipPrompt.Line(sheet.relationship, sheet.landing, _state.Affection, _state.Familiarity,
+                    AffectionCeiling() > RelationshipCeiling.AffectionBase + 0.01f)
                 : string.Empty);
+        }
+
+        /// <summary>JUH-190: how far affection may rise from her public and intimate discoveries.</summary>
+        public float AffectionCeiling()
+        {
+            var sheet = CurrentSheet();
+            var publicItems = HerSecrets.From(sheet != null ? sheet.landing : null);
+            var foundPublic = publicItems.Count == 0 ? 0 : _secrets.FoundAmong(publicItems);
+            var intimate = GetComponent<IntimateSecretsKeeper>();
+            var totalIntimate = intimate != null ? intimate.KinkSensitiveTotal : 0;
+            var foundIntimate = intimate != null ? intimate.KinkSensitiveFound : 0;
+            return RelationshipCeiling.Affection(foundPublic, publicItems.Count, foundIntimate, totalIntimate);
         }
 
         string PersonaLogId()

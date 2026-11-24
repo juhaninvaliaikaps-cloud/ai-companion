@@ -318,7 +318,7 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("love-hate", atOdds);
             StringAssert.Contains("never fear", atOdds);
             StringAssert.Contains("you can't stand them right now", RelationshipPrompt.Line(sheet, null, -80f, 70f));
-            StringAssert.Contains("you adore them", RelationshipPrompt.Line(sheet, null, 80f, 70f));
+            StringAssert.Contains("you adore them", RelationshipPrompt.Line(sheet, null, 80f, 70f, false));
             StringAssert.Contains("close friend;", RelationshipPrompt.Line(new SheetRelationship { role = "close_friend", label = "Close Friend" }, null, 30f, 40f));
 
             foreach (var affection in new[] { -100f, -30f, 0f, 30f, 100f })

@@ -328,6 +328,8 @@ namespace AICompanion.Core
             if (landing != LandingEvent.Neutral)
                 raw = Lean(raw, lean, close);
             var delta = raw * amount * Standing(raw, affection);
+            if (delta > 0f)
+                delta *= TierMultiplier(affection);
             var critical = IsCritical(landing, intensity, secretHit) && delta != 0f;
             if (critical)
                 delta *= CritMultiplier;
@@ -390,6 +392,22 @@ namespace AICompanion.Core
             if (delta < 0f)
                 return a >= 0f ? 1f - 0.4f * a : 1f + 0.3f * -a;
             return 1f;
+        }
+
+        /// <summary>
+        /// JUH-190: positive gains slow down near the top. Negative landings are deliberately
+        /// untouched, so a maxed relationship can still be hurt.
+        /// </summary>
+        public static float TierMultiplier(float affection)
+        {
+            var value = ClampAffection(affection);
+            if (value < 60f)
+                return 1f;
+            if (value < 80f)
+                return 0.5f;
+            if (value < 90f)
+                return 0.25f;
+            return 0.15f;
         }
 
         /// <summary>Familiarity after this much real chat time. It only grows, and slows near 100.</summary>
