@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using AICompanion.Core;
@@ -408,7 +407,7 @@ namespace AICompanion.Avatar
             var face = FaceEmotion.Resolve(_expressionName, Emotion.Neutral);
             SetEmotion(face, 1f);
             Debug.Log("Expression preview: " + name);
-            if (!string.Equals(name, "neutral", StringComparison.Ordinal))
+            if (!string.Equals(name, "neutral", System.StringComparison.Ordinal))
                 ReactionVoiceRequests.Offer(name, ReactionVoiceCause.Event);
         }
 
