@@ -23,8 +23,8 @@ namespace AICompanion.AI
 
     /// <summary>
     /// JUH-116: reads where she most likely sits between Innocent (0) and Perverted (100)
-    /// from her persona: her personality, assertiveness, openness and anything the description
-    /// says about her experience. Age is deliberately not a factor. A separate request from the
+    /// from her persona: explicit experience and behaviour, plus personality traits. Age is only
+    /// a small negative prior for the youngest adults, never proof. A separate request from the
     /// character sheet, because the sheet may be read
     /// by a cloud model and this one never is: it runs only while the 18+ gate is open, and only
     /// on the local model or the user's private server (<see cref="PisaraReader.MayUse"/> with
@@ -48,9 +48,11 @@ namespace AICompanion.AI
             "0 = completely innocent: little or no sexual experience, easily embarrassed, never makes the first move.\n" +
             "50 = in between: some experience, curious, neither shy nor bold.\n" +
             "100 = perverted: very experienced and used to sexual things, bold, often makes the first move.\n" +
-            "Judge what fits her most likely from her persona alone. " +
-            "Use her personality: how assertive, open, playful, confident and curious she is; how comfortable she is with desire; " +
-            "how well a lot of sex fits who she is; her relationships; and anything it says about her experience. " +
+            "Judge what fits her most likely from two signals:\n" +
+            "- 65% from explicit experience and behaviour in the description: what she has done, how she talks about it, whether she initiates, her relationships and her stated history.\n" +
+            "- 35% from personality traits: how assertive, open, playful, confident and curious she is, how comfortable she is with desire, and how well a lot of sex fits who she is.\n" +
+            "Age is only a small prior, and only when the description does not explicitly say otherwise. Apply at most: 18-19 = -5, 20-22 = -3, 23-24 = -1, 25+ = 0. Never add points for being older. " +
+            "A young persona can be highly experienced and a older persona can be inexperienced; explicit experience outweighs age.\n" +
             "A shy, reserved persona who has never dated is near 10; a bold, teasing persona who is comfortable with desire and takes the lead is near 70. " +
             "When the description says little, stay near 50.\n" +
             "What the user wrote comes first: when her 18+ notes say how experienced, shy or bold she is, that decides it.\n" +
