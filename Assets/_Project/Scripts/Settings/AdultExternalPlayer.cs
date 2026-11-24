@@ -16,11 +16,30 @@ namespace AICompanion.Settings
     {
         static readonly Dictionary<string, Process> Running = new Dictionary<string, Process>();
         static bool _audioPriority;
-        static string _player;
+
+        static string ScriptPath
+        {
+            get { return Path.Combine(Application.streamingAssetsPath, "adult-player.ps1"); }
+        }
+
+        static string PowerShell
+        {
+            get
+            {
+                return Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.System),
+                    "WindowsPowerShell\\v1.0\\powershell.exe");
+            }
+        }
 
         public static bool Available
         {
-            get { return Application.platform == RuntimePlatform.WindowsPlayer && Player.Length > 0; }
+            get
+            {
+                return Application.platform == RuntimePlatform.WindowsPlayer
+                    && File.Exists(ScriptPath)
+                    && File.Exists(PowerShell);
+            }
         }
 
         public static bool IsActive(string cue)
@@ -36,17 +55,14 @@ namespace AICompanion.Settings
             if (IsActive(cue))
                 return true;
 
-            var args = "-autoexit "
-                + (loop ? "-loop 0 " : string.Empty)
-                + "-alwaysontop "
-                + "-window_title \"" + (title ?? "Happi").Replace("\"", "'") + "\" "
-                + "-x 544 -y 960 "
-                + "\"" + clipPath + "\"";
+            var args = "-NoProfile -STA -ExecutionPolicy Bypass -WindowStyle Hidden -File \""
+                + ScriptPath + "\" -Path \"" + clipPath + "\" -Loop " + (loop ? 1 : 0)
+                + " -Title \"" + (title ?? "Happi").Replace("\"", "'") + "\"";
             try
             {
                 var process = Process.Start(new ProcessStartInfo
                 {
-                    FileName = Player,
+                    FileName = PowerShell,
                     Arguments = args,
                     UseShellExecute = false,
                     CreateNoWindow = true,
@@ -100,40 +116,6 @@ namespace AICompanion.Settings
                 Running.Remove(dead[i]);
             if (Running.Count == 0)
                 SetAudioPriority(false);
-        }
-
-        static string Player
-        {
-            get
-            {
-                if (_player != null)
-                    return _player;
-                var candidates = new List<string>
-                {
-                    Path.Combine(Application.streamingAssetsPath, "ffplay.exe"),
-                    Path.Combine(Application.dataPath, "..", "ffplay.exe"),
-                };
-                var path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
-                foreach (var folder in path.Split(';'))
-                {
-                    if (folder.Length > 0)
-                        candidates.Add(Path.Combine(folder, "ffplay.exe"));
-                }
-                candidates.Add(Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "Microsoft\\WinGet\\Links\\ffplay.exe"));
-                for (var i = 0; i < candidates.Count; i++)
-                {
-                    var candidate = Path.GetFullPath(candidates[i]);
-                    if (File.Exists(candidate))
-                    {
-                        _player = candidate;
-                        return _player;
-                    }
-                }
-                _player = string.Empty;
-                return _player;
-            }
         }
 
         static void Stop(Process process)
