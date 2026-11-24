@@ -216,6 +216,10 @@ namespace AICompanion.Settings
             if (!_started)
                 return;
 
+            AdultExternalPlayer.Tick();
+            if (!IntimateExpressions.Active)
+                AdultExternalPlayer.HideAll();
+
             if (Input.GetKeyDown(HotkeyCatalog.SettingsKey) && !DebugInputGuard.IsBlocked(HotkeyCatalog.SettingsKey))
             {
                 if (_open)

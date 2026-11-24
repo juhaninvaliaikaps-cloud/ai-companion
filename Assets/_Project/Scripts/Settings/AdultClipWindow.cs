@@ -154,6 +154,13 @@ namespace AICompanion.Settings
             if (host == null)
                 return;
 
+            var clipPath = FindClip(FileFor(key));
+            if (clipPath.Length > 0 && AdultExternalPlayer.TryShow(key, clipPath, Loops(key), "Happi - " + key))
+            {
+                _activeCue = key;
+                return;
+            }
+
             AdultClipWindow window;
             if (Windows.TryGetValue(key, out window) && window != null
                 && window._panel != null && window._panel.activeSelf && IsActive(key))
@@ -190,6 +197,8 @@ namespace AICompanion.Settings
             var key = Normalize(cue);
             if (!IsActive(key))
                 return false;
+            if (AdultExternalPlayer.IsActive(key))
+                return true;
             AdultClipWindow window;
             return Windows.TryGetValue(key, out window)
                 && window != null
@@ -247,7 +256,7 @@ namespace AICompanion.Settings
             return (cue ?? string.Empty).Trim().ToLowerInvariant().Replace('-', '_');
         }
 
-        string FileFor(string cue)
+        static string FileFor(string cue)
         {
             var id = Normalize(cue);
             if (id == "touch_breast" || id == "breast_touch" || id == "breast_touch_clip_v3"
