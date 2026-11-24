@@ -58,6 +58,10 @@ namespace AICompanion.Settings
         AICompanion.Voice.VoiceSpeaker _voice;
         bool _audioPriority;
         RenderTexture _texture;
+        int _textureSize;
+        int _wantedTextureSize;
+        float _textureDue;
+        VideoPlayer.EventHandler _onResizePrepare;
         float _hideAt;
         string _playing = string.Empty;
         int _showId;
@@ -224,6 +228,8 @@ namespace AICompanion.Settings
             }
             if (_panel == null || !_panel.activeSelf)
                 return;
+            if (_wantedTextureSize > 0 && Time.unscaledTime >= _textureDue)
+                ApplyTextureSize();
             PlacePanel();
             var active = IsActive(_cue);
             if (_loop && !active && _video != null && _video.isPlaying)
@@ -293,6 +299,11 @@ namespace AICompanion.Settings
                 BuildUi();
             if (_video == null)
                 return;
+            if (_onResizePrepare != null)
+            {
+                _video.prepareCompleted -= _onResizePrepare;
+                _onResizePrepare = null;
+            }
 
             var path = FindClip(file);
             if (string.IsNullOrEmpty(path))
@@ -356,6 +367,11 @@ namespace AICompanion.Settings
 
         void Hide()
         {
+            if (_onResizePrepare != null && _video != null)
+            {
+                _video.prepareCompleted -= _onResizePrepare;
+                _onResizePrepare = null;
+            }
             var pending = _onThisPrepare != null;
             if (pending && _video != null)
             {
@@ -492,12 +508,8 @@ namespace AICompanion.Settings
             gripImage.color = new Color(0.75f, 0.6f, 0.85f, 0.65f);
             gripImage.raycastTarget = false;
 
-            _texture = new RenderTexture((int)NativeSize, (int)NativeSize, 0, RenderTextureFormat.ARGB32);
-            _texture.useMipMap = false;
-            _texture.autoGenerateMips = false;
-            _texture.filterMode = FilterMode.Bilinear;
-            _texture.wrapMode = TextureWrapMode.Clamp;
-            _texture.Create();
+            _texture = CreateTexture((int)NativeSize);
+            _textureSize = (int)NativeSize;
             _image.texture = _texture;
 
             _audio = _panel.AddComponent<AudioSource>();
@@ -537,6 +549,79 @@ namespace AICompanion.Settings
             // desktop instead of being pinned inside the avatar overlay.
             _panelRect.anchoredPosition = _panelPos;
             UpdateInteractiveRect();
+            EnsureTextureSize();
+        }
+
+        static RenderTexture CreateTexture(int size)
+        {
+            size = Mathf.Clamp(size, 256, 1280);
+            var texture = new RenderTexture(size, size, 0, RenderTextureFormat.ARGB32);
+            texture.useMipMap = false;
+            texture.autoGenerateMips = false;
+            texture.filterMode = FilterMode.Bilinear;
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.Create();
+            return texture;
+        }
+
+        void EnsureTextureSize()
+        {
+            if (_video == null || _panel == null || !_panel.activeSelf)
+                return;
+            var sourceMax = _video.height > 0 ? Mathf.Max(_video.width, _video.height) : 1280f;
+            var cap = Mathf.Clamp(Mathf.RoundToInt(sourceMax), 256, 1280);
+            var wanted = Mathf.Clamp(Mathf.CeilToInt(_panelSize), 256, cap);
+            if (wanted == _textureSize || wanted == _wantedTextureSize)
+                return;
+            _wantedTextureSize = wanted;
+            _textureDue = Time.unscaledTime + 0.25f;
+        }
+
+        void ApplyTextureSize()
+        {
+            var wanted = _wantedTextureSize;
+            _wantedTextureSize = 0;
+            if (_video == null || _image == null || wanted <= 0 || wanted == _textureSize)
+                return;
+            if (!_video.isPrepared || _onThisPrepare != null)
+                return;
+
+            var wasPlaying = _video.isPlaying;
+            var time = _video.time;
+            if (_onResizePrepare != null)
+            {
+                _video.prepareCompleted -= _onResizePrepare;
+                _onResizePrepare = null;
+            }
+            _video.Pause();
+
+            if (_texture != null)
+            {
+                _texture.Release();
+                Destroy(_texture);
+            }
+            _texture = CreateTexture(wanted);
+            _textureSize = wanted;
+            _image.texture = _texture;
+            _video.targetTexture = _texture;
+
+            VideoPlayer.EventHandler prepared = null;
+            prepared = player =>
+            {
+                player.prepareCompleted -= prepared;
+                if (_onResizePrepare == prepared)
+                    _onResizePrepare = null;
+                if (player == null || _texture == null)
+                    return;
+                player.time = time;
+                if (wasPlaying)
+                    player.Play();
+                else
+                    player.Pause();
+            };
+            _onResizePrepare = prepared;
+            _video.prepareCompleted += prepared;
+            _video.Prepare();
         }
 
         void UpdateInteractiveRect()
