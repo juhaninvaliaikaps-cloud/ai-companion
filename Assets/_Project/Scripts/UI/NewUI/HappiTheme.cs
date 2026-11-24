@@ -145,6 +145,12 @@ namespace AICompanion.NewUI
         // ---- Spoken-text glow (JUH-108) --------------------------------------------------
 
         /// <summary>Warm light the words take while she says them (a warm tint over the #EAF2FF text).</summary>
+        /// <summary>
+        /// JUH-187: the mark before a selected choice. "✓" is not in Segoe UI and showed as an
+        /// empty box; the bullet is.
+        /// </summary>
+        public const string SelectedMark = "\u2022 ";
+
         public const string SpokenGlowHex = "#FFD166";
         public Color SpokenGlowColor = Hex(SpokenGlowHex);
         /// <summary>How long a word keeps fading back to normal after it was said.</summary>

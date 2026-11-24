@@ -144,7 +144,7 @@ namespace AICompanion.NewUI
 
         public void Choice(string label, bool selected, Action action)
         {
-            var button = Button(selected ? "✓ " + label : label, action);
+            var button = Button(selected ? HappiTheme.SelectedMark + label : label, action);
             if (selected)
                 Tint(button, _theme.Selected);
         }

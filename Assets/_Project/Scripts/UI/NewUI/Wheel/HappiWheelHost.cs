@@ -524,7 +524,7 @@ namespace AICompanion.NewUI.Wheel
             for (var i = 0; i < monitors.Count; i++)
             {
                 var index = monitors[i].Index;
-                buttons.Add(new CardButton((monitors[i].Selected ? "✓ " : string.Empty) + monitors[i].Label, () =>
+                buttons.Add(new CardButton((monitors[i].Selected ? HappiTheme.SelectedMark : string.Empty) + monitors[i].Label, () =>
                 {
                     _settings.ScreenLook.SelectMonitor(index);
                     ShowMonitors();
