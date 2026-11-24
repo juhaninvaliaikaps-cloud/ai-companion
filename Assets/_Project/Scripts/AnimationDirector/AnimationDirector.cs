@@ -354,6 +354,10 @@ namespace AICompanion.AnimationDirector
                 if (_animator is IExpressionHint hint)
                     hint.ExpressionName = decision.Portrait;
                 _animator.SetEmotion(decision.Emotion, decision.Intensity);
+                // The face she is about to show. The pack plays a clip only when it has this expression.
+                ReactionVoiceRequests.Offer(
+                    ReactionVoiceNames.FromFace(decision.Portrait, decision.Emotion),
+                    ReactionVoiceCause.Cue);
             }
 
             if (decision.Action != DirectorAction.GestureState || !IsAlive(_states) || decision.StateName.Length == 0)

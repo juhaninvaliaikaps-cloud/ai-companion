@@ -26,6 +26,7 @@ Built-in personas under `Assets/_Project/Resources/Personas/` stay plain text. T
 These were left out on purpose:
 
 - **Portrait images** and `portraits\portraits.json`. The app reads them by path for the expression frame. They are not chat or memory. Export copies the bytes. Wipe deletes them. See [PORTRAITS.md](PORTRAITS.md).
+- **Reaction voice clips** and `reaction-voices\manifest.json`. Short local wavs. They are not chat. Export and wipe leave the folder in place. See [REACTION_VOICES.md](REACTION_VOICES.md).
 - **Screen observations.** The last few looks stay in RAM and are never written. Screen-look on/off, consent, and the display name live in `settings.json`, which is encrypted. Capture code does not write a file. See [SCREEN_LOOK.md](SCREEN_LOOK.md).
 - **PlayerPrefs** for window scale, zoom, mute, pause, whether chat starts open, the taskbar flag, and avatar yaw. Those are window preferences, not conversation content, and Unity owns that hive. Wipe does not clear them. Some of the same flags are also stored in `settings.json` once you change settings.
 - **Piper's temporary wav.** It is created for one utterance and deleted after playback.

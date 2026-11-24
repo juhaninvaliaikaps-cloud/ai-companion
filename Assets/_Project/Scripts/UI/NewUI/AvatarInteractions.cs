@@ -199,6 +199,8 @@ namespace AICompanion.UI
             // interaction, so keep its portrait expression at least for this frame.
             if (_hint != null)
                 _hint.ExpressionName = item.Expression;
+            // Offered after the director so this expression, not the shaded cue, is the one that can play.
+            ReactionVoiceRequests.Offer(item.Expression, ReactionVoiceCause.Event);
 
             _heldExpression = item.Expression;
             _heldUntil = Time.unscaledTime + (item.Id == AvatarInteractionCatalog.FingerMouth ? 2.8f : 2.2f);
