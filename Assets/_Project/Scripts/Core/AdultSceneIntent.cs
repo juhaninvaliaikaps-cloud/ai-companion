@@ -8,10 +8,18 @@ namespace AICompanion.Core
     {
         public static string Detect(string text)
         {
-            if (!IntimateExpressions.Active || string.IsNullOrWhiteSpace(text))
+            if (string.IsNullOrWhiteSpace(text))
                 return string.Empty;
 
             var value = " " + text.ToLowerInvariant() + " ";
+            // A make-out is romantic, not explicit, so it is available outside the 18+ gate.
+            if (!IntimateExpressions.Active)
+            {
+                if (value.Contains("make out") || value.Contains("making out"))
+                    return AvatarInteractionCatalog.MakeOut;
+                return string.Empty;
+            }
+
             var lying = value.Contains("lying") || value.Contains(" lie ") || value.Contains("lies down")
                 || value.Contains("lie down") || value.Contains("lie together")
                 || value.Contains("lying together") || value.Contains("lying down");
