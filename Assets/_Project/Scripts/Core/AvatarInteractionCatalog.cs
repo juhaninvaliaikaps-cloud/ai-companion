@@ -56,6 +56,8 @@ namespace AICompanion.Core
         public const string BlowjobOnTop = "blowjob_ontop";
         public const string LapdanceFacing = "lapdance_facing";
         public const string LapdanceBehind = "lapdance_behind";
+        public const string RidingCowgirl = "riding_cowgirl";
+        public const string RidingCowgirlShort = "riding_cowgirl_short";
         public const string FingerSuckLoop = "finger_suck_loop";
 
         public static readonly IReadOnlyList<AvatarInteractionDefinition> All = new[]
@@ -326,6 +328,30 @@ namespace AICompanion.Core
                 Emotion = Emotion.Flustered,
                 Intensity = 0.9f,
                 Signal = "*User takes you from behind and fucks you.*",
+                Adult = true,
+                Loop = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = RidingCowgirl,
+                Label = "Riding, cowgirl",
+                Expression = "flustered",
+                Clip = "riding_cowgirl",
+                Emotion = Emotion.Flustered,
+                Intensity = 0.9f,
+                Signal = "*User is under you and you ride him in cowgirl position.*",
+                Adult = true,
+                Loop = true,
+            },
+            new AvatarInteractionDefinition
+            {
+                Id = RidingCowgirlShort,
+                Label = "Riding, cowgirl short",
+                Expression = "flustered",
+                Clip = "riding_cowgirl_short",
+                Emotion = Emotion.Flustered,
+                Intensity = 0.9f,
+                Signal = "*User is under you and you ride him in cowgirl position.*",
                 Adult = true,
                 Loop = true,
             },
