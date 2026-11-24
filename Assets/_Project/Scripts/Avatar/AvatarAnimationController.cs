@@ -407,6 +407,8 @@ namespace AICompanion.Avatar
             var face = FaceEmotion.Resolve(_expressionName, Emotion.Neutral);
             SetEmotion(face, 1f);
             Debug.Log("Expression preview: " + name);
+            if (!string.Equals(name, "neutral", System.StringComparison.Ordinal))
+                ReactionVoiceRequests.Offer(name, ReactionVoiceCause.Event);
         }
 
         void NoteFace()

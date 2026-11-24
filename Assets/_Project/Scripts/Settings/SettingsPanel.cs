@@ -126,6 +126,9 @@ namespace AICompanion.Settings
             EnsureVideoAvatar();
             if (GetComponent<CompanionMoodKeeper>() == null)
                 gameObject.AddComponent<CompanionMoodKeeper>();
+            // JUH-192: short reaction wavs for the expression the cue, mood, or interaction just chose.
+            if (GetComponent<ReactionVoicePlayer>() == null)
+                gameObject.AddComponent<ReactionVoicePlayer>();
             if (GetComponent<RelationshipKeeper>() == null)
                 gameObject.AddComponent<RelationshipKeeper>();
             // JUH-116: Innocent–Perverted, adult mode only; idle while the 18+ gate is closed.

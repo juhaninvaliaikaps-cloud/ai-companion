@@ -84,7 +84,7 @@ One table, `CompanionMoodLooks` (`Assets/_Project/Scripts/Core/CompanionMoodLook
 | sleepy | sleepy | neutral (no sleepy 3D pose) | none (no sleepy clip) |
 | intimate (gated) | shy | shy 0.3 | none |
 
-The 3D face intensity is 60 % of the table value at strength 0 and 100 % at strength 1. The body emotion stays neutral, so the 2D avatar does not play an emotion reaction because of the rest look.
+The 3D face intensity is 60 % of the table value at strength 0 and 100 % at strength 1. The body emotion stays neutral, so the 2D avatar does not play an emotion reaction because of the rest look. When this rest expression changes, a reaction-voice pack may play the clip for that expression. See [REACTION_VOICES.md](REACTION_VOICES.md).
 
 **2D idle clip.** When the mood names a clip that the folder has as a silent reaction (not a held pose), it stands in for half of the idle variations (`VideoAvatarDirector.MoodVariationShare`), never twice in a row while there is a plain variation. With no plain variation it is used every time the variation timer fires.
 

@@ -320,6 +320,9 @@ namespace AICompanion.Settings
             _lookMood = look.Mood;
             _lookExpression = look.Expression ?? string.Empty;
             Debug.Log(CompanionMoodLooks.LogLine(look.Mood, look.Expression, "rest face"));
+            // The rest face changed. The same expression does not play again; a reply cue still wins this frame.
+            if (_lookExpression.Length > 0)
+                ReactionVoiceRequests.Offer(_lookExpression, ReactionVoiceCause.Mood);
         }
 
         void LogShown(string cause)
