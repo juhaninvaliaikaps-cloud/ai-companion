@@ -44,6 +44,7 @@ public sealed class AdultHostForm : Form
     Process _player;
     IntPtr _child;
     Timer _timer;
+    Timer _resizeTimer;
 
     public AdultHostForm(string path, bool loop, string title, int left, int top)
     {
@@ -99,8 +100,15 @@ public sealed class AdultHostForm : Form
         Controls.Add(header);
 
         Load += (s, e) => StartPlayer();
-        Resize += (s, e) => PlaceChild();
+        Resize += (s, e) =>
+        {
+            PlaceChild();
+            ScheduleRestart();
+        };
         FormClosed += (s, e) => StopPlayer();
+
+        _resizeTimer = new Timer { Interval = 180 };
+        _resizeTimer.Tick += (s, e) => RestartPlayer();
     }
 
     void StartPlayer()
@@ -108,6 +116,7 @@ public sealed class AdultHostForm : Form
         var ffplay = FindFfplay();
         if (ffplay.Length == 0)
             return;
+        _child = IntPtr.Zero;
         var width = Math.Max(120, ClientSize.Width - 12);
         var height = Math.Max(120, ClientSize.Height - 46);
         var args = "-noborder -autoexit "
@@ -145,6 +154,42 @@ public sealed class AdultHostForm : Form
             }
         };
         _timer.Start();
+    }
+
+    void ScheduleRestart()
+    {
+        if (_player == null || _child == IntPtr.Zero)
+            return;
+        ShowWindow(_child, 0);
+        _resizeTimer.Stop();
+        _resizeTimer.Start();
+    }
+
+    void RestartPlayer()
+    {
+        _resizeTimer.Stop();
+        if (_timer != null)
+            _timer.Stop();
+        if (_child != IntPtr.Zero)
+        {
+            ShowWindow(_child, 0);
+            PostMessage(_child, 0x0010, IntPtr.Zero, IntPtr.Zero);
+        }
+        try
+        {
+            if (_player != null && !_player.HasExited)
+            {
+                _player.WaitForExit(800);
+                if (!_player.HasExited)
+                    _player.Kill();
+            }
+        }
+        catch
+        {
+        }
+        _player = null;
+        _child = IntPtr.Zero;
+        StartPlayer();
     }
 
     void AttachChild(IntPtr child)
@@ -200,8 +245,18 @@ public sealed class AdultHostForm : Form
     {
         try
         {
+            if (_child != IntPtr.Zero)
+            {
+                ShowWindow(_child, 0);
+                PostMessage(_child, 0x0010, IntPtr.Zero, IntPtr.Zero);
+                _child = IntPtr.Zero;
+            }
             if (_player != null && !_player.HasExited)
-                _player.Kill();
+            {
+                _player.WaitForExit(800);
+                if (!_player.HasExited)
+                    _player.Kill();
+            }
         }
         catch
         {
@@ -239,6 +294,8 @@ public sealed class AdultHostForm : Form
     static extern bool ReleaseCapture();
     [DllImport("user32.dll")]
     static extern IntPtr SendMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")]
+    static extern bool PostMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam);
 }
 '@
 
