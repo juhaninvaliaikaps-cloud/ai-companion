@@ -92,7 +92,13 @@ namespace AICompanion.Settings
                 }
             }
 
-            if (!started && ReactionSpeechLead.NeedsAnswer)
+            if (!Allowed())
+            {
+                // F6 or tray pause stopped the clip. Do not keep the next line waiting
+                // for a sound that is no longer playing.
+                ReactionSpeechLead.Release(now);
+            }
+            else if (!started && ReactionSpeechLead.NeedsAnswer)
             {
                 // No new clip. A sound that is already playing still finishes before the line.
                 var until = _source != null && _source.isPlaying ? _playingUntil : now;

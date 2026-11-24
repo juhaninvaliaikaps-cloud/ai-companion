@@ -223,6 +223,21 @@ namespace AICompanion.Core
                 _until = until;
         }
 
+        /// <summary>
+        /// Mute or tray pause stopped the clip. Speech may start at <paramref name="now"/>
+        /// even when a longer hold was already recorded.
+        /// </summary>
+        public static void Release(double now)
+        {
+            if (_serial == 0)
+                return;
+            if (double.IsNaN(now))
+                now = 0d;
+            _acked = _serial;
+            _until = now;
+            _clockSet = true;
+        }
+
         public static bool Blocks(double now)
         {
             if (_serial == 0)

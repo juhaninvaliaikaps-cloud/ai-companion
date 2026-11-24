@@ -43,7 +43,7 @@ The existing systems already choose her expression. This only listens:
 - An interaction offers the expression it just set. That wins over the cue in the same moment, because the touch keeps its own portrait.
 - **F9** offers the preview expression, so a pack can be heard without a reply. Neutral does not play.
 
-When the line she is about to say carries a cue, the reaction for that cue finishes before the voice model starts the line. The voice may prepare the line while the reaction plays. A cue written on the narration just before the words (`*smiles*` then the sentence) holds that sentence the same way. If no clip is actually playing (the pack has none, **F6** is on, or the tray is paused), the line is not held.
+When the line she is about to say carries a cue, the reaction for that cue finishes before the voice model starts the line. The voice may prepare the line while the reaction plays. A cue written on the narration just before the words (`*smiles*` then the sentence) holds that sentence the same way. If no clip is actually playing (the pack has none, **F6** is on, or the tray is paused), the line is not held. Turning mute or pause on while a clip is playing releases a wait that had already started.
 
 One moment plays one clip. A different expression replaces a clip that is still going. The same expression does not start a second copy until that clip's `duration_s` has passed (half a second when the manifest omits it, and never longer than 8 seconds).
 

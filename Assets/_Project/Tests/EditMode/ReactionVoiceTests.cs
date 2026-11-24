@@ -312,6 +312,19 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void MuteReleasesAHoldThatAlreadyStarted()
+        {
+            ReactionSpeechLead.Arm();
+            ReactionSpeechLead.NotePlayback(5d);
+            Assert.IsTrue(ReactionSpeechLead.Blocks(1d));
+
+            ReactionSpeechLead.Release(1d);
+
+            Assert.IsFalse(ReactionSpeechLead.NeedsAnswer);
+            Assert.IsFalse(ReactionSpeechLead.Blocks(1d));
+        }
+
+        [Test]
         public void ClipWindowNeverExceedsEightSeconds()
         {
             Assert.AreEqual(ReactionVoiceSession.DefaultSeconds, ReactionVoiceSession.ClampSeconds(0d));
