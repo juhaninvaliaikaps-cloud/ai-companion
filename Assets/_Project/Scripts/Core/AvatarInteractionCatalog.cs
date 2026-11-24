@@ -195,7 +195,6 @@ namespace AICompanion.Core
                 Emotion = Emotion.Flustered,
                 Intensity = 0.7f,
                 Signal = "*User cups your breast.*",
-                Adult = true,
             },
             new AvatarInteractionDefinition
             {
@@ -206,7 +205,6 @@ namespace AICompanion.Core
                 Emotion = Emotion.Flustered,
                 Intensity = 0.75f,
                 Signal = "*User keeps cupping your breast.*",
-                Adult = true,
                 Loop = true,
             },
             new AvatarInteractionDefinition
@@ -229,7 +227,6 @@ namespace AICompanion.Core
                 Emotion = Emotion.Embarrassed,
                 Intensity = 0.7f,
                 Signal = "*User touches your butt.*",
-                Adult = true,
                 BackOnly = false,
             },
             new AvatarInteractionDefinition
@@ -241,7 +238,6 @@ namespace AICompanion.Core
                 Emotion = Emotion.Embarrassed,
                 Intensity = 0.75f,
                 Signal = "*User keeps touching your butt.*",
-                Adult = true,
                 BackOnly = false,
                 Loop = true,
             },

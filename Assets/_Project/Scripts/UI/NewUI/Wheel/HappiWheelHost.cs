@@ -772,11 +772,11 @@ namespace AICompanion.NewUI.Wheel
                 case BodyPart.Shoulder:
                     return PartWheel("Shoulder", AvatarInteractionCatalog.TouchShoulder);
                 case BodyPart.Chest:
-                    return PartWheel("18+", AvatarInteractionCatalog.TouchBreast, AvatarInteractionCatalog.TouchBreastLoop);
+                    return PartWheel("Touch", AvatarInteractionCatalog.TouchBreast, AvatarInteractionCatalog.TouchBreastLoop);
                 case BodyPart.Crotch:
                     return PartWheel("18+", AvatarInteractionCatalog.TouchVagina);
                 case BodyPart.Butt:
-                    return PartWheel("18+", AvatarInteractionCatalog.TouchButt, AvatarInteractionCatalog.TouchButtLoop,
+                    return PartWheel("Touch", AvatarInteractionCatalog.TouchButt, AvatarInteractionCatalog.TouchButtLoop,
                         AvatarInteractionCatalog.ButtSlap);
                 default:
                     return Sub("Touch");

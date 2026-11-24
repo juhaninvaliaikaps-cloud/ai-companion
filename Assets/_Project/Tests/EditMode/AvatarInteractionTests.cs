@@ -43,12 +43,13 @@ namespace AICompanion.Tests.EditMode
             Assert.IsFalse(AvatarInteractionCatalog.IsHold(AvatarInteractionCatalog.Kiss));
             var breast = AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchBreast);
             Assert.IsNotNull(breast);
-            Assert.IsTrue(breast.Adult);
+            Assert.IsFalse(breast.Adult);
             Assert.IsFalse(string.IsNullOrWhiteSpace(breast.Signal));
             Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchVagina).Adult);
-            Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchButt).Adult);
+            Assert.IsFalse(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchButt).Adult);
             Assert.IsFalse(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchButt).BackOnly);
             Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.FingerMouth).Adult);
+            Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.ButtSlap).Adult);
             Assert.IsFalse(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.MakeOut).Adult);
         }
 
@@ -60,6 +61,10 @@ namespace AICompanion.Tests.EditMode
             {
                 Assert.AreEqual(AvatarInteractionCatalog.MakeOut,
                     AdultSceneIntent.Detect("They make out on the couch."));
+                Assert.AreEqual(AvatarInteractionCatalog.TouchBreast,
+                    AdultSceneIntent.Detect("He cups her breast."));
+                Assert.AreEqual(AvatarInteractionCatalog.TouchButt,
+                    AdultSceneIntent.Detect("He grabs her butt."));
                 Assert.IsFalse(AdultSceneIntent.Detect("She gives him a blowjob.").Length > 0);
             }
             finally
