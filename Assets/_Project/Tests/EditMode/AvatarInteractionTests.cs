@@ -8,9 +8,9 @@ namespace AICompanion.Tests.EditMode
     public sealed class AvatarInteractionTests
     {
         [Test]
-        public void Catalog_HasAllTwentyFiveActions()
+        public void Catalog_HasAllTwentySevenActions()
         {
-            Assert.AreEqual(25, AvatarInteractionCatalog.All.Count);
+            Assert.AreEqual(27, AvatarInteractionCatalog.All.Count);
             Assert.IsNotNull(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.PatHead));
             Assert.IsNotNull(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.StrokeHair));
             Assert.IsNotNull(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.CupCheek));
@@ -104,8 +104,18 @@ namespace AICompanion.Tests.EditMode
                     AdultSceneIntent.Detect("I am fucking her in the ass."));
                 Assert.AreEqual(AvatarInteractionCatalog.LapdanceBehind,
                     AdultSceneIntent.Detect("He takes her doggystyle."));
-                Assert.AreEqual(AvatarInteractionCatalog.LapdanceFacing,
+                Assert.AreEqual(AvatarInteractionCatalog.RidingCowgirl,
                     AdultSceneIntent.Detect("She rides me in cowgirl."));
+                Assert.AreEqual(AvatarInteractionCatalog.RidingCowgirl,
+                    AdultSceneIntent.Detect("She's riding the user."));
+                Assert.AreEqual(AvatarInteractionCatalog.RidingCowgirl,
+                    AdultSceneIntent.Detect("She's on top of him riding him."));
+                Assert.AreEqual(AvatarInteractionCatalog.RidingCowgirl,
+                    AdultSceneIntent.Detect("She's fucking him."));
+                Assert.AreEqual(AvatarInteractionCatalog.RidingCowgirl,
+                    AdultSceneIntent.Detect("Cowgirl position."));
+                Assert.AreEqual(AvatarInteractionCatalog.RidingCowgirlShort,
+                    AdultSceneIntent.Detect("She rides him in cowgirl, short loop."));
                 Assert.AreEqual(AvatarInteractionCatalog.LapdanceFacing,
                     AdultSceneIntent.Detect("I penetrate her in missionary."));
                 Assert.AreEqual(string.Empty, AdultSceneIntent.Detect("I mention doggystyle."));

@@ -215,6 +215,8 @@ namespace AICompanion.Settings
                 case "blowjob_ontop":
                 case "lapdance_facing":
                 case "lapdance_behind":
+                case "riding_cowgirl":
+                case "riding_cowgirl_short":
                     return TryReaction("flustered");
                 case "finger_suck_loop":
                     return TryReaction("flustered");

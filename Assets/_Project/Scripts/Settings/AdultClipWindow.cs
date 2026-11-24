@@ -30,6 +30,8 @@ namespace AICompanion.Settings
         const string OnTopFingerFile = "happi_ontop_finger_loop_60s.mp4";
         const string LapdanceFacingFile = "happi_lapdance_facing_loop_60s.mp4";
         const string LapdanceBehindFile = "happi_lapdance_loop_60s.mp4";
+        const string RidingCowgirlFile = "Leia_riding_loop_60s_with_voice.mp4";
+        const string RidingCowgirlShortFile = "video_Leia_32_nude_riding_loop_10s_00001_.mp4";
         const string FingerSuckFile = "fingersuckloop60s.mp4";
         const float NativeSize = 544f;
         const float MaxPanelSize = 1088f;
@@ -129,6 +131,7 @@ namespace AICompanion.Settings
                 || id == "lying_kiss" || id == "lying_make_out" || id == "lying_make_out_2"
                 || id == "blowjob_kneeling" || id == "blowjob_lying" || id == "blowjob_ontop"
                 || id == "lapdance_facing" || id == "lapdance_behind"
+                || id == "riding_cowgirl" || id == "riding_cowgirl_short"
                 || id == "blowjob" || id == "finger_suck_loop";
         }
 
@@ -303,6 +306,10 @@ namespace AICompanion.Settings
                 return LapdanceFacingFile;
             if (id == "lapdance_behind")
                 return LapdanceBehindFile;
+            if (id == "riding_cowgirl")
+                return RidingCowgirlFile;
+            if (id == "riding_cowgirl_short")
+                return RidingCowgirlShortFile;
             if (id == "finger_suck_loop")
                 return FingerSuckFile;
             return string.Empty;
@@ -317,6 +324,7 @@ namespace AICompanion.Settings
                 || id == "lying_make_out" || id == "lying_make_out_2"
                 || id == "blowjob_kneeling" || id == "blowjob_lying" || id == "blowjob_ontop"
                 || id == "lapdance_facing" || id == "lapdance_behind"
+                || id == "riding_cowgirl" || id == "riding_cowgirl_short"
                 || id == "blowjob" || id == "finger_suck_loop";
         }
 

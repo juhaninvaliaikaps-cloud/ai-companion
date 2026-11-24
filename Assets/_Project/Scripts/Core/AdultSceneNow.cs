@@ -44,6 +44,8 @@ namespace AICompanion.Core
                 return BeginScene("you are on top of him, giving him a blowjob", fallback);
             if (id == AvatarInteractionCatalog.LapdanceFacing)
                 return BeginScene("you are on top of him, riding him facing him", fallback);
+            if (id == AvatarInteractionCatalog.RidingCowgirl || id == AvatarInteractionCatalog.RidingCowgirlShort)
+                return BeginScene("you are on top of him, riding him in cowgirl position", fallback);
             if (id == AvatarInteractionCatalog.LapdanceBehind)
                 return BeginScene("he is fucking you from behind", fallback);
 
