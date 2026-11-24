@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -17,19 +17,9 @@ namespace AICompanion.Settings
         static readonly Dictionary<string, Process> Running = new Dictionary<string, Process>();
         static bool _audioPriority;
 
-        static string ScriptPath
+        static string PlayerPath
         {
-            get { return Path.Combine(Application.streamingAssetsPath, "adult-player.ps1"); }
-        }
-
-        static string PowerShell
-        {
-            get
-            {
-                return Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.System),
-                    "WindowsPowerShell\\v1.0\\powershell.exe");
-            }
+            get { return Path.Combine(Application.streamingAssetsPath, "adult-player.exe"); }
         }
 
         public static bool Available
@@ -37,8 +27,7 @@ namespace AICompanion.Settings
             get
             {
                 return Application.platform == RuntimePlatform.WindowsPlayer
-                    && File.Exists(ScriptPath)
-                    && File.Exists(PowerShell);
+                    && File.Exists(PlayerPath);
             }
         }
 
@@ -55,14 +44,13 @@ namespace AICompanion.Settings
             if (IsActive(cue))
                 return true;
 
-            var args = "-NoProfile -STA -ExecutionPolicy Bypass -WindowStyle Hidden -File \""
-                + ScriptPath + "\" -Path \"" + clipPath + "\" -Loop " + (loop ? 1 : 0)
+            var args = "-Path \"" + clipPath + "\" -Loop " + (loop ? 1 : 0)
                 + " -Title \"" + (title ?? "Happi").Replace("\"", "'") + "\"";
             try
             {
                 var process = Process.Start(new ProcessStartInfo
                 {
-                    FileName = PowerShell,
+                    FileName = PlayerPath,
                     Arguments = args,
                     UseShellExecute = false,
                     CreateNoWindow = true,
