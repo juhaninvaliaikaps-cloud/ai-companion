@@ -415,6 +415,23 @@ namespace AICompanion.Settings
             get { return _state.Readout(); }
         }
 
+        /// <summary>JUH-190: the live affection number, for the relationship libido bonus.</summary>
+        public float AffectionNow
+        {
+            get { return _loaded ? _state.Affection : 0f; }
+        }
+
+        /// <summary>True when her sheet says the user is her partner (girlfriend, wife, lover).</summary>
+        public bool IsPartner
+        {
+            get
+            {
+                var sheet = CurrentSheet();
+                return sheet != null && sheet.relationship != null
+                    && RelationshipRoles.Normalize(sheet.relationship.role) == RelationshipRoles.Partner;
+            }
+        }
+
         void OnDisable()
         {
             RelationshipNow.ReplyFinished -= OnReply;

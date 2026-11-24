@@ -131,6 +131,15 @@ namespace AICompanion.Core
         /// <summary>Libido when nothing read or set it.</summary>
         public const float DefaultLibido = 50f;
 
+        /// <summary>JUH-190: a loved relationship can raise her effective libido by up to this much.</summary>
+        public const float RelationshipLibidoBonus = 50f;
+
+        /// <summary>Affection where the relationship libido bonus starts to grow.</summary>
+        public const float RelationshipLibidoFromAffection = 70f;
+
+        /// <summary>Affection where the relationship bonus reaches its full +50.</summary>
+        public const float RelationshipLibidoFullAffection = 90f;
+
         /// <summary>Where a new persona starts: a little under her resting level.</summary>
         public const float StartShare = 0.5f;
 
@@ -167,6 +176,24 @@ namespace AICompanion.Core
             if (float.IsNaN(value) || float.IsInfinity(value) || value < 0f)
                 return DefaultLibido;
             return Math.Min(Max, value);
+        }
+
+        /// <summary>
+        /// JUH-190: being someone's partner, or being close to 90+ affection, raises the libido
+        /// she actually runs on by up to +50. An explicit partner gets the full bonus; otherwise
+        /// it ramps from 70 to 90 affection. The value is capped at 100.
+        /// </summary>
+        public static float RelationshipLibido(float libido, float affection, bool partner)
+        {
+            var value = ClampLibido(libido);
+            if (partner)
+                return ClampLibido(value + RelationshipLibidoBonus);
+            if (float.IsNaN(affection) || affection < RelationshipLibidoFromAffection)
+                return value;
+            var share = Math.Min(1f,
+                (affection - RelationshipLibidoFromAffection)
+                / (RelationshipLibidoFullAffection - RelationshipLibidoFromAffection));
+            return ClampLibido(value + RelationshipLibidoBonus * share);
         }
 
         static float Unit(float libido)
