@@ -1,8 +1,12 @@
+using System.Text.RegularExpressions;
+
 namespace AICompanion.Core
 {
     /// <summary>
     /// JUH-188: a typed scene can request the third-window adult clip even when the model
     /// forgets to emit a reaction tag. Text remains uncapped; only menu animations are capped.
+    /// JUH-190: a mention, question or wish is not an action, so only an actual initiation
+    /// ("I kiss you", "kiss me", "they make out", "she gives him a blowjob") opens a clip.
     /// </summary>
     public static class AdultSceneIntent
     {
@@ -12,6 +16,8 @@ namespace AICompanion.Core
                 return string.Empty;
 
             var value = " " + text.ToLowerInvariant() + " ";
+            if (!LooksLikeAction(value))
+                return string.Empty;
             // A make-out is romantic, not explicit, so it is available outside the 18+ gate.
             if (!IntimateExpressions.Active)
             {
@@ -91,6 +97,55 @@ namespace AICompanion.Core
                 return AvatarInteractionCatalog.TouchShoulder;
 
             return string.Empty;
+        }
+
+        /// <summary>
+        /// True only for a real initiation, not for mentioning, asking, imagining or wanting.
+        /// Conservative on purpose: a false positive puts a sexual clip on screen.
+        /// </summary>
+        static bool LooksLikeAction(string value)
+        {
+            if (IsMentionOrWish(value))
+                return false;
+
+            // First/third person acting, or a direct imperative.
+            if (Regex.IsMatch(value, @"\b(i|we|they|he|she)\b.{0,22}\b(kiss|kisses|kissed|kissing|make out|made out|making out)\b"))
+                return true;
+            if (Regex.IsMatch(value, @"\b(kiss me|kiss her|kiss him|kiss you|make out with|making out with|start making out)\b"))
+                return true;
+            if (Regex.IsMatch(value, @"\b(i|we|they|he|she)\b.{0,24}\b(lean|leans|leaned|pull|pulls|pulled|start|starts|started|begin|begins|began)\b.{0,24}\b(kiss|kissed|kissing|make out|making out)\b"))
+                return true;
+
+            // A blowjob has to be actually described, not merely named.
+            if (Regex.IsMatch(value, @"\b(i|we|they|he|she)\b.{0,40}\b(blowjob|blow job|suck|sucks|sucking|give|gives|giving|gave|takes him|took him|going down on)\b"))
+                return true;
+
+            // A touch must name what is being grabbed, cupped or touched.
+            if (Regex.IsMatch(value, @"\b(i|we|they|he|she)\b.{0,30}\b(grab|grabs|grabbed|touch|touches|touched|cup|cups|cupped|feel|feels|felt|fondle|fondles|fondled|kiss|kisses|kissed|suck|sucks|sucked|slap|slaps|slapped|spank|spanks|spanked|pat|pats|patted|stroke|strokes|stroked|hold|holds|held)\b.{0,22}\b(breast|breasts|chest|butt|ass|shoulder|hair|head|cheek|face|hand|vagina|pussy|crotch|finger)\b"))
+                return true;
+
+            return false;
+        }
+
+        static bool IsMentionOrWish(string value)
+        {
+            var words = new[]
+            {
+                "mention", "mentioned", "mentioning", "talk about", "talked about", "talking about",
+                "ask about", "asked about", "asking about", "question", "wonder", "wondered",
+                "think about", "thought about", "thinking about", "imagine", "imagined", "imagining",
+                "fantasize", "fantasized", "fantasising", "fantasizing", "dream", "dreamed", "dreamt",
+                "what if", "if we ", "if you ", "should", "could", "would", "maybe", "might",
+                "want to", "wanted to", "wanting to", "plan to", "planned to", "planning to",
+                "like ", "love ", "enjoy", "joke", "joking", "joked", "not ", "don't", "didn't",
+                "doesn't", "never", "without", "?", "idea of", "thought of", "mention of",
+            };
+            for (var i = 0; i < words.Length; i++)
+            {
+                if (value.Contains(words[i]))
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>Opens the matching clip, if any. Does not queue a second chat message.</summary>

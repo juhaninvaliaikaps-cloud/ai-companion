@@ -76,6 +76,23 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void MakingOut_IsNotTriggeredByMentionOrWish()
+        {
+            IntimateExpressions.Reset();
+            try
+            {
+                Assert.AreEqual(string.Empty, AdultSceneIntent.Detect("I mentioned making out but didn't initiate it."));
+                Assert.AreEqual(string.Empty, AdultSceneIntent.Detect("I want to make out with you."));
+                Assert.AreEqual(string.Empty, AdultSceneIntent.Detect("Making out sounds nice."));
+                Assert.AreEqual(AvatarInteractionCatalog.MakeOut, AdultSceneIntent.Detect("I make out with you."));
+            }
+            finally
+            {
+                IntimateExpressions.Reset();
+            }
+        }
+
+        [Test]
         public void AdultLine_IsDroppedWhenTheGateClosesBeforeItIsSent()
         {
             Assert.AreEqual(InteractionSignalDelivery.Choice.Drop, InteractionSignalDelivery.Decide(true, false, true));
