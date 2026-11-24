@@ -22,6 +22,7 @@ namespace AICompanion.Tests.EditMode
         {
             IntimateExpressions.Reset();
             ReactionVoiceRequests.Reset();
+            ReactionSpeechLead.Clear();
         }
 
         [TearDown]
@@ -29,6 +30,7 @@ namespace AICompanion.Tests.EditMode
         {
             IntimateExpressions.Reset();
             ReactionVoiceRequests.Reset();
+            ReactionSpeechLead.Clear();
         }
 
         [Test]
@@ -232,6 +234,89 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("tsundere", expression);
             Assert.AreEqual(ReactionVoiceCause.Event, cause);
             Assert.IsFalse(ReactionVoiceRequests.TryTake(out expression, out cause));
+        }
+
+        [Test]
+        public void PortraitChangeLosesToACueAndBeatsAMoodInTheSameFrame()
+        {
+            ReactionVoiceRequests.Offer("smile", ReactionVoiceCause.Mood);
+            ReactionVoiceRequests.Offer("embarrassed_worried", ReactionVoiceCause.Portrait);
+
+            string expression;
+            ReactionVoiceCause cause;
+            Assert.IsTrue(ReactionVoiceRequests.TryTake(out expression, out cause));
+            Assert.AreEqual("embarrassed_worried", expression);
+            Assert.AreEqual(ReactionVoiceCause.Portrait, cause);
+
+            ReactionVoiceRequests.Offer("embarrassed_worried", ReactionVoiceCause.Portrait);
+            ReactionVoiceRequests.Offer("teary_happy", ReactionVoiceCause.Cue);
+            ReactionVoiceRequests.Offer("smile", ReactionVoiceCause.Portrait);
+            Assert.IsTrue(ReactionVoiceRequests.TryTake(out expression, out cause));
+            Assert.AreEqual("teary_happy", expression);
+            Assert.AreEqual(ReactionVoiceCause.Cue, cause);
+        }
+
+        [Test]
+        public void PortraitCausePlaysAFaceAgainAfterTheClip()
+        {
+            var session = new ReactionVoiceSession();
+            var catalog = ReactionVoiceCatalog.FromClips(
+                ReactionVoiceManifest.Parse("{\"expression\":\"embarrassed_worried\",\"wav\":\"eh.wav\",\"reaction\":\"eh\",\"duration_s\":0.2}"),
+                null,
+                null);
+            ReactionVoiceClip clip;
+            Assert.IsTrue(session.TryChoose(catalog, "embarrassed_worried", ReactionVoiceCause.Mood, 0d, count => 0, out clip));
+            Assert.IsFalse(session.TryChoose(catalog, "embarrassed_worried", ReactionVoiceCause.Portrait, 0.1d, count => 0, out clip));
+            Assert.IsFalse(session.TryChoose(catalog, "embarrassed_worried", ReactionVoiceCause.Mood, 5d, count => 0, out clip));
+            Assert.IsTrue(session.TryChoose(catalog, "embarrassed_worried", ReactionVoiceCause.Portrait, 5d, count => 0, out clip));
+            Assert.AreEqual("eh", clip.Id);
+        }
+
+        [Test]
+        public void PortraitWatchReportsOnlyANewExpression()
+        {
+            var watch = new PortraitExpressionWatch();
+            string name;
+            Assert.IsFalse(watch.TryChange("neutral", out name));
+            Assert.IsFalse(watch.TryChange("", out name));
+            Assert.IsTrue(watch.TryChange("Teary_Happy.png", out name));
+            Assert.AreEqual("teary_happy", name);
+            Assert.IsFalse(watch.TryChange("teary_happy", out name));
+            Assert.IsFalse(watch.TryChange("neutral", out name));
+            Assert.IsTrue(watch.TryChange("shy", out name));
+            Assert.AreEqual("shy", name);
+        }
+
+        [Test]
+        public void SpeechWaitsForTheCueClipAndNotLongerThanIt()
+        {
+            ReactionSpeechLead.Arm();
+            Assert.IsTrue(ReactionSpeechLead.NeedsAnswer);
+            Assert.IsTrue(ReactionSpeechLead.Blocks(1d));
+            Assert.IsFalse(ReactionSpeechLead.Blocks(1d + ReactionSpeechLead.AckGraceSeconds));
+
+            ReactionSpeechLead.Arm();
+            ReactionSpeechLead.NotePlayback(2.4d);
+            Assert.IsFalse(ReactionSpeechLead.NeedsAnswer);
+            Assert.IsTrue(ReactionSpeechLead.Blocks(2d));
+            Assert.IsFalse(ReactionSpeechLead.Blocks(2.4d));
+            ReactionSpeechLead.NotePlayback(2.1d);
+            Assert.IsTrue(ReactionSpeechLead.Blocks(2.2d));
+            ReactionSpeechLead.NotePlayback(3d);
+            Assert.IsTrue(ReactionSpeechLead.Blocks(2.5d));
+            Assert.IsFalse(ReactionSpeechLead.Blocks(3d));
+
+            ReactionSpeechLead.Clear();
+            Assert.IsFalse(ReactionSpeechLead.Blocks(0d));
+            Assert.AreEqual(0, ReactionSpeechLead.Serial);
+        }
+
+        [Test]
+        public void ClipWindowNeverExceedsEightSeconds()
+        {
+            Assert.AreEqual(ReactionVoiceSession.DefaultSeconds, ReactionVoiceSession.ClampSeconds(0d));
+            Assert.AreEqual(ReactionVoiceSession.MaxSeconds, ReactionVoiceSession.ClampSeconds(30d));
+            Assert.AreEqual(0.34d, ReactionVoiceSession.ClampSeconds(0.34d), 0.0001d);
         }
 
         [Test]

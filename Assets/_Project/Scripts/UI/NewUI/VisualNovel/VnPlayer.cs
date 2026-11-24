@@ -157,6 +157,7 @@ namespace AICompanion.NewUI.VisualNovel
         public void Begin()
         {
             StopVoice();
+            ReactionSpeechLead.Clear();
             _segments.Clear();
             _fired.Clear();
             _current = -1;
@@ -269,6 +270,7 @@ namespace AICompanion.NewUI.VisualNovel
                 return;
             _showAll = true;
             StopVoice();
+            ReactionSpeechLead.Clear();
             _state = LineState.Done;
             RevealAllCues();
             HandleEnd();
@@ -278,6 +280,7 @@ namespace AICompanion.NewUI.VisualNovel
         public void Stop()
         {
             StopVoice();
+            ReactionSpeechLead.Clear();
             _showAll = true;
             _state = LineState.Done;
         }
@@ -303,6 +306,10 @@ namespace AICompanion.NewUI.VisualNovel
             _elapsed = 0f;
             _voiceSeen = false;
             FireCues(index);
+            // A cue on this line, including one on the narration just before the words,
+            // plays its reaction before the voice model says the next spoken line.
+            if (HasFaceCue(_segments[index]))
+                ReactionSpeechLead.Arm();
 
             var segment = _segments[index];
             if (IsVoiced(index) && _voice.CanSpeak)
@@ -368,6 +375,18 @@ namespace AICompanion.NewUI.VisualNovel
                 _voice.Prefetch(_segments[i].Text);
                 return;
             }
+        }
+
+        static bool HasFaceCue(VnSegment segment)
+        {
+            var cues = segment.Cues;
+            for (var i = 0; i < cues.Count; i++)
+            {
+                if (ReactionVoiceNames.FromFace(cues[i].EmotionField, cues[i].Emotion).Length > 0)
+                    return true;
+            }
+
+            return false;
         }
 
         void FireCues(int index)

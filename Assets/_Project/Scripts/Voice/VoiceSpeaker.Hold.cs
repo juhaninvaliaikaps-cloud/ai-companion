@@ -1,4 +1,5 @@
 using AICompanion.Core;
+using UnityEngine;
 
 namespace AICompanion.Voice
 {
@@ -21,10 +22,21 @@ namespace AICompanion.Voice
                 return;
 
             _held = held;
-            if (held || _playback.Playing || _clips.Count == 0)
+            if (held)
                 return;
 
-            // Released with audio already waiting: start it now.
+            // Released with audio already waiting: start it now, unless a cue reaction
+            // still has to finish first (JUH-193).
+            StartQueuedPlayback();
+        }
+
+        void StartQueuedPlayback()
+        {
+            if (_held || _playback.Playing || _clips.Count == 0)
+                return;
+            if (ReactionSpeechLead.Blocks(Time.unscaledTime))
+                return;
+
             _playback.Pump();
             PlayHead();
             ApplyTalking();
