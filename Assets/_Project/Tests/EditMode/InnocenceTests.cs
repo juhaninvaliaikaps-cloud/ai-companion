@@ -213,6 +213,55 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void OldFile_WithoutReadLibido_IsNotYetRead_AndAnExplicitZeroStaysZero()
+        {
+            // A file saved before JUH-170. The reason text is the quoted word readLibido, so
+            // only a real object key counts. JsonUtility would load the missing float as 0;
+            // that must not look already read.
+            const string oldFile =
+                "{\n" +
+                "    \"version\": 1,\n" +
+                "    \"current\": 42.0,\n" +
+                "    \"baseline\": 40.0,\n" +
+                "    \"atLastMoment\": 42.0,\n" +
+                "    \"lastMomentTicks\": 0,\n" +
+                "    \"userSet\": false,\n" +
+                "    \"readHash\": \"abc\",\n" +
+                "    \"readValue\": 40.0,\n" +
+                "    \"readReason\": \"readLibido\"\n" +
+                "}";
+
+            var old = InnocenceState.FromJson(oldFile);
+            Assert.AreEqual(42f, old.Current, 0.001f);
+            Assert.AreEqual(40f, old.ReadValue, 0.001f);
+            Assert.AreEqual("readLibido", old.ReadReason);
+            Assert.IsTrue(old.HasReading);
+            Assert.Less(old.ReadLibido, 0f, "a missing key is not yet read");
+
+            const string explicitZeroFile =
+                "{\n" +
+                "    \"version\": 1,\n" +
+                "    \"current\": 42.0,\n" +
+                "    \"baseline\": 40.0,\n" +
+                "    \"atLastMoment\": 42.0,\n" +
+                "    \"lastMomentTicks\": 0,\n" +
+                "    \"userSet\": false,\n" +
+                "    \"readHash\": \"abc\",\n" +
+                "    \"readValue\": 40.0,\n" +
+                "    \"readReason\": \"readLibido\",\n" +
+                "    \"readLibido\": 0.0\n" +
+                "}";
+            var explicitZero = InnocenceState.FromJson(explicitZeroFile);
+            Assert.AreEqual(0f, explicitZero.ReadLibido, 0.001f, "an explicit 0 stays 0");
+
+            var read = new InnocenceState();
+            read.ReadHash = "abc";
+            read.ReadValue = 40f;
+            read.ReadLibido = 72f;
+            Assert.AreEqual(72f, InnocenceState.FromJson(read.ToJson()).ReadLibido, 0.001f);
+        }
+
+        [Test]
         public void SetAt_StartsDriftingFromTheNewPlace()
         {
             var state = new InnocenceState { LastMomentTicks = 12345L };

@@ -83,6 +83,78 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void MissingApiKey_WipesTheScreenshotClone()
+        {
+            byte[] clone = null;
+            var transport = new RecordingTransport("{}");
+            var provider = new AnthropicChatProvider(new AnthropicProviderConfig
+            {
+                Model = () => "claude-sonnet-5-5",
+                ApiKey = () => "  ",
+                Transport = transport,
+                Stream = true,
+                ImageReleased = bytes => clone = bytes,
+            });
+            var image = new ChatImageAttachment
+            {
+                JpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0x11, 0x22 },
+                Width = 2,
+                Height = 2,
+            };
+            var request = new ChatRequest
+            {
+                Messages = new List<ChatMessage> { new ChatMessage(ChatRole.User, "Look.") },
+                Image = image,
+            };
+
+            VisionCapability.Reset();
+            var result = provider.StreamChat(request, null, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.IsFalse(result.Ok);
+            Assert.AreEqual(ChatErrorKind.MissingApiKey, result.Error);
+            Assert.AreEqual(0, transport.Calls, "nothing was sent");
+            Assert.IsNull(request.Image);
+            Assert.IsNull(image.JpegBytes, "the attachment is wiped");
+            Assert.IsNotNull(clone, "the JPEG was cloned before the early return");
+            CollectionAssert.AreEqual(new byte[clone.Length], clone, "the clone is wiped");
+        }
+
+        [Test]
+        public void MissingTransport_WipesTheScreenshotClone()
+        {
+            byte[] clone = null;
+            var provider = new AnthropicChatProvider(new AnthropicProviderConfig
+            {
+                Model = () => "claude-sonnet-5-5",
+                ApiKey = () => "claude-key",
+                Transport = null,
+                ImageReleased = bytes => clone = bytes,
+            });
+            var image = new ChatImageAttachment
+            {
+                JpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0x11, 0x22 },
+                Width = 2,
+                Height = 2,
+            };
+
+            VisionCapability.Reset();
+            var result = provider.StreamChat(
+                new ChatRequest
+                {
+                    Messages = new List<ChatMessage> { new ChatMessage(ChatRole.User, "Look.") },
+                    Image = image,
+                },
+                null,
+                CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.IsFalse(result.Ok);
+            Assert.AreEqual(ChatErrorKind.Unreachable, result.Error);
+            Assert.IsNull(image.JpegBytes);
+            Assert.IsNotNull(clone);
+            CollectionAssert.AreEqual(new byte[clone.Length], clone);
+        }
+
+        [Test]
         public void Factory_SelectsAnthropicOnlyForAnthropicHosts()
         {
             var anthropic = PisaraCloudProvider.Create(

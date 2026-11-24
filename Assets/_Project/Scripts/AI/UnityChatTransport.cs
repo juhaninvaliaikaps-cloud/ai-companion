@@ -53,7 +53,7 @@ namespace AICompanion.AI
                 // JUH-183: the timeout counts from the last data, not from the start, so a slow
                 // reply that keeps arriving is not cut off. The request's own limit is the hard cap.
                 www.timeout = StreamTimeout.HardCap(timeout);
-                handler.LastData = Time.realtimeSinceStartupAsDouble;
+                handler.MarkData();
                 www.redirectLimit = request.FollowRedirects ? 32 : 0;
                 if (request.Headers != null)
                 {
@@ -71,7 +71,7 @@ namespace AICompanion.AI
                         yield break;
                     }
 
-                    if (StreamTimeout.Idle(Time.realtimeSinceStartupAsDouble, handler.LastData, timeout))
+                    if (handler.Idle(timeout))
                     {
                         www.Abort();
                         Debug.Log("Chat transport: nothing arrived for " + Mathf.RoundToInt(timeout) + " s"
@@ -139,6 +139,7 @@ namespace AICompanion.AI
             readonly Utf8ChunkDecoder _decoder = new Utf8ChunkDecoder();
             readonly StringBuilder _held = new StringBuilder();
             readonly StringBuilder _error = new StringBuilder();
+            readonly StreamTimeout.Clock _idle = new StreamTimeout.Clock();
             bool _streamed;
 
             public StreamingDownloadHandler(UnityWebRequest request, Action<string> onChunk)
@@ -150,10 +151,21 @@ namespace AICompanion.AI
 
             public string ErrorText => _error.ToString();
 
-            /// <summary>JUH-183: when data last arrived (realtimeSinceStartup), for the idle timeout.</summary>
-            public double LastData;
-
             public bool Streamed => _streamed;
+
+            /// <summary>
+            /// JUH-183: data arrived. Stopwatch ticks, safe if Unity calls this off the main thread.
+            /// The idle timeout still counts from this moment.
+            /// </summary>
+            public void MarkData()
+            {
+                _idle.Mark();
+            }
+
+            public bool Idle(float timeoutSeconds)
+            {
+                return _idle.Idle(timeoutSeconds);
+            }
 
             public void ReleaseHeld()
             {
@@ -168,7 +180,7 @@ namespace AICompanion.AI
                 if (data == null || dataLength <= 0)
                     return true;
 
-                LastData = Time.realtimeSinceStartupAsDouble;
+                MarkData();
                 var text = _decoder.Take(data, dataLength);
                 if (text.Length == 0)
                     return true;

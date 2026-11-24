@@ -54,6 +54,8 @@ namespace AICompanion.Core
         /// <summary>
         /// JUH-170: her libido from the same reading (0 to 100), or -1 when the reading had none
         /// (a reading from before JUH-170: the keeper then reads once more for it).
+        /// A file saved before the key existed also loads as -1. JsonUtility does not apply
+        /// the -1 initializer, so a missing key would otherwise arrive as 0 and look already read.
         /// </summary>
         public float ReadLibido = -1f;
 
@@ -96,6 +98,8 @@ namespace AICompanion.Core
             public string readHash;
             public float readValue = -1f;
             public string readReason;
+
+            // The initializer does not survive JsonUtility.FromJson. FromJson treats a missing key as -1.
             public float readLibido = -1f;
         }
 
@@ -142,8 +146,66 @@ namespace AICompanion.Core
             state.ReadHash = file.readHash ?? string.Empty;
             state.ReadValue = float.IsNaN(file.readValue) || file.readValue < 0f ? -1f : InnocenceMath.Clamp(file.readValue);
             state.ReadReason = file.readReason ?? string.Empty;
-            state.ReadLibido = float.IsNaN(file.readLibido) || file.readLibido < 0f ? -1f : DesireMath.ClampLibido(file.readLibido);
+            // JUH-170 / JUH-188: JsonUtility leaves an omitted float at 0 and skips the -1 initializer.
+            // InnocenceKeeper treats ReadLibido >= 0 as already read, so a file from before the key
+            // existed would stick at libido 0 and never get the libido-only pass. A missing key is
+            // not yet read. An explicit 0 stays 0 (the same rule as a missing temperament slider).
+            state.ReadLibido = HasJsonKey(json, "readLibido")
+                ? (float.IsNaN(file.readLibido) || file.readLibido < 0f ? -1f : DesireMath.ClampLibido(file.readLibido))
+                : -1f;
             return state;
+        }
+
+        /// <summary>
+        /// True when <paramref name="json"/> has <paramref name="key"/> as an object key.
+        /// A mention inside a string value does not count. JsonUtility cannot tell a missing
+        /// float from 0, so the caller checks the text.
+        /// </summary>
+        static bool HasJsonKey(string json, string key)
+        {
+            if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(key))
+                return false;
+            var needle = "\"" + key + "\"";
+            var inString = false;
+            var escape = false;
+            for (var i = 0; i < json.Length; i++)
+            {
+                var c = json[i];
+                if (inString)
+                {
+                    if (escape)
+                    {
+                        escape = false;
+                        continue;
+                    }
+
+                    if (c == '\\')
+                    {
+                        escape = true;
+                        continue;
+                    }
+
+                    if (c == '"')
+                        inString = false;
+                    continue;
+                }
+
+                if (c != '"')
+                    continue;
+                if (i + needle.Length <= json.Length
+                    && string.CompareOrdinal(json, i, needle, 0, needle.Length) == 0)
+                {
+                    var after = i + needle.Length;
+                    while (after < json.Length && char.IsWhiteSpace(json[after]))
+                        after++;
+                    if (after < json.Length && json[after] == ':')
+                        return true;
+                }
+
+                inString = true;
+            }
+
+            return false;
         }
     }
 

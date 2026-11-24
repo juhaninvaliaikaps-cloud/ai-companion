@@ -527,7 +527,7 @@ Three more groups of secrets, only while the 18+ gate is open (Jussi, 2026-11-15
 
 Her **desire** (0 to 100) moves on its own, and the user cannot set it. Her **libido** (0 to 100) is how relentless her needs are (Jussi, 2026-11-22). Only while the 18+ gate is open: while it is closed nothing moves, the prompt line is empty and no desire piece floats. The numbers are in `DesireMath`. They are proposed values, tuned there only.
 
-**Libido** is read with her innocence, in the same local-only request (`InnocenceReader`, saved as `InnocenceState.ReadLibido`). Settings → 18+ → Her → **Libido and desire** has a slider that overrides the reading, and **Use the reading** goes back to it. Without a reading or a setting she runs on 50. It sets:
+**Libido** is read with her innocence, in the same local-only request (`InnocenceReader`, saved as `InnocenceState.ReadLibido`). Settings → 18+ → Her → **Libido and desire** has a slider that overrides the reading, and **Use the reading** goes back to it. Without a reading or a setting she runs on 50. A file saved before the `readLibido` key existed loads as not yet read (`-1`), and she is asked once more for libido only. An explicit `0` in the file stays 0. (`JsonUtility` would otherwise turn the missing number into 0, and that looks already read.) It sets:
 - her resting level: 10 at libido 0, 40 at 50, 70 at 100
 - how fast she builds toward it: about 63 % of the way in 240 minutes at libido 0, 45 minutes at 100
 - how long desire above the level takes to fade back: 20 to 60 minutes

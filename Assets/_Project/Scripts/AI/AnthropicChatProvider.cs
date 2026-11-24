@@ -19,6 +19,12 @@ namespace AICompanion.AI
 
         /// <summary>JUH-143: chat streams the reply (server-sent events). The Pisara reading does not.</summary>
         public bool Stream;
+
+        /// <summary>
+        /// Tests only. Called with the cloned JPEG after its bytes have been cleared, including
+        /// when the key or the transport is missing. Null in the app. The array is zeros; do not log it.
+        /// </summary>
+        public Action<byte[]> ImageReleased;
     }
 
     /// <summary>
@@ -78,44 +84,45 @@ namespace AICompanion.AI
                 : request.Model;
 
             // JUH-149: a picture goes to Claude only when the model reads pictures, the request
-            // may use the cloud, and the picture is within the size limit. It is wiped either way.
+            // may use the cloud, and the picture is within the size limit. The attachment and the
+            // clone are wiped on every path, including a missing key or a missing transport.
             byte[] jpeg = null;
-            if (request.Image != null)
-            {
-                var image = request.Image;
-                request.Image = null;
-                string refusal = null;
-                if (request.BlockCloud)
-                    refusal = VisionCapability.PrivateRefusal;
-                else if (!VisionCapability.CloudModelAcceptsImages(model))
-                    refusal = VisionCapability.ModelRefusal;
-                else if (!VisionCapability.AcceptsPayload(image))
-                    refusal = VisionCapability.PayloadRefusal;
-                if (refusal != null)
-                {
-                    image.Wipe();
-                    return ChatResult.Fail(ChatErrorKind.Malformed, refusal);
-                }
-
-                jpeg = (byte[])image.JpegBytes.Clone();
-                image.Wipe();
-            }
-
-            var key = ReadKey();
-            if (string.IsNullOrWhiteSpace(key))
-                return ChatResult.Fail(ChatErrorKind.MissingApiKey, ChatErrors.MissingApiKey);
-            if (_config.Transport == null)
-                return ChatResult.Fail(ChatErrorKind.Unreachable, ChatErrors.Unreachable(DisplayName));
-
+            string key;
             string requestBody;
             try
             {
+                if (request.Image != null)
+                {
+                    var image = request.Image;
+                    request.Image = null;
+                    string refusal = null;
+                    if (request.BlockCloud)
+                        refusal = VisionCapability.PrivateRefusal;
+                    else if (!VisionCapability.CloudModelAcceptsImages(model))
+                        refusal = VisionCapability.ModelRefusal;
+                    else if (!VisionCapability.AcceptsPayload(image))
+                        refusal = VisionCapability.PayloadRefusal;
+                    if (refusal != null)
+                    {
+                        image.Wipe();
+                        return ChatResult.Fail(ChatErrorKind.Malformed, refusal);
+                    }
+
+                    jpeg = (byte[])image.JpegBytes.Clone();
+                    image.Wipe();
+                }
+
+                key = ReadKey();
+                if (string.IsNullOrWhiteSpace(key))
+                    return ChatResult.Fail(ChatErrorKind.MissingApiKey, ChatErrors.MissingApiKey);
+                if (_config.Transport == null)
+                    return ChatResult.Fail(ChatErrorKind.Unreachable, ChatErrors.Unreachable(DisplayName));
+
                 requestBody = BuildBody(model, request, _config.Stream, jpeg);
             }
             finally
             {
-                if (jpeg != null)
-                    Array.Clear(jpeg, 0, jpeg.Length);
+                ReleaseJpeg(jpeg);
             }
 
             var http = new ChatHttpRequest
@@ -304,6 +311,15 @@ namespace AICompanion.AI
         string ReadKey()
         {
             return _config.ApiKey != null ? _config.ApiKey() : null;
+        }
+
+        /// <summary>Zeros the cloned JPEG. The test hook runs only after the bytes are gone.</summary>
+        void ReleaseJpeg(byte[] jpeg)
+        {
+            if (jpeg != null && jpeg.Length > 0)
+                Array.Clear(jpeg, 0, jpeg.Length);
+            if (jpeg != null && _config.ImageReleased != null)
+                _config.ImageReleased(jpeg);
         }
 
         static void Append(StringBuilder sb, string chunk)
