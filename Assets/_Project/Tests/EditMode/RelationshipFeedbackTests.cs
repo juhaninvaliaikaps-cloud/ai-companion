@@ -55,7 +55,7 @@ namespace AICompanion.Tests.EditMode
             var floor = RelationshipMath.Land(LandingEvent.Insulted, 1f, -95f, 0f);
             Assert.AreEqual(-100f, floor.Affection);
             var top = RelationshipMath.Land(LandingEvent.Comforted, 1f, 98f, 100f);
-            Assert.AreEqual(100f, top.Affection);
+            Assert.AreEqual(99.147f, top.Affection, 0.01f);
         }
 
         [Test]

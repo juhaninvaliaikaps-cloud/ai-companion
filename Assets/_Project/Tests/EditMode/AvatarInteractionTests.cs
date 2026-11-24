@@ -8,9 +8,9 @@ namespace AICompanion.Tests.EditMode
     public sealed class AvatarInteractionTests
     {
         [Test]
-        public void Catalog_HasAllTwentyThreeActions()
+        public void Catalog_HasAllTwentyFiveActions()
         {
-            Assert.AreEqual(23, AvatarInteractionCatalog.All.Count);
+            Assert.AreEqual(25, AvatarInteractionCatalog.All.Count);
             Assert.IsNotNull(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.PatHead));
             Assert.IsNotNull(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.StrokeHair));
             Assert.IsNotNull(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.CupCheek));
@@ -43,12 +43,78 @@ namespace AICompanion.Tests.EditMode
             Assert.IsFalse(AvatarInteractionCatalog.IsHold(AvatarInteractionCatalog.Kiss));
             var breast = AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchBreast);
             Assert.IsNotNull(breast);
-            Assert.IsTrue(breast.Adult);
+            Assert.IsFalse(breast.Adult);
             Assert.IsFalse(string.IsNullOrWhiteSpace(breast.Signal));
             Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchVagina).Adult);
-            Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchButt).Adult);
+            Assert.IsFalse(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchButt).Adult);
             Assert.IsFalse(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.TouchButt).BackOnly);
             Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.FingerMouth).Adult);
+            Assert.IsTrue(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.ButtSlap).Adult);
+            Assert.IsFalse(AvatarInteractionCatalog.Find(AvatarInteractionCatalog.MakeOut).Adult);
+        }
+
+        [Test]
+        public void MakeOut_IsAvailableOutsideTheAdultGate()
+        {
+            IntimateExpressions.Reset();
+            try
+            {
+                Assert.AreEqual(AvatarInteractionCatalog.MakeOut,
+                    AdultSceneIntent.Detect("They make out on the couch."));
+                Assert.AreEqual(AvatarInteractionCatalog.Kiss,
+                    AdultSceneIntent.Detect("He leans in and kisses her."));
+                Assert.AreEqual(AvatarInteractionCatalog.TouchBreast,
+                    AdultSceneIntent.Detect("He cups her breast."));
+                Assert.AreEqual(AvatarInteractionCatalog.TouchButt,
+                    AdultSceneIntent.Detect("He grabs her butt."));
+                Assert.IsFalse(AdultSceneIntent.Detect("She gives him a blowjob.").Length > 0);
+            }
+            finally
+            {
+                IntimateExpressions.Reset();
+            }
+        }
+
+        [Test]
+        public void MakingOut_IsNotTriggeredByMentionOrWish()
+        {
+            IntimateExpressions.Reset();
+            try
+            {
+                Assert.AreEqual(string.Empty, AdultSceneIntent.Detect("I mentioned making out but didn't initiate it."));
+                Assert.AreEqual(string.Empty, AdultSceneIntent.Detect("I want to make out with you."));
+                Assert.AreEqual(string.Empty, AdultSceneIntent.Detect("Making out sounds nice."));
+                Assert.AreEqual(AvatarInteractionCatalog.MakeOut, AdultSceneIntent.Detect("I make out with you."));
+            }
+            finally
+            {
+                IntimateExpressions.Reset();
+            }
+        }
+
+        [Test]
+        public void SexPositions_TriggerFromActualDescription_NotFromMention()
+        {
+            IntimateExpressions.Configure(true, true, true);
+            try
+            {
+                Assert.AreEqual(AvatarInteractionCatalog.LapdanceBehind,
+                    AdultSceneIntent.Detect("I fuck her from behind."));
+                Assert.AreEqual(AvatarInteractionCatalog.LapdanceBehind,
+                    AdultSceneIntent.Detect("I am fucking her in the ass."));
+                Assert.AreEqual(AvatarInteractionCatalog.LapdanceBehind,
+                    AdultSceneIntent.Detect("He takes her doggystyle."));
+                Assert.AreEqual(AvatarInteractionCatalog.LapdanceFacing,
+                    AdultSceneIntent.Detect("She rides me in cowgirl."));
+                Assert.AreEqual(AvatarInteractionCatalog.LapdanceFacing,
+                    AdultSceneIntent.Detect("I penetrate her in missionary."));
+                Assert.AreEqual(string.Empty, AdultSceneIntent.Detect("I mention doggystyle."));
+                Assert.AreEqual(string.Empty, AdultSceneIntent.Detect("I want to have sex with you."));
+            }
+            finally
+            {
+                IntimateExpressions.Reset();
+            }
         }
 
         [Test]

@@ -100,6 +100,38 @@ namespace AICompanion.Settings
             get { return _state.Found.FoundCount; }
         }
 
+        /// <summary>Kinks plus sensitive spots; the shy-to-do group does not raise the ceilings.</summary>
+        public int KinkSensitiveTotal
+        {
+            get
+            {
+                var items = _state.Items();
+                var n = 0;
+                for (var i = 0; i < items.Count; i++)
+                {
+                    if (items[i].Group == IntimateSecretGroup.Kink || items[i].Group == IntimateSecretGroup.Sensitive)
+                        n++;
+                }
+                return n;
+            }
+        }
+
+        public int KinkSensitiveFound
+        {
+            get
+            {
+                var items = _state.Items();
+                var n = 0;
+                for (var i = 0; i < items.Count; i++)
+                {
+                    if ((items[i].Group == IntimateSecretGroup.Kink || items[i].Group == IntimateSecretGroup.Sensitive)
+                        && _state.Found.IsFound(items[i].Key))
+                        n++;
+                }
+                return n;
+            }
+        }
+
         /// <summary>The "Read again" button. Only while the gate is open.</summary>
         public void ReadAgain()
         {

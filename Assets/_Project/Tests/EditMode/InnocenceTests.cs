@@ -61,6 +61,17 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void KinkMoment_MovesHerMoreThanAnOrdinaryMoment()
+        {
+            var normal = InnocenceMath.AfterMoment(20f, 0.5f);
+            var sensitive = InnocenceMath.AfterMoment(20f, 0.5f, InnocenceMath.SensitiveMomentBoost);
+            var kink = InnocenceMath.AfterMoment(20f, 0.5f, InnocenceMath.KinkMomentBoost);
+            Assert.Greater(sensitive, normal);
+            Assert.Greater(kink, sensitive);
+            Assert.LessOrEqual(kink, InnocenceMath.Max);
+        }
+
+        [Test]
         public void DriftBack_WaitsTwoDays_ThenHalvesTheGainEveryTwoWeeks_NeverBelowTheBaseline()
         {
             Assert.AreEqual(60f, InnocenceMath.DriftBack(60f, 20f, 1d), 0.001f, "nothing fades within the grace days");
@@ -314,7 +325,9 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(request.BlockCloud);
             Assert.IsTrue(request.NoMemory);
             Assert.AreEqual(InnocenceReader.TimeoutSeconds, request.TimeoutSeconds);
-            StringAssert.Contains("age", request.SystemPrompt);
+            StringAssert.Contains("65%", request.SystemPrompt);
+            StringAssert.Contains("35%", request.SystemPrompt);
+            StringAssert.Contains("18-19", request.SystemPrompt);
             StringAssert.Contains("Aino is a shy 19-year-old", request.Messages[0].Content);
         }
 

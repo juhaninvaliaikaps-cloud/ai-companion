@@ -28,6 +28,8 @@ namespace AICompanion.Settings
         const string KneelingFingerFile = "happi_kneeling_finger_loop_60s.mp4";
         const string LyingFingerFile = "happi_lying_finger_loop_60s.mp4";
         const string OnTopFingerFile = "happi_ontop_finger_loop_60s.mp4";
+        const string LapdanceFacingFile = "happi_lapdance_facing_loop_60s.mp4";
+        const string LapdanceBehindFile = "happi_lapdance_loop_60s.mp4";
         const string FingerSuckFile = "fingersuckloop60s.mp4";
         const float NativeSize = 544f;
         const float MaxPanelSize = 1088f;
@@ -126,6 +128,7 @@ namespace AICompanion.Settings
                 || id == "blowjob"
                 || id == "lying_kiss" || id == "lying_make_out" || id == "lying_make_out_2"
                 || id == "blowjob_kneeling" || id == "blowjob_lying" || id == "blowjob_ontop"
+                || id == "lapdance_facing" || id == "lapdance_behind"
                 || id == "blowjob" || id == "finger_suck_loop";
         }
 
@@ -145,11 +148,24 @@ namespace AICompanion.Settings
             get { return _panel != null && _panel.activeSelf ? _interactive : new Rect(0f, 0f, 0f, 0f); }
         }
 
+        public static bool IsPublicCue(string name)
+        {
+            var id = Normalize(name);
+            return id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop"
+                || id == "kiss" || id == "kiss_pov"
+                || id == "touch_breast" || id == "breast_touch" || id == "breast_touch_clip_v3"
+                || id == "touch_breast_loop" || id == "breast_touch_loop"
+                || id == "touch_butt" || id == "butt_touch" || id == "butt_squeeze"
+                || id == "butt_squeeze_clip_v3" || id == "touch_butt_loop" || id == "butt_squeeze_loop";
+        }
+
         public static void Play(string cue)
         {
-            if (!IntimateExpressions.Active || !IsAdultCue(cue))
+            if (!IsAdultCue(cue))
                 return;
             var key = Normalize(cue);
+            if (!IntimateExpressions.Active && !IsPublicCue(key))
+                return;
             var host = FindFirstObjectByType<SettingsPanel>();
             if (host == null)
                 return;
@@ -230,7 +246,7 @@ namespace AICompanion.Settings
         void Update()
         {
             FollowOverlayCamera();
-            if (!IntimateExpressions.Active)
+            if (!IntimateExpressions.Active && !IsPublicCue(_cue))
             {
                 Hide();
                 return;
@@ -283,6 +299,10 @@ namespace AICompanion.Settings
                 return LyingFingerFile;
             if (id == "blowjob_ontop")
                 return OnTopFingerFile;
+            if (id == "lapdance_facing")
+                return LapdanceFacingFile;
+            if (id == "lapdance_behind")
+                return LapdanceBehindFile;
             if (id == "finger_suck_loop")
                 return FingerSuckFile;
             return string.Empty;
@@ -296,6 +316,7 @@ namespace AICompanion.Settings
                 || id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop"
                 || id == "lying_make_out" || id == "lying_make_out_2"
                 || id == "blowjob_kneeling" || id == "blowjob_lying" || id == "blowjob_ontop"
+                || id == "lapdance_facing" || id == "lapdance_behind"
                 || id == "blowjob" || id == "finger_suck_loop";
         }
 

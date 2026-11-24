@@ -10,7 +10,7 @@ namespace AICompanion.Core
     /// </summary>
     public static class RelationshipPrompt
     {
-        public static string AffectionPhrase(float affection)
+        public static string AffectionPhrase(float affection, bool loveUnlocked = true)
         {
             affection = RelationshipMath.ClampAffection(affection);
             if (affection <= -60f)
@@ -21,7 +21,11 @@ namespace AICompanion.Core
                 return "you have no strong feelings about them yet";
             if (affection < 60f)
                 return "you like them";
-            return "you adore them";
+            if (affection < 80f)
+                return "you adore them";
+            if (affection < 95f)
+                return loveUnlocked ? "you are in love with them" : "you adore them, but you are holding something back";
+            return loveUnlocked ? "you are deeply in love with them" : "you adore them, but you are holding something back";
         }
 
         public static string FamiliarityPhrase(float familiarity)
@@ -42,7 +46,8 @@ namespace AICompanion.Core
         /// The ids in brackets are her secrets (JUH-123): the model names the one a message hit
         /// with <c>secret="t1"</c>. All of them are listed, up to five per list.
         /// </summary>
-        public static string Line(SheetRelationship sheet, SheetLanding landing, float affection, float familiarity)
+        public static string Line(SheetRelationship sheet, SheetLanding landing, float affection, float familiarity,
+            bool loveUnlocked = true)
         {
             var sb = new StringBuilder(200);
             sb.Append("Your relationship with the user: ");
@@ -53,13 +58,19 @@ namespace AICompanion.Core
                 sb.Append(label).Append(" (").Append(roleWord).Append(')');
             else
                 sb.Append(roleWord);
-            sb.Append("; ").Append(AffectionPhrase(affection));
+            sb.Append("; ").Append(AffectionPhrase(affection, loveUnlocked));
             sb.Append("; ").Append(FamiliarityPhrase(familiarity)).Append('.');
 
             if (RelationshipMath.ClampAffection(affection) <= -20f)
                 sb.Append(" Bicker and push back in your own way, but this is love-hate between two people who choose to be here, never fear.");
             else if (RelationshipMath.ClampFamiliarity(familiarity) < 10f)
                 sb.Append(" Be a little guarded; trust is earned.");
+            else if (RelationshipMath.ClampAffection(affection) >= 80f)
+            {
+                sb.Append(loveUnlocked
+                    ? " You are in love with them. Choose them openly when it fits, initiate warmth, show them your vulnerable side, and forgive ordinary mistakes. Stay your own person: love is not possession, obsession or a reason to drop your boundaries."
+                    : " You adore them, but you have not let yourself fully fall for them yet. Something about them is still undiscovered; stay warm, but keep that one piece of yourself held back.");
+            }
 
             var secrets = HerSecrets.From(landing);
             HerSecrets.AppendPromptList(sb, " Touchy about: ", secrets, SecretGroup.Stings);

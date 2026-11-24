@@ -57,10 +57,20 @@ namespace AICompanion.Settings
             get { return _state.Desire; }
         }
 
-        /// <summary>The libido she runs on: the user's setting, else the reading, else 50.</summary>
+        /// <summary>
+        /// The libido she runs on: the user's setting, else the reading, else 50. JUH-190 adds
+        /// up to +50 when she is the user's partner or affection is near 90+.
+        /// </summary>
         public float Libido
         {
-            get { return _state.Libido(ReadLibido()); }
+            get
+            {
+                var value = _state.Libido(ReadLibido());
+                var relationship = GetComponent<RelationshipKeeper>();
+                return relationship == null
+                    ? value
+                    : DesireMath.RelationshipLibido(value, relationship.AffectionNow, relationship.IsPartner);
+            }
         }
 
         /// <summary>The reading's libido, or -1 when there is none yet.</summary>

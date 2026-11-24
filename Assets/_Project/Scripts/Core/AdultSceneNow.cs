@@ -42,6 +42,10 @@ namespace AICompanion.Core
                 return BeginScene("you are lying down, giving him a blowjob", fallback);
             if (id == AvatarInteractionCatalog.BlowjobOnTop)
                 return BeginScene("you are on top of him, giving him a blowjob", fallback);
+            if (id == AvatarInteractionCatalog.LapdanceFacing)
+                return BeginScene("you are on top of him, riding him facing him", fallback);
+            if (id == AvatarInteractionCatalog.LapdanceBehind)
+                return BeginScene("he is fucking you from behind", fallback);
 
             if (id == AvatarInteractionCatalog.TouchBreast || id == AvatarInteractionCatalog.TouchBreastLoop)
             {
