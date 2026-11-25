@@ -53,9 +53,11 @@ namespace AICompanion.Overlay
         bool _handDrag;
         bool _handLeading;
         bool _handPulling;
+        bool _handLeadRight;
         Vector2 _handStart;
         Vector2 _handFollow;
         Vector2Int _handWindowStart;
+        Vector2Int _handCursorStart;
         IHandLeadTarget _handLead;
         bool _rotating;
         bool _leftWasHeld;
@@ -880,6 +882,8 @@ namespace AICompanion.Overlay
                     _handWindowStart = start;
                     _handFollow = start;
                 }
+                if (_chrome != null)
+                    _chrome.TryGetScreenCursor(out _handCursorStart);
             }
 
             if (!_handDrag)
@@ -908,7 +912,8 @@ namespace AICompanion.Overlay
                     && Mathf.Abs(delta.y) >= Mathf.Abs(delta.x) * 1.15f;
                 if (sideways)
                 {
-                    hand.BeginHandLead(delta.x > 0f);
+                    _handLeadRight = delta.x > 0f;
+                    hand.BeginHandLead(_handLeadRight);
                     _handLeading = true;
                 }
                 else if (towardUser)
@@ -917,12 +922,22 @@ namespace AICompanion.Overlay
                     _handPulling = true;
                 }
             }
+            else if (_handLeading)
+            {
+                var right = delta.x > 0f;
+                if (right != _handLeadRight)
+                {
+                    _handLeadRight = right;
+                    hand.ChangeHandLeadDirection(right);
+                }
+            }
 
             if (_handLeading && _chrome != null && _chrome.TryGetScreenCursor(out var cursor))
             {
                 // Slight lag: the window catches up instead of snapping to the cursor.
-                var target = new Vector2(_handWindowStart.x, _handWindowStart.y) + (cursor - _handStart);
-                _handFollow = Vector2.Lerp(_handFollow, target, 1f - Mathf.Exp(-Time.unscaledDeltaTime / 0.12f));
+                var target = new Vector2(_handWindowStart.x, _handWindowStart.y)
+                    + new Vector2(cursor.x - _handCursorStart.x, cursor.y - _handCursorStart.y);
+                _handFollow = Vector2.Lerp(_handFollow, target, 1f - Mathf.Exp(-Time.unscaledDeltaTime / 0.04f));
                 _chrome.MoveWindow(Vector2Int.RoundToInt(_handFollow), EffectiveTopmost);
             }
 
