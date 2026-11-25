@@ -155,7 +155,9 @@ namespace AICompanion.AI
             var sb = new StringBuilder(512);
             sb.Append("{\"model\":");
             JsonText.AppendString(sb, model ?? ChatDefaults.LocalModel);
-            sb.Append(",\"stream\":true,\"messages\":[");
+            // Qwen 3.5 turns reasoning on by default. In a companion chat that would put
+            // "Thinking Process:" before her line, so keep local replies in the answer mode.
+            sb.Append(",\"stream\":true,\"think\":false,\"messages\":[");
             var first = true;
             if (!string.IsNullOrWhiteSpace(systemPrompt))
             {

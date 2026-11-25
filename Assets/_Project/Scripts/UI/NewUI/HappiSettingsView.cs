@@ -1057,7 +1057,8 @@ namespace AICompanion.NewUI
         void BuildLocalOllama(bool test)
         {
             Section("Local Ollama");
-            Field("Local model", S.LocalModel, false, v => Change(s => s.LocalModel = v));
+            Dropdown("Local model", S.LocalModel, LocalModelCatalog.Choices(S.LocalModel),
+                v => v, v => Change(s => s.LocalModel = v));
             Field("Local address", S.LocalBaseUrl, false, v => Change(s => s.LocalBaseUrl = v));
             Note("Default: Ollama at http://127.0.0.1:11434/v1. Nothing leaves this PC.");
             if (test)

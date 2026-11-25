@@ -46,6 +46,7 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("Hello", result.Text);
             CollectionAssert.AreEqual(new[] { "Hel", "lo" }, deltas);
             Assert.AreEqual("http://127.0.0.1:11434/api/chat", transport.Last.Url);
+            StringAssert.Contains("\"think\":false", transport.Last.Body);
             StringAssert.Contains("\"num_ctx\":8192", transport.Last.Body);
             StringAssert.Contains("\"role\":\"system\"", transport.Last.Body);
             StringAssert.Contains("\"content\":\"persona\"", transport.Last.Body);
