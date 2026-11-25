@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using AICompanion.Core;
 using AICompanion.Settings;
 using NUnit.Framework;
 using UnityEngine;
@@ -79,6 +80,61 @@ namespace AICompanion.Tests.EditMode
         static void WalkLeft(VideoAvatarDirector director)
         {
             director.SetMovement(true, false, false, false);
+        }
+
+        const string TransitionManifest = @"{
+            ""clips"": [
+                { ""name"": ""idle"", ""role"": ""idle"", ""color"": ""idle.sbs.mp4"" },
+                { ""name"": ""walk"", ""role"": ""walk"", ""color"": ""walk.sbs.mp4"", ""facing"": ""left"" },
+                { ""name"": ""idle_to_walk"", ""role"": ""transition"", ""color"": ""idle_to_walk.sbs.mp4"", ""playback"": ""once"" },
+                { ""name"": ""turn_around_back"", ""role"": ""reaction"", ""color"": ""turn_around_back.sbs.mp4"", ""playback"": ""once"", ""after"": ""back_idle"" },
+                { ""name"": ""back_idle"", ""role"": ""reaction"", ""color"": ""back_idle.sbs.mp4"", ""playback"": ""loop"" },
+                { ""name"": ""back_to_front"", ""role"": ""transition"", ""color"": ""back_to_front.sbs.mp4"", ""playback"": ""once"" }
+            ]
+        }";
+
+        static VideoAvatarClipSet TransitionSet()
+        {
+            return VideoAvatarManifest.Resolve(TransitionManifest, Files(
+                "idle.sbs.mp4", "walk.sbs.mp4", "idle_to_walk.sbs.mp4",
+                "turn_around_back.sbs.mp4", "back_idle.sbs.mp4", "back_to_front.sbs.mp4"));
+        }
+
+        [Test]
+        public void Director_IdleToWalk_PlaysTheJoinBeforeTheWalkLoop()
+        {
+            var set = TransitionSet();
+            var director = new VideoAvatarDirector(set, 1);
+
+            director.SetMovement(true, false, false, false);
+
+            Assert.AreEqual(VideoAvatarAct.Transition, director.Act);
+            Assert.AreEqual("idle_to_walk", set.Clips[director.Clip].Name);
+
+            director.OnEnded();
+
+            Assert.AreEqual(VideoAvatarAct.Walk, director.Act);
+        }
+
+        [Test]
+        public void Director_BackToFront_PlaysTheJoinBeforeTheIdle()
+        {
+            var set = TransitionSet();
+            var director = new VideoAvatarDirector(set, 1);
+            Assert.AreEqual(AvatarReactionResult.Started, director.Request("turn_around_back", true));
+            director.OnQueuedReady();
+            Assert.AreEqual(VideoAvatarAct.Reaction, director.Act);
+            director.OnEnded();
+            Assert.AreEqual(VideoAvatarAct.Pose, director.Act);
+
+            director.RequestFront();
+
+            Assert.AreEqual(VideoAvatarAct.Transition, director.Act);
+            Assert.AreEqual("back_to_front", set.Clips[director.Clip].Name);
+
+            director.OnEnded();
+
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
         }
 
         static void Stand(VideoAvatarDirector director)
