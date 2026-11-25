@@ -36,6 +36,9 @@ namespace AICompanion.Settings
 
         /// <summary>JUH-194: a hand-hold, pull or lead clip, driven by the hand controller.</summary>
         Hand = 8,
+
+        /// <summary>JUH-195: a sit, lie, get-up or stand-up clip, driven by the ground controller.</summary>
+        Ground = 9,
     }
 
     /// <summary>
@@ -204,6 +207,24 @@ namespace AICompanion.Settings
             CancelQueuedReactions();
             Enter(VideoAvatarAct.Hand, clip, mirrored);
             return true;
+        }
+
+        /// <summary>JUH-195: start a ground clip. The ground controller owns the chaining.</summary>
+        public bool PlayGround(string name)
+        {
+            var clip = _set.FindClip(name);
+            if (clip < 0 || !Usable(clip))
+                return false;
+            CancelQueuedReactions();
+            Enter(VideoAvatarAct.Ground, clip, false);
+            return true;
+        }
+
+        /// <summary>Leaves a ground clip and returns to the default idle.</summary>
+        public void EndGround()
+        {
+            if (Act == VideoAvatarAct.Ground)
+                EnterIdle();
         }
 
         /// <summary>Leaves a hand clip and returns to the default idle.</summary>
@@ -450,6 +471,11 @@ namespace AICompanion.Settings
             {
                 // The hand controller decides the next clip; hold the last frame
                 // instead of flashing the default idle between joins.
+            }
+            else if (Act == VideoAvatarAct.Ground)
+            {
+                // The ground controller decides the next clip and holds a lying
+                // last frame until get_up is requested.
             }
             else if (Act == VideoAvatarAct.WalkStop)
                 Rest();

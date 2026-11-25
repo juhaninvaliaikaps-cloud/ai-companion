@@ -107,6 +107,22 @@ namespace AICompanion.Settings
         bool _handStopPending;
         float _handSpeed = 1f;
 
+        enum GroundFlow
+        {
+            None = 0,
+            SittingDown = 1,
+            Sitting = 2,
+            LyingDown = 3,
+            Lying = 4,
+            GettingUp = 5,
+            StandingUp = 6,
+        }
+
+        GroundFlow _groundFlow;
+        bool _groundAutoLie;
+        bool _groundAutoStand;
+        float _groundWaitUntil;
+
         public bool IsHandHeld
         {
             get { return _handFlow != HandFlow.None; }
@@ -213,6 +229,8 @@ namespace AICompanion.Settings
                 return false;
 
             var id = interactionId == null ? string.Empty : interactionId.Trim().ToLowerInvariant();
+            if (IsGroundCue(id))
+                return RequestGround(id) == AvatarReactionResult.Started;
             if (TryReaction(id))
                 return true;
 
@@ -405,6 +423,131 @@ namespace AICompanion.Settings
             }
         }
 
+        static bool IsGroundCue(string id)
+        {
+            return id == "sit_down" || id == "lie_down" || id == "get_up" || id == "stand_up";
+        }
+
+        /// <summary>
+        /// JUH-195: the sit/lie chain. Lying always goes through sit_down first; getting
+        /// up reverses the lie clip, returns to sit, then stands.
+        /// </summary>
+        AvatarReactionResult RequestGround(string id)
+        {
+            if (_state != VideoAvatarState.Playing || _director == null)
+                return AvatarReactionResult.Refused;
+
+            switch (id)
+            {
+                case "sit_down":
+                    return StartSit(false) ? AvatarReactionResult.Started : AvatarReactionResult.Refused;
+                case "lie_down":
+                    if (_groundFlow == GroundFlow.Lying || _groundFlow == GroundFlow.LyingDown)
+                        return AvatarReactionResult.Started;
+                    if (_groundFlow == GroundFlow.Sitting)
+                        return StartLie() ? AvatarReactionResult.Started : AvatarReactionResult.Refused;
+                    return StartSit(true) ? AvatarReactionResult.Started : AvatarReactionResult.Refused;
+                case "get_up":
+                    return _groundFlow == GroundFlow.Lying && StartGetUp()
+                        ? AvatarReactionResult.Started
+                        : AvatarReactionResult.Refused;
+                case "stand_up":
+                    return _groundFlow == GroundFlow.Sitting && StartStand()
+                        ? AvatarReactionResult.Started
+                        : AvatarReactionResult.Refused;
+                default:
+                    return AvatarReactionResult.Refused;
+            }
+        }
+
+        bool StartSit(bool autoLie)
+        {
+            if (_director == null || !_director.PlayGround("sit_down"))
+                return false;
+            _groundFlow = GroundFlow.SittingDown;
+            _groundAutoLie = autoLie;
+            _groundAutoStand = false;
+            Debug.Log("Ground: sit" + (autoLie ? " before lie" : string.Empty));
+            return true;
+        }
+
+        bool StartLie()
+        {
+            if (_director == null || !_director.PlayGround("lie_down"))
+                return false;
+            _groundFlow = GroundFlow.LyingDown;
+            _groundAutoLie = false;
+            _groundAutoStand = false;
+            Debug.Log("Ground: lie");
+            return true;
+        }
+
+        bool StartGetUp()
+        {
+            if (_director == null || !_director.PlayGround("get_up"))
+                return false;
+            _groundFlow = GroundFlow.GettingUp;
+            _groundAutoLie = false;
+            _groundAutoStand = true;
+            Debug.Log("Ground: get up");
+            return true;
+        }
+
+        bool StartStand()
+        {
+            if (_director == null || !_director.PlayGround("stand_up"))
+                return false;
+            _groundFlow = GroundFlow.StandingUp;
+            _groundAutoLie = false;
+            _groundAutoStand = false;
+            Debug.Log("Ground: stand");
+            return true;
+        }
+
+        void AdvanceGround()
+        {
+            if (_director == null)
+                return;
+            switch (_groundFlow)
+            {
+                case GroundFlow.SittingDown:
+                    _groundFlow = GroundFlow.Sitting;
+                    _director.PlayGround("sit_look");
+                    _groundWaitUntil = Time.unscaledTime + 0.6f;
+                    break;
+                case GroundFlow.LyingDown:
+                    // Hold the lying last frame until get_up.
+                    _groundFlow = GroundFlow.Lying;
+                    break;
+                case GroundFlow.GettingUp:
+                    _groundFlow = GroundFlow.Sitting;
+                    _director.PlayGround("sit_look");
+                    _groundWaitUntil = Time.unscaledTime + 0.6f;
+                    break;
+                case GroundFlow.StandingUp:
+                    _groundFlow = GroundFlow.None;
+                    _groundAutoStand = false;
+                    _director.EndGround();
+                    break;
+            }
+        }
+
+        void TickGround()
+        {
+            if (_groundFlow != GroundFlow.Sitting || Time.unscaledTime < _groundWaitUntil)
+                return;
+            if (_groundAutoLie)
+            {
+                _groundAutoLie = false;
+                StartLie();
+            }
+            else if (_groundAutoStand)
+            {
+                _groundAutoStand = false;
+                StartStand();
+            }
+        }
+
         bool TryReaction(string name)
         {
             if (_state != VideoAvatarState.Playing || _director == null || string.IsNullOrEmpty(name))
@@ -437,6 +580,10 @@ namespace AICompanion.Settings
 
             if (_director == null || _state != VideoAvatarState.Playing)
                 return AvatarReactionResult.Refused;
+
+            if (IsGroundCue(name))
+                return RequestGround(name);
+
             var result = _director.Request(name, true);
             if (result == AvatarReactionResult.Waiting
                 && IntimateExpressions.Undressed
@@ -738,6 +885,8 @@ namespace AICompanion.Settings
                 {
                     if (_director.Act == VideoAvatarAct.Hand)
                         AdvanceHand();
+                    else if (_director.Act == VideoAvatarAct.Ground)
+                        AdvanceGround();
                     else
                         _director.OnEnded();
                 }
@@ -747,6 +896,9 @@ namespace AICompanion.Settings
             if (_state != VideoAvatarState.Playing)
                 return;
 
+            if (_director.Act != VideoAvatarAct.Ground && _groundFlow != GroundFlow.None)
+                _groundFlow = GroundFlow.None;
+            TickGround();
             ApplyHandSpeed();
             RefreshPicture();
             ApplyClipSound(settings);

@@ -225,7 +225,14 @@ namespace AICompanion.Core
                 case "lie_down":
                 case "laydown":
                 case "lay_down":
-                    return "lying_down";
+                    return "lie_down";
+                case "getup":
+                case "get_up":
+                    return "get_up";
+                case "stand":
+                case "standup":
+                case "stand_up":
+                    return "stand_up";
                 default:
                     return token;
             }
