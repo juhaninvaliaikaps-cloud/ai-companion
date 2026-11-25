@@ -325,6 +325,18 @@ namespace AICompanion.Settings
             }
         }
 
+        /// <summary>Sideways drag reversed while already leading: mirror the turn or walk in place.</summary>
+        public void ChangeHandLeadDirection(bool right)
+        {
+            if ((_handFlow != HandFlow.Turn && _handFlow != HandFlow.Walk && _handFlow != HandFlow.TurnBack)
+                || _handRight == right)
+                return;
+            _handRight = right;
+            if (_director != null)
+                _director.SetHandMirror(right);
+            Debug.Log("Hand: lead direction " + (right ? "right" : "left"));
+        }
+
         /// <summary>Lead ended: side-on back to the front hold.</summary>
         public void EndHandLead()
         {

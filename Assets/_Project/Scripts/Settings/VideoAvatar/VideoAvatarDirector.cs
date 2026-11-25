@@ -213,6 +213,13 @@ namespace AICompanion.Settings
                 EnterIdle();
         }
 
+        /// <summary>JUH-194: flip the current side clip without restarting it.</summary>
+        public void SetHandMirror(bool mirrored)
+        {
+            if (Act == VideoAvatarAct.Hand)
+                Mirrored = mirrored;
+        }
+
         /// <summary>Index of the waiting reaction, or -1. For tests and the log.</summary>
         public int PendingReaction
         {

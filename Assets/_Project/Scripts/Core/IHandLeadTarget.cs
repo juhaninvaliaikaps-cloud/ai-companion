@@ -19,6 +19,9 @@ namespace AICompanion.Core
         /// <summary>Held hand dragged sideways enough to lead her. True is rightward travel.</summary>
         void BeginHandLead(bool right);
 
+        /// <summary>The drag reversed while she was already being led; flip the walk/turn direction.</summary>
+        void ChangeHandLeadDirection(bool right);
+
         /// <summary>The sideways lead ended; turn back to the front hold.</summary>
         void EndHandLead();
     }
