@@ -458,13 +458,12 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void Director_AfterAVariation_AnotherIdleAnimationFollows()
+        public void Director_AfterAVariation_TheDefaultIdleReturnsAndTheDelayStartsAgain()
         {
             var set = Set();
             var director = new VideoAvatarDirector(set, 1);
             director.Tick(1.5f);
             director.OnBoundary(true);
-            var first = director.Clip;
 
             // A loop point of the variation itself must not start another one.
             director.Tick(5f);
@@ -473,10 +472,10 @@ namespace AICompanion.Tests.EditMode
 
             director.OnEnded();
 
-            Assert.AreEqual(VideoAvatarAct.Variation, director.Act);
-            Assert.Contains(director.Clip, set.Variations);
-            Assert.AreNotEqual(first, director.Clip);
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+            Assert.AreEqual(set.Idle, director.Clip);
             Assert.AreEqual(-1, director.Queued);
+            Assert.Greater(director.UntilVariation, 0f);
         }
 
         [Test]
