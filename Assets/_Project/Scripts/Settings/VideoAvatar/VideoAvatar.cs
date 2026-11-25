@@ -105,6 +105,7 @@ namespace AICompanion.Settings
         HandFlow _handFlow;
         bool _handRight;
         bool _handStopPending;
+        float _handSpeed = 1f;
 
         public bool IsHandHeld
         {
@@ -335,6 +336,20 @@ namespace AICompanion.Settings
             if (_director != null)
                 _director.SetHandMirror(right);
             Debug.Log("Hand: lead direction " + (right ? "right" : "left"));
+        }
+
+        /// <summary>Scale the side-walk playback from cursor speed.</summary>
+        public void SetHandLeadSpeed(float speed)
+        {
+            _handSpeed = Mathf.Clamp(speed, 0.6f, 2.5f);
+        }
+
+        /// <summary>Only the walking hand clip follows the cursor speed; turns stay authored.</summary>
+        void ApplyHandSpeed()
+        {
+            if (_players == null || _shown < 0 || _shown >= _players.Length || _players[_shown] == null)
+                return;
+            _players[_shown].SetPlaybackSpeed(_handFlow == HandFlow.Walk ? _handSpeed : 1f);
         }
 
         /// <summary>Lead ended: side-on back to the front hold.</summary>
@@ -732,6 +747,7 @@ namespace AICompanion.Settings
             if (_state != VideoAvatarState.Playing)
                 return;
 
+            ApplyHandSpeed();
             RefreshPicture();
             ApplyClipSound(settings);
             ReportSync(delta);

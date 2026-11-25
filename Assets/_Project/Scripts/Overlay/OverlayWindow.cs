@@ -58,6 +58,8 @@ namespace AICompanion.Overlay
         Vector2 _handFollow;
         Vector2Int _handWindowStart;
         Vector2Int _handCursorStart;
+        Vector2Int _handLastCursor;
+        float _handSpeedSample;
         IHandLeadTarget _handLead;
         bool _rotating;
         bool _leftWasHeld;
@@ -884,6 +886,8 @@ namespace AICompanion.Overlay
                 }
                 if (_chrome != null)
                     _chrome.TryGetScreenCursor(out _handCursorStart);
+                _handLastCursor = _handCursorStart;
+                _handSpeedSample = Time.unscaledTime;
             }
 
             if (!_handDrag)
@@ -895,6 +899,7 @@ namespace AICompanion.Overlay
                     hand.EndHandLead();
                 if (_handPulling)
                     hand.EndHandPull();
+                hand.SetHandLeadSpeed(1f);
                 if (_handLeading)
                     RememberAnchor();
                 _handDrag = false;
@@ -934,6 +939,14 @@ namespace AICompanion.Overlay
 
             if (_handLeading && _chrome != null && _chrome.TryGetScreenCursor(out var cursor))
             {
+                // Speed the walk with the cursor, not with the distance already covered.
+                var now = Time.unscaledTime;
+                var dt = Mathf.Max(0.001f, now - _handSpeedSample);
+                var velocity = (cursor - _handLastCursor).magnitude / dt;
+                _handLastCursor = cursor;
+                _handSpeedSample = now;
+                hand.SetHandLeadSpeed(Mathf.Clamp(velocity / 650f, 0.75f, 2.2f));
+
                 // Slight lag: the window catches up instead of snapping to the cursor.
                 var target = new Vector2(_handWindowStart.x, _handWindowStart.y)
                     + new Vector2(cursor.x - _handCursorStart.x, cursor.y - _handCursorStart.y);
