@@ -214,6 +214,18 @@ namespace AICompanion.Core
                 case "anxious":
                 case "upset":
                     return "concerned";
+                case "sit":
+                case "sitting":
+                case "sitdown":
+                case "sit_down":
+                    return "sit_down";
+                case "lie":
+                case "lying":
+                case "liedown":
+                case "lie_down":
+                case "laydown":
+                case "lay_down":
+                    return "lying_down";
                 default:
                     return token;
             }
