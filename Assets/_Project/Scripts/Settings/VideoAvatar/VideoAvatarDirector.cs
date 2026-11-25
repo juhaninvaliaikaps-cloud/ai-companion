@@ -33,6 +33,9 @@ namespace AICompanion.Settings
         /// There is no clip back to the front, so that is a cut.
         /// </summary>
         Pose = 7,
+
+        /// <summary>JUH-194: a hand-hold, pull or lead clip, driven by the hand controller.</summary>
+        Hand = 8,
     }
 
     /// <summary>
@@ -187,6 +190,27 @@ namespace AICompanion.Settings
             _pendingLeft = PendingSeconds;
             _pendingAge = 0f;
             return AvatarReactionResult.Waiting;
+        }
+
+        /// <summary>
+        /// JUH-194: start a hand clip now. The hand controller owns the sequencing and
+        /// calls this again when the current once clip ends.
+        /// </summary>
+        public bool PlayHand(string name, bool mirrored)
+        {
+            var clip = _set.FindClip(name);
+            if (clip < 0 || !Usable(clip))
+                return false;
+            CancelQueuedReactions();
+            Enter(VideoAvatarAct.Hand, clip, mirrored);
+            return true;
+        }
+
+        /// <summary>Leaves a hand clip and returns to the default idle.</summary>
+        public void EndHand()
+        {
+            if (Act == VideoAvatarAct.Hand)
+                EnterIdle();
         }
 
         /// <summary>Index of the waiting reaction, or -1. For tests and the log.</summary>
@@ -413,6 +437,11 @@ namespace AICompanion.Settings
             {
                 // A pose clip that was not set to loop ends here.
                 EnterIdle();
+            }
+            else if (Act == VideoAvatarAct.Hand)
+            {
+                // The hand controller decides the next clip; hold the last frame
+                // instead of flashing the default idle between joins.
             }
             else if (Act == VideoAvatarAct.WalkStop)
                 Rest();
