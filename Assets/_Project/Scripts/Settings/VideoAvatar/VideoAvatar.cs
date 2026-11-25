@@ -100,6 +100,7 @@ namespace AICompanion.Settings
             Turn = 4,
             Walk = 5,
             TurnBack = 6,
+            Reach = 7,
         }
 
         HandFlow _handFlow;
@@ -287,6 +288,14 @@ namespace AICompanion.Settings
         {
             if (_state != VideoAvatarState.Playing || _director == null || _set == null)
                 return false;
+            if (_director.PlayHand("hold_hand_reach", false))
+            {
+                _handFlow = HandFlow.Reach;
+                _handRight = false;
+                _handStopPending = false;
+                Debug.Log("Hand: reach");
+                return true;
+            }
             if (!_director.PlayHand("hand_hold", false))
                 return false;
             _handFlow = HandFlow.Hold;
@@ -395,6 +404,10 @@ namespace AICompanion.Settings
                 return;
             switch (_handFlow)
             {
+                case HandFlow.Reach:
+                    _handFlow = HandFlow.Hold;
+                    _director.PlayHand("hand_hold", false);
+                    break;
                 case HandFlow.Pull:
                     _handFlow = HandFlow.Settle;
                     _director.PlayHand("hand_pull_settle", false);
