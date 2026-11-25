@@ -117,6 +117,25 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void Director_BackPoseEndsWithTheBackToFrontJoin()
+        {
+            var set = TransitionSet();
+            var director = new VideoAvatarDirector(set, 1);
+            Assert.AreEqual(AvatarReactionResult.Started, director.Request("turn_around_back", true));
+            director.OnQueuedReady();
+            director.OnEnded();
+            Assert.AreEqual(VideoAvatarAct.Pose, director.Act);
+
+            director.Tick(13f);
+            director.OnBoundary(true);
+
+            Assert.AreEqual(VideoAvatarAct.Transition, director.Act);
+            Assert.AreEqual("back_to_front", set.Clips[director.Clip].Name);
+            director.OnEnded();
+            Assert.AreEqual(VideoAvatarAct.Idle, director.Act);
+        }
+
+        [Test]
         public void Director_BackToFront_PlaysTheJoinBeforeTheIdle()
         {
             var set = TransitionSet();

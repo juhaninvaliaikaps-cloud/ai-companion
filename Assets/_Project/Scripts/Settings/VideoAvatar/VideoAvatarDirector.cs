@@ -380,6 +380,8 @@ namespace AICompanion.Settings
             // The pose was held long enough: face front at its loop point.
             if (Act == VideoAvatarAct.Pose && _poseLeft <= 0f)
             {
+                if (PlayTransition("back_to_front", false))
+                    return;
                 EnterIdle();
                 return;
             }
