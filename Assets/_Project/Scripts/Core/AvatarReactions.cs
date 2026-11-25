@@ -219,6 +219,17 @@ namespace AICompanion.Core
                 case "sitdown":
                 case "sit_down":
                     return "sit_down";
+                case "sit_to_screen":
+                case "sitscreen":
+                case "sit_screen":
+                    return "sit_to_screen";
+                case "sit_look_screen":
+                case "sitlookscreen":
+                    return "sit_look_screen";
+                case "sit_to_user":
+                case "sittouser":
+                case "sit_user":
+                    return "sit_to_user";
                 case "lie":
                 case "lying":
                 case "liedown":

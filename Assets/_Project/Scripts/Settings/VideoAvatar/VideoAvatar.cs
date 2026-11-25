@@ -117,6 +117,9 @@ namespace AICompanion.Settings
             Lying = 4,
             GettingUp = 5,
             StandingUp = 6,
+            SittingScreen = 7,
+            SittingScreenTurn = 8,
+            SittingUserTurn = 9,
         }
 
         GroundFlow _groundFlow;
@@ -438,7 +441,8 @@ namespace AICompanion.Settings
 
         static bool IsGroundCue(string id)
         {
-            return id == "sit_down" || id == "lie_down" || id == "get_up" || id == "stand_up";
+            return id == "sit_down" || id == "lie_down" || id == "get_up" || id == "stand_up"
+                || id == "sit_to_screen" || id == "sit_look_screen" || id == "sit_to_user";
         }
 
         /// <summary>
@@ -465,7 +469,22 @@ namespace AICompanion.Settings
                         ? AvatarReactionResult.Started
                         : AvatarReactionResult.Refused;
                 case "stand_up":
-                    return _groundFlow == GroundFlow.Sitting && StartStand()
+                    if (_groundFlow == GroundFlow.Sitting)
+                        return StartStand() ? AvatarReactionResult.Started : AvatarReactionResult.Refused;
+                    if (_groundFlow == GroundFlow.SittingScreen)
+                        return StartSitUser(true) ? AvatarReactionResult.Started : AvatarReactionResult.Refused;
+                    return AvatarReactionResult.Refused;
+                case "sit_to_screen":
+                    return _groundFlow == GroundFlow.Sitting && StartSitScreen()
+                        ? AvatarReactionResult.Started
+                        : AvatarReactionResult.Refused;
+                case "sit_look_screen":
+                    return (_groundFlow == GroundFlow.Sitting || _groundFlow == GroundFlow.SittingScreen)
+                        && PlayScreenSit()
+                        ? AvatarReactionResult.Started
+                        : AvatarReactionResult.Refused;
+                case "sit_to_user":
+                    return _groundFlow == GroundFlow.SittingScreen && StartSitUser(false)
                         ? AvatarReactionResult.Started
                         : AvatarReactionResult.Refused;
                 default:
@@ -517,6 +536,50 @@ namespace AICompanion.Settings
             return true;
         }
 
+        bool StartSitScreen()
+        {
+            if (_director == null)
+                return false;
+            if (_director.PlayGround("sit_to_screen"))
+            {
+                _groundFlow = GroundFlow.SittingScreenTurn;
+                Debug.Log("Ground: sit to screen");
+                return true;
+            }
+            return PlayScreenSit();
+        }
+
+        bool PlayScreenSit()
+        {
+            if (_director == null || !_director.PlayGround("sit_look_screen"))
+                return false;
+            _groundFlow = GroundFlow.SittingScreen;
+            _groundAutoLie = false;
+            _groundAutoStand = false;
+            Debug.Log("Ground: sit screen");
+            return true;
+        }
+
+        bool StartSitUser(bool standAfter)
+        {
+            if (_director == null)
+                return false;
+            if (_director.PlayGround("sit_to_user"))
+            {
+                _groundFlow = GroundFlow.SittingUserTurn;
+                _groundAutoStand = standAfter;
+                Debug.Log("Ground: sit to user");
+                return true;
+            }
+            if (!_director.PlayGround("sit_look"))
+                return false;
+            _groundFlow = GroundFlow.Sitting;
+            _groundWaitUntil = Time.unscaledTime + 0.6f;
+            _groundAutoStand = standAfter;
+            Debug.Log("Ground: sit user");
+            return true;
+        }
+
         void AdvanceGround()
         {
             if (_director == null)
@@ -541,6 +604,15 @@ namespace AICompanion.Settings
                     _groundFlow = GroundFlow.None;
                     _groundAutoStand = false;
                     _director.EndGround();
+                    break;
+                case GroundFlow.SittingScreenTurn:
+                    _groundFlow = GroundFlow.SittingScreen;
+                    _director.PlayGround("sit_look_screen");
+                    break;
+                case GroundFlow.SittingUserTurn:
+                    _groundFlow = GroundFlow.Sitting;
+                    _director.PlayGround("sit_look");
+                    _groundWaitUntil = Time.unscaledTime + 0.6f;
                     break;
             }
         }
