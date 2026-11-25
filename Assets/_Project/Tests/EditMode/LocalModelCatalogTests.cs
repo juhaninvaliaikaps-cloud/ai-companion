@@ -36,12 +36,14 @@ namespace AICompanion.Tests.EditMode
             Manifest("registry.ollama.ai/library/dolphin3/8b");
             Manifest("registry.ollama.ai/library/mistral-nemo/12b");
             Manifest("hf.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive/Q4_K_M");
+            Manifest("ollama.com/library/happi-qwen35-9b/latest");
 
             var models = LocalModelCatalog.FromManifestFolder(_root);
 
             CollectionAssert.Contains(models, "dolphin3:8b");
             CollectionAssert.Contains(models, "mistral-nemo:12b");
             CollectionAssert.Contains(models, "hf.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive:Q4_K_M");
+            CollectionAssert.Contains(models, "happi-qwen35-9b:latest");
         }
 
         [Test]

@@ -14,7 +14,10 @@ namespace AICompanion.Settings
         /// <summary>Installed model names, sorted, without duplicates.</summary>
         public static List<string> Installed()
         {
-            return Scan(ManifestRoot());
+            var names = Scan(Path.Combine(ModelsRoot(), "manifests-v2"));
+            Merge(names, Scan(Path.Combine(ModelsRoot(), "manifests")));
+            names.Sort(StringComparer.OrdinalIgnoreCase);
+            return names;
         }
 
         /// <summary>Reads a manifest folder directly. Used by the settings dropdown and its test.</summary>
@@ -26,7 +29,9 @@ namespace AICompanion.Settings
         /// <summary>The installed models plus the current value, so an existing setting is never hidden.</summary>
         public static List<string> Choices(string current)
         {
-            return ChoicesFromFolder(ManifestRoot(), current);
+            var choices = Installed();
+            Add(choices, current);
+            return choices;
         }
 
         /// <summary>Choices from an explicit manifest folder. Used by tests.</summary>
@@ -37,13 +42,12 @@ namespace AICompanion.Settings
             return choices;
         }
 
-        static string ManifestRoot()
+        static string ModelsRoot()
         {
             var configured = Environment.GetEnvironmentVariable("OLLAMA_MODELS");
-            var root = string.IsNullOrWhiteSpace(configured)
+            return string.IsNullOrWhiteSpace(configured)
                 ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ollama", "models")
                 : configured.Trim();
-            return Path.Combine(root, "manifests");
         }
 
         static List<string> Scan(string root)
@@ -62,8 +66,10 @@ namespace AICompanion.Settings
                         continue;
 
                     // registry.ollama.ai/library/llama3.2/3b -> llama3.2:3b
+                    // Ollama 0.40 also stores the same layout under ollama.com/library.
                     if (parts.Length >= 4
-                        && string.Equals(parts[0], "registry.ollama.ai", StringComparison.OrdinalIgnoreCase)
+                        && (string.Equals(parts[0], "registry.ollama.ai", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(parts[0], "ollama.com", StringComparison.OrdinalIgnoreCase))
                         && string.Equals(parts[1], "library", StringComparison.OrdinalIgnoreCase))
                     {
                         Add(names, parts[2] + ":" + parts[3]);
@@ -99,13 +105,19 @@ namespace AICompanion.Settings
             if (string.IsNullOrWhiteSpace(name))
                 return;
             var value = name.Trim();
-            for (var i = 0; i < names.Count; i++)
+            foreach (var existing in names)
             {
-                if (string.Equals(names[i], value, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(existing, value, StringComparison.OrdinalIgnoreCase))
                     return;
             }
 
             names.Add(value);
+        }
+
+        static void Merge(List<string> into, List<string> from)
+        {
+            for (var i = 0; i < from.Count; i++)
+                Add(into, from[i]);
         }
     }
 }
