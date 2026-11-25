@@ -440,7 +440,13 @@ namespace AICompanion.Settings
 
                 EnterIdle();
             }
-            else if (Act == VideoAvatarAct.Variation || Act == VideoAvatarAct.Pose)
+            else if (Act == VideoAvatarAct.Variation)
+            {
+                // Treat the idle animations as one shuffled pool: another one follows
+                // instead of dropping back to the default idle between them.
+                EnterNextVariation();
+            }
+            else if (Act == VideoAvatarAct.Pose)
             {
                 // A pose clip that was not set to loop ends here.
                 EnterIdle();
@@ -581,6 +587,26 @@ namespace AICompanion.Settings
             }
 
             return false;
+        }
+
+        /// <summary>After one idle animation ends, play another one from the shuffled pool.</summary>
+        void EnterNextVariation()
+        {
+            if (!HasVariation() || _set.Variations.Count <= 1)
+            {
+                EnterIdle();
+                return;
+            }
+
+            var next = PickVariation();
+            if (next < 0 || next == _lastVariation)
+            {
+                EnterIdle();
+                return;
+            }
+
+            _lastVariation = next;
+            Enter(VideoAvatarAct.Variation, next, false);
         }
 
         /// <summary>A weighted pick that does not repeat the last variation when there is another one.</summary>
