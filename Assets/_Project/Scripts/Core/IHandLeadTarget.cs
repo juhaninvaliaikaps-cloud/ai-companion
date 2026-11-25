@@ -22,6 +22,9 @@ namespace AICompanion.Core
         /// <summary>The drag reversed while she was already being led; flip the walk/turn direction.</summary>
         void ChangeHandLeadDirection(bool right);
 
+        /// <summary>Scale the hand-walk playback speed from cursor speed. 1 is normal.</summary>
+        void SetHandLeadSpeed(float speed);
+
         /// <summary>The sideways lead ended; turn back to the front hold.</summary>
         void EndHandLead();
     }

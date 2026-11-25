@@ -42,6 +42,7 @@ namespace AICompanion.Settings
         float _sinceBegin;
         float _resyncIn;
         float _maskSpeed = 1f;
+        float _playbackSpeed = 1f;
         readonly VideoSyncCounter _sync = new VideoSyncCounter();
         AudioSource _audio;
 
@@ -56,6 +57,22 @@ namespace AICompanion.Settings
         {
             if (_audio != null && !Mathf.Approximately(_audio.volume, volume))
                 _audio.volume = volume;
+        }
+
+        /// <summary>
+        /// JUH-194: play this clip faster or slower. The mask follows, so a packed clip
+        /// stays in step. 1 is the authored speed.
+        /// </summary>
+        public void SetPlaybackSpeed(float speed)
+        {
+            speed = Mathf.Clamp(speed, 0.25f, 4f);
+            if (Mathf.Approximately(_playbackSpeed, speed))
+                return;
+            _playbackSpeed = speed;
+            if (_color != null && _color.canSetPlaybackSpeed)
+                _color.playbackSpeed = speed;
+            if (_mask != null && _mask.canSetPlaybackSpeed)
+                _mask.playbackSpeed = speed;
         }
 
         public VideoClipPlayer(VideoClipSpec spec)
@@ -213,9 +230,11 @@ namespace AICompanion.Settings
             _sinceBegin = 0f;
             _resyncIn = ResyncCooldownSeconds;
             _sync.Restart();
-            if (_mask != null && !Mathf.Approximately(_maskSpeed, 1f) && _mask.canSetPlaybackSpeed)
-                _mask.playbackSpeed = 1f;
-            _maskSpeed = 1f;
+            if (_color != null && _color.canSetPlaybackSpeed)
+                _color.playbackSpeed = _playbackSpeed;
+            if (_mask != null && _mask.canSetPlaybackSpeed)
+                _mask.playbackSpeed = _playbackSpeed;
+            _maskSpeed = _playbackSpeed;
             _color.Play();
             if (_mask != null)
                 _mask.Play();
@@ -379,7 +398,7 @@ namespace AICompanion.Settings
 
             // One frame off: nudge the mask's speed until the numbers match again.
             offset = VideoMaskSync.SignedOffset(frame, maskFrame, count);
-            var speed = VideoMaskSync.MaskSpeed(offset);
+            var speed = VideoMaskSync.MaskSpeed(offset) * _playbackSpeed;
             if (!Mathf.Approximately(speed, _maskSpeed) && _mask.canSetPlaybackSpeed)
             {
                 _maskSpeed = speed;
