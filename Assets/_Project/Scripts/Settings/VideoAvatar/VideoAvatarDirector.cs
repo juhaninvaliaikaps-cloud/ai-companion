@@ -33,6 +33,9 @@ namespace AICompanion.Settings
         /// There is no clip back to the front, so that is a cut.
         /// </summary>
         Pose = 7,
+
+        /// <summary>A one-shot join such as idle → walk or back → front.</summary>
+        Transition = 8,
     }
 
     /// <summary>
@@ -65,6 +68,7 @@ namespace AICompanion.Settings
         int _pendingClip = -1;
         bool _pendingExplicit;
         float _pendingLeft;
+        bool _transitionToWalk;
 
         /// <summary>Seconds a reaction asked for while she is busy waits for the default idle before it is dropped.</summary>
         public const float PendingSeconds = 5f;
@@ -394,6 +398,17 @@ namespace AICompanion.Settings
             }
         }
 
+        /// <summary>Starts a one-shot join such as idle→walk or back→front.</summary>
+        public bool PlayTransition(string name, bool toWalk)
+        {
+            var clip = _set.FindClip(name);
+            if (clip < 0 || !Usable(clip))
+                return false;
+            _transitionToWalk = toWalk;
+            Enter(VideoAvatarAct.Transition, clip, false);
+            return true;
+        }
+
         /// <summary>The showing play-once clip has reached its end.</summary>
         public void OnEnded()
         {
@@ -413,6 +428,13 @@ namespace AICompanion.Settings
             {
                 // A pose clip that was not set to loop ends here.
                 EnterIdle();
+            }
+            else if (Act == VideoAvatarAct.Transition)
+            {
+                if (_transitionToWalk && Usable(_set.Walk))
+                    Enter(VideoAvatarAct.Walk, _set.Walk, _facingRight != _set.Clips[_set.Walk].FacesRight);
+                else
+                    EnterIdle();
             }
             else if (Act == VideoAvatarAct.WalkStop)
                 Rest();
@@ -443,6 +465,10 @@ namespace AICompanion.Settings
                     return;
 
                 var mirrored = facingRight != _set.Clips[_set.Walk].FacesRight;
+                if (Act == VideoAvatarAct.Transition)
+                    return;
+                if (Act == VideoAvatarAct.Idle && PlayTransition("idle_to_walk", true))
+                    return;
                 if (Act != VideoAvatarAct.Walk)
                     Enter(VideoAvatarAct.Walk, _set.Walk, mirrored);
                 else
@@ -460,6 +486,8 @@ namespace AICompanion.Settings
         public void RequestFront()
         {
             if (Act == VideoAvatarAct.Walk || Act == VideoAvatarAct.Idle)
+                return;
+            if (Act == VideoAvatarAct.Pose && PlayTransition("back_to_front", false))
                 return;
             EnterIdle();
         }
