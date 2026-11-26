@@ -34,13 +34,15 @@ namespace AICompanion.NewUI
         Texture2D _profileArt;
         Texture2D _aiArt;
         HappiButton[] _destinations;
-        SettingsPage[] _pages;
+        enum Flyout { None, Profile, Ai }
+        Flyout _activeFlyout;
 
-        static readonly SettingsPage[] ProfilePages =
+        static readonly ProfilePanel.Tab[] ProfileTabs =
         {
-            SettingsPage.HerPersona, SettingsPage.HerPersonality, SettingsPage.HerMemories
+            ProfilePanel.Tab.Feelings, ProfilePanel.Tab.Personality,
+            ProfilePanel.Tab.World, ProfilePanel.Tab.Memories
         };
-        static readonly string[] ProfileLabels = { "Persona", "Personality", "Memories" };
+        static readonly string[] ProfileLabels = { "Feelings", "Personality", "Her world", "Memories" };
         static readonly SettingsPage[] AiPages =
         {
             SettingsPage.AiChat, SettingsPage.AiPrivate, SettingsPage.VoiceEngine,
@@ -79,8 +81,8 @@ namespace AICompanion.NewUI
             {
                 Button(_menu, "Mute", () => _chat.Presenter.ToggleMute()),
                 Button(_menu, "Look now", () => _settings.ScreenLook.LookNow()),
-                Button(_menu, "Profile  ›", () => ShowFlyout(ProfilePages)),
-                Button(_menu, "AI  ›", () => ShowFlyout(AiPages)),
+                Button(_menu, "Profile  ›", () => OpenProfile(ProfilePanel.Tab.Feelings)),
+                Button(_menu, "AI  ›", () => ShowFlyout(Flyout.Ai)),
                 Button(_menu, "Settings", () => { Close(); _settings.Open(); }),
                 Button(_menu, "Close", Close)
             };
@@ -115,23 +117,37 @@ namespace AICompanion.NewUI
             return button;
         }
 
+        void OpenProfile(ProfilePanel.Tab tab)
+        {
+            Close();
+            var wheel = GetComponent<HappiWheelHost>();
+            if (wheel != null)
+                wheel.OpenProfileFromRibbon(tab);
+        }
+
         void OpenDestination(int index)
         {
-            if (_pages == null || index >= _pages.Length)
+            if (_activeFlyout == Flyout.Profile && index < ProfileTabs.Length)
+            {
+                OpenProfile(ProfileTabs[index]);
                 return;
-            var page = _pages[index];
+            }
+
+            if (_activeFlyout != Flyout.Ai || index >= AiPages.Length)
+                return;
+            var page = AiPages[index];
             Close();
             var settingsView = GetComponent<HappiSettingsView>();
             if (settingsView != null)
                 settingsView.TryOpenPage(page);
         }
 
-        void ShowFlyout(SettingsPage[] pages)
+        void ShowFlyout(Flyout flyout)
         {
-            if (_pages == pages)
+            if (_activeFlyout == flyout)
                 return;
-            _pages = pages;
-            var profile = pages == ProfilePages;
+            _activeFlyout = flyout;
+            var profile = flyout == Flyout.Profile;
             var labels = profile ? ProfileLabels : AiLabels;
             _painting.texture = profile ? _profileArt : _aiArt;
             _painting.enabled = _painting.texture != null;
@@ -147,7 +163,7 @@ namespace AICompanion.NewUI
 
         void HideFlyout()
         {
-            _pages = null;
+            _activeFlyout = Flyout.None;
             _flyout.gameObject.SetActive(false);
         }
 
@@ -199,7 +215,7 @@ namespace AICompanion.NewUI
                 _rows[0].Label.text = muteLabel;
             _rows[1].Button.interactable = _settings.ScreenLook.Enabled;
             var overMain = _menuBounds.Contains(pointer);
-            var overFlyout = _pages != null && _flyoutBounds.Contains(pointer);
+            var overFlyout = _activeFlyout != Flyout.None && _flyoutBounds.Contains(pointer);
             if (overMain || overFlyout)
                 _closeAt = Time.unscaledTime + HoverGrace;
             else if (!overTrigger && Time.unscaledTime >= _closeAt)
@@ -213,12 +229,12 @@ namespace AICompanion.NewUI
                 var yInMenu = pointer.y - _menuBounds.y;
                 var row = Mathf.FloorToInt(yInMenu / (32f * scale));
                 if (row == 2 || row == 3)
-                    ShowFlyout(row == 2 ? ProfilePages : AiPages);
+                    ShowFlyout(row == 2 ? Flyout.Profile : Flyout.Ai);
                 else
                     HideFlyout();
             }
 
-            if (_pages != null)
+            if (_activeFlyout != Flyout.None)
                 PlaceFlyout(area, scale);
         }
 
@@ -251,9 +267,9 @@ namespace AICompanion.NewUI
             var left = _menuBounds.xMin - area.xMin;
             var openRight = right >= 275f * scale || right >= left;
             var width = Mathf.Min(275f * scale, Mathf.Max(1f, openRight ? right : left));
-            var height = (_pages.Length * 28f + 12f) * scale;
+            var count = _activeFlyout == Flyout.Profile ? ProfileTabs.Length : AiPages.Length;
             var x = openRight ? _menuBounds.xMax : _menuBounds.xMin - width;
-            var row = _pages == ProfilePages ? 2 : 3;
+            var row = _activeFlyout == Flyout.Profile ? 2 : 3;
             var y = Fit(_menuBounds.y + row * 32f * scale, Screen.height - area.yMax, Screen.height - area.yMin - height);
             _flyoutBounds = new Rect(x, y, width, height);
             HappiUiKit.Place(_flyout, x, y, width, height);
@@ -264,7 +280,7 @@ namespace AICompanion.NewUI
                 var artHeight = Mathf.Min(height, width / aspect);
                 HappiUiKit.Place(_painting.rectTransform, 0f, (height - artHeight) * 0.5f, width, artHeight);
             }
-            for (var i = 0; i < _pages.Length; i++)
+            for (var i = 0; i < count; i++)
                 HappiUiKit.Place(_destinations[i].Rect, 4f * scale, (6f + i * 28f) * scale,
                     Mathf.Max(1f, buttonWidth - 8f * scale), 25f * scale);
         }

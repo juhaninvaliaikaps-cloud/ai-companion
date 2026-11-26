@@ -305,9 +305,13 @@ namespace AICompanion.NewUI.Wheel
         {
             if (_profile.Visible)
             {
-                _profile.Hide();
-                if (_wheel != null)
+                if (_wheel == null)
+                    Close();
+                else
+                {
+                    _profile.Hide();
                     _wheel.Root.gameObject.SetActive(true);
+                }
                 return;
             }
 
@@ -535,6 +539,27 @@ namespace AICompanion.NewUI.Wheel
                 buttons.Add(new CardButton("Open settings", () => Do(OpenSettings)));
             buttons.Add(new CardButton("Back", Back));
             ShowCard("Pick a monitor", note, buttons);
+        }
+
+        internal void OpenProfileFromRibbon(ProfilePanel.Tab tab)
+        {
+            if (!_attached)
+                return;
+
+            Close();
+            _open = true;
+            _leftWas = LeftHeld();
+            _rightWas = RightHeld();
+            _pressed = NoPress;
+            _scale = _theme.UiScale(Screen.dpi);
+            var visibleArea = OverlayVisibleArea.Get(_window);
+            HappiUiKit.FollowCamera(_canvas, PlaneDistance);
+            _profile.Show(BuildProfileData, visibleArea.center, _scale,
+                new Vector2(Screen.width, Screen.height), tab);
+
+            var typing = GetComponent<ITypingFocus>();
+            if (typing != null)
+                typing.FocusForTyping();
         }
 
         void ShowProfile()
