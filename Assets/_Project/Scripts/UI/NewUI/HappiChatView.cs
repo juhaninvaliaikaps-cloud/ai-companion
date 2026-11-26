@@ -36,6 +36,8 @@ namespace AICompanion.NewUI
         RectTransform _ribbonHeaderBacking;
         HappiButton _ribbonHide;
         RibbonGlyph _ribbonHideIcon;
+        RectTransform _ribbonScrollThumb;
+        HappiButton _ribbonLatest;
         readonly List<(Image Card, Image Accent)> _ribbonHistoryCards = new();
 
         public const string ModePref = "happi.vn-mode";
@@ -341,6 +343,7 @@ namespace AICompanion.NewUI
             ApplyGlow(settings);
             RefreshHistory();
             MiddleScroll();
+            RefreshRibbonScrollControls();
             ShowResizeCursor();
             SyncFocus();
         }
@@ -1046,7 +1049,7 @@ namespace AICompanion.NewUI
             _historyScroll.movementType = ScrollRect.MovementType.Clamped;
             _historyScroll.scrollSensitivity = 24f;
             var viewport = HappiUiKit.Rect(_historyRoot, "Viewport");
-            HappiUiKit.Stretch(viewport, 6f, 6f, 6f, 6f);
+            HappiUiKit.Stretch(viewport, 6f, 6f, RibbonMenu.Enabled ? 11f : 6f, 6f);
             viewport.gameObject.AddComponent<RectMask2D>();
             _historyScroll.viewport = viewport;
             _historyContent = HappiUiKit.Rect(viewport, "Content");
@@ -1055,6 +1058,15 @@ namespace AICompanion.NewUI
             _historyContent.pivot = new Vector2(0.5f, 1f);
             _historyContent.sizeDelta = new Vector2(0f, 8f);
             _historyScroll.content = _historyContent;
+            if (RibbonMenu.Enabled)
+            {
+                _ribbonScrollThumb = HappiUiKit.Panel(_historyRoot, "History scroll position",
+                    new Color32(38, 230, 255, 180), false).rectTransform;
+                _ribbonScrollThumb.gameObject.SetActive(false);
+                _ribbonLatest = HappiUiKit.Button(_historyRoot, "Jump to latest", "Latest ↓", _theme.FontSmall, JumpToLatest);
+                StyleRibbonControl(_ribbonLatest, angled: true);
+                _ribbonLatest.SetVisible(false);
+            }
 
             _dialogueHit = HappiUiKit.Panel(_historyContent, "Dialogue", _theme.PanelInset, true);
             _dialogueHit.gameObject.AddComponent<RectMask2D>();
@@ -1688,12 +1700,15 @@ namespace AICompanion.NewUI
                 && _historyTexts.Count >= _transcript.Count)
                 return;
 
-            var atBottom = _historyScroll.verticalNormalizedPosition <= 0.01f;
+            var ribbon = _ribbonLatest != null;
+            var oldOverflow = RibbonHistoryOverflow();
+            var oldPosition = Mathf.Clamp01(_historyScroll.verticalNormalizedPosition);
+            var atBottom = ribbon ? oldOverflow * oldPosition <= 8f * _layoutScale : oldPosition <= 0.01f;
+            var scrollFromTop = oldOverflow * (1f - oldPosition);
             _historyWidth = width;
             _liveDirty = false;
             var count = _transcript.Count;
             var historySize = HistoryFontSize();
-            var ribbon = _ribbonVoiceIcon != null;
             var cardPadding = 8f * _layoutScale;
             var textWidth = Mathf.Max(1f, width - 4f - (ribbon ? 2f * cardPadding : 0f));
             while (_historyTexts.Count < count)
@@ -1789,14 +1804,63 @@ namespace AICompanion.NewUI
             }
 
             _historyContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(8f, y));
-            if (atBottom || widthChanged)
+            if (atBottom || (!ribbon && widthChanged))
                 _historyScroll.verticalNormalizedPosition = 0f;
+            else if (ribbon)
+            {
+                var newOverflow = RibbonHistoryOverflow();
+                if (newOverflow > 0f && !Mathf.Approximately(newOverflow, oldOverflow))
+                    _historyScroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(scrollFromTop / newOverflow);
+            }
         }
 
         /// <summary>
         /// JUH-127: middle-mouse drag scrolls the one conversation window. The wheel still
         /// scrolls normally through the ScrollRect.
         /// </summary>
+        float RibbonHistoryOverflow()
+        {
+            return Mathf.Max(0f, _historyContent.rect.height - _historyScroll.viewport.rect.height);
+        }
+
+        void RefreshRibbonScrollControls()
+        {
+            if (_ribbonLatest == null)
+                return;
+
+            var overflow = RibbonHistoryOverflow();
+            var hasHistoryToScroll = overflow > 1f;
+            _ribbonScrollThumb.gameObject.SetActive(hasHistoryToScroll);
+            var position = Mathf.Clamp01(_historyScroll.verticalNormalizedPosition);
+            _ribbonLatest.SetVisible(hasHistoryToScroll && overflow * position > 8f * _layoutScale);
+            if (!hasHistoryToScroll)
+                return;
+
+            var viewport = _historyScroll.viewport.rect;
+            var scale = _layoutScale;
+            var thumbHeight = Mathf.Min(viewport.height, Mathf.Max(14f * scale,
+                viewport.height * viewport.height / _historyContent.rect.height));
+            var thumbY = 6f + (viewport.height - thumbHeight) * (1f - position);
+            var thumbWidth = Mathf.Clamp(2f * scale, 2f, 4f);
+            HappiUiKit.Place(_ribbonScrollThumb, _historyRoot.rect.width - 6f - thumbWidth,
+                thumbY, thumbWidth, thumbHeight);
+            if (_ribbonLatest.Button.gameObject.activeSelf)
+            {
+                var width = Mathf.Min(82f * scale, _historyRoot.rect.width - 22f);
+                var height = Mathf.Min(22f * scale, viewport.height);
+                _ribbonLatest.Label.fontSize = _theme.FontSmall * scale;
+                HappiUiKit.Place(_ribbonLatest.Rect, _historyRoot.rect.width - width - 13f,
+                    _historyRoot.rect.height - height - 5f, width, height);
+            }
+        }
+
+        void JumpToLatest()
+        {
+            _historyScroll.StopMovement();
+            _historyScroll.verticalNormalizedPosition = 0f;
+            RefreshRibbonScrollControls();
+        }
+
         void MiddleScroll()
         {
             if (_historyRoot == null || _historyContent == null || _historyScroll == null)
