@@ -90,6 +90,32 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void PersonaBannerPrefersAboveAndShrinksToKeepTheHeaderClear()
+        {
+            var area = new Rect(40f, 20f, 1000f, 580f);
+            var header = new Rect(310f, 155f, 130f, 38f);
+            var (banner, opensUp) = RibbonMenuPlacement.PersonaBanner(area, header, new Vector2(900f, 192f), 112f);
+
+            Assert.That(opensUp, Is.True);
+            Assert.That(banner.yMin, Is.EqualTo(area.yMin));
+            Assert.That(banner.yMax, Is.EqualTo(header.yMin));
+            Assert.That(banner.xMax, Is.EqualTo(area.xMax));
+        }
+
+        [Test]
+        public void PersonaBannerOpensBelowTheEntireHeaderWhenThereIsTooLittleRoomAbove()
+        {
+            var area = new Rect(70f, 60f, 520f, 300f);
+            var header = new Rect(110f, 80f, 130f, 66f);
+            var (banner, opensUp) = RibbonMenuPlacement.PersonaBanner(area, header, new Vector2(900f, 192f), 112f);
+
+            Assert.That(opensUp, Is.False);
+            Assert.That(banner.yMin, Is.EqualTo(header.yMax));
+            Assert.That(banner.width, Is.EqualTo(area.width));
+            Assert.That(banner.yMax, Is.LessThanOrEqualTo(area.yMax));
+        }
+
+        [Test]
         public void IllustrationCropPreservesTheFocalPointInNarrowArtwork()
         {
             var uv = RibbonMenuPlacement.IllustrationUv(3f, 1.5f, 0.7f);

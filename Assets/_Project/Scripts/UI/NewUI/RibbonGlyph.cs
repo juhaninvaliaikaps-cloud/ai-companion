@@ -8,7 +8,7 @@ namespace AICompanion.NewUI
     [RequireComponent(typeof(CanvasRenderer))]
     sealed class RibbonGlyph : MaskableGraphic
     {
-        internal enum Mark { Menu, Door, Ink, Voice, Muted, Screen, Profile, Model, Settings, Close, Chevron, Lock, OpenLock, Minimize, ChevronUp, Check }
+        internal enum Mark { Menu, Door, Ink, Voice, Muted, Screen, Profile, Model, Settings, Close, Chevron, Lock, OpenLock, Minimize, ChevronUp, Check, ChevronDown }
         internal TMP_Text Label { get; set; }
         internal Mark Shape
         {
@@ -97,6 +97,10 @@ namespace AICompanion.NewUI
                 case Mark.ChevronUp:
                     Line(mesh, 0.18f, 0.35f, 0.50f, 0.67f);
                     Line(mesh, 0.50f, 0.67f, 0.82f, 0.35f);
+                    break;
+                case Mark.ChevronDown:
+                    Line(mesh, 0.18f, 0.67f, 0.50f, 0.35f);
+                    Line(mesh, 0.50f, 0.35f, 0.82f, 0.67f);
                     break;
                 case Mark.Check:
                     Line(mesh, 0.16f, 0.46f, 0.40f, 0.22f);

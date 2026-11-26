@@ -36,6 +36,7 @@ namespace AICompanion.NewUI
         RibbonGlyph _personaArrow;
         RibbonPersonaMenu _personaMenu;
         RibbonPersonaSession _personaSession;
+        TMP_InputField _personaReturnFocus;
         RectTransform _ribbonHeaderRule;
         RectTransform _ribbonHeaderBacking;
         RectTransform _ribbonHeaderDivider;
@@ -270,7 +271,7 @@ namespace AICompanion.NewUI
 
             _snapMarkers.Clear();
             _portraitMarkers.Clear();
-            _personaMenu?.Close();
+            ClosePersonaMenu();
             _personaMenu = null;
             _personaSession = null;
             if (_canvasObject != null)
@@ -321,7 +322,7 @@ namespace AICompanion.NewUI
                 _canvasObject.SetActive(visible);
             if (!visible)
             {
-                _personaMenu?.Close();
+                ClosePersonaMenu();
                 _wasVisible = false;
                 _dragging = false;
                 _resizing = false;
@@ -385,8 +386,8 @@ namespace AICompanion.NewUI
             }
             if (_personaMenu != null && _personaMenu.IsOpen)
             {
-                if (Input.GetKeyDown(KeyCode.Escape) && _personaMenu.Close())
-                    _personaTitle.Button.Select();
+                if (Input.GetKeyDown(KeyCode.Escape))
+                    ClosePersonaMenu(restoreFocus: true);
                 return;
             }
             if (_menuOpen && Input.GetKeyDown(KeyCode.Escape))
@@ -2171,7 +2172,7 @@ namespace AICompanion.NewUI
                 || !_personaSession.TryChange(_settings.CurrentSettings.PersonaId, _input.text, out var draft))
                 return false;
 
-            _personaMenu?.Close();
+            ClosePersonaMenu();
             _input.SetTextWithoutNotify(draft);
             _input.caretPosition = draft.Length;
             _shownRevision = -1;
@@ -2185,17 +2186,40 @@ namespace AICompanion.NewUI
                 return;
             if (_personaMenu.IsOpen)
             {
-                _personaMenu.Close();
+                ClosePersonaMenu(restoreFocus: true);
                 return;
             }
 
             SyncPersonaDraft();
             CloseChatMenu();
+            _personaReturnFocus = _input.isFocused ? _input : _keyInput.isFocused ? _keyInput : null;
             _input.DeactivateInputField();
+            _keyInput.DeactivateInputField();
             ReleaseFocus();
             GetComponent<ITypingFocus>()?.FocusForTyping();
             _personaMenu.Open(_personaSession.Choices(_settings.PersonaCards(), CompanionName()), PersonaSwitchBusy());
             PlacePersonaMenu();
+        }
+
+        void ClosePersonaMenu(bool restoreFocus = false)
+        {
+            var wasOpen = _personaMenu != null && _personaMenu.IsOpen;
+            var input = _personaReturnFocus;
+            _personaReturnFocus = null;
+            if (!wasOpen)
+                return;
+            _personaMenu.Close();
+            _personaArrow.Shape = RibbonGlyph.Mark.ChevronUp;
+            if (!restoreFocus)
+                return;
+
+            if (input != null && input.isActiveAndEnabled && input.interactable)
+            {
+                input.ActivateInputField();
+                input.Select();
+            }
+            else
+                _personaTitle.Button.Select();
         }
 
         void UpdatePersonaMenu()
@@ -2204,11 +2228,12 @@ namespace AICompanion.NewUI
                 return;
             if (Input.GetMouseButtonDown(0) && !Contains(_personaMenu.Viewport) && !Contains(_personaTitle.Rect))
             {
-                _personaMenu.Close();
+                ClosePersonaMenu();
                 return;
             }
             _personaMenu.SetBusy(PersonaSwitchBusy());
             PlacePersonaMenu();
+            _personaMenu.RefreshIndicators(_canvas.worldCamera, Input.mousePosition);
         }
 
         void PlacePersonaMenu()
@@ -2217,21 +2242,24 @@ namespace AICompanion.NewUI
             var area = new Rect(visible.xMin, Screen.height - visible.yMax, visible.width, visible.height);
             var left = _boxCenter.x - _boxSize.x * 0.5f;
             var top = Screen.height - (_boxCenter.y + _boxSize.y * 0.5f);
-            var title = _personaTitle.Rect.anchoredPosition;
-            _personaMenu.Place(area, new Vector2(left + title.x, top - title.y), Mathf.Max(0.5f, _layoutScale));
+            var title = _personaTitle.Rect;
+            var header = new Rect(left + title.anchoredPosition.x, top - title.anchoredPosition.y,
+                title.rect.width, _dragHandle.Rect.rect.height + title.anchoredPosition.y);
+            _personaMenu.Place(area, header, Mathf.Max(0.5f, _layoutScale));
+            _personaArrow.Shape = _personaMenu.OpensUp ? RibbonGlyph.Mark.ChevronUp : RibbonGlyph.Mark.ChevronDown;
         }
 
         void ChoosePersona(string id)
         {
             if (string.Equals(id, _settings.CurrentSettings?.PersonaId ?? string.Empty, StringComparison.OrdinalIgnoreCase))
             {
-                _personaMenu.Close();
+                ClosePersonaMenu(restoreFocus: true);
                 return;
             }
             if (PersonaSwitchBusy())
                 return;
 
-            _personaMenu.Close();
+            ClosePersonaMenu();
             _player.Begin();
             _settings.Personas.Choose(id);
             SyncPersonaDraft();
@@ -2240,7 +2268,7 @@ namespace AICompanion.NewUI
 
         void OpenPersonaStudio()
         {
-            _personaMenu.Close();
+            ClosePersonaMenu();
             var studio = GetComponent<PersonaStudioView>();
             if (studio != null)
                 studio.OpenNew();
@@ -2250,7 +2278,7 @@ namespace AICompanion.NewUI
 
         void OpenAllPersonas()
         {
-            _personaMenu.Close();
+            ClosePersonaMenu();
             var settingsView = GetComponent<HappiSettingsView>();
             if (settingsView == null || !settingsView.TryOpenPage(SettingsPage.HerPersona))
                 _settings.Open();
@@ -2259,12 +2287,12 @@ namespace AICompanion.NewUI
         void OnApplicationFocus(bool focused)
         {
             if (!focused)
-                _personaMenu?.Close();
+                ClosePersonaMenu();
         }
 
         void ToggleChatMenu()
         {
-            _personaMenu?.Close();
+            ClosePersonaMenu();
             _menuOpen = !_menuOpen;
             if (_chatMenu != null)
             {

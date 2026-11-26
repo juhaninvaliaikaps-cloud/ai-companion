@@ -109,5 +109,19 @@ namespace AICompanion.NewUI
 
             return (area, IllustrationUv(textureAspect, area.width / area.height, 0.55f, trim));
         }
+
+        public static (Rect Bounds, bool OpensUp) PersonaBanner(Rect area, Rect header, Vector2 preferred, float minAbove)
+        {
+            var top = Mathf.Clamp(header.yMin, area.yMin, area.yMax);
+            var bottom = Mathf.Clamp(header.yMax, area.yMin, area.yMax);
+            var above = top - area.yMin;
+            var below = area.yMax - bottom;
+            var opensUp = above >= Mathf.Min(preferred.y, minAbove) || above >= below;
+            var width = Mathf.Min(preferred.x, area.width);
+            var height = Mathf.Min(preferred.y, opensUp ? above : below);
+            var x = Mathf.Clamp(header.xMin, area.xMin, area.xMax - width);
+            var y = opensUp ? top - height : bottom;
+            return (new Rect(x, y, width, height), opensUp);
+        }
     }
 }
