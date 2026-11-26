@@ -2,65 +2,78 @@ using UnityEngine;
 
 namespace AICompanion.NewUI
 {
-    /// <summary>A single ink stamp beside a selected control. It can finish after the menu closes.</summary>
+    /// <summary>A full-button ink stamp drawn behind the selected label.</summary>
     sealed class RibbonClickAccent : MonoBehaviour
     {
-        const float Duration = 0.22f;
+        internal const float ReadableSeconds = 0.20f;
+        const float Duration = 0.28f;
         RibbonGlyph _ink;
+        HappiHoverText _hoverText;
+        Color _normalText;
+        Color _hoveredText;
         float _startedAt;
-        Vector2 _start;
 
         public static RibbonClickAccent Create(Transform layer)
         {
-            var glyph = RibbonGlyph.Add(layer, "Ribbon click ink", RibbonGlyph.Mark.Ink, RibbonMenu.Cyan);
+            var glyph = RibbonGlyph.Add(layer, "Ribbon click ink", RibbonGlyph.Mark.Ink,
+                new Color32(255, 119, 192, 255));
             var accent = glyph.gameObject.AddComponent<RibbonClickAccent>();
             accent._ink = glyph;
             accent.gameObject.SetActive(false);
             return accent;
         }
 
-        public void Play(RectTransform source)
+        public void Play(HappiButton source)
         {
-            if (!transform.parent.gameObject.activeInHierarchy)
-                return;
+            Stop();
+            _hoverText = source.Button.GetComponent<HappiHoverText>();
+            _normalText = _hoverText.Normal;
+            _hoveredText = _hoverText.Hover;
+            _hoverText.Normal = RibbonMenu.Ink;
+            _hoverText.Hover = RibbonMenu.Ink;
+            source.Label.color = RibbonMenu.Ink;
 
             var rect = _ink.rectTransform;
-            var button = source.rect;
-            var layer = (RectTransform)rect.parent;
-            var corner = layer.InverseTransformPoint(source.TransformPoint(new Vector3(button.xMax, button.yMax, 0f)));
-            var scale = Mathf.Clamp(button.height / 29f, 0.7f, 2f);
-            rect.anchorMin = rect.anchorMax = layer.pivot;
-            rect.pivot = new Vector2(0.5f, 0.3f);
-            rect.sizeDelta = new Vector2(27f, 18f) * scale;
-            _start = new Vector2(
-                Mathf.Clamp(corner.x - 7f * scale, layer.rect.xMin + 15f * scale, layer.rect.xMax - 15f * scale),
-                Mathf.Min(corner.y, layer.rect.yMax - 16f * scale));
-            rect.anchoredPosition = _start;
-            rect.localScale = Vector3.one * 0.8f;
+            rect.SetParent(source.Rect, false);
+            rect.SetAsFirstSibling();
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            HappiUiKit.Stretch(rect, -3f, -2f, -3f, -2f);
+            rect.localScale = Vector3.one;
             _startedAt = Time.unscaledTime;
-            rect.SetAsLastSibling();
             gameObject.SetActive(true);
             _ink.canvasRenderer.SetAlpha(1f);
         }
 
+        public void Stop()
+        {
+            if (gameObject.activeSelf)
+                gameObject.SetActive(false);
+        }
+
         void Update()
         {
-            var progress = (Time.unscaledTime - _startedAt) / Duration;
-            if (progress >= 1f)
+            var elapsed = Time.unscaledTime - _startedAt;
+            if (elapsed >= Duration)
             {
-                gameObject.SetActive(false);
+                Stop();
                 return;
             }
 
-            _ink.rectTransform.anchoredPosition = _start + new Vector2(2f, 6f) * progress;
-            _ink.rectTransform.localScale = Vector3.one * Mathf.Lerp(0.8f, 1.15f, progress);
-            _ink.canvasRenderer.SetAlpha(1f - progress * progress);
+            var fade = Mathf.InverseLerp(ReadableSeconds, Duration, elapsed);
+            _ink.canvasRenderer.SetAlpha(Mathf.Lerp(1f, 0.8f, fade));
+            _ink.rectTransform.localScale = new Vector3(1f + 0.035f * fade, 1f + 0.10f * fade, 1f);
         }
 
         void OnDisable()
         {
-            // Hiding chat mid-stamp must not replay the effect when chat opens again.
-            _startedAt = float.NegativeInfinity;
+            if (_hoverText == null)
+                return;
+
+            _hoverText.Normal = _normalText;
+            _hoverText.Hover = _hoveredText;
+            _hoverText.Label.color = _normalText;
+            _hoverText = null;
+            _ink.canvasRenderer.SetAlpha(0f);
         }
     }
 }

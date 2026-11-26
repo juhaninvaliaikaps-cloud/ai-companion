@@ -31,6 +31,8 @@ namespace AICompanion.NewUI
         RectTransform _roomPreview;
         RectTransform _roomHint;
         RibbonClickAccent _clickAccent;
+        Action _pendingSelection;
+        float _selectionReadyAt;
         HappiButton[] _rows;
         RectTransform _menu;
         RectTransform _flyout;
@@ -145,9 +147,17 @@ namespace AICompanion.NewUI
             var button = HappiUiKit.Button(parent, label, label, 15f, null);
             button.Button.onClick.AddListener(() =>
             {
-                if (showAccent)
-                    _clickAccent.Play(button.Rect);
-                action();
+                if (_pendingSelection != null)
+                    return;
+                if (!showAccent)
+                {
+                    action();
+                    return;
+                }
+
+                _clickAccent.Play(button);
+                _pendingSelection = action;
+                _selectionReadyAt = Time.unscaledTime + RibbonClickAccent.ReadableSeconds;
             });
             RibbonShape.Apply(button.Image, true);
             var colors = button.Button.colors;
@@ -214,6 +224,8 @@ namespace AICompanion.NewUI
 
         void Close()
         {
+            _pendingSelection = null;
+            _clickAccent.Stop();
             _closedOverTrigger = true;
             _menu.gameObject.SetActive(false);
             HideFlyout();
@@ -238,6 +250,20 @@ namespace AICompanion.NewUI
             var area = OverlayVisibleArea.Get(_window);
             var scale = HappiTheme.Current.UiScale(Screen.dpi);
             Place(head, area, scale);
+
+            // Keep the selected row and its flyout on screen until the stamp has registered.
+            if (_pendingSelection != null)
+            {
+                if (_activeFlyout != Flyout.None)
+                    PlaceFlyout(area, scale);
+                if (Time.unscaledTime < _selectionReadyAt)
+                    return;
+
+                var selected = _pendingSelection;
+                _pendingSelection = null;
+                selected();
+                return;
+            }
             var pointer = (Vector2)Input.mousePosition;
             if (_cursor != null && _cursor.TryGetUnityScreenCursor(out var x, out var y))
                 pointer = new Vector2(x, y);

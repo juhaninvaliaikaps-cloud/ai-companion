@@ -40,9 +40,7 @@ namespace AICompanion.NewUI
                     Line(mesh, 0.72f, 0.49f, 0.76f, 0.49f);
                     break;
                 case Mark.Ink:
-                    Shard(mesh, 0.04f, 0.09f, 0.90f, 0.83f, 0.46f, 0.65f);
-                    Shard(mesh, 0.39f, 0.09f, 0.99f, 0.47f, 0.75f, 0.49f);
-                    Shard(mesh, 0.16f, 0.48f, 0.43f, 0.99f, 0.29f, 0.94f);
+                    Stamp(mesh);
                     break;
             }
         }
@@ -59,20 +57,44 @@ namespace AICompanion.NewUI
             mesh.AddTriangle(index, index + 2, index + 3);
         }
 
-        void Shard(VertexHelper mesh, float x0, float y0, float x1, float y1, float x2, float y2)
+        void Stamp(VertexHelper mesh)
+        {
+            // Broad pink paint holds the label, with irregular yellow marks at the edges.
+            Vertex(mesh, 0.00f, 0.08f);
+            Vertex(mesh, 0.05f, 0.55f);
+            Vertex(mesh, 0.02f, 0.77f);
+            Vertex(mesh, 0.15f, 0.98f);
+            Vertex(mesh, 0.87f, 0.89f);
+            Vertex(mesh, 1.00f, 0.96f);
+            Vertex(mesh, 0.97f, 0.62f);
+            Vertex(mesh, 1.00f, 0.42f);
+            Vertex(mesh, 0.93f, 0.08f);
+            Vertex(mesh, 0.12f, 0.14f);
+            for (var i = 1; i <= 8; i++)
+                mesh.AddTriangle(0, i, i + 1);
+
+            Color32 yellow = new Color32(255, 215, 59, 255);
+            Shard(mesh, yellow, 0.01f, 0.14f, 0.34f, 0.22f, 0.08f, 0.43f);
+            Shard(mesh, yellow, 0.72f, 0.77f, 1.02f, 1.03f, 0.91f, 0.75f);
+            Shard(mesh, yellow, 0.80f, 0.12f, 0.95f, 0.04f, 1.02f, 0.18f);
+        }
+
+        void Shard(VertexHelper mesh, Color32 ink, float x0, float y0, float x1, float y1, float x2, float y2)
         {
             var index = mesh.currentVertCount;
-            Vertex(mesh, x0, y0);
-            Vertex(mesh, x1, y1);
-            Vertex(mesh, x2, y2);
+            Vertex(mesh, x0, y0, ink);
+            Vertex(mesh, x1, y1, ink);
+            Vertex(mesh, x2, y2, ink);
             mesh.AddTriangle(index, index + 1, index + 2);
         }
 
-        void Vertex(VertexHelper mesh, float x, float y)
+        void Vertex(VertexHelper mesh, float x, float y) => Vertex(mesh, x, y, color);
+
+        void Vertex(VertexHelper mesh, float x, float y, Color32 ink)
         {
             var rect = rectTransform.rect;
             var position = new Vector3(rect.xMin + x * rect.width, rect.yMin + y * rect.height, 0f);
-            mesh.AddVert(position, color, Vector2.zero);
+            mesh.AddVert(position, ink, Vector2.zero);
         }
     }
 }

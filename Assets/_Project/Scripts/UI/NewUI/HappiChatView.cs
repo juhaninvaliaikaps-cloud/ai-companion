@@ -1717,7 +1717,7 @@ namespace AICompanion.NewUI
         {
             var result = _chat.Presenter.PrimaryAction(_input != null ? _input.text : string.Empty);
             if (result == ChatActionResult.Sent && _ribbonSendAccent != null)
-                _ribbonSendAccent.Play(_send.Rect);
+                _ribbonSendAccent.Play(_send);
             if (result == ChatActionResult.Sent && _input != null)
             {
                 _input.text = string.Empty;
@@ -1730,7 +1730,7 @@ namespace AICompanion.NewUI
             if (_chat.Presenter.Send(text) != ChatActionResult.Sent)
                 return;
             if (_ribbonSendAccent != null)
-                _ribbonSendAccent.Play(_send.Rect);
+                _ribbonSendAccent.Play(_send);
             _input.text = string.Empty;
             _input.ActivateInputField();
         }
