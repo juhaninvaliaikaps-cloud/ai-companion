@@ -993,6 +993,10 @@ namespace AICompanion.NewUI
                 StyleRibbonControl(_mute);
                 StyleRibbonControl(_privacy);
                 StyleRibbonControl(_close);
+                var gear = RibbonGlyph.Add(_close.Rect, "Chat options", RibbonGlyph.Mark.Settings, _theme.Text);
+                gear.Label = _close.Label;
+                HappiUiKit.Stretch(gear.rectTransform, 6f, 6f, 6f, 6f);
+                _close.Label.gameObject.SetActive(false);
                 _ribbonHide = HappiUiKit.Button(_box, "Hide chat", string.Empty, _theme.FontSmall, CloseChatFromMenu);
                 StyleRibbonControl(_ribbonHide);
                 _ribbonHideIcon = RibbonGlyph.Add(_ribbonHide.Rect, "Hide chat icon", RibbonGlyph.Mark.Minimize, _theme.Text);
@@ -1004,7 +1008,7 @@ namespace AICompanion.NewUI
                 _ribbonPrivacyIcon.Label = _privacy.Label;
             }
 
-            var gearFont = HappiFonts.For("Segoe UI Symbol");
+            var gearFont = RibbonMenu.Enabled ? null : HappiFonts.For("Segoe UI Symbol");
             if (gearFont != null)
             {
                 _close.Label.font = gearFont;
@@ -1021,6 +1025,17 @@ namespace AICompanion.NewUI
             _menuSettings = HappiUiKit.Button(_chatMenu.transform, "MenuSettings", "Settings", _theme.FontSmall, OpenSettingsFromMenu);
             _menuClose = HappiUiKit.Button(_chatMenu.transform, "MenuClose", "Close chat", _theme.FontSmall, CloseChatFromMenu);
             _menuProgram = HappiUiKit.Button(_chatMenu.transform, "MenuProgram", "Close program", _theme.FontSmall, CloseProgramFromMenu);
+            if (RibbonMenu.Enabled)
+            {
+                RibbonShape.Apply(menuPanel, false);
+                var border = menuPanel.gameObject.AddComponent<Outline>();
+                border.effectColor = new Color32(114, 238, 207, 155);
+                border.effectDistance = new Vector2(1f, -1f);
+                StyleRibbonControl(_menuSettings, angled: true);
+                StyleRibbonControl(_menuClose, angled: true);
+                StyleRibbonControl(_menuProgram, angled: true);
+                StyleRibbonControl(_menuCopy, angled: true);
+            }
             _chatMenu.SetActive(false);
 
             var historyImage = HappiUiKit.Panel(_box, "HistoryArea", _theme.PanelInset, true);
@@ -1104,6 +1119,12 @@ namespace AICompanion.NewUI
             _saveKey = HappiUiKit.Button(_box, "SaveKey", "Save", _theme.FontSmall, SaveKey);
 
             _controlRow = new[] { _mode, _next, _skip, _showAll, _narration };
+            if (RibbonMenu.Enabled)
+            {
+                foreach (var control in _controlRow)
+                    StyleRibbonControl(control);
+                StyleRibbonControl(_saveKey);
+            }
             _fontButtons = new[] { _mute, _privacy, _mode, _next, _skip, _showAll, _narration, _mic, _send, _saveKey };
 
             // JUH-127: the edges and corners, last so they sit above everything in the box.
@@ -1843,14 +1864,15 @@ namespace AICompanion.NewUI
             return accent;
         }
 
-        static void StyleRibbonControl(HappiButton button)
+        static void StyleRibbonControl(HappiButton button, bool angled = false)
         {
-            RibbonShape.Apply(button.Image, false);
+            RibbonShape.Apply(button.Image, angled);
             var colors = button.Button.colors;
             colors.normalColor = new Color32(34, 40, 52, 255);
             colors.selectedColor = colors.normalColor;
             colors.highlightedColor = RibbonMenu.Cyan;
             colors.pressedColor = RibbonMenu.Cyan;
+            colors.disabledColor = new Color32(23, 29, 37, 235);
             button.Button.colors = colors;
             button.Button.GetComponent<HappiHoverText>().Hover = RibbonMenu.Ink;
         }
