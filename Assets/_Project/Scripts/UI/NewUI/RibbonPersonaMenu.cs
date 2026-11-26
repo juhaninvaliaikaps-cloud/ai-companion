@@ -38,7 +38,7 @@ namespace AICompanion.NewUI
             paper.gameObject.AddComponent<Mask>().showMaskGraphic = true;
 
             _art = HappiUiKit.Rect(paper.transform, "Persona painting").gameObject.AddComponent<RibbonScrollArt>();
-            _art.texture = Resources.Load<Texture2D>("RibbonArt/Profile");
+            _art.texture = Resources.Load<Texture2D>("RibbonArt/Happi-Playful");
             _art.raycastTarget = false;
             var finish = HappiUiKit.Rect(paper.transform, "Painted edge").gameObject.AddComponent<RibbonScrollFinish>();
             finish.raycastTarget = false;
@@ -180,8 +180,9 @@ namespace AICompanion.NewUI
 
         public void Place(Rect visible, Vector2 anchor, float scale)
         {
-            var width = Mathf.Min(600f * scale, visible.width);
-            var height = Mathf.Min((_busy == true ? 144f : 128f) * scale, visible.height);
+            var width = Mathf.Min(RibbonMenuPlacement.PreferredPersonaWidth * scale, visible.width);
+            var wide = Mathf.InverseLerp(600f * scale, RibbonMenuPlacement.PreferredPersonaWidth * scale, width);
+            var height = Mathf.Min((Mathf.Lerp(128f, 184f, wide) + (_busy == true ? 16f : 0f)) * scale, visible.height);
             var x = Mathf.Clamp(anchor.x, visible.xMin, visible.xMax - width);
             var y = Mathf.Clamp(anchor.y - height, visible.yMin, visible.yMax - height);
             var progress = Mathf.Clamp01((Time.unscaledTime - _openedAt) / 0.18f);
@@ -192,21 +193,23 @@ namespace AICompanion.NewUI
             HappiUiKit.Place(_banner, 0f, reveal - height, width, height);
 
             var showArt = _art.texture != null && width >= 340f * scale;
-            var controls = (showArt ? width * 0.60f : width) - 15f * scale;
-            var artWidth = width - controls;
+            var controls = (showArt ? Mathf.Min(width * 0.60f, 395f * scale) : width) - 15f * scale;
             _art.enabled = showArt;
             if (showArt)
             {
-                _art.uvRect = RibbonMenuPlacement.IllustrationUv((float)_art.texture.width / _art.texture.height,
-                    artWidth / height, 0.63f, 0.28f);
-                HappiUiKit.Place(_art.rectTransform, controls - 4f * scale, 0f, artWidth + 4f * scale, height);
+                var artLeft = controls - 4f * scale;
+                var (frame, uv) = RibbonMenuPlacement.PersonaPainting(new Rect(artLeft, 0f, width - artLeft, height),
+                    (float)_art.texture.width / _art.texture.height);
+                _art.uvRect = uv;
+                HappiUiKit.Place(_art.rectTransform, frame.x, frame.y, frame.width, frame.height);
             }
 
             var left = 10f * scale;
-            var gap = 4f * scale;
+            var gap = Mathf.Lerp(4f, 6f, wide) * scale;
             var bodyRows = (_choices.Count + 1) / 2;
             var status = _busy == true ? 15f * scale : 0f;
-            var rowHeight = Mathf.Max(1f, Mathf.Min(25f * scale, (height - status - 38f * scale) / (bodyRows + 1) - gap));
+            var rowHeight = Mathf.Max(1f, Mathf.Min(Mathf.Lerp(25f, 39f, wide) * scale,
+                (height - status - 38f * scale) / (bodyRows + 1) - gap));
             var buttonWidth = Mathf.Max(1f, (controls - left - gap) * 0.5f);
             for (var i = 0; i < _choices.Count; i++)
             {

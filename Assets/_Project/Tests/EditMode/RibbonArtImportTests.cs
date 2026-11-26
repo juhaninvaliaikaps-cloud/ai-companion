@@ -11,6 +11,7 @@ namespace AICompanion.Tests.EditMode
         [TestCase("Profile")]
         [TestCase("AI")]
         [TestCase("Settings")]
+        [TestCase("Happi-Playful")]
         [TestCase("Talk")]
         [TestCase("ChatPortrait")]
         [TestCase("ScrollRoll")]

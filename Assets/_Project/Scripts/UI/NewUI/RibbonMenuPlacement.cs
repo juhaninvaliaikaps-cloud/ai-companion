@@ -5,6 +5,9 @@ namespace AICompanion.NewUI
     /// <summary>Ribbon layout in overlay pixels, with the origin at the top left.</summary>
     public static class RibbonMenuPlacement
     {
+        public const float PreferredFlyoutWidth = 960f;
+        public const float PreferredPersonaWidth = 900f;
+
         public static float FitScale(Vector2 visibleSize, Vector2 menuSize, float dpiScale)
         {
             return Mathf.Min(dpiScale, Mathf.Min(visibleSize.x / menuSize.x, visibleSize.y / menuSize.y));
@@ -67,9 +70,9 @@ namespace AICompanion.NewUI
 
         public static Vector2 ScrollFlare(float width, float scale, float availableHeight)
         {
-            var strength = Mathf.InverseLerp(240f * scale, 660f * scale, width);
-            var total = Mathf.Min(53f * scale * strength, Mathf.Max(0f, availableHeight));
-            return new Vector2(total * (14f / 53f), total * (39f / 53f));
+            var strength = Mathf.InverseLerp(240f * scale, PreferredFlyoutWidth * scale, width);
+            var total = Mathf.Min(67f * scale * strength, Mathf.Max(0f, availableHeight));
+            return new Vector2(total * (18f / 67f), total * (49f / 67f));
         }
 
         public static bool AimsAtFlyout(Vector2 start, Vector2 pointer, Rect flyout, bool opensRight, float padding)
@@ -94,6 +97,17 @@ namespace AICompanion.NewUI
             var height = Mathf.Min(1f, width * textureAspect / frameAspect);
             var x = Mathf.Clamp(focalX - width * 0.5f, sourceStart, 1f - width);
             return new Rect(x, (1f - height) * 0.5f, width, height);
+        }
+
+        public static (Rect Frame, Rect Uv) PersonaPainting(Rect area, float textureAspect)
+        {
+            const float trim = 0.26f;
+            var fullPoseWidth = area.height * textureAspect * (1f - trim);
+            if (fullPoseWidth <= area.width)
+                return (new Rect(area.xMax - fullPoseWidth, area.yMin, fullPoseWidth, area.height),
+                    new Rect(trim, 0f, 1f - trim, 1f));
+
+            return (area, IllustrationUv(textureAspect, area.width / area.height, 0.55f, trim));
         }
     }
 }

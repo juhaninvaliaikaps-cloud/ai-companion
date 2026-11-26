@@ -29,11 +29,10 @@ namespace AICompanion.NewUI
         const float FlyoutRowHeight = 31f;
         const float FlyoutRowPitch = 35f;
         const float FlyoutMinWidth = 158f;
-        const float FlyoutPreferredWidth = 660f;
 
         internal static int PreferredSideRoom(float scale)
         {
-            return Mathf.CeilToInt((FlyoutPreferredWidth + MainWidth * 0.5f + 36f) * scale);
+            return Mathf.CeilToInt((RibbonMenuPlacement.PreferredFlyoutWidth + MainWidth * 0.5f + 36f) * scale);
         }
 
         Canvas _canvas;
@@ -377,7 +376,7 @@ namespace AICompanion.NewUI
         {
             var parentRow = _keyboard.Row;
             var inFlyout = _keyboard.Destination >= 0;
-            var openRight = RibbonMenuPlacement.OpensRight(area, _menuBounds, FlyoutPreferredWidth * scale);
+            var openRight = RibbonMenuPlacement.OpensRight(area, _menuBounds, RibbonMenuPlacement.PreferredFlyoutWidth * scale);
             var enterSide = openRight ? KeyCode.RightArrow : KeyCode.LeftArrow;
             var backSide = openRight ? KeyCode.LeftArrow : KeyCode.RightArrow;
             var confirm = Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter);
@@ -645,7 +644,7 @@ namespace AICompanion.NewUI
                 row.Label.fontSize = 18f * scale;
             }
 
-            var openRight = RibbonMenuPlacement.OpensRight(area, _menuBounds, FlyoutPreferredWidth * scale);
+            var openRight = RibbonMenuPlacement.OpensRight(area, _menuBounds, RibbonMenuPlacement.PreferredFlyoutWidth * scale);
             PlaceArrow(_profileArrow, _rows[2], openRight, scale);
             PlaceArrow(_aiArrow, _rows[3], openRight, scale);
             PlaceArrow(_settingsArrow, _rows[4], openRight, scale);
@@ -662,7 +661,7 @@ namespace AICompanion.NewUI
 
         void PlaceFlyout(Rect area, float scale)
         {
-            var preferredWidth = FlyoutPreferredWidth * scale;
+            var preferredWidth = RibbonMenuPlacement.PreferredFlyoutWidth * scale;
             var openRight = RibbonMenuPlacement.OpensRight(area, _menuBounds, preferredWidth);
             var count = LabelsFor(_activeFlyout).Length;
             var rollHeight = (count * FlyoutRowPitch + 13f) * scale;
@@ -680,7 +679,7 @@ namespace AICompanion.NewUI
             var (rollOverlap, paperEdge) = RibbonMenuPlacement.ScrollJoin(rollWidth);
             var curlWidthInFlyout = rollWidth - rollOverlap;
             var buttonWidth = Mathf.Min(width, Mathf.Max(FlyoutMinWidth * scale,
-                Mathf.Max(width * 0.34f, curlWidthInFlyout + 146f * scale)));
+                Mathf.Max(Mathf.Min(width * 0.34f, 252f * scale), curlWidthInFlyout + 146f * scale)));
             var remaining = 1f - Mathf.Clamp01((Time.unscaledTime - _flyoutShownAt) / PaperRevealSeconds);
             var eased = 1f - remaining * remaining * remaining;
             // Leave room for the tapered outer edge beyond the buttons in the opening frame.
@@ -733,8 +732,11 @@ namespace AICompanion.NewUI
                 Flyout.Settings => (0.65f, 0.24f),
                 _ => (0.71f, 0.17f)
             };
+            var frameAspect = artWidth / height;
+            // Keep the painting close to the buttons while limiting vertical cropping on wide scrolls.
+            sourceStart = Mathf.Min(sourceStart, Mathf.Max(0f, 1f - 0.80f * frameAspect / aspect));
             _painting.SetFadeSide(openRight);
-            _painting.uvRect = RibbonMenuPlacement.IllustrationUv(aspect, artWidth / height, focalX, sourceStart);
+            _painting.uvRect = RibbonMenuPlacement.IllustrationUv(aspect, frameAspect, focalX, sourceStart);
             HappiUiKit.Place(_painting.rectTransform, (openRight ? seam : 0f) - revealX, 0f, artWidth, height);
         }
 

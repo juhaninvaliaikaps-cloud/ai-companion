@@ -54,15 +54,39 @@ namespace AICompanion.Tests.EditMode
         [Test]
         public void BannerFlareGrowsTowardTheArtworkAndFitsTheAvailableHeight()
         {
-            var full = RibbonMenuPlacement.ScrollFlare(660f, 1f, 100f);
-            var clipped = RibbonMenuPlacement.ScrollFlare(660f, 1f, 20f);
+            var full = RibbonMenuPlacement.ScrollFlare(RibbonMenuPlacement.PreferredFlyoutWidth, 1f, 100f);
+            var clipped = RibbonMenuPlacement.ScrollFlare(RibbonMenuPlacement.PreferredFlyoutWidth, 1f, 20f);
             var compact = RibbonMenuPlacement.ScrollFlare(158f, 1f, 100f);
 
-            Assert.That(full.x, Is.EqualTo(14f).Within(0.001f));
-            Assert.That(full.y, Is.EqualTo(39f).Within(0.001f));
+            Assert.That(full.x, Is.EqualTo(18f).Within(0.001f));
+            Assert.That(full.y, Is.EqualTo(49f).Within(0.001f));
             Assert.That(clipped.x + clipped.y, Is.EqualTo(20f).Within(0.001f));
             Assert.That(clipped.y, Is.GreaterThan(clipped.x));
             Assert.That(compact, Is.EqualTo(Vector2.zero));
+        }
+
+        [Test]
+        public void WidePersonaBannerRetainsTheFullPoseAtTheFarEnd()
+        {
+            var area = new Rect(380f, 0f, 520f, 184f);
+            var (frame, uv) = RibbonMenuPlacement.PersonaPainting(area, 3f);
+
+            Assert.That(frame.xMax, Is.EqualTo(area.xMax).Within(0.001f));
+            Assert.That(frame.width / frame.height, Is.EqualTo(uv.width * 3f).Within(0.001f));
+            Assert.That(uv.yMin, Is.Zero);
+            Assert.That(uv.yMax, Is.EqualTo(1f));
+            Assert.That(uv.xMax, Is.EqualTo(1f));
+        }
+
+        [Test]
+        public void CompactPersonaBannerCropsAroundTheFace()
+        {
+            var area = new Rect(185f, 0f, 160f, 128f);
+            var (frame, uv) = RibbonMenuPlacement.PersonaPainting(area, 3f);
+
+            Assert.That(frame, Is.EqualTo(area));
+            Assert.That(uv.center.x, Is.EqualTo(0.55f).Within(0.001f));
+            Assert.That(uv.width / uv.height * 3f, Is.EqualTo(area.width / area.height).Within(0.001f));
         }
 
         [Test]
