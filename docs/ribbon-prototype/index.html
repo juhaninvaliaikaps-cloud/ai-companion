@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Happi — Ribbon Tabs preview</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-state="menu">
+  <main class="stage" id="stage" aria-label="Happi Ribbon Tabs visual prototype">
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <section class="portrait" aria-label="Happi portrait">
+      <div class="portrait-art"></div>
+      <div class="portrait-wash"></div>
+      <div class="portrait-edge"></div>
+      <div class="portrait-tag">Mood <span>playful</span></div>
+    </section>
+
+    <nav class="rail" id="rail" aria-label="Happi ribbon menu">
+      <button class="menu-item" data-action="mute" style="--i:0">
+        <span class="icon icon-mute" aria-hidden="true"></span><span class="menu-label">Mute</span>
+      </button>
+      <button class="menu-item" data-action="look" style="--i:1">
+        <span class="icon icon-eye" aria-hidden="true"></span><span class="menu-label">Look now</span>
+      </button>
+      <button class="menu-item" data-action="profile" data-flyout="profile" style="--i:2">
+        <span class="icon icon-person" aria-hidden="true"></span><span class="menu-label">Profile</span>
+      </button>
+      <button class="menu-item" data-action="ai" data-flyout="ai" style="--i:3">
+        <span class="icon icon-ai" aria-hidden="true"></span><span class="menu-label">AI</span>
+      </button>
+      <button class="menu-item" data-action="settings" style="--i:4">
+        <span class="icon icon-gear" aria-hidden="true"></span><span class="menu-label">Settings</span>
+      </button>
+      <div class="menu-gap" aria-hidden="true"></div>
+      <button class="menu-item menu-close" data-action="close" style="--i:5">
+        <span class="icon icon-close" aria-hidden="true"></span><span class="menu-label">Close</span>
+      </button>
+    </nav>
+
+    <aside class="flyout flyout-profile" id="flyout-profile" aria-label="Profile flyout">
+      <div class="flyout-paper">
+        <div class="flyout-kicker">PROFILE</div>
+        <div class="flyout-buttons">
+          <button class="flyout-button" data-action="inert">Profile overview</button>
+          <button class="flyout-button" data-action="inert">Mood</button>
+          <button class="flyout-button" data-action="inert">Persona</button>
+          <button class="flyout-button" data-action="inert">Memories</button>
+        </div>
+        <div class="flyout-note">Inert preview destinations</div>
+        <div class="flyout-art flyout-art-profile" aria-hidden="true"></div>
+      </div>
+    </aside>
+
+    <aside class="flyout flyout-ai" id="flyout-ai" aria-label="AI flyout">
+      <div class="flyout-paper">
+        <div class="flyout-kicker">AI</div>
+        <div class="flyout-buttons">
+          <button class="flyout-button" data-action="inert">Chat</button>
+          <button class="flyout-button" data-action="inert">Local models</button>
+          <button class="flyout-button" data-action="inert">Voice</button>
+          <button class="flyout-button" data-action="inert">Speech</button>
+          <button class="flyout-button" data-action="inert">Vision</button>
+          <button class="flyout-button" data-action="inert">Pisara</button>
+        </div>
+        <div class="flyout-note">Inert preview destinations</div>
+        <div class="flyout-art flyout-art-ai" aria-hidden="true"></div>
+      </div>
+    </aside>
+
+    <article class="chat" id="chat" aria-label="Happi chat preview">
+      <header class="chat-header">
+        <div class="chat-header-art" aria-hidden="true"></div>
+        <div class="brand-plate"><span>Happi</span></div>
+        <div class="private-pill"><span class="lock" aria-hidden="true"></span>Private</div>
+        <div class="header-actions">
+          <button class="header-button" id="voice-button" data-action="mute" aria-label="Mute voice">
+            <span class="icon icon-volume" aria-hidden="true"></span>
+          </button>
+          <span class="header-divider" aria-hidden="true"></span>
+          <button class="header-button" data-action="inert" aria-label="Minimise">
+            <span class="icon icon-minimise" aria-hidden="true"></span>
+          </button>
+          <button class="header-button" data-action="close" aria-label="Close chat">
+            <span class="icon icon-close" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="voice-note" id="voice-note">Voice on</div>
+      </header>
+
+      <div class="chat-body">
+        <div class="message-row user-row">
+          <div class="message-icon user-icon" aria-hidden="true"></div>
+          <div class="bubble user-bubble">I'm stuck on this layout.</div>
+        </div>
+        <div class="message-row happi-row">
+          <div class="message-avatar" aria-hidden="true"></div>
+          <div class="bubble happi-bubble">Show me what you've got. We can pick one thing to fix first.</div>
+        </div>
+        <div class="message-row happi-row">
+          <div class="message-avatar message-avatar-spacer" aria-hidden="true"></div>
+          <div class="bubble happi-bubble">The menu labels need a little more room to breathe.</div>
+        </div>
+        <div class="transcript-fade" aria-hidden="true"></div>
+      </div>
+
+      <div class="composer">
+        <div class="composer-field">
+          <span class="composer-placeholder">Write a message…</span>
+          <span class="composer-caret" aria-hidden="true"></span>
+        </div>
+        <button class="send-button" data-action="send">Send</button>
+      </div>
+    </article>
+
+    <div class="splash" id="splash" aria-hidden="true">
+      <i class="splash-ray ray-a"></i><i class="splash-ray ray-b"></i><i class="splash-ray ray-c"></i>
+      <i class="splash-ring"></i>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <div class="preview-badge">RIBBON TABS • VISUAL PROTOTYPE</div>
+  </main>
+
+  <div class="controls" id="controls" aria-label="Preview states">
+    <div class="controls-title">Preview states</div>
+    <button data-state-button="menu">Menu rest</button>
+    <button data-state-button="hover">Menu hover</button>
+    <button data-state-button="profile">Profile</button>
+    <button data-state-button="ai">AI</button>
+    <button data-state-button="muted">Voice muted</button>
+    <button data-state-button="accent">Action accent</button>
+    <span class="controls-hint">click a menu row for the ink accent · artwork ignores the pointer</span>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
