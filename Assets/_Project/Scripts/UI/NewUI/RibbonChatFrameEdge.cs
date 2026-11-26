@@ -3,12 +3,15 @@ using UnityEngine.UI;
 
 namespace AICompanion.NewUI
 {
-    /// <summary>Thin neutral outline with mint at the two large cuts in the approved chat frame.</summary>
+    /// <summary>Outlines for the chat frame and composer, drawn against their clipped edges.</summary>
     sealed class RibbonChatFrameEdge : MaskableGraphic
     {
-        public static void Add(Transform parent)
+        RibbonShape.Kind _kind;
+
+        public static void Add(Transform parent, RibbonShape.Kind kind = RibbonShape.Kind.ChatFrame)
         {
-            var edge = HappiUiKit.Rect(parent, "Ribbon chat frame edge").gameObject.AddComponent<RibbonChatFrameEdge>();
+            var edge = HappiUiKit.Rect(parent, "Ribbon outline").gameObject.AddComponent<RibbonChatFrameEdge>();
+            edge._kind = kind;
             edge.raycastTarget = false;
             HappiUiKit.Stretch(edge.rectTransform, 0f, 0f, 0f, 0f);
         }
@@ -17,18 +20,20 @@ namespace AICompanion.NewUI
         {
             mesh.Clear();
             var rect = GetPixelAdjustedRect();
-            const RibbonShape.Kind kind = RibbonShape.Kind.ChatFrame;
             if (rect.width <= 0f || rect.height <= 0f)
                 return;
 
-            var neutral = new Color32(165, 180, 193, 225);
+            var frame = _kind == RibbonShape.Kind.ChatFrame;
+            var neutral = frame ? new Color32(165, 180, 193, 225) : new Color32(152, 165, 181, 240);
             var mint = new Color32(114, 238, 207, 255);
-            var count = RibbonShape.VertexCount(kind);
+            var count = RibbonShape.VertexCount(_kind);
             for (var i = 0; i < count; i++)
             {
-                var from = RibbonShape.Point(kind, rect, i);
-                var to = RibbonShape.Point(kind, rect, (i + 1) % count);
-                Stroke(mesh, from, to, neutral, 0.75f);
+                var from = RibbonShape.Point(_kind, rect, i);
+                var to = RibbonShape.Point(_kind, rect, (i + 1) % count);
+                Stroke(mesh, from, to, neutral, frame ? 0.75f : 0.55f);
+                if (!frame)
+                    continue;
                 if (i == 1 || i == 5)
                     Stroke(mesh, from, to, mint, 1.65f);
                 else if (i == 2 || i == 6)

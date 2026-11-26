@@ -16,6 +16,7 @@ namespace AICompanion.NewUI
             _frame = HappiUiKit.Panel(parent, "Chat speaker", new Color32(37, 44, 56, 255), false);
             _border = _frame.gameObject.AddComponent<Outline>();
             _border.effectDistance = new Vector2(1f, -1f);
+            _frame.gameObject.AddComponent<Mask>().showMaskGraphic = true;
             _user = RibbonGlyph.Add(_frame.transform, "User", RibbonGlyph.Mark.Profile, Color.white);
             HappiUiKit.Stretch(_user.rectTransform, 5f, 5f, 5f, 5f);
             _portrait = HappiUiKit.Rect(_frame.transform, "Portrait").gameObject.AddComponent<RawImage>();
