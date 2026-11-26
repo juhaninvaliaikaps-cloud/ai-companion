@@ -20,9 +20,14 @@ namespace AICompanion.NewUI
         internal static readonly Color Cyan = new Color32(38, 230, 255, 255);
         static readonly Color Yellow = new Color32(255, 202, 34, 255);
         const float HoverGrace = 0.22f;
-        const float MainWidth = 146f;
-        const float FlyoutMinWidth = 124f;
-        const float FlyoutPreferredWidth = 320f;
+        const float MainWidth = 170f;
+        const float MainRowHeight = 35f;
+        const float MainRowPitch = 39f;
+        const float CloseGap = 7f;
+        const float FlyoutRowHeight = 31f;
+        const float FlyoutRowPitch = 35f;
+        const float FlyoutMinWidth = 158f;
+        const float FlyoutPreferredWidth = 440f;
 
         Canvas _canvas;
         HeadLocator _head;
@@ -175,7 +180,10 @@ namespace AICompanion.NewUI
             for (var i = 0; i < _destinations.Length; i++)
             {
                 var index = i;
-                _destinations[i] = Button(_flyout, string.Empty, () => OpenDestination(index));
+                var destination = Button(_flyout, string.Empty, () => OpenDestination(index));
+                destination.Label.alignment = TextAlignmentOptions.MidlineLeft;
+                destination.Label.overflowMode = TextOverflowModes.Truncate;
+                _destinations[i] = destination;
             }
             Close();
             _window?.RefreshClickTargets();
@@ -196,6 +204,7 @@ namespace AICompanion.NewUI
                 });
             }
             RibbonShape.Apply(button.Image, true);
+            button.Label.fontStyle |= FontStyles.Bold | FontStyles.Italic;
             var colors = button.Button.colors;
             colors.normalColor = Ink;
             colors.highlightedColor = Cyan;
@@ -501,7 +510,7 @@ namespace AICompanion.NewUI
             var bottom = Screen.height - area.yMin;
             var trigger = 30f * scale;
             var menuWidth = MainWidth * scale;
-            var menuHeight = 198f * scale;
+            var menuHeight = ((_rows.Length - 1) * MainRowPitch + MainRowHeight + CloseGap) * scale;
             var clusterWidth = trigger * 2f + 4f * scale;
             var rightOfHead = head.x + 24f * scale;
             var triggerX = rightOfHead + clusterWidth <= area.xMax
@@ -531,17 +540,17 @@ namespace AICompanion.NewUI
             HappiUiKit.Place(_menu, menuX, menuY, menuWidth, menuHeight);
             for (var i = 0; i < _rows.Length; i++)
             {
-                var stagger = (i % 2) * 5f * scale;
-                var rowTop = (i * 32f + (i == 5 ? 6f : 0f)) * scale;
+                var stagger = (i % 2) * 7f * scale;
+                var rowTop = (i * MainRowPitch + (i == _rows.Length - 1 ? CloseGap : 0f)) * scale;
                 var row = _rows[i];
                 var rowWidth = menuWidth - stagger;
-                var rowHeight = 29f * scale;
+                var rowHeight = MainRowHeight * scale;
                 _rowBounds[i] = new Rect(menuX + stagger, menuY + rowTop, rowWidth, rowHeight);
                 HappiUiKit.Place(row.Rect, stagger, rowTop, rowWidth, rowHeight);
-                HappiUiKit.Place(_rowIcons[i].rectTransform, 14f * scale, 7f * scale, 15f * scale, 15f * scale);
+                HappiUiKit.Place(_rowIcons[i].rectTransform, 15f * scale, 8f * scale, 19f * scale, 19f * scale);
                 var trailing = (i == 2 || i == 3) ? 30f : 12f;
-                HappiUiKit.Stretch(row.Label.rectTransform, 37f * scale, 0f, trailing * scale, 0f);
-                row.Label.fontSize = 14f * scale;
+                HappiUiKit.Stretch(row.Label.rectTransform, 42f * scale, 0f, trailing * scale, 0f);
+                row.Label.fontSize = 18f * scale;
             }
 
             var openRight = FlyoutOpensRight(area, scale);
@@ -552,9 +561,9 @@ namespace AICompanion.NewUI
         static void PlaceArrow(RibbonGlyph arrow, HappiButton row, bool openRight, float scale)
         {
             var rect = arrow.rectTransform;
-            const float size = 11f;
+            const float size = 13f;
             var inset = openRight ? 23f : 23f - size;
-            HappiUiKit.Place(rect, row.Rect.rect.width - inset * scale, 9f * scale, size * scale, size * scale);
+            HappiUiKit.Place(rect, row.Rect.rect.width - inset * scale, 11f * scale, size * scale, size * scale);
             rect.localScale = new Vector3(openRight ? 1f : -1f, 1f, 1f);
         }
 
@@ -572,20 +581,20 @@ namespace AICompanion.NewUI
             var openRight = FlyoutOpensRight(area, scale);
             var width = Mathf.Min(FlyoutPreferredWidth * scale, Mathf.Max(1f, openRight ? right : left));
             var count = _activeFlyout == Flyout.Profile ? ProfileTabs.Length : AiPages.Length;
-            var height = (count * 28f + 12f) * scale;
+            var height = (count * FlyoutRowPitch + 13f) * scale;
             var x = openRight ? _menuBounds.xMax : _menuBounds.xMin - width;
             var row = _activeFlyout == Flyout.Profile ? 2 : 3;
-            var y = Fit(_menuBounds.y + row * 32f * scale, Screen.height - area.yMax, Screen.height - area.yMin - height);
+            var y = Fit(_menuBounds.y + row * MainRowPitch * scale, Screen.height - area.yMax, Screen.height - area.yMin - height);
             _flyoutBounds = new Rect(x, y, width, height);
             HappiUiKit.Place(_flyout, x, y, width, height);
-            var buttonWidth = Mathf.Min(width, Mathf.Max(125f * scale, width * 0.43f));
+            var buttonWidth = Mathf.Min(width, Mathf.Max(FlyoutMinWidth * scale, width * 0.41f));
             var progress = Mathf.Clamp01((Time.unscaledTime - _flyoutShownAt) / 0.26f);
             var eased = 1f - (1f - progress) * (1f - progress);
             var shownWidth = Mathf.Lerp(buttonWidth, width, eased);
             var revealX = openRight ? 0f : width - shownWidth;
             HappiUiKit.Place(_paper.rectTransform, revealX, 0f, shownWidth, height);
             PlaceFlyoutPainting(width, height, buttonWidth, shownWidth, openRight, scale);
-            var rollWidth = _scrollRoll.enabled ? 26f * scale : 0f;
+            var rollWidth = _scrollRoll.enabled ? 30f * scale : 0f;
             if (_scrollRoll.enabled)
             {
                 var roll = _scrollRoll.rectTransform;
@@ -595,11 +604,12 @@ namespace AICompanion.NewUI
             for (var i = 0; i < count; i++)
             {
                 var destination = _destinations[i];
-                destination.Label.fontSize = 14f * scale;
+                destination.Label.fontSize = 17f * scale;
+                HappiUiKit.Stretch(destination.Label.rectTransform, 12f * scale, 0f, 10f * scale, 0f);
                 var curlInset = Mathf.Max(4f * scale, rollWidth - 3f * scale);
                 var actionX = openRight ? curlInset : width - buttonWidth + 4f * scale;
-                HappiUiKit.Place(destination.Rect, actionX, (6f + i * 28f) * scale,
-                    Mathf.Max(1f, buttonWidth - curlInset - 4f * scale), 25f * scale);
+                HappiUiKit.Place(destination.Rect, actionX, (8f + i * FlyoutRowPitch) * scale,
+                    Mathf.Max(1f, buttonWidth - curlInset - 4f * scale), FlyoutRowHeight * scale);
             }
         }
 
