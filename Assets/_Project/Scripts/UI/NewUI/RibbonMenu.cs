@@ -27,6 +27,10 @@ namespace AICompanion.NewUI
         ChatPanel _chat;
         SettingsPanel _settings;
         HappiButton _trigger;
+        RibbonGlyph _menuGlyph;
+        RectTransform _roomPreview;
+        RectTransform _roomHint;
+        RibbonClickAccent _clickAccent;
         HappiButton[] _rows;
         RectTransform _menu;
         RectTransform _flyout;
@@ -56,6 +60,7 @@ namespace AICompanion.NewUI
         };
 
         Rect _triggerBounds;
+        Rect _roomBounds;
         Rect _menuBounds;
         Rect _flyoutBounds;
         float _closeAt;
@@ -69,15 +74,32 @@ namespace AICompanion.NewUI
             _window = GetComponent<OverlayWindow>();
             _cursor = GetComponent<IScreenCursor>();
             var root = HappiUiKit.CreateCanvas(transform, "HappiRibbon", 65, out _canvas).transform;
-            _trigger = Button(root, "☰", () =>
+            _clickAccent = RibbonClickAccent.Create(root);
+            _trigger = Button(root, "Ribbon menu", () =>
             {
                 _closedOverTrigger = false;
                 _menu.gameObject.SetActive(true);
                 _closeAt = Time.unscaledTime + HoverGrace;
-            });
+            }, showAccent: false);
+            _trigger.Label.gameObject.SetActive(false);
+            _menuGlyph = RibbonGlyph.Add(_trigger.Rect, "Menu glyph", RibbonGlyph.Mark.Menu, Cyan);
+            HappiUiKit.Stretch(_menuGlyph.rectTransform, 6f, 6f, 6f, 6f);
             var triggerColors = _trigger.Button.colors;
             triggerColors.normalColor = new Color32(16, 19, 24, 105);
             _trigger.Button.colors = triggerColors;
+
+            var room = HappiUiKit.Panel(root, "Her Room preview", new Color32(16, 19, 24, 110), false);
+            _roomPreview = room.rectTransform;
+            RibbonShape.Apply(room, false);
+            var door = RibbonGlyph.Add(_roomPreview, "Door glyph", RibbonGlyph.Mark.Door, new Color32(176, 191, 197, 230));
+            HappiUiKit.Stretch(door.rectTransform, 6f, 6f, 6f, 6f);
+            var hint = HappiUiKit.Panel(root, "Her Room preview hint", Ink, false);
+            _roomHint = hint.rectTransform;
+            RibbonShape.Apply(hint, false);
+            var hintText = HappiUiKit.Text(_roomHint, "Label", "Her Room · Planned", 13f,
+                HappiTheme.Current.Text, TextAlignmentOptions.Center, false);
+            HappiUiKit.Stretch(hintText.rectTransform, 4f, 0f, 4f, 0f);
+            _roomHint.gameObject.SetActive(false);
             _menu = HappiUiKit.Rect(root, "Ribbon tabs");
             _rows = new[]
             {
@@ -118,9 +140,15 @@ namespace AICompanion.NewUI
             Close();
         }
 
-        static HappiButton Button(Transform parent, string label, Action action)
+        HappiButton Button(Transform parent, string label, Action action, bool showAccent = true)
         {
-            var button = HappiUiKit.Button(parent, label, label, 15f, action);
+            var button = HappiUiKit.Button(parent, label, label, 15f, null);
+            button.Button.onClick.AddListener(() =>
+            {
+                if (showAccent)
+                    _clickAccent.Play(button.Rect);
+                action();
+            });
             RibbonShape.Apply(button.Image, true);
             var colors = button.Button.colors;
             colors.normalColor = Ink;
@@ -199,11 +227,14 @@ namespace AICompanion.NewUI
             {
                 Close();
                 _trigger.Button.gameObject.SetActive(false);
+                _roomPreview.gameObject.SetActive(false);
+                _roomHint.gameObject.SetActive(false);
                 return;
             }
 
             HappiUiKit.FollowCamera(_canvas, 0.42f);
             _trigger.Button.gameObject.SetActive(true);
+            _roomPreview.gameObject.SetActive(true);
             var area = OverlayVisibleArea.Get(_window);
             var scale = HappiTheme.Current.UiScale(Screen.dpi);
             Place(head, area, scale);
@@ -212,6 +243,10 @@ namespace AICompanion.NewUI
                 pointer = new Vector2(x, y);
             pointer.y = Screen.height - pointer.y;
             var overTrigger = _triggerBounds.Contains(pointer);
+            var glyphColor = overTrigger ? Ink : Cyan;
+            if (_menuGlyph.color != glyphColor)
+                _menuGlyph.color = glyphColor;
+            _roomHint.gameObject.SetActive(_roomBounds.Contains(pointer) && !_menu.gameObject.activeSelf);
             if (!overTrigger)
                 _closedOverTrigger = false;
             if (Input.GetKeyDown(KeyCode.Escape))
@@ -262,10 +297,21 @@ namespace AICompanion.NewUI
             var trigger = 30f * scale;
             var menuWidth = 146f * scale;
             var menuHeight = 198f * scale;
-            var triggerX = Fit(head.x + 24f * scale, area.xMin, area.xMax - trigger);
+            var clusterWidth = trigger * 2f + 4f * scale;
+            var rightOfHead = head.x + 24f * scale;
+            var triggerX = rightOfHead + clusterWidth <= area.xMax
+                ? Fit(rightOfHead, area.xMin, area.xMax - clusterWidth)
+                : Fit(head.x - 24f * scale - clusterWidth, area.xMin, area.xMax - clusterWidth);
             var triggerY = Fit(Screen.height - head.y - trigger, top, bottom - trigger);
             _triggerBounds = new Rect(triggerX, triggerY, trigger, trigger);
             HappiUiKit.Place(_trigger.Rect, triggerX, triggerY, trigger, trigger);
+            var roomX = triggerX + trigger + 4f * scale;
+            _roomBounds = new Rect(roomX, triggerY, trigger, trigger);
+            HappiUiKit.Place(_roomPreview, roomX, triggerY, trigger, trigger);
+            var hintWidth = 142f * scale;
+            var hintX = Fit(roomX + trigger * 0.5f - hintWidth * 0.5f, area.xMin, area.xMax - hintWidth);
+            var hintY = Fit(triggerY + trigger, top, bottom - 22f * scale);
+            HappiUiKit.Place(_roomHint, hintX, hintY, hintWidth, 22f * scale);
             var menuX = Fit(triggerX, area.xMin, area.xMax - menuWidth);
             var menuY = Fit(triggerY + trigger, top, bottom - menuHeight);
             _menuBounds = new Rect(menuX, menuY, menuWidth, menuHeight);

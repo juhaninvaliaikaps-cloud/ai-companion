@@ -28,6 +28,7 @@ namespace AICompanion.NewUI
     public sealed class HappiChatView : MonoBehaviour, IOverlayKeepAwake
     {
         RawImage _ribbonHeaderArt;
+        RibbonClickAccent _ribbonSendAccent;
 
         public const string ModePref = "happi.vn-mode";
         const float PlaneDistance = 0.48f;
@@ -1036,6 +1037,7 @@ namespace AICompanion.NewUI
             if (RibbonMenu.Enabled)
             {
                 RibbonShape.Apply(_send.Image, true);
+                _ribbonSendAccent = RibbonClickAccent.Create(_box);
                 var colors = _send.Button.colors;
                 colors.normalColor = RibbonMenu.Cyan;
                 colors.selectedColor = RibbonMenu.Cyan;
@@ -1714,6 +1716,8 @@ namespace AICompanion.NewUI
         void OnSend()
         {
             var result = _chat.Presenter.PrimaryAction(_input != null ? _input.text : string.Empty);
+            if (result == ChatActionResult.Sent && _ribbonSendAccent != null)
+                _ribbonSendAccent.Play(_send.Rect);
             if (result == ChatActionResult.Sent && _input != null)
             {
                 _input.text = string.Empty;
@@ -1725,6 +1729,8 @@ namespace AICompanion.NewUI
         {
             if (_chat.Presenter.Send(text) != ChatActionResult.Sent)
                 return;
+            if (_ribbonSendAccent != null)
+                _ribbonSendAccent.Play(_send.Rect);
             _input.text = string.Empty;
             _input.ActivateInputField();
         }
