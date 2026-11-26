@@ -42,10 +42,15 @@ namespace AICompanion.NewUI
             return right >= preferredWidth || right >= menu.xMin - area.xMin;
         }
 
-        public static Rect Flyout(Rect area, Rect menu, Vector2 size, float rowOffset, bool opensRight)
+        public static float FlyoutWidth(Rect area, Rect menu, float preferredWidth, bool opensRight)
         {
             var room = opensRight ? area.xMax - menu.xMax : menu.xMin - area.xMin;
-            var width = Mathf.Min(size.x, room);
+            return Mathf.Min(preferredWidth, room);
+        }
+
+        public static Rect Flyout(Rect area, Rect menu, Vector2 size, float rowOffset, bool opensRight)
+        {
+            var width = FlyoutWidth(area, menu, size.x, opensRight);
             var x = opensRight ? menu.xMax : menu.xMin - width;
             var y = Mathf.Clamp(menu.yMin + rowOffset, area.yMin, area.yMax - size.y);
             return new Rect(x, y, width, size.y);
@@ -58,6 +63,13 @@ namespace AICompanion.NewUI
             var overlap = curlWidth * 0.46f;
             var edge = new Vector2(curlWidth * 0.76f - overlap, curlWidth * 0.29f - overlap);
             return (overlap, edge);
+        }
+
+        public static Vector2 ScrollFlare(float width, float scale, float availableHeight)
+        {
+            var strength = Mathf.InverseLerp(240f * scale, 660f * scale, width);
+            var total = Mathf.Min(53f * scale * strength, Mathf.Max(0f, availableHeight));
+            return new Vector2(total * (14f / 53f), total * (39f / 53f));
         }
 
         public static bool AimsAtFlyout(Vector2 start, Vector2 pointer, Rect flyout, bool opensRight, float padding)

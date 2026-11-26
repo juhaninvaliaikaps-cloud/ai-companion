@@ -58,6 +58,7 @@ namespace AICompanion.Tests.EditMode
 
         [TestCase("RibbonGlyph")]
         [TestCase("RibbonChatFrameEdge")]
+        [TestCase("RibbonScrollFinish")]
         public void CodeBuiltGraphicsCreateTheirCanvasRenderer(string name)
         {
             var graphicType = typeof(HappiChatView).Assembly.GetType("AICompanion.NewUI." + name, throwOnError: true);

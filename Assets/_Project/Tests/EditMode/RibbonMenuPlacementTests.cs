@@ -52,6 +52,20 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void BannerFlareGrowsTowardTheArtworkAndFitsTheAvailableHeight()
+        {
+            var full = RibbonMenuPlacement.ScrollFlare(660f, 1f, 100f);
+            var clipped = RibbonMenuPlacement.ScrollFlare(660f, 1f, 20f);
+            var compact = RibbonMenuPlacement.ScrollFlare(158f, 1f, 100f);
+
+            Assert.That(full.x, Is.EqualTo(14f).Within(0.001f));
+            Assert.That(full.y, Is.EqualTo(39f).Within(0.001f));
+            Assert.That(clipped.x + clipped.y, Is.EqualTo(20f).Within(0.001f));
+            Assert.That(clipped.y, Is.GreaterThan(clipped.x));
+            Assert.That(compact, Is.EqualTo(Vector2.zero));
+        }
+
+        [Test]
         public void IllustrationCropPreservesTheFocalPointInNarrowArtwork()
         {
             var uv = RibbonMenuPlacement.IllustrationUv(3f, 1.5f, 0.7f);

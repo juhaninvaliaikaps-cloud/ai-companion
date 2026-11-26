@@ -10,12 +10,16 @@ namespace AICompanion.NewUI
         Kind _kind;
         bool _mirrored;
         Vector2 _paperEdge;
+        Vector2 _flare;
+        float _flareProgress;
         static readonly Vector2[] ScrollBrushEdge =
         {
-            new(0f, 0.15f), new(0.045f, 0.7f), new(0.08f, 0.05f), new(0.13f, 0.86f),
-            new(0.19f, 0.26f), new(0.28f, 0.55f), new(0.33f, 0.27f), new(0.42f, 0.7f),
-            new(0.51f, 0.25f), new(0.62f, 0.64f), new(0.69f, 0.17f), new(0.78f, 0.5f),
-            new(0.86f, 0.19f), new(0.9f, 0.72f), new(0.96f, 0.18f), new(1f, 0.55f)
+            new(0f, 0.06f), new(0.013f, 0.48f), new(0.024f, 0.11f), new(0.04f, 0.76f),
+            new(0.061f, 0.03f), new(0.087f, 0.63f), new(0.104f, 0.21f), new(0.125f, 0.77f),
+            new(0.16f, 0.25f), new(0.25f, 0.18f), new(0.37f, 0.41f), new(0.49f, 0.24f),
+            new(0.63f, 0.36f), new(0.75f, 0.19f), new(0.84f, 0.14f), new(0.88f, 0.61f),
+            new(0.907f, 0.23f), new(0.923f, 0.74f), new(0.938f, 0.33f), new(0.954f, 0.92f),
+            new(0.971f, 0.44f), new(0.985f, 0.84f), new(0.994f, 0.36f), new(1f, 0.59f)
         };
 
         public static void Apply(Image image, bool tab) => Apply(image, tab ? Kind.Tab : Kind.Panel);
@@ -33,12 +37,14 @@ namespace AICompanion.NewUI
             return shape;
         }
 
-        public void SetScrollJoin(bool mirrored, Vector2 paperEdge)
+        public void SetScrollPaper(bool mirrored, Vector2 paperEdge, Vector2 flare, float flareProgress)
         {
-            if (_mirrored == mirrored && _paperEdge == paperEdge)
+            if (_mirrored == mirrored && _paperEdge == paperEdge && _flare == flare && _flareProgress == flareProgress)
                 return;
             _mirrored = mirrored;
             _paperEdge = paperEdge;
+            _flare = flare;
+            _flareProgress = flareProgress;
             graphic.SetVerticesDirty();
         }
 
@@ -74,9 +80,14 @@ namespace AICompanion.NewUI
 
         void AddScrollPaper(VertexHelper mesh, Rect rect, Color32 color)
         {
-            var pinch = Mathf.Min(rect.height * 0.045f, rect.width * 0.1f);
-            var taper = Mathf.Min(rect.height * 0.12f, rect.width * 0.08f);
-            var brushDepth = Mathf.Min(rect.height * 0.06f, rect.width * 0.025f);
+            var rollTop = rect.yMax - _flare.x;
+            var rollBottom = rect.yMin + _flare.y;
+            var rollHeight = rollTop - rollBottom;
+            var pinch = rollHeight * 0.045f;
+            var taper = Mathf.Min(rollHeight * 0.16f, rect.width * 0.08f);
+            var brushDepth = Mathf.Min(rollHeight * 0.09f, rect.width * 0.035f);
+            var farTop = rollTop + _flare.x * _flareProgress;
+            var farBottom = rollBottom - _flare.y * _flareProgress;
             var start = _mirrored ? rect.xMax : rect.xMin;
             var end = _mirrored ? rect.xMin : rect.xMax;
             var direction = _mirrored ? -1f : 1f;
@@ -84,10 +95,11 @@ namespace AICompanion.NewUI
             {
                 var inset = taper * edge.x + brushDepth * edge.y;
                 var join = start + direction * Mathf.Lerp(_paperEdge.x, _paperEdge.y, edge.x);
-                mesh.AddVert(new Vector2(join, Mathf.Lerp(rect.yMax - pinch, rect.yMin + pinch, edge.x)),
-                    color, Vector2.zero);
-                mesh.AddVert(new Vector2(end - direction * inset, Mathf.Lerp(rect.yMax, rect.yMin, edge.x)),
-                    color, Vector2.zero);
+                var warm = Color32.Lerp(color, new Color32(240, 168, 15, 255), edge.x * 0.52f);
+                mesh.AddVert(new Vector2(join, Mathf.Lerp(rollTop - pinch, rollBottom + pinch, edge.x)),
+                    warm, Vector2.zero);
+                mesh.AddVert(new Vector2(end - direction * inset, Mathf.Lerp(farTop, farBottom, edge.x)),
+                    warm, Vector2.zero);
             }
 
             for (var i = 0; i < mesh.currentVertCount - 2; i += 2)

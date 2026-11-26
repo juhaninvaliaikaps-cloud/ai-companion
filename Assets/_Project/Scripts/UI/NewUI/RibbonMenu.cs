@@ -62,6 +62,7 @@ namespace AICompanion.NewUI
         Image _paper;
         RibbonShape _paperShape;
         RibbonScrollArt _painting;
+        RibbonScrollFinish _scrollFinish;
         RawImage _scrollRoll;
         float _flyoutShownAt;
         Texture2D _profileArt;
@@ -185,6 +186,9 @@ namespace AICompanion.NewUI
             _paper.gameObject.AddComponent<Mask>().showMaskGraphic = true;
             _painting = HappiUiKit.Rect(_paper.transform, "Painting").gameObject.AddComponent<RibbonScrollArt>();
             _painting.raycastTarget = false;
+            _scrollFinish = HappiUiKit.Rect(_paper.transform, "Scroll shadow and brush finish").gameObject.AddComponent<RibbonScrollFinish>();
+            _scrollFinish.raycastTarget = false;
+            HappiUiKit.Stretch(_scrollFinish.rectTransform, 0f, 0f, 0f, 0f);
             _scrollRoll = HappiUiKit.Rect(_flyout, "Illustrated scroll roll").gameObject.AddComponent<RawImage>();
             _scrollRoll.texture = Resources.Load<Texture2D>("RibbonArt/ScrollRoll");
             _scrollRoll.enabled = _scrollRoll.texture != null;
@@ -628,15 +632,18 @@ namespace AICompanion.NewUI
             var preferredWidth = FlyoutPreferredWidth * scale;
             var openRight = RibbonMenuPlacement.OpensRight(area, _menuBounds, preferredWidth);
             var count = _activeFlyout == Flyout.Profile ? ProfileTabs.Length : AiPages.Length;
-            var height = (count * FlyoutRowPitch + 13f) * scale;
+            var rollHeight = (count * FlyoutRowPitch + 13f) * scale;
             var row = _activeFlyout == Flyout.Profile ? 2 : 3;
+            var rowOffset = row * MainRowPitch * scale;
+            var width = RibbonMenuPlacement.FlyoutWidth(area, _menuBounds, preferredWidth, openRight);
+            var flare = RibbonMenuPlacement.ScrollFlare(width, scale, area.height - rollHeight);
+            var height = rollHeight + flare.x + flare.y;
             var bounds = RibbonMenuPlacement.Flyout(area, _menuBounds, new Vector2(preferredWidth, height),
-                row * MainRowPitch * scale, openRight);
+                rowOffset - flare.x, openRight);
             _openPaperBounds = bounds;
             _flyoutOpensRight = openRight;
-            var width = bounds.width;
             HappiUiKit.Place(_flyout, bounds.x, bounds.y, width, height);
-            var rollWidth = _scrollRoll.enabled ? Mathf.Min(height * 0.34f, width * 0.23f) : 0f;
+            var rollWidth = _scrollRoll.enabled ? Mathf.Min(rollHeight * 0.34f, width * 0.23f) : 0f;
             var (rollOverlap, paperEdge) = RibbonMenuPlacement.ScrollJoin(rollWidth);
             var curlWidthInFlyout = rollWidth - rollOverlap;
             var buttonWidth = Mathf.Min(width, Mathf.Max(FlyoutMinWidth * scale,
@@ -644,17 +651,21 @@ namespace AICompanion.NewUI
             var remaining = 1f - Mathf.Clamp01((Time.unscaledTime - _flyoutShownAt) / PaperRevealSeconds);
             var eased = 1f - remaining * remaining * remaining;
             // Leave room for the tapered outer edge beyond the buttons in the opening frame.
-            var initialWidth = Mathf.Min(width, buttonWidth + 32f * scale);
+            var initialWidth = Mathf.Min(width, buttonWidth + 40f * scale);
             var shownWidth = Mathf.Lerp(initialWidth, width, eased);
             var revealX = openRight ? 0f : width - shownWidth;
-            _visiblePaperBounds = new Rect(bounds.x + revealX, bounds.y, shownWidth, height);
-            _paperShape.SetScrollJoin(!openRight, paperEdge);
+            var spread = Mathf.Lerp(0.3f, 1f, eased);
+            var unspread = 1f - spread;
+            _visiblePaperBounds = new Rect(bounds.x + revealX, bounds.y + flare.x * unspread, shownWidth,
+                rollHeight + (flare.x + flare.y) * spread);
+            _paperShape.SetScrollPaper(!openRight, paperEdge, flare, spread);
             HappiUiKit.Place(_paper.rectTransform, revealX, 0f, shownWidth, height);
             PlaceFlyoutPainting(width, height, buttonWidth, revealX, openRight, scale);
+            _scrollFinish.SetPaper(!openRight, paperEdge, flare, spread, rollWidth);
             if (_scrollRoll.enabled)
             {
                 var roll = _scrollRoll.rectTransform;
-                HappiUiKit.Place(roll, openRight ? -rollOverlap : width + rollOverlap, 0f, rollWidth, height);
+                HappiUiKit.Place(roll, openRight ? -rollOverlap : width + rollOverlap, flare.x, rollWidth, rollHeight);
                 roll.localScale = new Vector3(openRight ? 1f : -1f, 1f, 1f);
             }
             var curlInset = Mathf.Max(4f * scale, curlWidthInFlyout - 3f * scale);
@@ -666,7 +677,7 @@ namespace AICompanion.NewUI
                 var destination = _destinations[i];
                 destination.Label.fontSize = 17f * scale;
                 HappiUiKit.Stretch(destination.Label.rectTransform, 12f * scale, 0f, 10f * scale, 0f);
-                var actionY = (8f + i * FlyoutRowPitch) * scale;
+                var actionY = flare.x + (8f + i * FlyoutRowPitch) * scale;
                 _destinationBounds[i] = new Rect(bounds.x + actionX, bounds.y + actionY, actionWidth, actionHeight);
                 HappiUiKit.Place(destination.Rect, actionX, actionY, actionWidth, actionHeight);
             }
