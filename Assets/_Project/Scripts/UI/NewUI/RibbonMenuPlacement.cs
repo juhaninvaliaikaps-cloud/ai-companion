@@ -51,6 +51,15 @@ namespace AICompanion.NewUI
             return new Rect(x, y, width, size.y);
         }
 
+        public static (float Overlap, Vector2 PaperEdge) ScrollJoin(float curlWidth)
+        {
+            // The cutout leans toward the art at the top. Join the paper under its shaft
+            // just inside the end caps, and let the cutout straddle the edge of the tabs.
+            var overlap = curlWidth * 0.46f;
+            var edge = new Vector2(curlWidth * 0.76f - overlap, curlWidth * 0.29f - overlap);
+            return (overlap, edge);
+        }
+
         public static bool AimsAtFlyout(Vector2 start, Vector2 pointer, Rect flyout, bool opensRight, float padding)
         {
             var edgeX = opensRight ? flyout.xMin : flyout.xMax;

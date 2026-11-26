@@ -637,23 +637,27 @@ namespace AICompanion.NewUI
             var width = bounds.width;
             HappiUiKit.Place(_flyout, bounds.x, bounds.y, width, height);
             var rollWidth = _scrollRoll.enabled ? Mathf.Min(height * 0.34f, width * 0.23f) : 0f;
+            var (rollOverlap, paperEdge) = RibbonMenuPlacement.ScrollJoin(rollWidth);
+            var curlWidthInFlyout = rollWidth - rollOverlap;
             var buttonWidth = Mathf.Min(width, Mathf.Max(FlyoutMinWidth * scale,
-                Mathf.Max(width * 0.34f, rollWidth + 146f * scale)));
+                Mathf.Max(width * 0.34f, curlWidthInFlyout + 146f * scale)));
             var remaining = 1f - Mathf.Clamp01((Time.unscaledTime - _flyoutShownAt) / PaperRevealSeconds);
             var eased = 1f - remaining * remaining * remaining;
-            var shownWidth = Mathf.Lerp(buttonWidth, width, eased);
+            // Leave room for the tapered outer edge beyond the buttons in the opening frame.
+            var initialWidth = Mathf.Min(width, buttonWidth + 32f * scale);
+            var shownWidth = Mathf.Lerp(initialWidth, width, eased);
             var revealX = openRight ? 0f : width - shownWidth;
             _visiblePaperBounds = new Rect(bounds.x + revealX, bounds.y, shownWidth, height);
-            _paperShape.SetMirrored(!openRight);
+            _paperShape.SetScrollJoin(!openRight, paperEdge);
             HappiUiKit.Place(_paper.rectTransform, revealX, 0f, shownWidth, height);
             PlaceFlyoutPainting(width, height, buttonWidth, revealX, openRight, scale);
             if (_scrollRoll.enabled)
             {
                 var roll = _scrollRoll.rectTransform;
-                HappiUiKit.Place(roll, openRight ? 0f : width, 0f, rollWidth, height);
+                HappiUiKit.Place(roll, openRight ? -rollOverlap : width + rollOverlap, 0f, rollWidth, height);
                 roll.localScale = new Vector3(openRight ? 1f : -1f, 1f, 1f);
             }
-            var curlInset = Mathf.Max(4f * scale, rollWidth - 3f * scale);
+            var curlInset = Mathf.Max(4f * scale, curlWidthInFlyout - 3f * scale);
             var actionX = openRight ? curlInset : width - buttonWidth + 4f * scale;
             var actionWidth = Mathf.Max(1f, buttonWidth - curlInset - 4f * scale);
             var actionHeight = FlyoutRowHeight * scale;

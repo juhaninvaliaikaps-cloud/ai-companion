@@ -9,6 +9,7 @@ namespace AICompanion.NewUI
         internal enum Kind { Panel, Tab, ChatFrame, Composer, HeaderArt, ScrollPaper }
         Kind _kind;
         bool _mirrored;
+        Vector2 _paperEdge;
         static readonly Vector2[] ScrollBrushEdge =
         {
             new(0f, 0.15f), new(0.045f, 0.7f), new(0.08f, 0.05f), new(0.13f, 0.86f),
@@ -32,11 +33,12 @@ namespace AICompanion.NewUI
             return shape;
         }
 
-        public void SetMirrored(bool mirrored)
+        public void SetScrollJoin(bool mirrored, Vector2 paperEdge)
         {
-            if (_mirrored == mirrored)
+            if (_mirrored == mirrored && _paperEdge == paperEdge)
                 return;
             _mirrored = mirrored;
+            _paperEdge = paperEdge;
             graphic.SetVerticesDirty();
         }
 
@@ -81,7 +83,8 @@ namespace AICompanion.NewUI
             foreach (var edge in ScrollBrushEdge)
             {
                 var inset = taper * edge.x + brushDepth * edge.y;
-                mesh.AddVert(new Vector2(start, Mathf.Lerp(rect.yMax - pinch, rect.yMin + pinch, edge.x)),
+                var join = start + direction * Mathf.Lerp(_paperEdge.x, _paperEdge.y, edge.x);
+                mesh.AddVert(new Vector2(join, Mathf.Lerp(rect.yMax - pinch, rect.yMin + pinch, edge.x)),
                     color, Vector2.zero);
                 mesh.AddVert(new Vector2(end - direction * inset, Mathf.Lerp(rect.yMax, rect.yMin, edge.x)),
                     color, Vector2.zero);
