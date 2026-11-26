@@ -5,8 +5,8 @@ namespace AICompanion.NewUI
     /// <summary>Ribbon layout in overlay pixels, with the origin at the top left.</summary>
     public static class RibbonMenuPlacement
     {
-        public const float PreferredFlyoutWidth = 960f;
-        public const float PreferredPersonaWidth = 900f;
+        public const float PreferredFlyoutWidth = 1000f;
+        public const float PreferredPersonaWidth = 980f;
 
         public static float FitScale(Vector2 visibleSize, Vector2 menuSize, float dpiScale)
         {
@@ -102,12 +102,11 @@ namespace AICompanion.NewUI
         public static (Rect Frame, Rect Uv) PersonaPainting(Rect area, float textureAspect)
         {
             const float trim = 0.26f;
-            var fullPoseWidth = area.height * textureAspect * (1f - trim);
-            if (fullPoseWidth <= area.width)
-                return (new Rect(area.xMax - fullPoseWidth, area.yMin, fullPoseWidth, area.height),
-                    new Rect(trim, 0f, 1f - trim, 1f));
-
-            return (area, IllustrationUv(textureAspect, area.width / area.height, 0.55f, trim));
+            var poseAspect = textureAspect * (1f - trim);
+            var width = Mathf.Min(area.width, area.height * poseAspect);
+            var height = width / poseAspect;
+            var frame = new Rect(area.xMax - width, area.center.y - height * 0.5f, width, height);
+            return (frame, new Rect(trim, 0f, 1f - trim, 1f));
         }
 
         public static (Rect Bounds, bool OpensUp) PersonaBanner(Rect area, Rect header, Vector2 preferred, float minAbove)

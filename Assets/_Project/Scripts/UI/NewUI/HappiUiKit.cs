@@ -180,6 +180,7 @@ namespace AICompanion.NewUI
         }
         bool _holdHoverColor;
         bool _over;
+        public bool PointerOver => _over;
 
         public void OnPointerEnter(PointerEventData eventData)
         {

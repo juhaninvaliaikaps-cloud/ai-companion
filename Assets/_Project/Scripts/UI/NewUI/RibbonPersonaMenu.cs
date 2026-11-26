@@ -211,7 +211,11 @@ namespace AICompanion.NewUI
             if (showArt)
             {
                 var artLeft = controls - 4f * scale;
-                var (frame, uv) = RibbonMenuPlacement.PersonaPainting(new Rect(artLeft, 0f, width - artLeft, height),
+                // Keep the reclining pose clear of the paper's tapered and dry-brushed edges.
+                var inset = Mathf.Max(3f * scale, height * 0.055f);
+                var brushClearance = height * 0.25f + 4f * scale;
+                var safeArea = Rect.MinMaxRect(artLeft, inset, width - brushClearance, height - inset);
+                var (frame, uv) = RibbonMenuPlacement.PersonaPainting(safeArea,
                     (float)_art.texture.width / _art.texture.height);
                 _art.uvRect = uv;
                 HappiUiKit.Place(_art.rectTransform, frame.x, frame.y, frame.width, frame.height);

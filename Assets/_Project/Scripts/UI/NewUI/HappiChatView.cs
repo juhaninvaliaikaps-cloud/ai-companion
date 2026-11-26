@@ -29,6 +29,8 @@ namespace AICompanion.NewUI
     {
         RawImage _ribbonHeaderArt;
         RibbonClickAccent _ribbonSendAccent;
+        RibbonSendFlourish _ribbonSendFlourish;
+        HappiHoverText _sendHover;
         RibbonGlyph _ribbonVoiceIcon;
         RibbonGlyph _ribbonPrivacyIcon;
         RectTransform _ribbonTitleMark;
@@ -214,7 +216,7 @@ namespace AICompanion.NewUI
             _settings = settings;
             _theme = RibbonMenu.Enabled ? new HappiTheme
             {
-                ChatBoxWidth = 440f,
+                ChatBoxWidth = 560f,
                 PanelBackground = RibbonMenu.Ink,
                 PanelInset = new Color32(28, 31, 38, 255),
                 Border = new Color32(114, 238, 207, 255),
@@ -1182,12 +1184,14 @@ namespace AICompanion.NewUI
             {
                 RibbonShape.Apply(_send.Image, true);
                 _ribbonSendAccent = RibbonClickAccent.Create(_box);
+                _ribbonSendFlourish = HappiUiKit.Rect(_send.Rect, "Cyan Send flourish").gameObject.AddComponent<RibbonSendFlourish>();
+                _ribbonSendFlourish.raycastTarget = false;
                 var colors = _send.Button.colors;
                 colors.normalColor = RibbonMenu.Cyan;
                 colors.selectedColor = RibbonMenu.Cyan;
                 _send.Button.colors = colors;
-                var hover = _send.Button.GetComponent<HappiHoverText>();
-                hover.Normal = RibbonMenu.Ink;
+                _sendHover = _send.Button.GetComponent<HappiHoverText>();
+                _sendHover.Normal = RibbonMenu.Ink;
                 _send.Label.color = RibbonMenu.Ink;
                 _send.Label.fontStyle |= FontStyles.Italic;
             }
@@ -1292,8 +1296,7 @@ namespace AICompanion.NewUI
             var maxWidth = Screen.width - 2f * margin;
             var maxHeight = Screen.height - 2f * margin;
             var autoWidth = Mathf.Max(220f, Mathf.Min(_theme.ChatBoxWidth * s, maxWidth));
-            var minHeight = 196f * s * chatHeight;
-            var collapsed = Mathf.Clamp(bodyHeight * 0.40f * chatHeight, minHeight, 320f * s * chatHeight);
+            var collapsed = ChatBoxResize.AutomaticHeight(bodyHeight, s, chatHeight, ribbon);
             float width;
             float height;
             if (_resizing)
@@ -1341,7 +1344,7 @@ namespace AICompanion.NewUI
 
             // The wide chat gives the title, portrait and controls a taller shared header.
             var y = pad;
-            var headerRow = wideRibbon ? 36f * s : row;
+            var headerRow = wideRibbon ? 42f * s : row;
             var closeW = row;
             var lookW = (ribbon ? 64f : 112f) * s;
             var headerGap = ribbon ? 4f * s : gap;
@@ -1415,10 +1418,10 @@ namespace AICompanion.NewUI
                 HappiUiKit.Place(_name.rectTransform, nameX, y, Mathf.Max(40f, right - nameX), headerRow);
             HappiUiKit.Place(_dragHandle.Rect, 0f, 0f, width, headerBottom + gap * 0.5f);
             _badge.gameObject.SetActive(false);
-            y = headerBottom + gap;
+            y = headerBottom + gap + (wideRibbon ? 10f * s : 0f);
 
             // Bottom rows, from the bottom up.
-            var bottom = height - pad;
+            var bottom = height - (wideRibbon ? Mathf.Max(pad, 21f * s) : pad);
             if (keyRow)
             {
                 var saveW = 56f * s;
@@ -1430,16 +1433,18 @@ namespace AICompanion.NewUI
             _keyInput.gameObject.SetActive(keyRow);
             _saveKey.SetVisible(keyRow);
 
-            var inputRow = row + (ribbon ? 9f : 4f) * s;
+            var inputRow = row + (wideRibbon ? 13f : ribbon ? 9f : 4f) * s;
             var micW = 44f * s;
             var micSpace = showMic ? micW + gap : 0f;
-            var sendW = (wideRibbon ? 84f : ribbon ? 76f : 64f) * s;
+            var sendW = (wideRibbon ? 91f : ribbon ? 76f : 64f) * s;
             _mic.SetVisible(showMic);
             if (showMic)
                 HappiUiKit.Place(_mic.Rect, pad, bottom - inputRow, micW, inputRow);
             HappiUiKit.Place((RectTransform)_input.transform, pad + micSpace, bottom - inputRow,
                 Mathf.Max(1f, inner - micSpace - sendW - gap), inputRow);
             HappiUiKit.Place(_send.Rect, pad + inner - sendW, bottom - inputRow, sendW, inputRow);
+            if (ribbon)
+                HappiUiKit.Place(_ribbonSendFlourish.rectTransform, sendW - 48f * s, -18f * s, 52f * s, 25f * s);
             bottom -= inputRow + gap;
 
             // Cached arrays: the layout runs every frame while the box is being resized.
@@ -1538,7 +1543,7 @@ namespace AICompanion.NewUI
             if (_ribbonExtrasMenu != null)
             {
                 _ribbonExtrasMenu.Label.fontSize = _theme.FontSmall * s;
-                _send.Label.fontSize = (wideRibbon ? 18f : 16f) * s;
+                _send.Label.fontSize = (wideRibbon ? 20f : 16f) * s;
             }
             SetInputFont(_input, ChatFontSize() * s);
             SetInputFont(_keyInput, _theme.FontSmall * s);
@@ -1660,7 +1665,11 @@ namespace AICompanion.NewUI
         {
             RefreshAvatar();
             var presenter = _chat.Presenter;
-            _send.Text = presenter.ActionLabel;
+            var action = presenter.ActionLabel;
+            _send.Text = action;
+            if (_ribbonSendFlourish != null)
+                _ribbonSendFlourish.Refresh(action == ChatPresenter.SendLabel, _sendHover.PointerOver ||
+                    EventSystem.current?.currentSelectedGameObject == _send.Button.gameObject);
             _mute.Text = presenter.MuteLabel;
             if (_ribbonVoiceIcon != null)
                 _ribbonVoiceIcon.Shape = presenter.Muted ? RibbonGlyph.Mark.Muted : RibbonGlyph.Mark.Voice;
@@ -2092,8 +2101,8 @@ namespace AICompanion.NewUI
             if (SyncPersonaDraft())
                 return;
             var result = _chat.Presenter.PrimaryAction(_input != null ? _input.text : string.Empty);
-            if (result == ChatActionResult.Sent && _ribbonSendAccent != null)
-                _ribbonSendAccent.Play(_send);
+            if (result == ChatActionResult.Sent)
+                PlaySendFeedback();
             if (result == ChatActionResult.Sent && _input != null)
             {
                 _input.text = string.Empty;
@@ -2107,10 +2116,15 @@ namespace AICompanion.NewUI
                 return;
             if (_chat.Presenter.Send(text) != ChatActionResult.Sent)
                 return;
-            if (_ribbonSendAccent != null)
-                _ribbonSendAccent.Play(_send);
+            PlaySendFeedback();
             _input.text = string.Empty;
             _input.ActivateInputField();
+        }
+
+        void PlaySendFeedback()
+        {
+            _ribbonSendAccent?.Play(_send);
+            _ribbonSendFlourish?.PlaySend();
         }
 
         /// <summary>

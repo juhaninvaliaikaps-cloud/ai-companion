@@ -79,14 +79,18 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void CompactPersonaBannerCropsAroundTheFace()
+        public void CompactPersonaBannerScalesTheFullPoseToFit()
         {
             var area = new Rect(185f, 0f, 160f, 128f);
             var (frame, uv) = RibbonMenuPlacement.PersonaPainting(area, 3f);
 
-            Assert.That(frame, Is.EqualTo(area));
-            Assert.That(uv.center.x, Is.EqualTo(0.55f).Within(0.001f));
-            Assert.That(uv.width / uv.height * 3f, Is.EqualTo(area.width / area.height).Within(0.001f));
+            Assert.That(frame.width, Is.EqualTo(area.width));
+            Assert.That(frame.height, Is.LessThan(area.height));
+            Assert.That(frame.center.y, Is.EqualTo(area.center.y).Within(0.001f));
+            Assert.That(uv.yMin, Is.Zero);
+            Assert.That(uv.yMax, Is.EqualTo(1f));
+            Assert.That(uv.xMax, Is.EqualTo(1f));
+            Assert.That(frame.width / frame.height, Is.EqualTo(uv.width * 3f).Within(0.001f));
         }
 
         [Test]

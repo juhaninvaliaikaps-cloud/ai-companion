@@ -72,7 +72,10 @@ namespace AICompanion.NewUI
                 var point = Point(_kind, rect, i);
                 var u = uv.x + uv.width * (point.x - rect.xMin) / rect.width;
                 var v = uv.y + uv.height * (point.y - rect.yMin) / rect.height;
-                vertices.AddVert(point, color, new Vector2(u, v));
+                var tint = _kind == Kind.ChatFrame
+                    ? Color32.Lerp(color, new Color32(30, 35, 44, color.a), (point.y - rect.yMin) / rect.height)
+                    : color;
+                vertices.AddVert(point, tint, new Vector2(u, v));
             }
             for (var i = 1; i + 1 < count; i++)
                 vertices.AddTriangle(0, i, i + 1);

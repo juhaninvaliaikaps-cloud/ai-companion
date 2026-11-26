@@ -34,6 +34,14 @@ namespace AICompanion.NewUI
         public const float EdgeThickness = 6f;
         public const float CornerSize = 14f;
 
+        /// <summary>Default height from the avatar window, before user resize and screen limits.</summary>
+        public static float AutomaticHeight(float bodyHeight, float uiScale, float heightSetting, bool ribbon)
+        {
+            var minimum = (ribbon ? 256f : 196f) * uiScale * heightSetting;
+            var maximum = (ribbon ? 392f : 320f) * uiScale * heightSetting;
+            return Mathf.Clamp(bodyHeight * (ribbon ? 0.44f : 0.40f) * heightSetting, minimum, maximum);
+        }
+
         /// <summary>
         /// The box rect after dragging <paramref name="edges"/> by <paramref name="delta"/> from
         /// <paramref name="start"/>. The edges not dragged stay where they were; the size stays
