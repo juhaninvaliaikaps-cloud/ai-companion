@@ -7,7 +7,7 @@ namespace AICompanion.NewUI
     /// <summary>Decorative marks for the Ribbon UI. The surrounding control owns the hit area.</summary>
     sealed class RibbonGlyph : MaskableGraphic
     {
-        internal enum Mark { Menu, Door, Ink, Voice, Muted, Screen, Profile, Model, Settings, Close, Chevron }
+        internal enum Mark { Menu, Door, Ink, Voice, Muted, Screen, Profile, Model, Settings, Close, Chevron, Lock, OpenLock }
         internal TMP_Text Label { get; set; }
         internal Mark Shape
         {
@@ -92,6 +92,16 @@ namespace AICompanion.NewUI
                 case Mark.Chevron:
                     Line(mesh, 0.33f, 0.17f, 0.67f, 0.50f);
                     Line(mesh, 0.67f, 0.50f, 0.33f, 0.83f);
+                    break;
+                case Mark.Lock:
+                case Mark.OpenLock:
+                    Box(mesh, 0.21f, 0.15f, 0.79f, 0.57f);
+                    Line(mesh, 0.50f, 0.30f, 0.50f, 0.41f);
+                    Line(mesh, 0.33f, 0.57f, 0.33f, 0.75f);
+                    Line(mesh, 0.33f, 0.75f, 0.43f, 0.87f);
+                    Line(mesh, 0.43f, 0.87f, 0.61f, 0.87f);
+                    Line(mesh, 0.61f, 0.87f, 0.69f, 0.75f);
+                    Line(mesh, 0.69f, 0.75f, 0.69f, _mark == Mark.Lock ? 0.57f : 0.68f);
                     break;
                 case Mark.Ink:
                     Stamp(mesh);

@@ -47,6 +47,9 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(string.Format(ChatTranscriptView.HiddenNoteFormat, 700), view.Entry(0));
             Assert.AreEqual("You\nmessage 350", view.Entry(1));
             Assert.AreEqual("Companion\nfine 399", view.Entry(view.Count - 1));
+            Assert.AreEqual(ChatLineKind.System, view.KindAt(0), "the hidden-message note is not a reply");
+            Assert.AreEqual(ChatLineKind.User, view.KindAt(1));
+            Assert.AreEqual(ChatLineKind.Assistant, view.KindAt(view.Count - 1));
 
             // The conversation itself is untouched: everything is still there for history and the export.
             Assert.AreEqual(800, conversation.Lines.Count);

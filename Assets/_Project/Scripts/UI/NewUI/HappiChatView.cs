@@ -29,6 +29,11 @@ namespace AICompanion.NewUI
     {
         RawImage _ribbonHeaderArt;
         RibbonClickAccent _ribbonSendAccent;
+        RibbonGlyph _ribbonVoiceIcon;
+        RibbonGlyph _ribbonPrivacyIcon;
+        RectTransform _ribbonTitleMark;
+        RectTransform _ribbonHeaderRule;
+        readonly List<(Image Card, Image Accent)> _ribbonHistoryCards = new();
 
         public const string ModePref = "happi.vn-mode";
         const float PlaneDistance = 0.48f;
@@ -249,6 +254,7 @@ namespace AICompanion.NewUI
             _canvasObject = null;
             _historyTexts.Clear();
             _historyHeights.Clear();
+            _ribbonHistoryCards.Clear();
             Debug.Log("New UI: chat view off");
         }
 
@@ -955,6 +961,10 @@ namespace AICompanion.NewUI
             if (RibbonMenu.Enabled)
             {
                 _name.fontStyle |= FontStyles.Italic;
+                _name.overflowMode = TextOverflowModes.Ellipsis;
+                _ribbonTitleMark = HappiUiKit.Panel(_box, "Ribbon title stripe", new Color32(255, 206, 40, 255), false).rectTransform;
+                RibbonShape.Apply(_ribbonTitleMark.GetComponent<Image>(), true);
+                _ribbonHeaderRule = HappiUiKit.Panel(_box, "Ribbon header rule", new Color32(100, 118, 128, 130), false).rectTransform;
                 var painting = Resources.Load<Texture2D>("RibbonArt/Talk");
                 if (painting != null)
                 {
@@ -968,6 +978,18 @@ namespace AICompanion.NewUI
             _mute = HappiUiKit.Button(_box, "Mute", ChatPresenter.MuteOffLabel, _theme.FontSmall, () => _chat.Presenter.ToggleMute());
             _privacy = HappiUiKit.Button(_box, "Privacy", "Public", _theme.FontSmall, OnPrivacy);
             _close = HappiUiKit.Button(_box, "Close", "⚙", _theme.FontBody, ToggleChatMenu);
+            if (RibbonMenu.Enabled)
+            {
+                StyleRibbonControl(_mute);
+                StyleRibbonControl(_privacy);
+                StyleRibbonControl(_close);
+                _ribbonVoiceIcon = RibbonGlyph.Add(_mute.Rect, "Voice", RibbonGlyph.Mark.Voice, _theme.Text);
+                _ribbonVoiceIcon.Label = _mute.Label;
+                _mute.Label.gameObject.SetActive(false);
+                _ribbonPrivacyIcon = RibbonGlyph.Add(_privacy.Rect, "Privacy state", RibbonGlyph.Mark.OpenLock, _theme.Text);
+                _ribbonPrivacyIcon.Label = _privacy.Label;
+            }
+
             var gearFont = HappiFonts.For("Segoe UI Symbol");
             if (gearFont != null)
             {
@@ -1007,6 +1029,11 @@ namespace AICompanion.NewUI
 
             _dialogueHit = HappiUiKit.Panel(_historyContent, "Dialogue", _theme.PanelInset, true);
             _dialogueHit.gameObject.AddComponent<RectMask2D>();
+            if (RibbonMenu.Enabled)
+            {
+                _dialogueHit.color = new Color32(31, 39, 48, 255);
+                AddReplyAccent(_dialogueHit.transform);
+            }
             var dialogueButton = _dialogueHit.gameObject.AddComponent<Button>();
             dialogueButton.transition = Selectable.Transition.None;
             var nav = dialogueButton.navigation;
@@ -1031,7 +1058,17 @@ namespace AICompanion.NewUI
             AddHold(trigger, UnityEngine.EventSystems.EventTriggerType.PointerDown, true);
             AddHold(trigger, UnityEngine.EventSystems.EventTriggerType.PointerUp, false);
             AddHold(trigger, UnityEngine.EventSystems.EventTriggerType.PointerExit, false);
-            _input = HappiUiKit.Input(_box, "Message", "Message", _theme.FontBody, false);
+            _input = HappiUiKit.Input(_box, "Message", RibbonMenu.Enabled ? "Write a message…" : "Message", _theme.FontBody, false);
+            if (RibbonMenu.Enabled)
+            {
+                var composer = _input.GetComponent<Image>();
+                composer.color = new Color32(35, 41, 53, 255);
+                RibbonShape.Apply(composer, false);
+                var composerBorder = composer.gameObject.AddComponent<Outline>();
+                composerBorder.effectColor = new Color32(108, 130, 145, 170);
+                composerBorder.effectDistance = new Vector2(1f, -1f);
+                _input.selectionColor = new Color32(38, 230, 255, 100);
+            }
             _input.onSubmit.AddListener(OnSubmit);
             _send = HappiUiKit.Button(_box, "Send", ChatPresenter.SendLabel, _theme.FontSmall, OnSend);
             if (RibbonMenu.Enabled)
@@ -1177,27 +1214,46 @@ namespace AICompanion.NewUI
             // Header: name + badge on the left, Mute / Private-Public / ⚙ on the right.
             var y = pad;
             var closeW = row;
-            var lookW = 112f * s;
-            var muteW = 58f * s;
+            var ribbon = _ribbonVoiceIcon != null;
+            var lookW = (ribbon ? 64f : 112f) * s;
+            var headerGap = ribbon ? 4f * s : gap;
+            var muteW = ribbon ? row : 58f * s;
             var right = pad + inner;
             HappiUiKit.Place(_close.Rect, right - closeW, y, closeW, row);
             PlaceChatMenu(s, pad, row, gap);
-            right -= closeW + gap;
+            right -= closeW + headerGap;
             HappiUiKit.Place(_privacy.Rect, right - lookW, y, lookW, row);
-            right -= lookW + gap;
+            right -= lookW + headerGap;
             HappiUiKit.Place(_mute.Rect, right - muteW, y, muteW, row);
-            right -= muteW + gap;
+            right -= muteW + headerGap;
             var nameX = pad;
             if (_avatarShown)
             {
-                HappiUiKit.Place(_avatarFrame.rectTransform, pad, y, row, row);
-                nameX += row + gap;
+                var portraitSize = ribbon && inner < 240f * s ? 19f * s : row;
+                HappiUiKit.Place(_avatarFrame.rectTransform, pad, y + (row - portraitSize) * 0.5f, portraitSize, portraitSize);
+                nameX += portraitSize + headerGap;
             }
 
-            var nameW = Mathf.Max(40f, right - nameX);
+            if (ribbon)
+            {
+                var icon = 15f * s;
+                HappiUiKit.Place(_ribbonVoiceIcon.rectTransform, (muteW - icon) * 0.5f, (row - icon) * 0.5f, icon, icon);
+                HappiUiKit.Place(_ribbonPrivacyIcon.rectTransform, 7f * s, (row - icon) * 0.5f, icon, icon);
+                HappiUiKit.Stretch(_privacy.Label.rectTransform, 21f * s, 0f, 4f * s, 0f);
+                var titleWidth = 7f * s;
+                var showMark = right - nameX >= 50f * s;
+                _ribbonTitleMark.gameObject.SetActive(showMark);
+                if (showMark)
+                {
+                    HappiUiKit.Place(_ribbonTitleMark, nameX, y + 4f * s, titleWidth, row - 8f * s);
+                    nameX += titleWidth + 4f * s;
+                }
+                HappiUiKit.Place(_ribbonHeaderRule, pad, y + row + gap * 0.5f, inner, Mathf.Max(1f, s));
+            }
+            var nameW = Mathf.Max(ribbon ? 1f : 40f, right - nameX);
             if (_ribbonHeaderArt != null)
             {
-                var showArt = nameW >= 145f * s;
+                var showArt = nameW >= 104f * s;
                 _ribbonHeaderArt.gameObject.SetActive(showArt);
                 if (showArt)
                 {
@@ -1422,6 +1478,8 @@ namespace AICompanion.NewUI
             var presenter = _chat.Presenter;
             _send.Text = presenter.ActionLabel;
             _mute.Text = presenter.MuteLabel;
+            if (_ribbonVoiceIcon != null)
+                _ribbonVoiceIcon.Shape = presenter.Muted ? RibbonGlyph.Mark.Muted : RibbonGlyph.Mark.Voice;
             RefreshPrivacy(presenter.ReplyBusy);
             _input.interactable = !presenter.ReplyBusy;
 
@@ -1583,9 +1641,21 @@ namespace AICompanion.NewUI
             _liveDirty = false;
             var count = _transcript.Count;
             var historySize = HistoryFontSize();
+            var ribbon = _ribbonVoiceIcon != null;
+            var cardPadding = 8f * _layoutScale;
+            var textWidth = Mathf.Max(1f, width - 4f - (ribbon ? 2f * cardPadding : 0f));
             while (_historyTexts.Count < count)
             {
-                var text = HappiUiKit.Text(_historyContent, "Message", string.Empty, historySize, _theme.Text, TextAlignmentOptions.TopLeft, false);
+                Transform parent = _historyContent;
+                if (ribbon)
+                {
+                    var card = HappiUiKit.Panel(parent, "Message card", _theme.PanelInset, false);
+                    var accent = AddReplyAccent(card.transform);
+                    _ribbonHistoryCards.Add((card, accent));
+                    parent = card.transform;
+                }
+
+                var text = HappiUiKit.Text(parent, "Message", string.Empty, historySize, _theme.Text, TextAlignmentOptions.TopLeft, false);
                 text.richText = true;
                 text.overflowMode = TextOverflowModes.Overflow;
                 var rect = text.rectTransform;
@@ -1607,32 +1677,50 @@ namespace AICompanion.NewUI
             for (var i = 0; i < _historyTexts.Count; i++)
             {
                 var text = _historyTexts[i];
+                var rowObject = ribbon ? _ribbonHistoryCards[i].Card.gameObject : text.gameObject;
                 if (i >= count)
                 {
-                    if (text.gameObject.activeSelf)
+                    if (rowObject.activeSelf)
                     {
                         text.text = string.Empty;
-                        text.gameObject.SetActive(false);
+                        rowObject.SetActive(false);
                     }
 
                     continue;
                 }
 
-                if (!text.gameObject.activeSelf)
-                    text.gameObject.SetActive(true);
+                if (!rowObject.activeSelf)
+                    rowObject.SetActive(true);
                 if (_transcript.Changed(i) || widthChanged || _historyHeights[i] < 0f)
                 {
                     // JUH-132: the transcript used the old History tab's small font after a
                     // reply finished, while the live reply was body size. Keep one size.
                     text.fontSize = HistoryFontSize();
                     text.text = HistoryEntry(_transcript.Entry(i));
-                    _historyHeights[i] = Mathf.Max(8f, text.GetPreferredValues(text.text, width - 4f, 0f).y);
+                    _historyHeights[i] = Mathf.Max(8f, text.GetPreferredValues(text.text, textWidth, 0f).y);
                 }
 
-                var rect = text.rectTransform;
-                rect.anchoredPosition = new Vector2(2f, -y);
-                rect.sizeDelta = new Vector2(width - 4f, _historyHeights[i]);
-                y += _historyHeights[i] + 6f;
+                var messageHeight = _historyHeights[i];
+                if (ribbon)
+                {
+                    var (card, accent) = _ribbonHistoryCards[i];
+                    var kind = _transcript.KindAt(i);
+                    var isReply = kind == ChatLineKind.Assistant;
+                    var cardHeight = messageHeight + 2f * cardPadding;
+                    card.enabled = kind != ChatLineKind.System;
+                    card.color = isReply ? new Color32(31, 39, 48, 255) : new Color32(43, 48, 59, 255);
+                    accent.gameObject.SetActive(isReply);
+                    HappiUiKit.Place(card.rectTransform, 2f, y, width - 4f, cardHeight);
+                    HappiUiKit.Place(text.rectTransform, cardPadding, cardPadding, textWidth, messageHeight);
+                    y += cardHeight + 6f * _layoutScale;
+                }
+                else
+                {
+                    var rect = text.rectTransform;
+                    rect.anchoredPosition = new Vector2(2f, -y);
+                    rect.sizeDelta = new Vector2(width - 4f, messageHeight);
+                    y += messageHeight + 6f;
+                }
             }
 
             if (_dialogueHit != null && _dialogueHit.gameObject.activeSelf)
@@ -1713,6 +1801,29 @@ namespace AICompanion.NewUI
 
         // ---- Actions ---------------------------------------------------------------------
 
+        static Image AddReplyAccent(Transform parent)
+        {
+            var accent = HappiUiKit.Panel(parent, "Happi reply stripe", RibbonMenu.Cyan, false);
+            var edge = accent.rectTransform;
+            edge.anchorMin = Vector2.zero;
+            edge.anchorMax = Vector2.up;
+            edge.offsetMin = new Vector2(2f, 4f);
+            edge.offsetMax = new Vector2(4f, -4f);
+            return accent;
+        }
+
+        static void StyleRibbonControl(HappiButton button)
+        {
+            RibbonShape.Apply(button.Image, false);
+            var colors = button.Button.colors;
+            colors.normalColor = new Color32(34, 40, 52, 255);
+            colors.selectedColor = colors.normalColor;
+            colors.highlightedColor = RibbonMenu.Cyan;
+            colors.pressedColor = RibbonMenu.Cyan;
+            button.Button.colors = colors;
+            button.Button.GetComponent<HappiHoverText>().Hover = RibbonMenu.Ink;
+        }
+
         void OnSend()
         {
             var result = _chat.Presenter.PrimaryAction(_input != null ? _input.text : string.Empty);
@@ -1755,7 +1866,13 @@ namespace AICompanion.NewUI
                 return;
             _privacyShown = shown;
             _privacy.Text = on ? "Private" : "Public";
-            _privacy.Label.color = on ? _theme.Intimate : _theme.BadgeCloud;
+            var statusColor = on ? _theme.Intimate : _theme.BadgeCloud;
+            if (_ribbonPrivacyIcon != null)
+            {
+                _ribbonPrivacyIcon.Shape = on ? RibbonGlyph.Mark.Lock : RibbonGlyph.Mark.OpenLock;
+                _privacy.Button.GetComponent<HappiHoverText>().Normal = statusColor;
+            }
+            _privacy.Label.color = statusColor;
             _privacy.Interactable = !busy;
         }
 

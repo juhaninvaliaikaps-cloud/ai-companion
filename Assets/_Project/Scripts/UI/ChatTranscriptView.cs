@@ -48,6 +48,8 @@ namespace AICompanion.UI
         /// <summary>Messages left out because of <see cref="MaxShownMessages"/>.</summary>
         public int HiddenMessages { get; private set; }
 
+        public ChatLineKind KindAt(int index) => _sources[index]?.Kind ?? ChatLineKind.System;
+
         public string Entry(int index)
         {
             return _entries[index];

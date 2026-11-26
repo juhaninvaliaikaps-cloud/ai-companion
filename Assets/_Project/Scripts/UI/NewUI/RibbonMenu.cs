@@ -19,6 +19,9 @@ namespace AICompanion.NewUI
         internal static readonly Color Cyan = new Color32(38, 230, 255, 255);
         static readonly Color Yellow = new Color32(255, 202, 34, 255);
         const float HoverGrace = 0.22f;
+        const float MainWidth = 146f;
+        const float FlyoutMinWidth = 124f;
+        const float FlyoutPreferredWidth = 275f;
 
         Canvas _canvas;
         HeadLocator _head;
@@ -35,6 +38,7 @@ namespace AICompanion.NewUI
         float _selectionReadyAt;
         HappiButton[] _rows;
         RibbonGlyph[] _rowIcons;
+        readonly Rect[] _rowBounds = new Rect[6];
         RibbonGlyph _profileArrow;
         RibbonGlyph _aiArrow;
         RectTransform _menu;
@@ -272,7 +276,8 @@ namespace AICompanion.NewUI
             _trigger.Button.gameObject.SetActive(true);
             _roomPreview.gameObject.SetActive(true);
             var area = OverlayVisibleArea.Get(_window);
-            var scale = HappiTheme.Current.UiScale(Screen.dpi);
+            var scale = Mathf.Min(HappiTheme.Current.UiScale(Screen.dpi),
+                Mathf.Max(1f, area.width) / (MainWidth + FlyoutMinWidth));
             Place(head, area, scale);
 
             // Keep the selected row and its flyout on screen until the stamp has registered.
@@ -330,12 +335,16 @@ namespace AICompanion.NewUI
 
             if (overMain)
             {
-                var yInMenu = pointer.y - _menuBounds.y;
-                var row = Mathf.FloorToInt(yInMenu / (32f * scale));
-                if (row == 2 || row == 3)
-                    ShowFlyout(row == 2 ? Flyout.Profile : Flyout.Ai);
-                else
-                    HideFlyout();
+                for (var i = 0; i < _rowBounds.Length; i++)
+                {
+                    if (!_rowBounds[i].Contains(pointer))
+                        continue;
+                    if (i == 2 || i == 3)
+                        ShowFlyout(i == 2 ? Flyout.Profile : Flyout.Ai);
+                    else
+                        HideFlyout();
+                    break;
+                }
             }
 
             if (_activeFlyout != Flyout.None)
@@ -347,7 +356,7 @@ namespace AICompanion.NewUI
             var top = Screen.height - area.yMax;
             var bottom = Screen.height - area.yMin;
             var trigger = 30f * scale;
-            var menuWidth = 146f * scale;
+            var menuWidth = MainWidth * scale;
             var menuHeight = 198f * scale;
             var clusterWidth = trigger * 2f + 4f * scale;
             var rightOfHead = head.x + 24f * scale;
@@ -365,7 +374,15 @@ namespace AICompanion.NewUI
             var hintY = Fit(triggerY + trigger, top, bottom - 22f * scale);
             HappiUiKit.Place(_roomHint, hintX, hintY, hintWidth, 22f * scale);
             var menuX = Fit(triggerX, area.xMin, area.xMax - menuWidth);
-            var menuY = Fit(triggerY + trigger, top, bottom - menuHeight);
+            var minimum = FlyoutMinWidth * scale;
+            var right = area.xMax - menuX - menuWidth;
+            var left = menuX - area.xMin;
+            if (right < minimum && left < minimum)
+                menuX = right >= left ? area.xMax - menuWidth - minimum : area.xMin + minimum;
+            var below = bottom - (triggerY + trigger);
+            var above = triggerY - top;
+            var alignBelow = below >= menuHeight || below >= above;
+            var menuY = Fit(alignBelow ? triggerY + trigger : triggerY - menuHeight, top, bottom - menuHeight);
             _menuBounds = new Rect(menuX, menuY, menuWidth, menuHeight);
             HappiUiKit.Place(_menu, menuX, menuY, menuWidth, menuHeight);
             for (var i = 0; i < _rows.Length; i++)
@@ -373,7 +390,10 @@ namespace AICompanion.NewUI
                 var stagger = (i % 2) * 5f * scale;
                 var rowTop = (i * 32f + (i == 5 ? 6f : 0f)) * scale;
                 var row = _rows[i];
-                HappiUiKit.Place(row.Rect, stagger, rowTop, menuWidth - stagger, 29f * scale);
+                var rowWidth = menuWidth - stagger;
+                var rowHeight = 29f * scale;
+                _rowBounds[i] = new Rect(menuX + stagger, menuY + rowTop, rowWidth, rowHeight);
+                HappiUiKit.Place(row.Rect, stagger, rowTop, rowWidth, rowHeight);
                 HappiUiKit.Place(_rowIcons[i].rectTransform, 14f * scale, 7f * scale, 15f * scale, 15f * scale);
                 var trailing = (i == 2 || i == 3) ? 30f : 12f;
                 HappiUiKit.Stretch(row.Label.rectTransform, 37f * scale, 0f, trailing * scale, 0f);
@@ -398,7 +418,7 @@ namespace AICompanion.NewUI
         {
             var right = area.xMax - _menuBounds.xMax;
             var left = _menuBounds.xMin - area.xMin;
-            return right >= 275f * scale || right >= left;
+            return right >= FlyoutPreferredWidth * scale || right >= left;
         }
 
         void PlaceFlyout(Rect area, float scale)
@@ -406,7 +426,7 @@ namespace AICompanion.NewUI
             var right = area.xMax - _menuBounds.xMax;
             var left = _menuBounds.xMin - area.xMin;
             var openRight = FlyoutOpensRight(area, scale);
-            var width = Mathf.Min(275f * scale, Mathf.Max(1f, openRight ? right : left));
+            var width = Mathf.Min(FlyoutPreferredWidth * scale, Mathf.Max(1f, openRight ? right : left));
             var count = _activeFlyout == Flyout.Profile ? ProfileTabs.Length : AiPages.Length;
             var height = (count * 28f + 12f) * scale;
             var x = openRight ? _menuBounds.xMax : _menuBounds.xMin - width;
@@ -431,8 +451,12 @@ namespace AICompanion.NewUI
                 HappiUiKit.Place(_painting.rectTransform, revealX, (height - artHeight) * 0.5f, shownWidth, artHeight);
             }
             for (var i = 0; i < count; i++)
-                HappiUiKit.Place(_destinations[i].Rect, (openRight ? 0f : width - buttonWidth) + 4f * scale, (6f + i * 28f) * scale,
+            {
+                var destination = _destinations[i];
+                destination.Label.fontSize = 14f * scale;
+                HappiUiKit.Place(destination.Rect, (openRight ? 0f : width - buttonWidth) + 4f * scale, (6f + i * 28f) * scale,
                     Mathf.Max(1f, buttonWidth - 8f * scale), 25f * scale);
+            }
         }
 
         static float Fit(float value, float min, float max) => Mathf.Clamp(value, min, Mathf.Max(min, max));
