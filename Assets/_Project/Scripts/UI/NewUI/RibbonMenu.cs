@@ -48,7 +48,7 @@ namespace AICompanion.NewUI
         RectTransform _flyout;
         Image _paper;
         RawImage _painting;
-        RibbonGlyph _scrollCurl;
+        RawImage _scrollRoll;
         float _flyoutShownAt;
         Texture2D _profileArt;
         Texture2D _aiArt;
@@ -166,8 +166,10 @@ namespace AICompanion.NewUI
             RibbonShape.Apply(_paper, false);
             _painting = HappiUiKit.Rect(_flyout, "Painting").gameObject.AddComponent<RawImage>();
             _painting.raycastTarget = false;
-            _scrollCurl = RibbonGlyph.Add(_flyout, "Unrolling paper curl", RibbonGlyph.Mark.ScrollCurl, Color.white);
-            _scrollCurl.gameObject.SetActive(false);
+            _scrollRoll = HappiUiKit.Rect(_flyout, "Illustrated scroll roll").gameObject.AddComponent<RawImage>();
+            _scrollRoll.texture = Resources.Load<Texture2D>("RibbonArt/ScrollRoll");
+            _scrollRoll.enabled = _scrollRoll.texture != null;
+            _scrollRoll.raycastTarget = false;
 
             _destinations = new HappiButton[AiPages.Length];
             for (var i = 0; i < _destinations.Length; i++)
@@ -576,34 +578,29 @@ namespace AICompanion.NewUI
             var y = Fit(_menuBounds.y + row * 32f * scale, Screen.height - area.yMax, Screen.height - area.yMin - height);
             _flyoutBounds = new Rect(x, y, width, height);
             HappiUiKit.Place(_flyout, x, y, width, height);
-            var buttonWidth = Mathf.Min(width, Mathf.Max(108f * scale, width * 0.4f));
+            var buttonWidth = Mathf.Min(width, Mathf.Max(125f * scale, width * 0.43f));
             var progress = Mathf.Clamp01((Time.unscaledTime - _flyoutShownAt) / 0.26f);
             var eased = 1f - (1f - progress) * (1f - progress);
             var shownWidth = Mathf.Lerp(buttonWidth, width, eased);
             var revealX = openRight ? 0f : width - shownWidth;
             HappiUiKit.Place(_paper.rectTransform, revealX, 0f, shownWidth, height);
             PlaceFlyoutPainting(width, height, buttonWidth, shownWidth, openRight, scale);
-            PlaceScrollCurl(width, height, openRight, scale, progress);
+            var rollWidth = _scrollRoll.enabled ? 26f * scale : 0f;
+            if (_scrollRoll.enabled)
+            {
+                var roll = _scrollRoll.rectTransform;
+                HappiUiKit.Place(roll, openRight ? 0f : width, 0f, rollWidth, height);
+                roll.localScale = new Vector3(openRight ? 1f : -1f, 1f, 1f);
+            }
             for (var i = 0; i < count; i++)
             {
                 var destination = _destinations[i];
                 destination.Label.fontSize = 14f * scale;
-                var curlInset = 11f * scale;
+                var curlInset = Mathf.Max(4f * scale, rollWidth - 3f * scale);
                 var actionX = openRight ? curlInset : width - buttonWidth + 4f * scale;
                 HappiUiKit.Place(destination.Rect, actionX, (6f + i * 28f) * scale,
                     Mathf.Max(1f, buttonWidth - curlInset - 4f * scale), 25f * scale);
             }
-        }
-
-        void PlaceScrollCurl(float width, float height, bool openRight, float scale, float progress)
-        {
-            // The roll stays at the parent seam while the paper unfolds away from it.
-            _scrollCurl.gameObject.SetActive(true);
-            var rollWidth = Mathf.Lerp(10f, 8f, progress) * scale;
-            var rect = _scrollCurl.rectTransform;
-            HappiUiKit.Place(rect, openRight ? 0f : width,
-                2f * scale, rollWidth, height - 4f * scale);
-            rect.localScale = new Vector3(openRight ? 1f : -1f, 1f, 1f);
         }
 
         void PlaceFlyoutPainting(float width, float height, float buttonWidth, float shownWidth, bool openRight, float scale)

@@ -7,7 +7,7 @@ namespace AICompanion.NewUI
     /// <summary>Decorative marks for the Ribbon UI. The surrounding control owns the hit area.</summary>
     sealed class RibbonGlyph : MaskableGraphic
     {
-        internal enum Mark { Menu, Door, Ink, Voice, Muted, Screen, Profile, Model, Settings, Close, Chevron, Lock, OpenLock, ScrollCurl }
+        internal enum Mark { Menu, Door, Ink, Voice, Muted, Screen, Profile, Model, Settings, Close, Chevron, Lock, OpenLock }
         internal TMP_Text Label { get; set; }
         internal Mark Shape
         {
@@ -103,9 +103,6 @@ namespace AICompanion.NewUI
                     Line(mesh, 0.61f, 0.87f, 0.69f, 0.75f);
                     Line(mesh, 0.69f, 0.75f, 0.69f, _mark == Mark.Lock ? 0.57f : 0.68f);
                     break;
-                case Mark.ScrollCurl:
-                    ScrollCurl(mesh);
-                    break;
                 case Mark.Ink:
                     Stamp(mesh);
                     break;
@@ -182,30 +179,6 @@ namespace AICompanion.NewUI
             Vertex(mesh, x1 + offset.x, y1 + offset.y);
             Vertex(mesh, x1 - offset.x, y1 - offset.y);
             Vertex(mesh, x0 - offset.x, y0 - offset.y);
-            mesh.AddTriangle(index, index + 1, index + 2);
-            mesh.AddTriangle(index, index + 2, index + 3);
-        }
-
-        void ScrollCurl(VertexHelper mesh)
-        {
-            Color32 shadow = new Color32(133, 83, 10, 255);
-            Color32 gold = new Color32(234, 163, 23, 255);
-            Color32 highlight = new Color32(255, 237, 151, 255);
-            // Four strips share a curved end profile to shade the rolled paper as a cylinder.
-            CurlBand(mesh, 0f, 0.17f, 0.034f, 0.012f, shadow, gold);
-            CurlBand(mesh, 0.17f, 0.45f, 0.012f, 0f, gold, highlight);
-            CurlBand(mesh, 0.45f, 0.75f, 0f, 0.013f, highlight, gold);
-            CurlBand(mesh, 0.75f, 1f, 0.013f, 0.036f, gold, shadow);
-        }
-
-        void CurlBand(VertexHelper mesh, float left, float right, float leftCap, float rightCap,
-            Color32 leftColor, Color32 rightColor)
-        {
-            var index = mesh.currentVertCount;
-            Vertex(mesh, left, leftCap, leftColor);
-            Vertex(mesh, left, 1f - leftCap, leftColor);
-            Vertex(mesh, right, 1f - rightCap, rightColor);
-            Vertex(mesh, right, rightCap, rightColor);
             mesh.AddTriangle(index, index + 1, index + 2);
             mesh.AddTriangle(index, index + 2, index + 3);
         }
