@@ -22,7 +22,7 @@ namespace AICompanion.NewUI
         const float HoverGrace = 0.22f;
         const float MainWidth = 146f;
         const float FlyoutMinWidth = 124f;
-        const float FlyoutPreferredWidth = 275f;
+        const float FlyoutPreferredWidth = 320f;
 
         Canvas _canvas;
         HeadLocator _head;
@@ -47,7 +47,6 @@ namespace AICompanion.NewUI
         RectTransform _menu;
         RectTransform _flyout;
         Image _paper;
-        RectTransform _paperEdge;
         RawImage _painting;
         float _flyoutShownAt;
         Texture2D _profileArt;
@@ -164,13 +163,8 @@ namespace AICompanion.NewUI
             _flyout = HappiUiKit.Rect(root, "Illustrated flyout");
             _paper = HappiUiKit.Panel(_flyout, "Yellow paper", Yellow, false);
             RibbonShape.Apply(_paper, false);
-            var paperShadow = _paper.gameObject.AddComponent<Shadow>();
-            paperShadow.effectColor = new Color32(0, 0, 0, 115);
-            paperShadow.effectDistance = new Vector2(2f, -3f);
             _painting = HappiUiKit.Rect(_flyout, "Painting").gameObject.AddComponent<RawImage>();
             _painting.raycastTarget = false;
-            _paperEdge = RibbonGlyph.Add(_flyout, "Rolled paper edge", RibbonGlyph.Mark.PaperEdge,
-                new Color32(255, 228, 111, 255)).rectTransform;
 
             _destinations = new HappiButton[AiPages.Length];
             for (var i = 0; i < _destinations.Length; i++)
@@ -585,25 +579,7 @@ namespace AICompanion.NewUI
             var shownWidth = Mathf.Lerp(buttonWidth, width, eased);
             var revealX = openRight ? 0f : width - shownWidth;
             HappiUiKit.Place(_paper.rectTransform, revealX, 0f, shownWidth, height);
-            if (_painting.texture != null)
-            {
-                var aspect = (float)_painting.texture.width / _painting.texture.height;
-                var artHeight = Mathf.Min(height, width / aspect);
-                var fraction = shownWidth / width;
-                _painting.uvRect = openRight
-                    ? new Rect(0f, 0f, fraction, 1f)
-                    : new Rect(fraction, 0f, -fraction, 1f);
-                HappiUiKit.Place(_painting.rectTransform, revealX, (height - artHeight) * 0.5f, shownWidth, artHeight);
-            }
-            var edgeWidth = Mathf.Min(13f * scale, shownWidth * 0.15f);
-            var showEdge = shownWidth > buttonWidth + edgeWidth;
-            _paperEdge.gameObject.SetActive(showEdge);
-            if (showEdge)
-            {
-                var edgeX = openRight ? revealX + shownWidth - edgeWidth : revealX + edgeWidth;
-                HappiUiKit.Place(_paperEdge, edgeX, 3f * scale, edgeWidth, height - 6f * scale);
-                _paperEdge.localScale = new Vector3(openRight ? 1f : -1f, 1f, 1f);
-            }
+            PlaceFlyoutPainting(width, height, buttonWidth, shownWidth, openRight, scale);
             for (var i = 0; i < count; i++)
             {
                 var destination = _destinations[i];
@@ -611,6 +587,30 @@ namespace AICompanion.NewUI
                 HappiUiKit.Place(destination.Rect, (openRight ? 0f : width - buttonWidth) + 4f * scale, (6f + i * 28f) * scale,
                     Mathf.Max(1f, buttonWidth - 8f * scale), 25f * scale);
             }
+        }
+
+        void PlaceFlyoutPainting(float width, float height, float buttonWidth, float shownWidth, bool openRight, float scale)
+        {
+            // Cover the illustration area with the character crop. The controls stay on the solid yellow side.
+            var inset = 7f * scale;
+            var artWidth = width - buttonWidth - inset;
+            var artHeight = height - 2f * inset;
+            var visibleWidth = Mathf.Min(artWidth, shownWidth - buttonWidth);
+            var visible = _painting.texture != null && artWidth >= 55f * scale && artHeight > 0f && visibleWidth > 0f;
+            _painting.enabled = visible;
+            if (!visible)
+                return;
+
+            var aspect = (float)_painting.texture.width / _painting.texture.height;
+            var croppedWidth = Mathf.Min(1f, artWidth / (artHeight * aspect));
+            var focalX = _activeFlyout == Flyout.Profile ? 0.61f : 0.71f;
+            var cropStart = Mathf.Clamp(focalX - croppedWidth * 0.5f, 0f, 1f - croppedWidth);
+            var revealedUv = croppedWidth * visibleWidth / artWidth;
+            var x = openRight ? buttonWidth : width - buttonWidth - visibleWidth;
+            _painting.uvRect = openRight
+                ? new Rect(cropStart, 0f, revealedUv, 1f)
+                : new Rect(cropStart + revealedUv, 0f, -revealedUv, 1f);
+            HappiUiKit.Place(_painting.rectTransform, x, inset, visibleWidth, artHeight);
         }
 
         static float Fit(float value, float min, float max) => Mathf.Clamp(value, min, Mathf.Max(min, max));
