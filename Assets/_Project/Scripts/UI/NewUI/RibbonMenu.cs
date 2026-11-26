@@ -6,12 +6,13 @@ using AICompanion.Settings;
 using AICompanion.UI;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace AICompanion.NewUI
 {
     /// <summary>Opt-in Ribbon menu. Uses the same presenters as the existing Happi views.</summary>
-    sealed class RibbonMenu : MonoBehaviour
+    sealed class RibbonMenu : MonoBehaviour, IOverlayKeepAwake
     {
         public const string LaunchArgument = "--ribbon-ui";
         public static bool Enabled { get; } = Array.IndexOf(Environment.GetCommandLineArgs(), LaunchArgument) >= 0;
@@ -29,6 +30,8 @@ namespace AICompanion.NewUI
         IScreenCursor _cursor;
         ChatPanel _chat;
         SettingsPanel _settings;
+        HappiSettingsView _settingsView;
+        HappiWheelHost _wheel;
         HappiButton _trigger;
         RibbonGlyph _menuGlyph;
         RectTransform _roomPreview;
@@ -74,22 +77,26 @@ namespace AICompanion.NewUI
         Rect _flyoutBounds;
         float _closeAt;
         bool _closedOverTrigger;
+        bool _leftWasHeld;
+        readonly RibbonKeyboard _keyboard = new RibbonKeyboard();
+        Vector2 _keyboardPointer;
+        RectTransform _keyboardMark;
+
+        public bool KeepFrameRateActive => _menu != null && _menu.gameObject.activeInHierarchy;
 
         public void Attach(ChatPanel chat, SettingsPanel settings)
         {
             _chat = chat;
             _settings = settings;
+            _settingsView = GetComponent<HappiSettingsView>();
+            _wheel = GetComponent<HappiWheelHost>();
             _head = new HeadLocator(gameObject);
             _window = GetComponent<OverlayWindow>();
             _cursor = GetComponent<IScreenCursor>();
             var root = HappiUiKit.CreateCanvas(transform, "HappiRibbon", 65, out _canvas).transform;
             _clickAccent = RibbonClickAccent.Create(root);
-            _trigger = Button(root, "Ribbon menu", () =>
-            {
-                _closedOverTrigger = false;
-                _menu.gameObject.SetActive(true);
-                _closeAt = Time.unscaledTime + HoverGrace;
-            }, showAccent: false);
+            _trigger = Button(root, "Ribbon menu", OpenWithKeyboard, showAccent: false);
+            _keyboardMark = HappiUiKit.Panel(root, "Ribbon keyboard focus", Cyan, false).rectTransform;
             _trigger.Label.gameObject.SetActive(false);
             _menuGlyph = RibbonGlyph.Add(_trigger.Rect, "Menu glyph", RibbonGlyph.Mark.Menu, Cyan);
             HappiUiKit.Stretch(_menuGlyph.rectTransform, 6f, 6f, 6f, 6f);
@@ -161,6 +168,7 @@ namespace AICompanion.NewUI
                 _destinations[i] = Button(_flyout, string.Empty, () => OpenDestination(index));
             }
             Close();
+            _window?.RefreshClickTargets();
         }
 
         HappiButton Button(Transform parent, string label, Action action, bool showAccent = true)
@@ -202,9 +210,8 @@ namespace AICompanion.NewUI
         void OpenProfile(ProfilePanel.Tab tab)
         {
             Close();
-            var wheel = GetComponent<HappiWheelHost>();
-            if (wheel != null)
-                wheel.OpenProfileFromRibbon(tab);
+            if (_wheel != null)
+                _wheel.OpenProfileFromRibbon(tab);
         }
 
         void OpenDestination(int index)
@@ -219,9 +226,8 @@ namespace AICompanion.NewUI
                 return;
             var page = AiPages[index];
             Close();
-            var settingsView = GetComponent<HappiSettingsView>();
-            if (settingsView != null)
-                settingsView.TryOpenPage(page);
+            if (_settingsView != null)
+                _settingsView.TryOpenPage(page);
         }
 
         void ShowFlyout(Flyout flyout)
@@ -254,9 +260,103 @@ namespace AICompanion.NewUI
         {
             _pendingSelection = null;
             _clickAccent.Stop();
+            EndKeyboard();
             _closedOverTrigger = true;
             _menu.gameObject.SetActive(false);
             HideFlyout();
+        }
+
+        void OpenWithKeyboard()
+        {
+            if (!Application.isFocused)
+                GetComponent<ITypingFocus>()?.FocusForTyping();
+            EventSystem.current?.SetSelectedGameObject(null);
+            _keyboard.Open();
+            _keyboardPointer = ReadPointer();
+            _closedOverTrigger = false;
+            _menu.gameObject.SetActive(true);
+            _closeAt = Time.unscaledTime + HoverGrace;
+            HideFlyout();
+            ShowKeyboardMark();
+        }
+
+        void EndKeyboard()
+        {
+            _keyboard.Close();
+            _keyboardMark.gameObject.SetActive(false);
+        }
+
+        Vector2 ReadPointer()
+        {
+            var pointer = (Vector2)Input.mousePosition;
+            if (_cursor != null && _cursor.TryGetUnityScreenCursor(out var x, out var y))
+                pointer = new Vector2(x, y);
+            return new Vector2(pointer.x, Screen.height - pointer.y);
+        }
+
+        void UpdateKeyboard(Rect area, float scale)
+        {
+            var parentRow = _keyboard.Row;
+            var inFlyout = _keyboard.Destination >= 0;
+            var openRight = FlyoutOpensRight(area, scale);
+            var enterSide = openRight ? KeyCode.RightArrow : KeyCode.LeftArrow;
+            var backSide = openRight ? KeyCode.LeftArrow : KeyCode.RightArrow;
+            var confirm = Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter);
+
+            if (Input.GetKeyDown(KeyCode.Escape) || (inFlyout && Input.GetKeyDown(backSide)))
+            {
+                if (inFlyout)
+                {
+                    _keyboard.LeaveFlyout();
+                    HideFlyout();
+                    ShowKeyboardMark();
+                }
+                else
+                    Close();
+                return;
+            }
+
+            var direction = Input.GetKeyDown(KeyCode.UpArrow) ? -1 : Input.GetKeyDown(KeyCode.DownArrow) ? 1 : 0;
+            var destinationCount = _activeFlyout == Flyout.Profile ? ProfileTabs.Length : AiPages.Length;
+            if (direction != 0)
+                _keyboard.Move(direction, _rows.Length, destinationCount, _rows[1].Button.interactable);
+            else if (!inFlyout && (parentRow == 2 || parentRow == 3) && (confirm || Input.GetKeyDown(enterSide)))
+            {
+                ShowFlyout(parentRow == 2 ? Flyout.Profile : Flyout.Ai);
+                _keyboard.EnterFlyout();
+            }
+            else if (confirm)
+            {
+                var choice = inFlyout ? _destinations[_keyboard.Destination] : _rows[parentRow];
+                if (choice.Button.IsInteractable())
+                    choice.Button.onClick.Invoke();
+            }
+
+            if (_activeFlyout != Flyout.None)
+                PlaceFlyout(area, scale);
+            ShowKeyboardMark();
+        }
+
+        void ShowKeyboardMark()
+        {
+            if (!_keyboard.Active)
+                return;
+            var row = _keyboard.Destination >= 0 ? _destinations[_keyboard.Destination] : _rows[_keyboard.Row];
+            if (_keyboardMark.parent != row.Rect)
+            {
+                _keyboardMark.SetParent(row.Rect, false);
+                _keyboardMark.anchorMin = new Vector2(0.1f, 0f);
+                _keyboardMark.anchorMax = new Vector2(0.9f, 0f);
+                _keyboardMark.offsetMin = new Vector2(0f, 2f);
+                _keyboardMark.offsetMax = new Vector2(0f, 4f);
+            }
+            _keyboardMark.gameObject.SetActive(true);
+        }
+
+        void OnApplicationFocus(bool focused)
+        {
+            if (!focused && _keyboard.Active && _canvas != null)
+                Close();
         }
 
         void Update()
@@ -293,18 +393,32 @@ namespace AICompanion.NewUI
                 selected();
                 return;
             }
-            var pointer = (Vector2)Input.mousePosition;
-            if (_cursor != null && _cursor.TryGetUnityScreenCursor(out var x, out var y))
-                pointer = new Vector2(x, y);
-            pointer.y = Screen.height - pointer.y;
+            var pointer = ReadPointer();
+            var chrome = _window != null ? _window.Chrome : null;
+            var left = chrome != null && chrome.IsSupported ? chrome.IsLeftButtonHeld() : Input.GetMouseButton(0);
+            var leftDown = left && !_leftWasHeld;
+            _leftWasHeld = left;
             var overTrigger = _triggerBounds.Contains(pointer);
+            var keyboardShortcut = Application.isFocused && Input.GetKeyDown(KeyCode.DownArrow)
+                && (_settingsView == null || !_settingsView.IsOpen) && (_wheel == null || !_wheel.IsOpen)
+                && (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt));
+            if (keyboardShortcut)
+            {
+                OpenWithKeyboard();
+                return;
+            }
+            if (_keyboard.Active && (pointer - _keyboardPointer).sqrMagnitude > 16f)
+            {
+                EndKeyboard();
+                _closeAt = Time.unscaledTime + HoverGrace;
+            }
             var glyphColor = overTrigger ? Ink : Cyan;
             if (_menuGlyph.color != glyphColor)
                 _menuGlyph.color = glyphColor;
             _roomHint.gameObject.SetActive(_roomBounds.Contains(pointer) && !_menu.gameObject.activeSelf);
             if (!overTrigger)
                 _closedOverTrigger = false;
-            if (Input.GetKeyDown(KeyCode.Escape))
+            if (!_keyboard.Active && Input.GetKeyDown(KeyCode.Escape))
             {
                 Close();
                 return;
@@ -325,6 +439,19 @@ namespace AICompanion.NewUI
             _rows[1].Button.interactable = _settings.ScreenLook.Enabled;
             var overMain = _menuBounds.Contains(pointer);
             var overFlyout = _activeFlyout != Flyout.None && _flyoutBounds.Contains(pointer);
+            if (leftDown && !overTrigger && !overMain && !overFlyout)
+            {
+                Close();
+                return;
+            }
+
+            if (_keyboard.Active)
+            {
+                if (Application.isFocused)
+                    UpdateKeyboard(area, scale);
+                return;
+            }
+
             if (overMain || overFlyout)
                 _closeAt = Time.unscaledTime + HoverGrace;
             else if (!overTrigger && Time.unscaledTime >= _closeAt)
@@ -465,6 +592,7 @@ namespace AICompanion.NewUI
         {
             if (_canvas != null)
                 Destroy(_canvas.gameObject);
+            _window?.RefreshClickTargets();
         }
     }
 }
