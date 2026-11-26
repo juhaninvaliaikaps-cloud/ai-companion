@@ -46,6 +46,9 @@ namespace AICompanion.Settings
         static readonly int MaskHighId = Shader.PropertyToID("_MaskHigh");
 
         SettingsPanel _settings;
+        readonly System.Collections.Generic.List<IOverlayKeepAwake> _inputOwners =
+            new System.Collections.Generic.List<IOverlayKeepAwake>(8);
+        float _inputOwnersNextCheck;
         AvatarMount _mount;
         IAvatarAnimator _animator;
         Component _animatorObject;
@@ -1019,8 +1022,13 @@ namespace AICompanion.Settings
         {
             if (DebugInputGuard.TextFieldFocused)
                 return;
-            // With the panel open the arrows belong to its sliders.
-            if (_settings != null && _settings.KeepFrameRateActive)
+            // JUH-200: the old SettingsPanel, the NewUI settings view and the Ribbon menu all
+            // implement IOverlayKeepAwake while they own the keyboard. A cached list keeps this
+            // guard from allocating in LateUpdate, and it covers the Ribbon path without the
+            // Settings assembly depending on NewUI.
+            var arrowDown = Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.RightArrow)
+                || Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.UpArrow);
+            if (InputOwnerCapturesKeys(arrowDown))
                 return;
 
             if (Input.GetKeyDown(KeyCode.LeftArrow))
@@ -1031,6 +1039,28 @@ namespace AICompanion.Settings
                 TestStop();
             else if (Input.GetKeyDown(KeyCode.UpArrow))
                 TestFront();
+        }
+
+        bool InputOwnerCapturesKeys(bool forceRefresh)
+        {
+            // Settings and Ribbon are created after the avatar in the NewUI root, so refresh
+            // the cached list occasionally instead of only once in Bind(). A key press forces
+            // the refresh so the very first arrow after opening Settings cannot leak through.
+            if (forceRefresh || Time.unscaledTime >= _inputOwnersNextCheck)
+            {
+                _inputOwnersNextCheck = Time.unscaledTime + 0.5f;
+                _inputOwners.Clear();
+                GetComponents(_inputOwners);
+            }
+
+            for (var i = 0; i < _inputOwners.Count; i++)
+            {
+                var owner = _inputOwners[i];
+                if (owner != null && !ReferenceEquals(owner, this) && owner.KeepFrameRateActive)
+                    return true;
+            }
+
+            return false;
         }
 
         void KeepModelHidden(float delta)
