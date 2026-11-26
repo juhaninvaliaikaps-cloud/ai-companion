@@ -931,6 +931,8 @@ namespace AICompanion.NewUI
 
             var boxImage = HappiUiKit.Panel(_canvasObject.transform, "HappiChat", _theme.PanelBackground, true);
             _box = boxImage.rectTransform;
+            if (RibbonMenu.Enabled)
+                RibbonShape.Apply(boxImage, false);
             var outline = boxImage.gameObject.AddComponent<Outline>();
             outline.effectColor = HappiTheme.WithAlpha(_theme.Border, 0.9f);
             outline.effectDistance = new Vector2(1f, -1f);
@@ -1033,6 +1035,7 @@ namespace AICompanion.NewUI
             _send = HappiUiKit.Button(_box, "Send", ChatPresenter.SendLabel, _theme.FontSmall, OnSend);
             if (RibbonMenu.Enabled)
             {
+                RibbonShape.Apply(_send.Image, true);
                 var colors = _send.Button.colors;
                 colors.normalColor = RibbonMenu.Cyan;
                 colors.selectedColor = RibbonMenu.Cyan;

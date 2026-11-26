@@ -30,7 +30,9 @@ namespace AICompanion.NewUI
         HappiButton[] _rows;
         RectTransform _menu;
         RectTransform _flyout;
+        Image _paper;
         RawImage _painting;
+        float _flyoutShownAt;
         Texture2D _profileArt;
         Texture2D _aiArt;
         HappiButton[] _destinations;
@@ -87,10 +89,23 @@ namespace AICompanion.NewUI
                 Button(_menu, "Close", Close)
             };
 
+            foreach (var row in _rows)
+            {
+                var accent = HappiUiKit.Panel(row.Rect, "Mint edge", new Color32(114, 238, 207, 255), false);
+                var edge = accent.rectTransform;
+                edge.anchorMin = new Vector2(0.04f, 0.15f);
+                edge.anchorMax = new Vector2(0.09f, 0.85f);
+                edge.offsetMin = Vector2.zero;
+                edge.offsetMax = Vector2.zero;
+                accent.transform.SetAsFirstSibling();
+                RibbonShape.Apply(accent, true);
+            }
+
             _profileArt = Resources.Load<Texture2D>("RibbonArt/Profile");
             _aiArt = Resources.Load<Texture2D>("RibbonArt/AI");
-            var paper = HappiUiKit.Panel(root, "Illustrated flyout", Yellow, false);
-            _flyout = paper.rectTransform;
+            _flyout = HappiUiKit.Rect(root, "Illustrated flyout");
+            _paper = HappiUiKit.Panel(_flyout, "Yellow paper", Yellow, false);
+            RibbonShape.Apply(_paper, false);
             _painting = HappiUiKit.Rect(_flyout, "Painting").gameObject.AddComponent<RawImage>();
             _painting.raycastTarget = false;
 
@@ -106,6 +121,7 @@ namespace AICompanion.NewUI
         static HappiButton Button(Transform parent, string label, Action action)
         {
             var button = HappiUiKit.Button(parent, label, label, 15f, action);
+            RibbonShape.Apply(button.Image, true);
             var colors = button.Button.colors;
             colors.normalColor = Ink;
             colors.highlightedColor = Cyan;
@@ -147,6 +163,7 @@ namespace AICompanion.NewUI
             if (_activeFlyout == flyout)
                 return;
             _activeFlyout = flyout;
+            _flyoutShownAt = Time.unscaledTime;
             var profile = flyout == Flyout.Profile;
             var labels = profile ? ProfileLabels : AiLabels;
             _painting.texture = profile ? _profileArt : _aiArt;
@@ -275,14 +292,23 @@ namespace AICompanion.NewUI
             _flyoutBounds = new Rect(x, y, width, height);
             HappiUiKit.Place(_flyout, x, y, width, height);
             var buttonWidth = Mathf.Min(width, Mathf.Max(108f * scale, width * 0.4f));
+            var progress = Mathf.Clamp01((Time.unscaledTime - _flyoutShownAt) / 0.18f);
+            var eased = 1f - (1f - progress) * (1f - progress);
+            var shownWidth = Mathf.Lerp(buttonWidth, width, eased);
+            var revealX = openRight ? 0f : width - shownWidth;
+            HappiUiKit.Place(_paper.rectTransform, revealX, 0f, shownWidth, height);
             if (_painting.texture != null)
             {
                 var aspect = (float)_painting.texture.width / _painting.texture.height;
                 var artHeight = Mathf.Min(height, width / aspect);
-                HappiUiKit.Place(_painting.rectTransform, 0f, (height - artHeight) * 0.5f, width, artHeight);
+                var fraction = shownWidth / width;
+                _painting.uvRect = openRight
+                    ? new Rect(0f, 0f, fraction, 1f)
+                    : new Rect(fraction, 0f, -fraction, 1f);
+                HappiUiKit.Place(_painting.rectTransform, revealX, (height - artHeight) * 0.5f, shownWidth, artHeight);
             }
             for (var i = 0; i < count; i++)
-                HappiUiKit.Place(_destinations[i].Rect, 4f * scale, (6f + i * 28f) * scale,
+                HappiUiKit.Place(_destinations[i].Rect, (openRight ? 0f : width - buttonWidth) + 4f * scale, (6f + i * 28f) * scale,
                     Mathf.Max(1f, buttonWidth - 8f * scale), 25f * scale);
         }
 
