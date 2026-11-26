@@ -169,6 +169,7 @@ namespace AICompanion.NewUI
         public Color Normal = Color.white;
         public Color Hover = Color.black;
         public Color Disabled = Color.gray;
+        public bool HoldHoverColor { get; set; }
         bool _over;
 
         public void OnPointerEnter(PointerEventData eventData)
@@ -198,7 +199,7 @@ namespace AICompanion.NewUI
             if (Label == null)
                 return;
             var interactable = Target == null || Target.IsInteractable();
-            var color = !interactable ? Disabled : _over ? Hover : Normal;
+            var color = !interactable ? Disabled : (_over || HoldHoverColor) ? Hover : Normal;
             if (Label.color != color)
                 Label.color = color;
         }

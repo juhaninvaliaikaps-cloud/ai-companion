@@ -250,7 +250,9 @@ namespace AICompanion.NewUI
         {
             if (_activeFlyout == flyout)
                 return;
+            SetParentTabHighlight(_activeFlyout, false);
             _activeFlyout = flyout;
+            SetParentTabHighlight(flyout, true);
             _flyoutShownAt = Time.unscaledTime;
             var profile = flyout == Flyout.Profile;
             var labels = profile ? ProfileLabels : AiLabels;
@@ -266,8 +268,22 @@ namespace AICompanion.NewUI
             _flyout.gameObject.SetActive(true);
         }
 
+        void SetParentTabHighlight(Flyout flyout, bool active)
+        {
+            if (flyout == Flyout.None)
+                return;
+
+            var parent = _rows[flyout == Flyout.Profile ? 2 : 3];
+            var colors = parent.Button.colors;
+            colors.normalColor = active ? Cyan : Ink;
+            colors.selectedColor = colors.normalColor;
+            parent.Button.colors = colors;
+            parent.Button.GetComponent<HappiHoverText>().HoldHoverColor = active;
+        }
+
         void HideFlyout()
         {
+            SetParentTabHighlight(_activeFlyout, false);
             _activeFlyout = Flyout.None;
             _flyout.gameObject.SetActive(false);
         }
