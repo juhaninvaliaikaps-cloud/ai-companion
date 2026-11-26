@@ -95,7 +95,12 @@ namespace AICompanion.NewUI
             _cursor = GetComponent<IScreenCursor>();
             var root = HappiUiKit.CreateCanvas(transform, "HappiRibbon", 65, out _canvas).transform;
             _clickAccent = RibbonClickAccent.Create(root);
-            _trigger = Button(root, "Ribbon menu", OpenWithKeyboard, showAccent: false);
+            _trigger = Button(root, "Ribbon menu", null);
+            _trigger.Button.onClick.AddListener(() =>
+            {
+                if (!_keyboard.Active)
+                    OpenWithKeyboard();
+            });
             _keyboardMark = HappiUiKit.Panel(root, "Ribbon keyboard focus", Cyan, false).rectTransform;
             _trigger.Label.gameObject.SetActive(false);
             _menuGlyph = RibbonGlyph.Add(_trigger.Rect, "Menu glyph", RibbonGlyph.Mark.Menu, Cyan);
@@ -171,23 +176,20 @@ namespace AICompanion.NewUI
             _window?.RefreshClickTargets();
         }
 
-        HappiButton Button(Transform parent, string label, Action action, bool showAccent = true)
+        HappiButton Button(Transform parent, string label, Action action)
         {
             var button = HappiUiKit.Button(parent, label, label, 15f, null);
-            button.Button.onClick.AddListener(() =>
+            if (action != null)
             {
-                if (_pendingSelection != null)
-                    return;
-                if (!showAccent)
+                button.Button.onClick.AddListener(() =>
                 {
-                    action();
-                    return;
-                }
-
-                _clickAccent.Play(button);
-                _pendingSelection = action;
-                _selectionReadyAt = Time.unscaledTime + RibbonClickAccent.ReadableSeconds;
-            });
+                    if (_pendingSelection != null)
+                        return;
+                    _clickAccent.Play(button);
+                    _pendingSelection = action;
+                    _selectionReadyAt = Time.unscaledTime + RibbonClickAccent.ReadableSeconds;
+                });
+            }
             RibbonShape.Apply(button.Image, true);
             var colors = button.Button.colors;
             colors.normalColor = Ink;
@@ -266,12 +268,11 @@ namespace AICompanion.NewUI
             HideFlyout();
         }
 
-        void OpenWithKeyboard()
+        void OpenWithKeyboard(int row = 0)
         {
-            if (!Application.isFocused)
-                GetComponent<ITypingFocus>()?.FocusForTyping();
+            GetComponent<ITypingFocus>()?.FocusForTyping();
             EventSystem.current?.SetSelectedGameObject(null);
-            _keyboard.Open();
+            _keyboard.Open(row);
             _keyboardPointer = ReadPointer();
             _closedOverTrigger = false;
             _menu.gameObject.SetActive(true);
@@ -319,7 +320,10 @@ namespace AICompanion.NewUI
             var direction = Input.GetKeyDown(KeyCode.UpArrow) ? -1 : Input.GetKeyDown(KeyCode.DownArrow) ? 1 : 0;
             var destinationCount = _activeFlyout == Flyout.Profile ? ProfileTabs.Length : AiPages.Length;
             if (direction != 0)
+            {
+                _keyboardPointer = ReadPointer();
                 _keyboard.Move(direction, _rows.Length, destinationCount, _rows[1].Button.interactable);
+            }
             else if (!inFlyout && (parentRow == 2 || parentRow == 3) && (confirm || Input.GetKeyDown(enterSide)))
             {
                 ShowFlyout(parentRow == 2 ? Flyout.Profile : Flyout.Ai);
@@ -345,10 +349,10 @@ namespace AICompanion.NewUI
             if (_keyboardMark.parent != row.Rect)
             {
                 _keyboardMark.SetParent(row.Rect, false);
-                _keyboardMark.anchorMin = new Vector2(0.1f, 0f);
-                _keyboardMark.anchorMax = new Vector2(0.9f, 0f);
+                _keyboardMark.anchorMin = new Vector2(0.08f, 0f);
+                _keyboardMark.anchorMax = new Vector2(0.92f, 0f);
                 _keyboardMark.offsetMin = new Vector2(0f, 2f);
-                _keyboardMark.offsetMax = new Vector2(0f, 4f);
+                _keyboardMark.offsetMax = new Vector2(0f, 5f);
             }
             _keyboardMark.gameObject.SetActive(true);
         }
@@ -402,15 +406,11 @@ namespace AICompanion.NewUI
             var keyboardShortcut = Application.isFocused && Input.GetKeyDown(KeyCode.DownArrow)
                 && (_settingsView == null || !_settingsView.IsOpen) && (_wheel == null || !_wheel.IsOpen)
                 && (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt));
-            if (keyboardShortcut)
+            if (keyboardShortcut || (leftDown && overTrigger))
             {
+                // Windows can deliver the initial press before the overlay receives Unity UI focus.
                 OpenWithKeyboard();
                 return;
-            }
-            if (_keyboard.Active && (pointer - _keyboardPointer).sqrMagnitude > 16f)
-            {
-                EndKeyboard();
-                _closeAt = Time.unscaledTime + HoverGrace;
             }
             var glyphColor = overTrigger ? Ink : Cyan;
             if (_menuGlyph.color != glyphColor)
@@ -438,6 +438,7 @@ namespace AICompanion.NewUI
                 _rows[0].Label.text = muteLabel;
             _rows[1].Button.interactable = _settings.ScreenLook.Enabled;
             var overMain = _menuBounds.Contains(pointer);
+            var pointerRow = overMain ? MainRowAt(pointer) : -1;
             var overFlyout = _activeFlyout != Flyout.None && _flyoutBounds.Contains(pointer);
             if (leftDown && !overTrigger && !overMain && !overFlyout)
             {
@@ -445,6 +446,16 @@ namespace AICompanion.NewUI
                 return;
             }
 
+            var verticalKey = Application.isFocused
+                && (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.DownArrow));
+            if (!_keyboard.Active && verticalKey)
+                OpenWithKeyboard(Mathf.Max(0, pointerRow));
+            if (_keyboard.Active && !verticalKey && !overTrigger
+                && (pointer - _keyboardPointer).sqrMagnitude > 144f)
+            {
+                EndKeyboard();
+                _closeAt = Time.unscaledTime + HoverGrace;
+            }
             if (_keyboard.Active)
             {
                 if (Application.isFocused)
@@ -460,22 +471,23 @@ namespace AICompanion.NewUI
                 return;
             }
 
-            if (overMain)
-            {
-                for (var i = 0; i < _rowBounds.Length; i++)
-                {
-                    if (!_rowBounds[i].Contains(pointer))
-                        continue;
-                    if (i == 2 || i == 3)
-                        ShowFlyout(i == 2 ? Flyout.Profile : Flyout.Ai);
-                    else
-                        HideFlyout();
-                    break;
-                }
-            }
+            if (pointerRow == 2 || pointerRow == 3)
+                ShowFlyout(pointerRow == 2 ? Flyout.Profile : Flyout.Ai);
+            else if (pointerRow >= 0)
+                HideFlyout();
 
             if (_activeFlyout != Flyout.None)
                 PlaceFlyout(area, scale);
+        }
+
+        int MainRowAt(Vector2 pointer)
+        {
+            for (var i = 0; i < _rowBounds.Length; i++)
+            {
+                if (_rowBounds[i].Contains(pointer))
+                    return i;
+            }
+            return -1;
         }
 
         void Place(Vector2 head, Rect area, float scale)

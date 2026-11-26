@@ -23,6 +23,16 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void TakingOverFromHoverStartsAtTheHoveredRow()
+        {
+            var keys = new RibbonKeyboard();
+            keys.Open(3);
+            keys.Move(1, 6, 0, true);
+            Assert.AreEqual(4, keys.Row);
+            Assert.AreEqual(-1, keys.Destination);
+        }
+
+        [Test]
         public void FlyoutWrapsIndependentlyAndReturnsToItsParent()
         {
             var keys = new RibbonKeyboard();

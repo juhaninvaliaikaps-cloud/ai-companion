@@ -7,9 +7,9 @@ namespace AICompanion.NewUI
         public int Destination { get; private set; } = -1;
         public bool Active => Row >= 0;
 
-        public void Open()
+        public void Open(int row = 0)
         {
-            Row = 0;
+            Row = row;
             Destination = -1;
         }
 
