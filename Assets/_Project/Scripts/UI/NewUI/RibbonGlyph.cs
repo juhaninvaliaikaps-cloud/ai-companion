@@ -5,6 +5,7 @@ using UnityEngine.UI;
 namespace AICompanion.NewUI
 {
     /// <summary>Decorative marks for the Ribbon UI. The surrounding control owns the hit area.</summary>
+    [RequireComponent(typeof(CanvasRenderer))]
     sealed class RibbonGlyph : MaskableGraphic
     {
         internal enum Mark { Menu, Door, Ink, Voice, Muted, Screen, Profile, Model, Settings, Close, Chevron, Lock, OpenLock, Minimize }

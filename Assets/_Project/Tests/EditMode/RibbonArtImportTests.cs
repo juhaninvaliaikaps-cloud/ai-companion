@@ -1,3 +1,4 @@
+using AICompanion.NewUI;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -29,6 +30,23 @@ namespace AICompanion.Tests.EditMode
             Assert.That(texture.format, Is.EqualTo(TextureFormat.RGBA32));
             Assert.That(importer.DoesSourceTextureHaveAlpha(), Is.True);
             Assert.That(importer.alphaIsTransparency, Is.True);
+        }
+
+        [TestCase("RibbonGlyph")]
+        [TestCase("RibbonChatFrameEdge")]
+        public void CodeBuiltGraphicsCreateTheirCanvasRenderer(string name)
+        {
+            var graphicType = typeof(HappiChatView).Assembly.GetType("AICompanion.NewUI." + name, throwOnError: true);
+            var root = new GameObject(name, typeof(RectTransform));
+            try
+            {
+                root.AddComponent(graphicType);
+                Assert.That(root.GetComponent<CanvasRenderer>(), Is.Not.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
         }
     }
 }

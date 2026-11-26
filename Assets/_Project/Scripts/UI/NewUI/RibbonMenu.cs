@@ -20,6 +20,7 @@ namespace AICompanion.NewUI
         internal static readonly Color Cyan = new Color32(38, 230, 255, 255);
         static readonly Color Yellow = new Color32(255, 202, 34, 255);
         const float HoverGrace = 0.22f;
+        const float PaperRevealSeconds = 0.21f;
         const float TriggerSize = 30f;
         const float MainWidth = 170f;
         const float MainRowHeight = 35f;
@@ -89,6 +90,10 @@ namespace AICompanion.NewUI
         Rect _roomBounds;
         Rect _menuBounds;
         Rect _visiblePaperBounds;
+        Rect _openPaperBounds;
+        bool _flyoutOpensRight;
+        Vector2 _flyoutPointerOrigin;
+        float _flyoutPointerAt;
         float _closeAt;
         bool _closedOverTrigger;
         bool _leftWasHeld;
@@ -261,6 +266,7 @@ namespace AICompanion.NewUI
                 return;
             SetParentTabHighlight(_activeFlyout, false);
             _activeFlyout = flyout;
+            _flyoutPointerAt = float.NegativeInfinity;
             SetParentTabHighlight(flyout, true);
             _flyoutShownAt = Time.unscaledTime;
             var profile = flyout == Flyout.Profile;
@@ -512,17 +518,29 @@ namespace AICompanion.NewUI
                 return;
             }
 
-            if (pointerRow == 2 || pointerRow == 3)
+            if (pointerRow < 0)
+                return;
+
+            var target = pointerRow switch { 2 => Flyout.Profile, 3 => Flyout.Ai, _ => Flyout.None };
+            if (target != _activeFlyout && _activeFlyout != Flyout.None
+                && Time.unscaledTime - _flyoutPointerAt < HoverGrace
+                && RibbonMenuPlacement.AimsAtFlyout(_flyoutPointerOrigin, pointer, _openPaperBounds, _flyoutOpensRight, 8f * scale))
+                return;
+
+            if (target == Flyout.None)
             {
-                var target = pointerRow == 2 ? Flyout.Profile : Flyout.Ai;
-                if (_activeFlyout != target)
-                {
-                    ShowFlyout(target);
-                    PlaceFlyout(area, scale);
-                }
+                if (_activeFlyout != Flyout.None)
+                    HideFlyout();
+                return;
             }
-            else if (pointerRow >= 0)
-                HideFlyout();
+
+            if (_activeFlyout != target)
+            {
+                ShowFlyout(target);
+                PlaceFlyout(area, scale);
+            }
+            _flyoutPointerOrigin = pointer;
+            _flyoutPointerAt = Time.unscaledTime;
         }
 
         bool CanTakeKeyboard()
@@ -614,13 +632,15 @@ namespace AICompanion.NewUI
             var row = _activeFlyout == Flyout.Profile ? 2 : 3;
             var bounds = RibbonMenuPlacement.Flyout(area, _menuBounds, new Vector2(preferredWidth, height),
                 row * MainRowPitch * scale, openRight);
+            _openPaperBounds = bounds;
+            _flyoutOpensRight = openRight;
             var width = bounds.width;
             HappiUiKit.Place(_flyout, bounds.x, bounds.y, width, height);
             var rollWidth = _scrollRoll.enabled ? Mathf.Min(height * 0.34f, width * 0.23f) : 0f;
             var buttonWidth = Mathf.Min(width, Mathf.Max(FlyoutMinWidth * scale,
                 Mathf.Max(width * 0.34f, rollWidth + 146f * scale)));
-            var progress = Mathf.Clamp01((Time.unscaledTime - _flyoutShownAt) / 0.26f);
-            var eased = 1f - (1f - progress) * (1f - progress);
+            var remaining = 1f - Mathf.Clamp01((Time.unscaledTime - _flyoutShownAt) / PaperRevealSeconds);
+            var eased = 1f - remaining * remaining * remaining;
             var shownWidth = Mathf.Lerp(buttonWidth, width, eased);
             var revealX = openRight ? 0f : width - shownWidth;
             _visiblePaperBounds = new Rect(bounds.x + revealX, bounds.y, shownWidth, height);
@@ -659,9 +679,10 @@ namespace AICompanion.NewUI
             var seam = buttonWidth - 16f * scale;
             var artWidth = width - seam;
             var aspect = (float)_painting.texture.width / _painting.texture.height;
-            var focalX = _activeFlyout == Flyout.Profile ? 0.61f : 0.71f;
+            var profile = _activeFlyout == Flyout.Profile;
             _painting.SetFadeSide(openRight);
-            _painting.uvRect = RibbonMenuPlacement.IllustrationUv(aspect, artWidth / height, focalX);
+            _painting.uvRect = RibbonMenuPlacement.IllustrationUv(aspect, artWidth / height,
+                profile ? 0.64f : 0.71f, profile ? 0.30f : 0.17f);
             HappiUiKit.Place(_painting.rectTransform, (openRight ? seam : 0f) - revealX, 0f, artWidth, height);
         }
 

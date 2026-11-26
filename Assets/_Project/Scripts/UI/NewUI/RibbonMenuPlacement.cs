@@ -51,11 +51,27 @@ namespace AICompanion.NewUI
             return new Rect(x, y, width, size.y);
         }
 
-        public static Rect IllustrationUv(float textureAspect, float frameAspect, float focalX)
+        public static bool AimsAtFlyout(Vector2 start, Vector2 pointer, Rect flyout, bool opensRight, float padding)
         {
-            var width = Mathf.Min(1f, frameAspect / textureAspect);
-            var height = Mathf.Min(1f, textureAspect / frameAspect);
-            var x = Mathf.Clamp(focalX - width * 0.5f, 0f, 1f - width);
+            var edgeX = opensRight ? flyout.xMin : flyout.xMax;
+            var travel = pointer.x - start.x;
+            var distance = edgeX - start.x;
+            if (Mathf.Abs(travel) < 1f || Mathf.Abs(distance) < 1f)
+                return false;
+
+            var fraction = travel / distance;
+            if (fraction <= 0f || fraction > 1f)
+                return false;
+
+            var crossingY = start.y + (pointer.y - start.y) / fraction;
+            return crossingY >= flyout.yMin - padding && crossingY <= flyout.yMax + padding;
+        }
+
+        public static Rect IllustrationUv(float textureAspect, float frameAspect, float focalX, float sourceStart = 0f)
+        {
+            var width = Mathf.Min(1f - sourceStart, frameAspect / textureAspect);
+            var height = Mathf.Min(1f, width * textureAspect / frameAspect);
+            var x = Mathf.Clamp(focalX - width * 0.5f, sourceStart, 1f - width);
             return new Rect(x, (1f - height) * 0.5f, width, height);
         }
     }

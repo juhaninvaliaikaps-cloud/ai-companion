@@ -169,7 +169,16 @@ namespace AICompanion.NewUI
         public Color Normal = Color.white;
         public Color Hover = Color.black;
         public Color Disabled = Color.gray;
-        public bool HoldHoverColor { get; set; }
+        public bool HoldHoverColor
+        {
+            get => _holdHoverColor;
+            set
+            {
+                _holdHoverColor = value;
+                Apply();
+            }
+        }
+        bool _holdHoverColor;
         bool _over;
 
         public void OnPointerEnter(PointerEventData eventData)

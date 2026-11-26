@@ -66,5 +66,28 @@ namespace AICompanion.Tests.EditMode
             var uv = RibbonMenuPlacement.IllustrationUv(2f, 4f, 0.6f);
             Assert.That(uv, Is.EqualTo(new Rect(0f, 0.25f, 1f, 0.5f)));
         }
+
+        [Test]
+        public void ArtworkCropCanTrimEmptySourcePaperWithoutStretchingThePainting()
+        {
+            var uv = RibbonMenuPlacement.IllustrationUv(3f, 3f, 0.64f, 0.30f);
+
+            Assert.That(uv.xMin, Is.EqualTo(0.30f).Within(0.001f));
+            Assert.That(uv.yMin, Is.EqualTo(0.15f).Within(0.001f));
+            Assert.That(uv.size.x, Is.EqualTo(uv.size.y).Within(0.001f));
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void DiagonalTravelTowardTheFlyoutKeepsItsParent(bool opensRight)
+        {
+            var flyout = new Rect(opensRight ? 200f : 10f, 90f, 190f, 150f);
+            var origin = new Vector2(opensRight ? 100f : 300f, 100f);
+            var next = new Vector2(opensRight ? 145f : 255f, 130f);
+
+            Assert.That(RibbonMenuPlacement.AimsAtFlyout(origin, next, flyout, opensRight, 8f), Is.True);
+            Assert.That(RibbonMenuPlacement.AimsAtFlyout(origin, new Vector2(origin.x, 139f), flyout, opensRight, 8f), Is.False);
+            Assert.That(RibbonMenuPlacement.AimsAtFlyout(origin, new Vector2(next.x, 210f), flyout, opensRight, 8f), Is.False);
+        }
     }
 }

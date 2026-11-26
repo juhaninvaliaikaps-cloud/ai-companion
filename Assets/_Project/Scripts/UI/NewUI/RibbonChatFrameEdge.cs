@@ -4,6 +4,7 @@ using UnityEngine.UI;
 namespace AICompanion.NewUI
 {
     /// <summary>Outlines for the chat frame and composer, drawn against their clipped edges.</summary>
+    [RequireComponent(typeof(CanvasRenderer))]
     sealed class RibbonChatFrameEdge : MaskableGraphic
     {
         RibbonShape.Kind _kind;
