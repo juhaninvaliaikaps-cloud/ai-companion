@@ -132,6 +132,24 @@ namespace AICompanion.NewUI
             return true;
         }
 
+        /// <summary>Open a visible settings page from a shortcut.</summary>
+        public bool TryOpenPage(SettingsPage page)
+        {
+            if (!_attached)
+                return false;
+
+            var tab = SettingsMenu.TabOf(page);
+            var developer = S != null && S.ShowDeveloperSettings;
+            if (!SettingsMenu.Visible(tab, IntimateExpressions.Active, developer).Contains(page))
+                return false;
+
+            _tab = tab;
+            _pageFor[(int)tab] = page;
+            LeavePage();
+            Open();
+            return true;
+        }
+
         public void Open()
         {
             var tray = GetComponent<CompanionTray>();
