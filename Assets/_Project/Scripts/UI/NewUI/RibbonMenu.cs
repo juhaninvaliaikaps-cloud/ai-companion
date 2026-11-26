@@ -268,6 +268,7 @@ namespace AICompanion.NewUI
             var openRight = right >= 275f * scale || right >= left;
             var width = Mathf.Min(275f * scale, Mathf.Max(1f, openRight ? right : left));
             var count = _activeFlyout == Flyout.Profile ? ProfileTabs.Length : AiPages.Length;
+            var height = (count * 28f + 12f) * scale;
             var x = openRight ? _menuBounds.xMax : _menuBounds.xMin - width;
             var row = _activeFlyout == Flyout.Profile ? 2 : 3;
             var y = Fit(_menuBounds.y + row * 32f * scale, Screen.height - area.yMax, Screen.height - area.yMin - height);
