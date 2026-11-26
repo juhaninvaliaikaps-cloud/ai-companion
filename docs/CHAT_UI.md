@@ -15,6 +15,10 @@ The logic is in `SceneDigest` (plain C#, `SceneDigestTests`); `ChatPanel.Scene.c
 
 The system prompt lives on `ChatSettings.systemPrompt`. A persona selected in Settings replaces it. With no persona, it is the setup name and relationship, and the default with no name is a short, friendly, PG desktop companion. `ChatPanel` then appends the director cue instructions. Adult or private mode is a later local-model feature and is not part of this panel.
 
+## Ribbon prototype (JUH-198)
+
+Launch the Windows player with `--ribbon-ui` to preview the head-side Ribbon menu and the charcoal chat style. Hover the menu icon, then hover Profile or AI to see their flyouts. The shortcuts use the current Settings pages. The prototype shares voice mute with chat and uses the existing Look now and Private/Public behavior.
+
 ## Private and public (JUH-177)
 
 The chat box header has a **Private / Public** switch in the place of "What do you see?" (looking at the screen stays on the wheel: Screen → Look now).

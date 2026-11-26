@@ -1,0 +1,280 @@
+using System;
+using AICompanion.Core;
+using AICompanion.NewUI.Wheel;
+using AICompanion.Overlay;
+using AICompanion.Settings;
+using AICompanion.UI;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace AICompanion.NewUI
+{
+    /// <summary>Opt-in Ribbon menu. Uses the same presenters as the existing Happi views.</summary>
+    sealed class RibbonMenu : MonoBehaviour
+    {
+        public const string LaunchArgument = "--ribbon-ui";
+        public static bool Enabled { get; } = Array.IndexOf(Environment.GetCommandLineArgs(), LaunchArgument) >= 0;
+        internal static readonly Color Ink = new Color32(16, 19, 24, 255);
+        internal static readonly Color Cyan = new Color32(38, 230, 255, 255);
+        static readonly Color Yellow = new Color32(255, 202, 34, 255);
+        const float HoverGrace = 0.22f;
+
+        Canvas _canvas;
+        HeadLocator _head;
+        OverlayWindow _window;
+        IScreenCursor _cursor;
+        ChatPanel _chat;
+        SettingsPanel _settings;
+        HappiButton _trigger;
+        HappiButton[] _rows;
+        RectTransform _menu;
+        RectTransform _flyout;
+        RawImage _painting;
+        Texture2D _profileArt;
+        Texture2D _aiArt;
+        HappiButton[] _destinations;
+        SettingsPage[] _pages;
+
+        static readonly SettingsPage[] ProfilePages =
+        {
+            SettingsPage.HerPersona, SettingsPage.HerPersonality, SettingsPage.HerMemories
+        };
+        static readonly string[] ProfileLabels = { "Persona", "Personality", "Memories" };
+        static readonly SettingsPage[] AiPages =
+        {
+            SettingsPage.AiChat, SettingsPage.AiPrivate, SettingsPage.VoiceEngine,
+            SettingsPage.VoiceListening, SettingsPage.SensesScreen, SettingsPage.AiPisara
+        };
+        static readonly string[] AiLabels =
+        {
+            "Chat model", "Private model", "Voice engine", "Listening", "Vision", "Pisara"
+        };
+
+        Rect _triggerBounds;
+        Rect _menuBounds;
+        Rect _flyoutBounds;
+        float _closeAt;
+        bool _closedOverTrigger;
+
+        public void Attach(ChatPanel chat, SettingsPanel settings)
+        {
+            _chat = chat;
+            _settings = settings;
+            _head = new HeadLocator(gameObject);
+            _window = GetComponent<OverlayWindow>();
+            _cursor = GetComponent<IScreenCursor>();
+            var root = HappiUiKit.CreateCanvas(transform, "HappiRibbon", 65, out _canvas).transform;
+            _trigger = Button(root, "☰", () =>
+            {
+                _closedOverTrigger = false;
+                _menu.gameObject.SetActive(true);
+                _closeAt = Time.unscaledTime + HoverGrace;
+            });
+            var triggerColors = _trigger.Button.colors;
+            triggerColors.normalColor = new Color32(16, 19, 24, 105);
+            _trigger.Button.colors = triggerColors;
+            _menu = HappiUiKit.Rect(root, "Ribbon tabs");
+            _rows = new[]
+            {
+                Button(_menu, "Mute", () => _chat.Presenter.ToggleMute()),
+                Button(_menu, "Look now", () => _settings.ScreenLook.LookNow()),
+                Button(_menu, "Profile  ›", () => ShowFlyout(ProfilePages)),
+                Button(_menu, "AI  ›", () => ShowFlyout(AiPages)),
+                Button(_menu, "Settings", () => { Close(); _settings.Open(); }),
+                Button(_menu, "Close", Close)
+            };
+
+            _profileArt = Resources.Load<Texture2D>("RibbonArt/Profile");
+            _aiArt = Resources.Load<Texture2D>("RibbonArt/AI");
+            var paper = HappiUiKit.Panel(root, "Illustrated flyout", Yellow, false);
+            _flyout = paper.rectTransform;
+            _painting = HappiUiKit.Rect(_flyout, "Painting").gameObject.AddComponent<RawImage>();
+            _painting.raycastTarget = false;
+
+            _destinations = new HappiButton[AiPages.Length];
+            for (var i = 0; i < _destinations.Length; i++)
+            {
+                var index = i;
+                _destinations[i] = Button(_flyout, string.Empty, () => OpenDestination(index));
+            }
+            Close();
+        }
+
+        static HappiButton Button(Transform parent, string label, Action action)
+        {
+            var button = HappiUiKit.Button(parent, label, label, 15f, action);
+            var colors = button.Button.colors;
+            colors.normalColor = Ink;
+            colors.highlightedColor = Cyan;
+            colors.pressedColor = Yellow;
+            colors.selectedColor = Ink;
+            button.Button.colors = colors;
+            var hover = button.Button.GetComponent<HappiHoverText>();
+            hover.Hover = Ink;
+            return button;
+        }
+
+        void OpenDestination(int index)
+        {
+            if (_pages == null || index >= _pages.Length)
+                return;
+            var page = _pages[index];
+            Close();
+            var settingsView = GetComponent<HappiSettingsView>();
+            if (settingsView != null)
+                settingsView.TryOpenPage(page);
+        }
+
+        void ShowFlyout(SettingsPage[] pages)
+        {
+            if (_pages == pages)
+                return;
+            _pages = pages;
+            var profile = pages == ProfilePages;
+            var labels = profile ? ProfileLabels : AiLabels;
+            _painting.texture = profile ? _profileArt : _aiArt;
+            _painting.enabled = _painting.texture != null;
+            for (var i = 0; i < _destinations.Length; i++)
+            {
+                var visible = i < labels.Length;
+                _destinations[i].Button.gameObject.SetActive(visible);
+                if (visible)
+                    _destinations[i].Label.text = labels[i];
+            }
+            _flyout.gameObject.SetActive(true);
+        }
+
+        void HideFlyout()
+        {
+            _pages = null;
+            _flyout.gameObject.SetActive(false);
+        }
+
+        void Close()
+        {
+            _closedOverTrigger = true;
+            _menu.gameObject.SetActive(false);
+            HideFlyout();
+        }
+
+        void Update()
+        {
+            if (_canvas == null)
+                return;
+            if ((_window != null && !_window.IsCompanionVisible) || !_head.TryGet(Time.unscaledDeltaTime, out var head))
+            {
+                Close();
+                _trigger.Button.gameObject.SetActive(false);
+                return;
+            }
+
+            HappiUiKit.FollowCamera(_canvas, 0.42f);
+            _trigger.Button.gameObject.SetActive(true);
+            var area = OverlayVisibleArea.Get(_window);
+            var scale = HappiTheme.Current.UiScale(Screen.dpi);
+            Place(head, area, scale);
+            var pointer = (Vector2)Input.mousePosition;
+            if (_cursor != null && _cursor.TryGetUnityScreenCursor(out var x, out var y))
+                pointer = new Vector2(x, y);
+            pointer.y = Screen.height - pointer.y;
+            var overTrigger = _triggerBounds.Contains(pointer);
+            if (!overTrigger)
+                _closedOverTrigger = false;
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                Close();
+                return;
+            }
+            if (overTrigger && !_closedOverTrigger)
+            {
+                _menu.gameObject.SetActive(true);
+                _closeAt = Time.unscaledTime + HoverGrace;
+            }
+            if (!_menu.gameObject.activeSelf)
+                return;
+
+            var muteLabel = _chat.Presenter.Muted ? "Unmute" : "Mute";
+            if (_rows[0].Label.text != muteLabel)
+                _rows[0].Label.text = muteLabel;
+            _rows[1].Button.interactable = _settings.ScreenLook.Enabled;
+            var overMain = _menuBounds.Contains(pointer);
+            var overFlyout = _pages != null && _flyoutBounds.Contains(pointer);
+            if (overMain || overFlyout)
+                _closeAt = Time.unscaledTime + HoverGrace;
+            else if (!overTrigger && Time.unscaledTime >= _closeAt)
+            {
+                Close();
+                return;
+            }
+
+            if (overMain)
+            {
+                var yInMenu = pointer.y - _menuBounds.y;
+                var row = Mathf.FloorToInt(yInMenu / (32f * scale));
+                if (row == 2 || row == 3)
+                    ShowFlyout(row == 2 ? ProfilePages : AiPages);
+                else
+                    HideFlyout();
+            }
+
+            if (_pages != null)
+                PlaceFlyout(area, scale);
+        }
+
+        void Place(Vector2 head, Rect area, float scale)
+        {
+            var top = Screen.height - area.yMax;
+            var bottom = Screen.height - area.yMin;
+            var trigger = 30f * scale;
+            var menuWidth = 146f * scale;
+            var menuHeight = 198f * scale;
+            var triggerX = Fit(head.x + 24f * scale, area.xMin, area.xMax - trigger);
+            var triggerY = Fit(Screen.height - head.y - trigger, top, bottom - trigger);
+            _triggerBounds = new Rect(triggerX, triggerY, trigger, trigger);
+            HappiUiKit.Place(_trigger.Rect, triggerX, triggerY, trigger, trigger);
+            var menuX = Fit(triggerX, area.xMin, area.xMax - menuWidth);
+            var menuY = Fit(triggerY + trigger, top, bottom - menuHeight);
+            _menuBounds = new Rect(menuX, menuY, menuWidth, menuHeight);
+            HappiUiKit.Place(_menu, menuX, menuY, menuWidth, menuHeight);
+            for (var i = 0; i < _rows.Length; i++)
+            {
+                var stagger = (i % 2) * 5f * scale;
+                var rowTop = (i * 32f + (i == 5 ? 6f : 0f)) * scale;
+                HappiUiKit.Place(_rows[i].Rect, stagger, rowTop, menuWidth - stagger, 29f * scale);
+            }
+        }
+
+        void PlaceFlyout(Rect area, float scale)
+        {
+            var right = area.xMax - _menuBounds.xMax;
+            var left = _menuBounds.xMin - area.xMin;
+            var openRight = right >= 275f * scale || right >= left;
+            var width = Mathf.Min(275f * scale, Mathf.Max(1f, openRight ? right : left));
+            var height = (_pages.Length * 28f + 12f) * scale;
+            var x = openRight ? _menuBounds.xMax : _menuBounds.xMin - width;
+            var row = _pages == ProfilePages ? 2 : 3;
+            var y = Fit(_menuBounds.y + row * 32f * scale, Screen.height - area.yMax, Screen.height - area.yMin - height);
+            _flyoutBounds = new Rect(x, y, width, height);
+            HappiUiKit.Place(_flyout, x, y, width, height);
+            var buttonWidth = Mathf.Min(width, Mathf.Max(108f * scale, width * 0.4f));
+            if (_painting.texture != null)
+            {
+                var aspect = (float)_painting.texture.width / _painting.texture.height;
+                var artHeight = Mathf.Min(height, width / aspect);
+                HappiUiKit.Place(_painting.rectTransform, 0f, (height - artHeight) * 0.5f, width, artHeight);
+            }
+            for (var i = 0; i < _pages.Length; i++)
+                HappiUiKit.Place(_destinations[i].Rect, 4f * scale, (6f + i * 28f) * scale,
+                    Mathf.Max(1f, buttonWidth - 8f * scale), 25f * scale);
+        }
+
+        static float Fit(float value, float min, float max) => Mathf.Clamp(value, min, Mathf.Max(min, max));
+
+        void OnDestroy()
+        {
+            if (_canvas != null)
+                Destroy(_canvas.gameObject);
+        }
+    }
+}

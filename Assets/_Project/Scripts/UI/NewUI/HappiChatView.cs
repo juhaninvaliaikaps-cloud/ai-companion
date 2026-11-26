@@ -27,6 +27,8 @@ namespace AICompanion.NewUI
     [DisallowMultipleComponent]
     public sealed class HappiChatView : MonoBehaviour, IOverlayKeepAwake
     {
+        RawImage _ribbonHeaderArt;
+
         public const string ModePref = "happi.vn-mode";
         const float PlaneDistance = 0.48f;
 
@@ -183,7 +185,13 @@ namespace AICompanion.NewUI
                 return;
             _chat = chat;
             _settings = settings;
-            _theme = HappiTheme.Current;
+            _theme = RibbonMenu.Enabled ? new HappiTheme
+            {
+                PanelBackground = RibbonMenu.Ink,
+                PanelInset = new Color32(28, 31, 38, 255),
+                Border = new Color32(114, 238, 207, 255),
+                HighlightBackground = new Color32(38, 230, 255, 38)
+            } : HappiTheme.Current;
             _voice = new VnVoice(RealVoice, SpeechEnabled);
             _cues = new VnCueSink(PlayCue);
             _player = new VnPlayer(_voice, _cues, VnTiming.From(_theme));
@@ -941,6 +949,18 @@ namespace AICompanion.NewUI
             _picturePreview = new PictureHoverPreview((RectTransform)_canvasObject.transform, _theme);
             _name = HappiUiKit.Text(_box, "Name", "Leia", _theme.FontTitle, _theme.Text, TextAlignmentOptions.MidlineLeft, true);
             _name.textWrappingMode = TextWrappingModes.NoWrap;
+            if (RibbonMenu.Enabled)
+            {
+                _name.fontStyle |= FontStyles.Italic;
+                var painting = Resources.Load<Texture2D>("RibbonArt/Talk");
+                if (painting != null)
+                {
+                    _ribbonHeaderArt = HappiUiKit.Rect(_box, "Ribbon header art").gameObject.AddComponent<RawImage>();
+                    _ribbonHeaderArt.texture = painting;
+                    _ribbonHeaderArt.uvRect = new Rect(0.49f, 0.32f, 0.22f, 0.49f);
+                    _ribbonHeaderArt.raycastTarget = false;
+                }
+            }
             _badge = HappiUiKit.Text(_box, "Badge", string.Empty, _theme.FontSmall, _theme.BadgeCloud, TextAlignmentOptions.MidlineLeft, false);
             _mute = HappiUiKit.Button(_box, "Mute", ChatPresenter.MuteOffLabel, _theme.FontSmall, () => _chat.Presenter.ToggleMute());
             _privacy = HappiUiKit.Button(_box, "Privacy", "Public", _theme.FontSmall, OnPrivacy);
@@ -1011,6 +1031,17 @@ namespace AICompanion.NewUI
             _input = HappiUiKit.Input(_box, "Message", "Message", _theme.FontBody, false);
             _input.onSubmit.AddListener(OnSubmit);
             _send = HappiUiKit.Button(_box, "Send", ChatPresenter.SendLabel, _theme.FontSmall, OnSend);
+            if (RibbonMenu.Enabled)
+            {
+                var colors = _send.Button.colors;
+                colors.normalColor = RibbonMenu.Cyan;
+                colors.selectedColor = RibbonMenu.Cyan;
+                _send.Button.colors = colors;
+                var hover = _send.Button.GetComponent<HappiHoverText>();
+                hover.Normal = RibbonMenu.Ink;
+                _send.Label.color = RibbonMenu.Ink;
+                _send.Label.fontStyle |= FontStyles.Italic;
+            }
 
             _keyInput = HappiUiKit.Input(_box, "ApiKey", "API key", _theme.FontSmall, true);
             _keyInput.onSubmit.AddListener(_ => SaveKey());
@@ -1159,6 +1190,17 @@ namespace AICompanion.NewUI
             }
 
             var nameW = Mathf.Max(40f, right - nameX);
+            if (_ribbonHeaderArt != null)
+            {
+                var showArt = nameW >= 145f * s;
+                _ribbonHeaderArt.gameObject.SetActive(showArt);
+                if (showArt)
+                {
+                    var artWidth = 38f * s;
+                    HappiUiKit.Place(_ribbonHeaderArt.rectTransform, right - artWidth, y, artWidth, row);
+                    nameW -= artWidth + gap;
+                }
+            }
             HappiUiKit.Place(_name.rectTransform, nameX, y, nameW, row);
             HappiUiKit.Place(_dragHandle.Rect, 0f, 0f, width, pad + row + gap * 0.5f);
             _badge.gameObject.SetActive(false);
