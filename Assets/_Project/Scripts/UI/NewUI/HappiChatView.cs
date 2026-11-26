@@ -32,7 +32,10 @@ namespace AICompanion.NewUI
         RibbonGlyph _ribbonVoiceIcon;
         RibbonGlyph _ribbonPrivacyIcon;
         RectTransform _ribbonTitleMark;
-        RectTransform _ribbonTitlePlate;
+        HappiButton _personaTitle;
+        RibbonGlyph _personaArrow;
+        RibbonPersonaMenu _personaMenu;
+        RibbonPersonaSession _personaSession;
         RectTransform _ribbonHeaderRule;
         RectTransform _ribbonHeaderBacking;
         RectTransform _ribbonHeaderDivider;
@@ -183,6 +186,7 @@ namespace AICompanion.NewUI
         bool _glowDirty;
 
         public VnPlayer Player => _player;
+        internal bool PersonaMenuOpen => _personaMenu != null && _personaMenu.IsOpen;
 
         /// <summary>The chat box centre in Unity screen pixels.</summary>
         public Vector2 BoxCenter => _boxCenter;
@@ -194,6 +198,7 @@ namespace AICompanion.NewUI
                 if (!_attached)
                     return false;
                 return (_player != null && _player.Active)
+                    || (_personaMenu != null && _personaMenu.IsOpen)
                     || (_input != null && _input.isFocused)
                     || (_keyInput != null && _keyInput.isFocused);
             }
@@ -265,6 +270,9 @@ namespace AICompanion.NewUI
 
             _snapMarkers.Clear();
             _portraitMarkers.Clear();
+            _personaMenu?.Close();
+            _personaMenu = null;
+            _personaSession = null;
             if (_canvasObject != null)
                 Destroy(_canvasObject);
             _canvasObject = null;
@@ -302,6 +310,7 @@ namespace AICompanion.NewUI
             if (!_attached || _chat == null || _canvasObject == null)
                 return;
 
+            SyncPersonaDraft();
             var settings = _settings != null ? _settings.CurrentSettings : null;
             _player.VoiceNarration = settings != null && settings.VoiceNarration;
             _player.Tick(Time.unscaledDeltaTime);
@@ -312,6 +321,7 @@ namespace AICompanion.NewUI
                 _canvasObject.SetActive(visible);
             if (!visible)
             {
+                _personaMenu?.Close();
                 _wasVisible = false;
                 _dragging = false;
                 _resizing = false;
@@ -333,6 +343,7 @@ namespace AICompanion.NewUI
             HappiUiKit.FollowCamera(_canvas, PlaneDistance);
             Layout();
             PlaceBox(settings);
+            UpdatePersonaMenu();
             if (_menuOpen && Input.GetMouseButtonDown(0)
                 && !Contains(_chatMenu != null ? (RectTransform)_chatMenu.transform : null)
                 && !Contains(_close != null ? _close.Rect : null))
@@ -366,6 +377,18 @@ namespace AICompanion.NewUI
 
         void HandleKeys()
         {
+            if (_personaMenu != null && Application.isFocused && Input.GetKeyDown(KeyCode.P)
+                && (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)))
+            {
+                TogglePersonaMenu();
+                return;
+            }
+            if (_personaMenu != null && _personaMenu.IsOpen)
+            {
+                if (Input.GetKeyDown(KeyCode.Escape) && _personaMenu.Close())
+                    _personaTitle.Button.Select();
+                return;
+            }
             if (_menuOpen && Input.GetKeyDown(KeyCode.Escape))
             {
                 CloseChatMenu();
@@ -990,17 +1013,18 @@ namespace AICompanion.NewUI
             _picturePreview = new PictureHoverPreview((RectTransform)_canvasObject.transform, _theme);
             if (RibbonMenu.Enabled)
             {
-                var plate = HappiUiKit.Panel(_box, "Ribbon title plate", new Color32(14, 17, 23, 255), false);
-                RibbonShape.Apply(plate, true);
-                _ribbonTitlePlate = plate.rectTransform;
-            }
-            _name = HappiUiKit.Text(_box, "Name", "Leia", _theme.FontTitle, _theme.Text, TextAlignmentOptions.MidlineLeft, true);
-            _name.textWrappingMode = TextWrappingModes.NoWrap;
-            if (RibbonMenu.Enabled)
-            {
+                _personaTitle = HappiUiKit.Button(_box, "Choose persona", "Leia", _theme.FontTitle, TogglePersonaMenu);
+                StyleRibbonControl(_personaTitle, angled: true);
+                var titleColors = _personaTitle.Button.colors;
+                titleColors.normalColor = new Color32(14, 17, 23, 255);
+                titleColors.selectedColor = new Color32(34, 72, 83, 255);
+                _personaTitle.Button.colors = titleColors;
+                _name = _personaTitle.Label;
                 _name.fontStyle |= FontStyles.Italic;
-                _name.overflowMode = TextOverflowModes.Ellipsis;
-                _ribbonTitleMark = HappiUiKit.Panel(_box, "Ribbon title stripe", new Color32(255, 206, 40, 255), false).rectTransform;
+                _name.alignment = TextAlignmentOptions.MidlineLeft;
+                _personaArrow = RibbonGlyph.Add(_personaTitle.Rect, "Opens upward", RibbonGlyph.Mark.ChevronUp, _theme.Text);
+                _personaArrow.Label = _name;
+                _ribbonTitleMark = HappiUiKit.Panel(_personaTitle.Rect, "Ribbon title stripe", new Color32(255, 206, 40, 255), false).rectTransform;
                 RibbonShape.Apply(_ribbonTitleMark.GetComponent<Image>(), true);
                 _ribbonHeaderRule = HappiUiKit.Panel(_box, "Ribbon header rule", new Color32(100, 118, 128, 130), false).rectTransform;
                 _ribbonHeaderDivider = HappiUiKit.Panel(_box, "Ribbon header divider", new Color32(152, 165, 181, 150), false).rectTransform;
@@ -1013,6 +1037,11 @@ namespace AICompanion.NewUI
                     _ribbonHeaderArt.raycastTarget = false;
                     RibbonShape.Apply(_ribbonHeaderArt, RibbonShape.Kind.HeaderArt);
                 }
+            }
+            else
+            {
+                _name = HappiUiKit.Text(_box, "Name", "Leia", _theme.FontTitle, _theme.Text, TextAlignmentOptions.MidlineLeft, true);
+                _name.textWrappingMode = TextWrappingModes.NoWrap;
             }
             _badge = HappiUiKit.Text(_box, "Badge", string.Empty, _theme.FontSmall, _theme.BadgeCloud, TextAlignmentOptions.MidlineLeft, false);
             _mute = HappiUiKit.Button(_box, "Mute", ChatPresenter.MuteOffLabel, _theme.FontSmall, () => _chat.Presenter.ToggleMute());
@@ -1174,6 +1203,11 @@ namespace AICompanion.NewUI
                 StyleRibbonControl(_saveKey);
             }
             _fontButtons = new[] { _mute, _privacy, _mode, _next, _skip, _narration, _mic, _send, _saveKey };
+            if (RibbonMenu.Enabled && _settings != null)
+            {
+                _personaSession = new RibbonPersonaSession(_settings.CurrentSettings?.PersonaId);
+                _personaMenu = new RibbonPersonaMenu(_canvasObject.transform, ChoosePersona, OpenPersonaStudio, OpenAllPersonas);
+            }
 
             // JUH-127: the edges and corners, last so they sit above everything in the box.
             var edges = new[]
@@ -1317,7 +1351,7 @@ namespace AICompanion.NewUI
             var controlY = stackedHeader ? y + row + headerGap : y;
             var headerBottom = controlY + headerRow;
             var buttonY = controlY + (headerRow - row) * 0.5f;
-            var artWidth = _ribbonHeaderArt != null && (stackedHeader || inner >= 284f * s)
+            var artWidth = _ribbonHeaderArt != null && (stackedHeader || inner >= (_avatarShown ? 335f : 284f) * s)
                 ? Mathf.Clamp(inner * 0.22f, 46f * s, (wideRibbon ? 100f : 82f) * s) : 0f;
             PlaceRibbonHeaderArt(right, y, artWidth, headerRow);
             if (artWidth > 0f && !stackedHeader)
@@ -1359,25 +1393,25 @@ namespace AICompanion.NewUI
 
             if (ribbon)
             {
-                var titleSpace = Mathf.Max(1f, right - nameX);
-                _ribbonTitlePlate.gameObject.SetActive(titleSpace >= 40f * s);
-                HappiUiKit.Place(_ribbonTitlePlate, nameX, y + 2f * s, Mathf.Min(titleSpace, 164f * s), headerRow - 4f * s);
+                var titleWidth = Mathf.Clamp(right - nameX, 1f, 164f * s);
+                var titleHeight = headerRow - 4f * s;
+                HappiUiKit.Place(_personaTitle.Rect, nameX, y + 2f * s, titleWidth, titleHeight);
+                HappiUiKit.Place(_personaArrow.rectTransform, Mathf.Max(0f, titleWidth - 22f * s),
+                    (titleHeight - 12f * s) * 0.5f, 12f * s, 12f * s);
+                _personaArrow.enabled = titleWidth >= 24f * s;
                 var icon = 15f * s;
                 HappiUiKit.Place(_ribbonVoiceIcon.rectTransform, (muteW - icon) * 0.5f, (row - icon) * 0.5f, icon, icon);
                 HappiUiKit.Place(_ribbonPrivacyIcon.rectTransform, 7f * s, (row - icon) * 0.5f, icon, icon);
                 HappiUiKit.Stretch(_privacy.Label.rectTransform, 21f * s, 0f, 4f * s, 0f);
-                var titleWidth = 7f * s;
-                var showMark = right - nameX >= 50f * s;
+                var showMark = titleWidth >= 52f * s;
                 _ribbonTitleMark.gameObject.SetActive(showMark);
                 if (showMark)
-                {
-                    HappiUiKit.Place(_ribbonTitleMark, nameX, y + 4f * s, titleWidth, headerRow - 8f * s);
-                    nameX += titleWidth + 4f * s;
-                }
+                    HappiUiKit.Place(_ribbonTitleMark, 5f * s, 2f * s, 7f * s, titleHeight - 4f * s);
+                HappiUiKit.Stretch(_name.rectTransform, (showMark ? 16f : 7f) * s, 0f, (_personaArrow.enabled ? 25f : 5f) * s, 0f);
                 HappiUiKit.Place(_ribbonHeaderRule, pad, headerBottom + gap * 0.5f, inner, Mathf.Max(1f, s));
             }
-            var nameW = Mathf.Max(ribbon ? 1f : 40f, right - nameX);
-            HappiUiKit.Place(_name.rectTransform, nameX, y, nameW, headerRow);
+            else
+                HappiUiKit.Place(_name.rectTransform, nameX, y, Mathf.Max(40f, right - nameX), headerRow);
             HappiUiKit.Place(_dragHandle.Rect, 0f, 0f, width, headerBottom + gap * 0.5f);
             _badge.gameObject.SetActive(false);
             y = headerBottom + gap;
@@ -2054,6 +2088,8 @@ namespace AICompanion.NewUI
 
         void OnSend()
         {
+            if (SyncPersonaDraft())
+                return;
             var result = _chat.Presenter.PrimaryAction(_input != null ? _input.text : string.Empty);
             if (result == ChatActionResult.Sent && _ribbonSendAccent != null)
                 _ribbonSendAccent.Play(_send);
@@ -2066,6 +2102,8 @@ namespace AICompanion.NewUI
 
         void OnSubmit(string text)
         {
+            if (SyncPersonaDraft())
+                return;
             if (_chat.Presenter.Send(text) != ChatActionResult.Sent)
                 return;
             if (_ribbonSendAccent != null)
@@ -2124,8 +2162,109 @@ namespace AICompanion.NewUI
             _settings.Presenter.SetVoiceNarration(settings == null || !settings.VoiceNarration);
         }
 
+        bool PersonaSwitchBusy() => _chat.TranscriptBusy || _player.Active || _sink.Streaming
+            || _chat.MicRecording || _chat.MicTranscribing;
+
+        bool SyncPersonaDraft()
+        {
+            if (_personaSession == null || _input == null || _settings.CurrentSettings == null
+                || !_personaSession.TryChange(_settings.CurrentSettings.PersonaId, _input.text, out var draft))
+                return false;
+
+            _personaMenu?.Close();
+            _input.SetTextWithoutNotify(draft);
+            _input.caretPosition = draft.Length;
+            _shownRevision = -1;
+            return true;
+        }
+
+        void TogglePersonaMenu()
+        {
+            if (_personaMenu == null || GetComponent<HappiSettingsView>()?.IsOpen == true
+                || GetComponent<PersonaStudioView>()?.IsOpen == true)
+                return;
+            if (_personaMenu.IsOpen)
+            {
+                _personaMenu.Close();
+                return;
+            }
+
+            SyncPersonaDraft();
+            CloseChatMenu();
+            _input.DeactivateInputField();
+            ReleaseFocus();
+            GetComponent<ITypingFocus>()?.FocusForTyping();
+            _personaMenu.Open(_personaSession.Choices(_settings.PersonaCards(), CompanionName()), PersonaSwitchBusy());
+            PlacePersonaMenu();
+        }
+
+        void UpdatePersonaMenu()
+        {
+            if (_personaMenu == null || !_personaMenu.IsOpen)
+                return;
+            if (Input.GetMouseButtonDown(0) && !Contains(_personaMenu.Viewport) && !Contains(_personaTitle.Rect))
+            {
+                _personaMenu.Close();
+                return;
+            }
+            _personaMenu.SetBusy(PersonaSwitchBusy());
+            PlacePersonaMenu();
+        }
+
+        void PlacePersonaMenu()
+        {
+            var visible = _visibleArea.width > 0f ? _visibleArea : VisibleArea();
+            var area = new Rect(visible.xMin, Screen.height - visible.yMax, visible.width, visible.height);
+            var left = _boxCenter.x - _boxSize.x * 0.5f;
+            var top = Screen.height - (_boxCenter.y + _boxSize.y * 0.5f);
+            var title = _personaTitle.Rect.anchoredPosition;
+            _personaMenu.Place(area, new Vector2(left + title.x, top - title.y), Mathf.Max(0.5f, _layoutScale));
+        }
+
+        void ChoosePersona(string id)
+        {
+            if (string.Equals(id, _settings.CurrentSettings?.PersonaId ?? string.Empty, StringComparison.OrdinalIgnoreCase))
+            {
+                _personaMenu.Close();
+                return;
+            }
+            if (PersonaSwitchBusy())
+                return;
+
+            _personaMenu.Close();
+            _player.Begin();
+            _settings.Personas.Choose(id);
+            SyncPersonaDraft();
+            FocusInput();
+        }
+
+        void OpenPersonaStudio()
+        {
+            _personaMenu.Close();
+            var studio = GetComponent<PersonaStudioView>();
+            if (studio != null)
+                studio.OpenNew();
+            else
+                OpenAllPersonas();
+        }
+
+        void OpenAllPersonas()
+        {
+            _personaMenu.Close();
+            var settingsView = GetComponent<HappiSettingsView>();
+            if (settingsView == null || !settingsView.TryOpenPage(SettingsPage.HerPersona))
+                _settings.Open();
+        }
+
+        void OnApplicationFocus(bool focused)
+        {
+            if (!focused)
+                _personaMenu?.Close();
+        }
+
         void ToggleChatMenu()
         {
+            _personaMenu?.Close();
             _menuOpen = !_menuOpen;
             if (_chatMenu != null)
             {

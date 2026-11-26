@@ -43,6 +43,7 @@ namespace AICompanion.NewUI
         ChatPanel _chat;
         SettingsPanel _settings;
         HappiSettingsView _settingsView;
+        HappiChatView _chatView;
         HappiWheelHost _wheel;
         HappiButton _trigger;
         RibbonGlyph _menuGlyph;
@@ -114,6 +115,7 @@ namespace AICompanion.NewUI
             _chat = chat;
             _settings = settings;
             _settingsView = GetComponent<HappiSettingsView>();
+            _chatView = GetComponent<HappiChatView>();
             _wheel = GetComponent<HappiWheelHost>();
             _head = new HeadLocator(gameObject);
             _window = GetComponent<OverlayWindow>();
@@ -578,6 +580,8 @@ namespace AICompanion.NewUI
         bool CanTakeKeyboard()
         {
             if (!Application.isFocused || (_settingsView != null && _settingsView.IsOpen) || (_wheel != null && _wheel.IsOpen))
+                return false;
+            if (_chatView != null && _chatView.PersonaMenuOpen)
                 return false;
 
             var selected = EventSystem.current?.currentSelectedGameObject;
