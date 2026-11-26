@@ -6,12 +6,13 @@ namespace AICompanion.NewUI
     /// <summary>Ribbon geometry changes the rendered mesh while controls keep rectangular hit areas.</summary>
     sealed class RibbonShape : BaseMeshEffect
     {
-        internal enum Kind { Panel, Tab, ChatFrame, Composer, HeaderArt }
+        internal enum Kind { Panel, Tab, ChatFrame, Composer, HeaderArt, ScrollPaper }
         Kind _kind;
+        bool _mirrored;
 
         public static void Apply(Image image, bool tab) => Apply(image, tab ? Kind.Tab : Kind.Panel);
 
-        public static void Apply(Graphic graphic, Kind kind)
+        public static RibbonShape Apply(Graphic graphic, Kind kind)
         {
             if (graphic is Image image)
             {
@@ -20,6 +21,15 @@ namespace AICompanion.NewUI
             }
             var shape = graphic.gameObject.AddComponent<RibbonShape>();
             shape._kind = kind;
+            graphic.SetVerticesDirty();
+            return shape;
+        }
+
+        public void SetMirrored(bool mirrored)
+        {
+            if (_mirrored == mirrored)
+                return;
+            _mirrored = mirrored;
             graphic.SetVerticesDirty();
         }
 
@@ -38,7 +48,9 @@ namespace AICompanion.NewUI
             vertices.Clear();
             for (var i = 0; i < count; i++)
             {
-                var point = Point(_kind, rect, i);
+                var point = Point(_kind, rect, _mirrored ? (count - i) % count : i);
+                if (_mirrored)
+                    point.x = rect.xMin + rect.xMax - point.x;
                 var u = uv.x + uv.width * (point.x - rect.xMin) / rect.width;
                 var v = uv.y + uv.height * (point.y - rect.yMin) / rect.height;
                 vertices.AddVert(point, color, new Vector2(u, v));
@@ -51,7 +63,7 @@ namespace AICompanion.NewUI
         {
             if (kind == Kind.ChatFrame)
                 return 8;
-            return kind == Kind.Tab || kind == Kind.HeaderArt ? 4 : 6;
+            return kind is Kind.Tab or Kind.HeaderArt or Kind.ScrollPaper ? 4 : 6;
         }
 
         internal static Vector2 Point(Kind kind, Rect rect, int index)
@@ -60,6 +72,19 @@ namespace AICompanion.NewUI
             var right = rect.xMax;
             var top = rect.yMax;
             var bottom = rect.yMin;
+            if (kind == Kind.ScrollPaper)
+            {
+                var pinch = Mathf.Min(rect.height * 0.045f, rect.width * 0.10f);
+                var taper = Mathf.Min(rect.height * 0.12f, rect.width * 0.08f);
+                return index switch
+                {
+                    0 => new Vector2(left, bottom + pinch),
+                    1 => new Vector2(left, top - pinch),
+                    2 => new Vector2(right, top),
+                    _ => new Vector2(right - taper, bottom)
+                };
+            }
+
             if (kind == Kind.ChatFrame)
             {
                 var major = Mathf.Min(Mathf.Clamp(rect.height * 0.082f, 14f, 28f), rect.width * 0.14f);

@@ -52,23 +52,18 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void IllustrationRevealsTheAdjacentEdgeWithoutMirroringTheFinalImage()
+        public void IllustrationCropPreservesTheFocalPointInNarrowArtwork()
         {
-            var fullRight = RibbonMenuPlacement.IllustrationUv(2f, 1f, 0.6f, 1f, true);
-            var fullLeft = RibbonMenuPlacement.IllustrationUv(2f, 1f, 0.6f, 1f, false);
-            var partRight = RibbonMenuPlacement.IllustrationUv(2f, 1f, 0.6f, 0.25f, true);
-            var partLeft = RibbonMenuPlacement.IllustrationUv(2f, 1f, 0.6f, 0.25f, false);
+            var uv = RibbonMenuPlacement.IllustrationUv(3f, 1.5f, 0.7f);
 
-            Assert.That(fullLeft, Is.EqualTo(fullRight));
-            Assert.That(partRight.xMin, Is.EqualTo(fullRight.xMin).Within(0.001f));
-            Assert.That(partLeft.xMax, Is.EqualTo(fullLeft.xMax).Within(0.001f));
-            Assert.That(partLeft.width, Is.EqualTo(0.125f));
+            Assert.That(uv.center.x, Is.EqualTo(0.7f).Within(0.001f));
+            Assert.That(uv.size, Is.EqualTo(new Vector2(0.5f, 1f)));
         }
 
         [Test]
         public void WideFrameCropsHeightToKeepTheIllustrationInProportion()
         {
-            var uv = RibbonMenuPlacement.IllustrationUv(2f, 4f, 0.6f, 1f, true);
+            var uv = RibbonMenuPlacement.IllustrationUv(2f, 4f, 0.6f);
             Assert.That(uv, Is.EqualTo(new Rect(0f, 0.25f, 1f, 0.5f)));
         }
     }

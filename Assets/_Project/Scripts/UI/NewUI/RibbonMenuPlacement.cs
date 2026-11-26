@@ -51,14 +51,12 @@ namespace AICompanion.NewUI
             return new Rect(x, y, width, size.y);
         }
 
-        public static Rect IllustrationUv(float textureAspect, float frameAspect, float focalX,
-            float revealedFraction, bool opensRight)
+        public static Rect IllustrationUv(float textureAspect, float frameAspect, float focalX)
         {
             var width = Mathf.Min(1f, frameAspect / textureAspect);
             var height = Mathf.Min(1f, textureAspect / frameAspect);
             var x = Mathf.Clamp(focalX - width * 0.5f, 0f, 1f - width);
-            var visibleWidth = width * revealedFraction;
-            return new Rect(opensRight ? x : x + width - visibleWidth, (1f - height) * 0.5f, visibleWidth, height);
+            return new Rect(x, (1f - height) * 0.5f, width, height);
         }
     }
 }

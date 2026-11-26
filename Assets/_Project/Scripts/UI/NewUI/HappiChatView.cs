@@ -752,6 +752,8 @@ namespace AICompanion.NewUI
             // JUH-127: the room follows the box's real width; it is set from the layout, not while resizing.
             var roomWidth = _roomBoxWidth > 0f ? _roomBoxWidth : _theme.ChatBoxWidth * scale;
             var side = classic || wizardOpen ? 0 : ChatSnapSpots.SideRoomFor(roomWidth, gap);
+            if (!classic && !wizardOpen && RibbonMenu.Enabled)
+                side = Mathf.Max(side, RibbonMenu.PreferredSideRoom(scale));
             var below = !classic && !wizardOpen && visible && _placedSnap == ChatSnapSpots.Under && _roomBoxHeight > 0f
                 ? ChatSnapSpots.BottomRoomFor(_roomBoxHeight, gap)
                 : 0;

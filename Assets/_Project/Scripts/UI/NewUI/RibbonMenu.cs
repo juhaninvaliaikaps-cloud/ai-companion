@@ -28,7 +28,12 @@ namespace AICompanion.NewUI
         const float FlyoutRowHeight = 31f;
         const float FlyoutRowPitch = 35f;
         const float FlyoutMinWidth = 158f;
-        const float FlyoutPreferredWidth = 440f;
+        const float FlyoutPreferredWidth = 660f;
+
+        internal static int PreferredSideRoom(float scale)
+        {
+            return Mathf.CeilToInt((FlyoutPreferredWidth + MainWidth * 0.5f + 36f) * scale);
+        }
 
         Canvas _canvas;
         HeadLocator _head;
@@ -54,7 +59,8 @@ namespace AICompanion.NewUI
         RectTransform _menu;
         RectTransform _flyout;
         Image _paper;
-        RawImage _painting;
+        RibbonShape _paperShape;
+        RibbonScrollArt _painting;
         RawImage _scrollRoll;
         float _flyoutShownAt;
         Texture2D _profileArt;
@@ -170,8 +176,9 @@ namespace AICompanion.NewUI
             _aiArt = Resources.Load<Texture2D>("RibbonArt/AI");
             _flyout = HappiUiKit.Rect(root, "Illustrated flyout");
             _paper = HappiUiKit.Panel(_flyout, "Yellow paper", Yellow, false);
-            RibbonShape.Apply(_paper, false);
-            _painting = HappiUiKit.Rect(_flyout, "Painting").gameObject.AddComponent<RawImage>();
+            _paperShape = RibbonShape.Apply(_paper, RibbonShape.Kind.ScrollPaper);
+            _paper.gameObject.AddComponent<Mask>().showMaskGraphic = true;
+            _painting = HappiUiKit.Rect(_paper.transform, "Painting").gameObject.AddComponent<RibbonScrollArt>();
             _painting.raycastTarget = false;
             _scrollRoll = HappiUiKit.Rect(_flyout, "Illustrated scroll roll").gameObject.AddComponent<RawImage>();
             _scrollRoll.texture = Resources.Load<Texture2D>("RibbonArt/ScrollRoll");
@@ -609,15 +616,17 @@ namespace AICompanion.NewUI
                 row * MainRowPitch * scale, openRight);
             var width = bounds.width;
             HappiUiKit.Place(_flyout, bounds.x, bounds.y, width, height);
-            var buttonWidth = Mathf.Min(width, Mathf.Max(FlyoutMinWidth * scale, width * 0.41f));
+            var rollWidth = _scrollRoll.enabled ? Mathf.Min(height * 0.34f, width * 0.23f) : 0f;
+            var buttonWidth = Mathf.Min(width, Mathf.Max(FlyoutMinWidth * scale,
+                Mathf.Max(width * 0.34f, rollWidth + 146f * scale)));
             var progress = Mathf.Clamp01((Time.unscaledTime - _flyoutShownAt) / 0.26f);
             var eased = 1f - (1f - progress) * (1f - progress);
             var shownWidth = Mathf.Lerp(buttonWidth, width, eased);
             var revealX = openRight ? 0f : width - shownWidth;
             _visiblePaperBounds = new Rect(bounds.x + revealX, bounds.y, shownWidth, height);
+            _paperShape.SetMirrored(!openRight);
             HappiUiKit.Place(_paper.rectTransform, revealX, 0f, shownWidth, height);
-            PlaceFlyoutPainting(width, height, buttonWidth, shownWidth, openRight, scale);
-            var rollWidth = _scrollRoll.enabled ? 30f * scale : 0f;
+            PlaceFlyoutPainting(width, height, buttonWidth, revealX, openRight, scale);
             if (_scrollRoll.enabled)
             {
                 var roll = _scrollRoll.rectTransform;
@@ -639,24 +648,21 @@ namespace AICompanion.NewUI
             }
         }
 
-        void PlaceFlyoutPainting(float width, float height, float buttonWidth, float shownWidth, bool openRight, float scale)
+        void PlaceFlyoutPainting(float width, float height, float buttonWidth, float revealX, bool openRight, float scale)
         {
-            // Cover the illustration area with the character crop. The controls stay on the solid yellow side.
-            var inset = 7f * scale;
-            var artWidth = width - buttonWidth - inset;
-            var artHeight = height - 2f * inset;
-            var visibleWidth = Mathf.Min(artWidth, shownWidth - buttonWidth);
-            var visible = _painting.texture != null && artWidth >= 55f * scale && artHeight > 0f && visibleWidth > 0f;
+            var visible = _painting.texture != null && width - buttonWidth >= 55f * scale;
             _painting.enabled = visible;
             if (!visible)
                 return;
 
+            // The artwork is fixed to the open scroll. The moving paper mask supplies the reveal.
+            var seam = buttonWidth - 16f * scale;
+            var artWidth = width - seam;
             var aspect = (float)_painting.texture.width / _painting.texture.height;
             var focalX = _activeFlyout == Flyout.Profile ? 0.61f : 0.71f;
-            var x = openRight ? buttonWidth : width - buttonWidth - visibleWidth;
-            _painting.uvRect = RibbonMenuPlacement.IllustrationUv(aspect, artWidth / artHeight,
-                focalX, visibleWidth / artWidth, openRight);
-            HappiUiKit.Place(_painting.rectTransform, x, inset, visibleWidth, artHeight);
+            _painting.SetFadeSide(openRight);
+            _painting.uvRect = RibbonMenuPlacement.IllustrationUv(aspect, artWidth / height, focalX);
+            HappiUiKit.Place(_painting.rectTransform, (openRight ? seam : 0f) - revealX, 0f, artWidth, height);
         }
 
         static float Fit(float value, float min, float max) => Mathf.Clamp(value, min, Mathf.Max(min, max));
