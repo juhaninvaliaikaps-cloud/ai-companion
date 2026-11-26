@@ -33,6 +33,9 @@ namespace AICompanion.NewUI
         RibbonGlyph _ribbonPrivacyIcon;
         RectTransform _ribbonTitleMark;
         RectTransform _ribbonHeaderRule;
+        RectTransform _ribbonHeaderBacking;
+        HappiButton _ribbonHide;
+        RibbonGlyph _ribbonHideIcon;
         readonly List<(Image Card, Image Accent)> _ribbonHistoryCards = new();
 
         public const string ModePref = "happi.vn-mode";
@@ -944,6 +947,13 @@ namespace AICompanion.NewUI
             outline.effectColor = HappiTheme.WithAlpha(_theme.Border, 0.9f);
             outline.effectDistance = new Vector2(1f, -1f);
 
+            if (RibbonMenu.Enabled)
+            {
+                var header = HappiUiKit.Panel(_box, "Ribbon header backing", new Color32(25, 30, 39, 255), false);
+                RibbonShape.Apply(header, false);
+                _ribbonHeaderBacking = header.rectTransform;
+            }
+
             // Header bar: drag the box by it. Built first so the header buttons stay on top of it.
             var handle = HappiUiKit.Rect(_box, "DragHandle");
             var handleImage = handle.gameObject.AddComponent<Image>();
@@ -983,6 +993,10 @@ namespace AICompanion.NewUI
                 StyleRibbonControl(_mute);
                 StyleRibbonControl(_privacy);
                 StyleRibbonControl(_close);
+                _ribbonHide = HappiUiKit.Button(_box, "Hide chat", string.Empty, _theme.FontSmall, CloseChatFromMenu);
+                StyleRibbonControl(_ribbonHide);
+                _ribbonHideIcon = RibbonGlyph.Add(_ribbonHide.Rect, "Hide chat icon", RibbonGlyph.Mark.Minimize, _theme.Text);
+                _ribbonHideIcon.Label = _ribbonHide.Label;
                 _ribbonVoiceIcon = RibbonGlyph.Add(_mute.Rect, "Voice", RibbonGlyph.Mark.Voice, _theme.Text);
                 _ribbonVoiceIcon.Label = _mute.Label;
                 _mute.Label.gameObject.SetActive(false);
@@ -1219,13 +1233,27 @@ namespace AICompanion.NewUI
             var headerGap = ribbon ? 4f * s : gap;
             var muteW = ribbon ? row : 58f * s;
             var right = pad + inner;
-            HappiUiKit.Place(_close.Rect, right - closeW, y, closeW, row);
-            PlaceChatMenu(s, pad, row, gap);
+            // Compact chat gives the title and portrait their own line so controls do not squeeze them out.
+            var minStackedHeight = (keyRow ? 245f : 213f) * s;
+            var stackedHeader = ribbon && inner < 286f * s && height >= minStackedHeight;
+            var controlY = stackedHeader ? y + row + headerGap : y;
+            var headerBottom = controlY + row;
+            if (ribbon)
+            {
+                HappiUiKit.Place(_ribbonHeaderBacking, pad * 0.5f, y - 4f * s, width - pad, headerBottom - y + 8f * s);
+                HappiUiKit.Place(_ribbonHide.Rect, right - row, controlY, row, row);
+                HappiUiKit.Stretch(_ribbonHideIcon.rectTransform, 6f * s, 6f * s, 6f * s, 6f * s);
+                right -= row + headerGap;
+            }
+            HappiUiKit.Place(_close.Rect, right - closeW, controlY, closeW, row);
+            PlaceChatMenu(s, pad, row, gap, headerBottom);
             right -= closeW + headerGap;
-            HappiUiKit.Place(_privacy.Rect, right - lookW, y, lookW, row);
+            HappiUiKit.Place(_privacy.Rect, right - lookW, controlY, lookW, row);
             right -= lookW + headerGap;
-            HappiUiKit.Place(_mute.Rect, right - muteW, y, muteW, row);
+            HappiUiKit.Place(_mute.Rect, right - muteW, controlY, muteW, row);
             right -= muteW + headerGap;
+            if (stackedHeader)
+                right = pad + inner;
             var nameX = pad;
             if (_avatarShown)
             {
@@ -1248,24 +1276,27 @@ namespace AICompanion.NewUI
                     HappiUiKit.Place(_ribbonTitleMark, nameX, y + 4f * s, titleWidth, row - 8f * s);
                     nameX += titleWidth + 4f * s;
                 }
-                HappiUiKit.Place(_ribbonHeaderRule, pad, y + row + gap * 0.5f, inner, Mathf.Max(1f, s));
+                HappiUiKit.Place(_ribbonHeaderRule, pad, headerBottom + gap * 0.5f, inner, Mathf.Max(1f, s));
             }
             var nameW = Mathf.Max(ribbon ? 1f : 40f, right - nameX);
             if (_ribbonHeaderArt != null)
             {
-                var showArt = nameW >= 104f * s;
+                var showArt = nameW >= 100f * s;
                 _ribbonHeaderArt.gameObject.SetActive(showArt);
                 if (showArt)
                 {
-                    var artWidth = 38f * s;
+                    var artWidth = Mathf.Min(68f * s, nameW - 48f * s);
+                    var artAspect = (float)_ribbonHeaderArt.texture.width / _ribbonHeaderArt.texture.height;
+                    var uvWidth = artWidth / row * 0.52f / artAspect;
+                    _ribbonHeaderArt.uvRect = new Rect(0.62f - uvWidth * 0.5f, 0.31f, uvWidth, 0.52f);
                     HappiUiKit.Place(_ribbonHeaderArt.rectTransform, right - artWidth, y, artWidth, row);
                     nameW -= artWidth + gap;
                 }
             }
             HappiUiKit.Place(_name.rectTransform, nameX, y, nameW, row);
-            HappiUiKit.Place(_dragHandle.Rect, 0f, 0f, width, pad + row + gap * 0.5f);
+            HappiUiKit.Place(_dragHandle.Rect, 0f, 0f, width, headerBottom + gap * 0.5f);
             _badge.gameObject.SetActive(false);
-            y += row + gap;
+            y = headerBottom + gap;
 
             // Bottom rows, from the bottom up.
             var bottom = height - pad;
@@ -1908,7 +1939,7 @@ namespace AICompanion.NewUI
             if (_menuOpen)
             {
                 var scale = _layoutScale > 0f ? _layoutScale : 1f;
-                PlaceChatMenu(scale, _theme.Padding * scale, 26f * scale, _theme.Spacing * scale);
+                PlaceChatMenu(scale, _theme.Padding * scale, 26f * scale, _theme.Spacing * scale, -_close.Rect.anchoredPosition.y + _close.Rect.rect.height);
             }
         }
 
@@ -1976,7 +2007,7 @@ namespace AICompanion.NewUI
             Application.Quit();
         }
 
-        void PlaceChatMenu(float s, float pad, float row, float gap)
+        void PlaceChatMenu(float s, float pad, float row, float gap, float headerBottom)
         {
             if (_chatMenu == null)
                 return;
@@ -1987,7 +2018,7 @@ namespace AICompanion.NewUI
             var width = 170f * s;
             var height = row * 4f + gap * 5f;
             rect.sizeDelta = new Vector2(width, height);
-            rect.anchoredPosition = new Vector2(-pad, -(pad + row + gap));
+            rect.anchoredPosition = new Vector2(-pad, -(headerBottom + gap));
             HappiUiKit.Place(_menuSettings.Rect, gap, gap, width - 2f * gap, row);
             HappiUiKit.Place(_menuClose.Rect, gap, gap * 2f + row, width - 2f * gap, row);
             HappiUiKit.Place(_menuProgram.Rect, gap, gap * 3f + row * 2f, width - 2f * gap, row);
