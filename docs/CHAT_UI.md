@@ -17,7 +17,7 @@ The system prompt lives on `ChatSettings.systemPrompt`. A persona selected in Se
 
 ## Ribbon prototype (JUH-198)
 
-Launch the Windows player with `--ribbon-ui` to preview the head-side Ribbon menu and the charcoal chat style. Hover the menu icon, then hover Profile or AI to see their flyouts. Profile opens the existing profile panel, and AI shortcuts open the current Settings pages. The prototype shares voice mute with chat and uses the existing Look now and Private/Public behavior. A pink-and-yellow ink stamp covers the selected button. Menu destinations open after the 200 ms hold so flyout selections show the stamp before the menu disappears. A successful chat send uses the same stamp. The separate Her Room door shows a planned-feature hint when hovered.
+Launch the Windows player with `--ribbon-ui` to preview the head-side Ribbon menu and the charcoal chat style. Hover the menu icon, then hover Profile or AI to see their flyouts. The arrow shows which side the flyout will open on, and the speaker icon shows when her voice is muted. Profile opens the existing profile panel, and AI shortcuts open the current Settings pages. The prototype shares voice mute with chat and uses the existing Look now and Private/Public behavior. A pink-and-yellow ink stamp covers the selected button. Menu destinations open after the 200 ms hold so flyout selections show the stamp before the menu disappears. A successful chat send uses the same stamp. The separate Her Room door shows a planned-feature hint when hovered.
 
 ## Private and public (JUH-177)
 

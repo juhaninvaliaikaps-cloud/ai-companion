@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,13 +7,25 @@ namespace AICompanion.NewUI
     /// <summary>Decorative marks for the Ribbon UI. The surrounding control owns the hit area.</summary>
     sealed class RibbonGlyph : MaskableGraphic
     {
-        internal enum Mark { Menu, Door, Ink }
+        internal enum Mark { Menu, Door, Ink, Voice, Muted, Screen, Profile, Model, Settings, Close, Chevron }
+        internal TMP_Text Label { get; set; }
+        internal Mark Shape
+        {
+            get => _mark;
+            set
+            {
+                if (_mark == value)
+                    return;
+                _mark = value;
+                SetVerticesDirty();
+            }
+        }
         Mark _mark;
 
         public static RibbonGlyph Add(Transform parent, string name, Mark mark, Color color)
         {
             var glyph = HappiUiKit.Rect(parent, name).gameObject.AddComponent<RibbonGlyph>();
-            glyph._mark = mark;
+            glyph.Shape = mark;
             glyph.color = color;
             glyph.raycastTarget = false;
             glyph.SetVerticesDirty();
@@ -39,9 +52,112 @@ namespace AICompanion.NewUI
                     Line(mesh, 0.63f, 0.12f, 0.63f, 0.89f);
                     Line(mesh, 0.72f, 0.49f, 0.76f, 0.49f);
                     break;
+                case Mark.Voice:
+                case Mark.Muted:
+                    Speaker(mesh, _mark == Mark.Muted);
+                    break;
+                case Mark.Screen:
+                    Box(mesh, 0.12f, 0.29f, 0.88f, 0.85f);
+                    Line(mesh, 0.50f, 0.29f, 0.50f, 0.14f);
+                    Line(mesh, 0.32f, 0.14f, 0.68f, 0.14f);
+                    break;
+                case Mark.Profile:
+                    Ring(mesh, new Vector2(0.50f, 0.70f), 0.16f);
+                    Line(mesh, 0.15f, 0.16f, 0.21f, 0.33f);
+                    Line(mesh, 0.21f, 0.33f, 0.37f, 0.41f);
+                    Line(mesh, 0.37f, 0.41f, 0.63f, 0.41f);
+                    Line(mesh, 0.63f, 0.41f, 0.79f, 0.33f);
+                    Line(mesh, 0.79f, 0.33f, 0.85f, 0.16f);
+                    Line(mesh, 0.15f, 0.16f, 0.85f, 0.16f);
+                    break;
+                case Mark.Model:
+                    Box(mesh, 0.24f, 0.24f, 0.76f, 0.76f);
+                    Box(mesh, 0.40f, 0.40f, 0.60f, 0.60f);
+                    for (var i = 0; i < 3; i++)
+                    {
+                        var pin = 0.34f + i * 0.16f;
+                        Line(mesh, pin, 0.76f, pin, 0.91f);
+                        Line(mesh, pin, 0.09f, pin, 0.24f);
+                        Line(mesh, 0.09f, pin, 0.24f, pin);
+                        Line(mesh, 0.76f, pin, 0.91f, pin);
+                    }
+                    break;
+                case Mark.Settings:
+                    SettingsCog(mesh);
+                    break;
+                case Mark.Close:
+                    Line(mesh, 0.25f, 0.25f, 0.75f, 0.75f);
+                    Line(mesh, 0.25f, 0.75f, 0.75f, 0.25f);
+                    break;
+                case Mark.Chevron:
+                    Line(mesh, 0.33f, 0.17f, 0.67f, 0.50f);
+                    Line(mesh, 0.67f, 0.50f, 0.33f, 0.83f);
+                    break;
                 case Mark.Ink:
                     Stamp(mesh);
                     break;
+            }
+        }
+
+        void LateUpdate()
+        {
+            if (Label != null && color != Label.color)
+                color = Label.color;
+        }
+
+        void Speaker(VertexHelper mesh, bool muted)
+        {
+            Line(mesh, 0.10f, 0.36f, 0.28f, 0.36f);
+            Line(mesh, 0.28f, 0.36f, 0.53f, 0.16f);
+            Line(mesh, 0.53f, 0.16f, 0.53f, 0.84f);
+            Line(mesh, 0.53f, 0.84f, 0.28f, 0.64f);
+            Line(mesh, 0.28f, 0.64f, 0.10f, 0.64f);
+            Line(mesh, 0.10f, 0.64f, 0.10f, 0.36f);
+            if (muted)
+            {
+                Line(mesh, 0.68f, 0.34f, 0.94f, 0.66f);
+                Line(mesh, 0.68f, 0.66f, 0.94f, 0.34f);
+                return;
+            }
+
+            Line(mesh, 0.68f, 0.31f, 0.78f, 0.50f);
+            Line(mesh, 0.78f, 0.50f, 0.68f, 0.69f);
+            Line(mesh, 0.81f, 0.20f, 0.95f, 0.50f);
+            Line(mesh, 0.95f, 0.50f, 0.81f, 0.80f);
+        }
+
+        void Box(VertexHelper mesh, float left, float bottom, float right, float top)
+        {
+            Line(mesh, left, bottom, right, bottom);
+            Line(mesh, right, bottom, right, top);
+            Line(mesh, right, top, left, top);
+            Line(mesh, left, top, left, bottom);
+        }
+
+        void Ring(VertexHelper mesh, Vector2 center, float radius)
+        {
+            var from = center + Vector2.right * radius;
+            for (var i = 1; i <= 12; i++)
+            {
+                var angle = i * (2f * Mathf.PI / 12f);
+                var to = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+                Line(mesh, from.x, from.y, to.x, to.y);
+                from = to;
+            }
+        }
+
+        void SettingsCog(VertexHelper mesh)
+        {
+            var center = new Vector2(0.5f, 0.5f);
+            Ring(mesh, center, 0.13f);
+            var from = center + Vector2.right * 0.33f;
+            for (var i = 1; i <= 24; i++)
+            {
+                var angle = i * (2f * Mathf.PI / 24f);
+                var radius = i % 4 == 0 || i % 4 == 3 ? 0.33f : 0.42f;
+                var to = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+                Line(mesh, from.x, from.y, to.x, to.y);
+                from = to;
             }
         }
 

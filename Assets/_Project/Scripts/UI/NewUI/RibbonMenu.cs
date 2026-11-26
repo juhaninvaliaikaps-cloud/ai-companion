@@ -34,6 +34,9 @@ namespace AICompanion.NewUI
         Action _pendingSelection;
         float _selectionReadyAt;
         HappiButton[] _rows;
+        RibbonGlyph[] _rowIcons;
+        RibbonGlyph _profileArrow;
+        RibbonGlyph _aiArrow;
         RectTransform _menu;
         RectTransform _flyout;
         Image _paper;
@@ -107,14 +110,28 @@ namespace AICompanion.NewUI
             {
                 Button(_menu, "Mute", () => _chat.Presenter.ToggleMute()),
                 Button(_menu, "Look now", () => _settings.ScreenLook.LookNow()),
-                Button(_menu, "Profile  ›", () => OpenProfile(ProfilePanel.Tab.Feelings)),
-                Button(_menu, "AI  ›", () => ShowFlyout(Flyout.Ai)),
+                Button(_menu, "Profile", () => OpenProfile(ProfilePanel.Tab.Feelings)),
+                Button(_menu, "AI", () => ShowFlyout(Flyout.Ai)),
                 Button(_menu, "Settings", () => { Close(); _settings.Open(); }),
                 Button(_menu, "Close", Close)
             };
 
+            _rowIcons = new[]
+            {
+                AddRowGlyph(_rows[0], RibbonGlyph.Mark.Voice),
+                AddRowGlyph(_rows[1], RibbonGlyph.Mark.Screen),
+                AddRowGlyph(_rows[2], RibbonGlyph.Mark.Profile),
+                AddRowGlyph(_rows[3], RibbonGlyph.Mark.Model),
+                AddRowGlyph(_rows[4], RibbonGlyph.Mark.Settings),
+                AddRowGlyph(_rows[5], RibbonGlyph.Mark.Close)
+            };
+            _profileArrow = AddRowGlyph(_rows[2], RibbonGlyph.Mark.Chevron);
+            _aiArrow = AddRowGlyph(_rows[3], RibbonGlyph.Mark.Chevron);
+
             foreach (var row in _rows)
             {
+                row.Label.alignment = TextAlignmentOptions.MidlineLeft;
+                row.Label.overflowMode = TextOverflowModes.Ellipsis;
                 var accent = HappiUiKit.Panel(row.Rect, "Mint edge", new Color32(114, 238, 207, 255), false);
                 var edge = accent.rectTransform;
                 edge.anchorMin = new Vector2(0.04f, 0.15f);
@@ -169,6 +186,13 @@ namespace AICompanion.NewUI
             var hover = button.Button.GetComponent<HappiHoverText>();
             hover.Hover = Ink;
             return button;
+        }
+
+        static RibbonGlyph AddRowGlyph(HappiButton row, RibbonGlyph.Mark mark)
+        {
+            var glyph = RibbonGlyph.Add(row.Rect, mark.ToString(), mark, row.Label.color);
+            glyph.Label = row.Label;
+            return glyph;
         }
 
         void OpenProfile(ProfilePanel.Tab tab)
@@ -288,7 +312,9 @@ namespace AICompanion.NewUI
             if (!_menu.gameObject.activeSelf)
                 return;
 
-            var muteLabel = _chat.Presenter.Muted ? "Unmute" : "Mute";
+            var muted = _chat.Presenter.Muted;
+            var muteLabel = muted ? "Unmute" : "Mute";
+            _rowIcons[0].Shape = muted ? RibbonGlyph.Mark.Muted : RibbonGlyph.Mark.Voice;
             if (_rows[0].Label.text != muteLabel)
                 _rows[0].Label.text = muteLabel;
             _rows[1].Button.interactable = _settings.ScreenLook.Enabled;
@@ -346,15 +372,40 @@ namespace AICompanion.NewUI
             {
                 var stagger = (i % 2) * 5f * scale;
                 var rowTop = (i * 32f + (i == 5 ? 6f : 0f)) * scale;
-                HappiUiKit.Place(_rows[i].Rect, stagger, rowTop, menuWidth - stagger, 29f * scale);
+                var row = _rows[i];
+                HappiUiKit.Place(row.Rect, stagger, rowTop, menuWidth - stagger, 29f * scale);
+                HappiUiKit.Place(_rowIcons[i].rectTransform, 14f * scale, 7f * scale, 15f * scale, 15f * scale);
+                var trailing = (i == 2 || i == 3) ? 30f : 12f;
+                HappiUiKit.Stretch(row.Label.rectTransform, 37f * scale, 0f, trailing * scale, 0f);
+                row.Label.fontSize = 14f * scale;
             }
+
+            var openRight = FlyoutOpensRight(area, scale);
+            PlaceArrow(_profileArrow, _rows[2], openRight, scale);
+            PlaceArrow(_aiArrow, _rows[3], openRight, scale);
+        }
+
+        static void PlaceArrow(RibbonGlyph arrow, HappiButton row, bool openRight, float scale)
+        {
+            var rect = arrow.rectTransform;
+            const float size = 11f;
+            var inset = openRight ? 23f : 23f - size;
+            HappiUiKit.Place(rect, row.Rect.rect.width - inset * scale, 9f * scale, size * scale, size * scale);
+            rect.localScale = new Vector3(openRight ? 1f : -1f, 1f, 1f);
+        }
+
+        bool FlyoutOpensRight(Rect area, float scale)
+        {
+            var right = area.xMax - _menuBounds.xMax;
+            var left = _menuBounds.xMin - area.xMin;
+            return right >= 275f * scale || right >= left;
         }
 
         void PlaceFlyout(Rect area, float scale)
         {
             var right = area.xMax - _menuBounds.xMax;
             var left = _menuBounds.xMin - area.xMin;
-            var openRight = right >= 275f * scale || right >= left;
+            var openRight = FlyoutOpensRight(area, scale);
             var width = Mathf.Min(275f * scale, Mathf.Max(1f, openRight ? right : left));
             var count = _activeFlyout == Flyout.Profile ? ProfileTabs.Length : AiPages.Length;
             var height = (count * 28f + 12f) * scale;
