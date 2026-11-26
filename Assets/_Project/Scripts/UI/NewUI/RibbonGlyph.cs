@@ -7,7 +7,7 @@ namespace AICompanion.NewUI
     /// <summary>Decorative marks for the Ribbon UI. The surrounding control owns the hit area.</summary>
     sealed class RibbonGlyph : MaskableGraphic
     {
-        internal enum Mark { Menu, Door, Ink, Voice, Muted, Screen, Profile, Model, Settings, Close, Chevron, Lock, OpenLock }
+        internal enum Mark { Menu, Door, Ink, Voice, Muted, Screen, Profile, Model, Settings, Close, Chevron, Lock, OpenLock, PaperEdge }
         internal TMP_Text Label { get; set; }
         internal Mark Shape
         {
@@ -103,6 +103,9 @@ namespace AICompanion.NewUI
                     Line(mesh, 0.61f, 0.87f, 0.69f, 0.75f);
                     Line(mesh, 0.69f, 0.75f, 0.69f, _mark == Mark.Lock ? 0.57f : 0.68f);
                     break;
+                case Mark.PaperEdge:
+                    PaperEdge(mesh);
+                    break;
                 case Mark.Ink:
                     Stamp(mesh);
                     break;
@@ -181,6 +184,24 @@ namespace AICompanion.NewUI
             Vertex(mesh, x0 - offset.x, y0 - offset.y);
             mesh.AddTriangle(index, index + 1, index + 2);
             mesh.AddTriangle(index, index + 2, index + 3);
+        }
+
+        void PaperEdge(VertexHelper mesh)
+        {
+            // A darker fold under two highlights and short ink fibers at the reveal edge.
+            Color32 fold = new Color32(214, 147, 21, 255);
+            Color32 ink = new Color32(74, 52, 18, 255);
+            Vertex(mesh, 0.05f, 0.02f, fold);
+            Vertex(mesh, 0.18f, 0.98f, fold);
+            Vertex(mesh, 0.94f, 0.92f, fold);
+            Vertex(mesh, 0.78f, 0.10f, fold);
+            mesh.AddTriangle(0, 1, 2);
+            mesh.AddTriangle(0, 2, 3);
+            Line(mesh, 0.25f, 0.06f, 0.41f, 0.94f);
+            Line(mesh, 0.46f, 0.14f, 0.58f, 0.89f);
+            Shard(mesh, ink, 0.77f, 0.14f, 0.98f, 0.12f, 0.81f, 0.24f);
+            Shard(mesh, ink, 0.81f, 0.76f, 0.99f, 0.79f, 0.83f, 0.84f);
+            Shard(mesh, ink, 0.86f, 0.90f, 0.98f, 0.94f, 0.70f, 0.95f);
         }
 
         void Stamp(VertexHelper mesh)

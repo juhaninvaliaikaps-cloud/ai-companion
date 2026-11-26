@@ -47,6 +47,7 @@ namespace AICompanion.NewUI
         RectTransform _menu;
         RectTransform _flyout;
         Image _paper;
+        RectTransform _paperEdge;
         RawImage _painting;
         float _flyoutShownAt;
         Texture2D _profileArt;
@@ -163,8 +164,13 @@ namespace AICompanion.NewUI
             _flyout = HappiUiKit.Rect(root, "Illustrated flyout");
             _paper = HappiUiKit.Panel(_flyout, "Yellow paper", Yellow, false);
             RibbonShape.Apply(_paper, false);
+            var paperShadow = _paper.gameObject.AddComponent<Shadow>();
+            paperShadow.effectColor = new Color32(0, 0, 0, 115);
+            paperShadow.effectDistance = new Vector2(2f, -3f);
             _painting = HappiUiKit.Rect(_flyout, "Painting").gameObject.AddComponent<RawImage>();
             _painting.raycastTarget = false;
+            _paperEdge = RibbonGlyph.Add(_flyout, "Rolled paper edge", RibbonGlyph.Mark.PaperEdge,
+                new Color32(255, 228, 111, 255)).rectTransform;
 
             _destinations = new HappiButton[AiPages.Length];
             for (var i = 0; i < _destinations.Length; i++)
@@ -588,6 +594,15 @@ namespace AICompanion.NewUI
                     ? new Rect(0f, 0f, fraction, 1f)
                     : new Rect(fraction, 0f, -fraction, 1f);
                 HappiUiKit.Place(_painting.rectTransform, revealX, (height - artHeight) * 0.5f, shownWidth, artHeight);
+            }
+            var edgeWidth = Mathf.Min(13f * scale, shownWidth * 0.15f);
+            var showEdge = shownWidth > buttonWidth + edgeWidth;
+            _paperEdge.gameObject.SetActive(showEdge);
+            if (showEdge)
+            {
+                var edgeX = openRight ? revealX + shownWidth - edgeWidth : revealX + edgeWidth;
+                HappiUiKit.Place(_paperEdge, edgeX, 3f * scale, edgeWidth, height - 6f * scale);
+                _paperEdge.localScale = new Vector3(openRight ? 1f : -1f, 1f, 1f);
             }
             for (var i = 0; i < count; i++)
             {
