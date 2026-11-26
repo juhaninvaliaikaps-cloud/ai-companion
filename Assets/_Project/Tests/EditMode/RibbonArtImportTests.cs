@@ -9,6 +9,7 @@ namespace AICompanion.Tests.EditMode
         [TestCase("Profile")]
         [TestCase("AI")]
         [TestCase("Talk")]
+        [TestCase("ChatPortrait")]
         [TestCase("ScrollRoll")]
         public void RibbonArtworkLoadsAsA2DResource(string name)
         {
