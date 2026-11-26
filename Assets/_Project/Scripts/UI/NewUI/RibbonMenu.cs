@@ -57,6 +57,7 @@ namespace AICompanion.NewUI
         readonly Rect[] _destinationBounds = new Rect[AiPages.Length];
         RibbonGlyph _profileArrow;
         RibbonGlyph _aiArrow;
+        RibbonGlyph _settingsArrow;
         RectTransform _menu;
         RectTransform _flyout;
         Image _paper;
@@ -67,9 +68,11 @@ namespace AICompanion.NewUI
         float _flyoutShownAt;
         Texture2D _profileArt;
         Texture2D _aiArt;
+        Texture2D _settingsArt;
         HappiButton[] _destinations;
-        enum Flyout { None, Profile, Ai }
-        Flyout _activeFlyout;
+        // Flyouts sit next to the main row with the same index.
+        enum Flyout { None = -1, Profile = 2, Ai = 3, Settings = 4 }
+        Flyout _activeFlyout = Flyout.None;
 
         static readonly ProfilePanel.Tab[] ProfileTabs =
         {
@@ -86,6 +89,8 @@ namespace AICompanion.NewUI
         {
             "Chat model", "Private model", "Voice engine", "Listening", "Vision", "Pisara"
         };
+        static readonly string[] SettingsLabels = { "All settings", "Chat layout", "Window" };
+        static readonly SettingsPage?[] SettingsPages = { null, SettingsPage.ChatText, SettingsPage.LookWindow };
 
         Rect _triggerBounds;
         Rect _roomBounds;
@@ -148,7 +153,7 @@ namespace AICompanion.NewUI
                 Button(_menu, "Look now", () => _settings.ScreenLook.LookNow()),
                 Button(_menu, "Profile", () => OpenProfile(ProfilePanel.Tab.Feelings)),
                 Button(_menu, "AI", () => ShowFlyout(Flyout.Ai)),
-                Button(_menu, "Settings", () => { Close(); _settings.Open(); }),
+                Button(_menu, "Settings", () => OpenSettings(null)),
                 Button(_menu, "Close", Close)
             };
 
@@ -163,6 +168,7 @@ namespace AICompanion.NewUI
             };
             _profileArrow = AddRowGlyph(_rows[2], RibbonGlyph.Mark.Chevron);
             _aiArrow = AddRowGlyph(_rows[3], RibbonGlyph.Mark.Chevron);
+            _settingsArrow = AddRowGlyph(_rows[4], RibbonGlyph.Mark.Chevron);
 
             foreach (var row in _rows)
             {
@@ -180,6 +186,7 @@ namespace AICompanion.NewUI
 
             _profileArt = Resources.Load<Texture2D>("RibbonArt/Profile");
             _aiArt = Resources.Load<Texture2D>("RibbonArt/AI");
+            _settingsArt = Resources.Load<Texture2D>("RibbonArt/Settings");
             _flyout = HappiUiKit.Rect(root, "Illustrated flyout");
             _paper = HappiUiKit.Panel(_flyout, "Yellow paper", Yellow, false);
             _paperShape = RibbonShape.Apply(_paper, RibbonShape.Kind.ScrollPaper);
@@ -250,19 +257,34 @@ namespace AICompanion.NewUI
 
         void OpenDestination(int index)
         {
-            if (_activeFlyout == Flyout.Profile && index < ProfileTabs.Length)
-            {
-                OpenProfile(ProfileTabs[index]);
+            if (index < 0 || index >= LabelsFor(_activeFlyout).Length)
                 return;
-            }
 
-            if (_activeFlyout != Flyout.Ai || index >= AiPages.Length)
-                return;
-            var page = AiPages[index];
-            Close();
-            if (_settingsView != null)
-                _settingsView.TryOpenPage(page);
+            switch (_activeFlyout)
+            {
+                case Flyout.Profile: OpenProfile(ProfileTabs[index]); break;
+                case Flyout.Ai: OpenSettings(AiPages[index]); break;
+                case Flyout.Settings: OpenSettings(SettingsPages[index]); break;
+            }
         }
+
+        void OpenSettings(SettingsPage? page)
+        {
+            Close();
+            if (!page.HasValue || _settingsView == null || !_settingsView.TryOpenPage(page.Value))
+                _settings.Open();
+        }
+
+        static Flyout FlyoutAtRow(int row) =>
+            row >= (int)Flyout.Profile && row <= (int)Flyout.Settings ? (Flyout)row : Flyout.None;
+
+        static string[] LabelsFor(Flyout flyout) => flyout switch
+        {
+            Flyout.Profile => ProfileLabels,
+            Flyout.Ai => AiLabels,
+            Flyout.Settings => SettingsLabels,
+            _ => Array.Empty<string>()
+        };
 
         void ShowFlyout(Flyout flyout)
         {
@@ -273,9 +295,14 @@ namespace AICompanion.NewUI
             _flyoutPointerAt = float.NegativeInfinity;
             SetParentTabHighlight(flyout, true);
             _flyoutShownAt = Time.unscaledTime;
-            var profile = flyout == Flyout.Profile;
-            var labels = profile ? ProfileLabels : AiLabels;
-            _painting.texture = profile ? _profileArt : _aiArt;
+            var labels = LabelsFor(flyout);
+            _painting.texture = flyout switch
+            {
+                Flyout.Profile => _profileArt,
+                Flyout.Ai => _aiArt,
+                Flyout.Settings => _settingsArt,
+                _ => null
+            };
             _painting.enabled = _painting.texture != null;
             for (var i = 0; i < _destinations.Length; i++)
             {
@@ -292,7 +319,7 @@ namespace AICompanion.NewUI
             if (flyout == Flyout.None)
                 return;
 
-            var parent = _rows[flyout == Flyout.Profile ? 2 : 3];
+            var parent = _rows[(int)flyout];
             var colors = parent.Button.colors;
             colors.normalColor = active ? Cyan : Ink;
             colors.selectedColor = colors.normalColor;
@@ -367,15 +394,16 @@ namespace AICompanion.NewUI
             }
 
             var direction = Input.GetKeyDown(KeyCode.UpArrow) ? -1 : Input.GetKeyDown(KeyCode.DownArrow) ? 1 : 0;
-            var destinationCount = _activeFlyout == Flyout.Profile ? ProfileTabs.Length : AiPages.Length;
+            var destinationCount = LabelsFor(_activeFlyout).Length;
+            var parentFlyout = FlyoutAtRow(parentRow);
             if (direction != 0)
             {
                 _keyboardPointer = ReadPointer();
                 _keyboard.Move(direction, _rows.Length, destinationCount, _rows[1].Button.interactable);
             }
-            else if (!inFlyout && (parentRow == 2 || parentRow == 3) && (confirm || Input.GetKeyDown(enterSide)))
+            else if (!inFlyout && parentFlyout != Flyout.None && (confirm || Input.GetKeyDown(enterSide)))
             {
-                ShowFlyout(parentRow == 2 ? Flyout.Profile : Flyout.Ai);
+                ShowFlyout(parentFlyout);
                 _keyboard.EnterFlyout();
                 PlaceFlyout(area, scale);
             }
@@ -525,7 +553,7 @@ namespace AICompanion.NewUI
             if (pointerRow < 0)
                 return;
 
-            var target = pointerRow switch { 2 => Flyout.Profile, 3 => Flyout.Ai, _ => Flyout.None };
+            var target = FlyoutAtRow(pointerRow);
             if (target != _activeFlyout && _activeFlyout != Flyout.None
                 && Time.unscaledTime - _flyoutPointerAt < HoverGrace
                 && RibbonMenuPlacement.AimsAtFlyout(_flyoutPointerOrigin, pointer, _openPaperBounds, _flyoutOpensRight, 8f * scale))
@@ -558,7 +586,7 @@ namespace AICompanion.NewUI
 
         bool OverDestination(Vector2 pointer)
         {
-            var count = _activeFlyout == Flyout.Profile ? ProfileTabs.Length : _activeFlyout == Flyout.Ai ? AiPages.Length : 0;
+            var count = LabelsFor(_activeFlyout).Length;
             for (var i = 0; i < count; i++)
                 if (_destinationBounds[i].Contains(pointer))
                     return true;
@@ -608,7 +636,7 @@ namespace AICompanion.NewUI
                 _rowBounds[i] = new Rect(menuX + stagger, menuY + rowTop, rowWidth, rowHeight);
                 HappiUiKit.Place(row.Rect, stagger, rowTop, rowWidth, rowHeight);
                 HappiUiKit.Place(_rowIcons[i].rectTransform, 15f * scale, 8f * scale, 19f * scale, 19f * scale);
-                var trailing = (i == 2 || i == 3) ? 30f : 12f;
+                var trailing = FlyoutAtRow(i) != Flyout.None ? 30f : 12f;
                 HappiUiKit.Stretch(row.Label.rectTransform, 42f * scale, 0f, trailing * scale, 0f);
                 row.Label.fontSize = 18f * scale;
             }
@@ -616,6 +644,7 @@ namespace AICompanion.NewUI
             var openRight = RibbonMenuPlacement.OpensRight(area, _menuBounds, FlyoutPreferredWidth * scale);
             PlaceArrow(_profileArrow, _rows[2], openRight, scale);
             PlaceArrow(_aiArrow, _rows[3], openRight, scale);
+            PlaceArrow(_settingsArrow, _rows[4], openRight, scale);
         }
 
         static void PlaceArrow(RibbonGlyph arrow, HappiButton row, bool openRight, float scale)
@@ -631,9 +660,9 @@ namespace AICompanion.NewUI
         {
             var preferredWidth = FlyoutPreferredWidth * scale;
             var openRight = RibbonMenuPlacement.OpensRight(area, _menuBounds, preferredWidth);
-            var count = _activeFlyout == Flyout.Profile ? ProfileTabs.Length : AiPages.Length;
+            var count = LabelsFor(_activeFlyout).Length;
             var rollHeight = (count * FlyoutRowPitch + 13f) * scale;
-            var row = _activeFlyout == Flyout.Profile ? 2 : 3;
+            var row = (int)_activeFlyout;
             var rowOffset = row * MainRowPitch * scale;
             var width = RibbonMenuPlacement.FlyoutWidth(area, _menuBounds, preferredWidth, openRight);
             var flare = RibbonMenuPlacement.ScrollFlare(width, scale, area.height - rollHeight);
@@ -694,10 +723,14 @@ namespace AICompanion.NewUI
             var seam = buttonWidth - 16f * scale;
             var artWidth = width - seam;
             var aspect = (float)_painting.texture.width / _painting.texture.height;
-            var profile = _activeFlyout == Flyout.Profile;
+            var (focalX, sourceStart) = _activeFlyout switch
+            {
+                Flyout.Profile => (0.64f, 0.30f),
+                Flyout.Settings => (0.65f, 0.24f),
+                _ => (0.71f, 0.17f)
+            };
             _painting.SetFadeSide(openRight);
-            _painting.uvRect = RibbonMenuPlacement.IllustrationUv(aspect, artWidth / height,
-                profile ? 0.64f : 0.71f, profile ? 0.30f : 0.17f);
+            _painting.uvRect = RibbonMenuPlacement.IllustrationUv(aspect, artWidth / height, focalX, sourceStart);
             HappiUiKit.Place(_painting.rectTransform, (openRight ? seam : 0f) - revealX, 0f, artWidth, height);
         }
 
