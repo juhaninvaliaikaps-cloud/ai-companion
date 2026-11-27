@@ -41,12 +41,17 @@ namespace AICompanion.Core
         /// say. Only read while the 18+ gate is open (<see cref="DesireMath"/>).
         /// </summary>
         public DesireHeat Heat { get; }
+        public string Memory { get; }
+        public string Memory2 { get; }
 
         public AnimationCue(Emotion emotion, float intensity, string gesture, float direction = 0f, string emotionField = null, string reaction = null,
-            LandingEvent landed = LandingEvent.Neutral, string secret = null, DesireHeat heat = DesireHeat.None)
+            LandingEvent landed = LandingEvent.Neutral, string secret = null, DesireHeat heat = DesireHeat.None,
+            string memory = null, string memory2 = null)
         {
             Landed = landed;
             Heat = heat;
+            Memory = memory;
+            Memory2 = memory2;
             Secret = HerSecrets.SanitizeId(secret);
             Emotion = emotion;
             Intensity = ClampIntensity(intensity);

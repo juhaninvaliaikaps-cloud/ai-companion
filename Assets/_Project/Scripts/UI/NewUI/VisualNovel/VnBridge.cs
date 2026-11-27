@@ -263,7 +263,8 @@ namespace AICompanion.NewUI.VisualNovel
             return start;
         }
 
-        public static string Dialogue(IReadOnlyList<VnSegment> segments, int revealed, int current, HappiTheme theme, bool feedback = false)
+        public static string Dialogue(IReadOnlyList<VnSegment> segments, int revealed, int current, HappiTheme theme,
+            bool feedback = false, Func<string, string> format = null)
         {
             if (segments == null || revealed <= 0)
                 return string.Empty;
@@ -279,13 +280,14 @@ namespace AICompanion.NewUI.VisualNovel
                 if (sb.Length > 0 && !(feedback && i == 0))
                     sb.Append('\n');
                 var segment = segments[i];
+                var body = format == null ? HappiUiKit.Literal(segment.Text) : format(segment.Text);
                 var highlighted = i == current;
                 if (highlighted)
                     sb.Append("<mark=").Append(mark).Append('>');
                 if (segment.Kind == VnSegmentKind.Narration)
-                    sb.Append("<i><color=").Append(narration).Append('>').Append(HappiUiKit.Literal(segment.Text)).Append("</color></i>");
+                    sb.Append("<i><color=").Append(narration).Append('>').Append(body).Append("</color></i>");
                 else
-                    sb.Append(HappiUiKit.Literal(segment.Text));
+                    sb.Append(body);
                 if (highlighted)
                     sb.Append("</mark>");
             }

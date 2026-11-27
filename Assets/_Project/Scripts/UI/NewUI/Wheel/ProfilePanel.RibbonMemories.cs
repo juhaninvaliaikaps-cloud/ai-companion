@@ -10,6 +10,13 @@ namespace AICompanion.NewUI.Wheel
 
         void BuildRibbonMemories()
         {
+            if (!string.IsNullOrEmpty(_data.LinkedMemory))
+            {
+                var linked = Begin();
+                MemoryHeading("Recalled in chat", RibbonGlyph.Mark.Book, RibbonMint);
+                Paragraph(_data.LinkedMemory, false);
+                End(linked);
+            }
             var box = Begin();
             MemoryHeading("What she remembers about you", RibbonGlyph.Mark.Book, RibbonMenu.Cyan);
             var actionWidth = OpenSettings == null ? 0f : 156f * _scale;

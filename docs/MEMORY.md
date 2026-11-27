@@ -36,6 +36,12 @@ Entries can also carry her world (JUH-117): `origin`, `horizon`, `happenedAtUtc`
 
 ## Retrieval
 
+### Memory links in Ribbon chat
+
+Ribbon includes temporary references beside the facts and timeline entries selected for a conversational reply. When Happi uses a detail, she can identify the entry and quote the short phrase in her final animation cue. The app shows at most two links after the reply. A link requires a reference from that turn and a unique, exact phrase with a matching detail. Cue metadata stays out of the displayed or spoken reply and future chat prompts.
+
+Hover a highlighted phrase or focus its message to preview the recalled detail. Activate the phrase to open the exact saved item in Profile → Memories. Saved chat keeps the local reference and phrase, with the current memory looked up again when used. A missing, closed, or inaccessible item has no active link. Private memory links are available only in Private mode.
+
 ### Relationship timeline retrieval (JUH-141)
 
 The dated timeline (JUH-134) is searched separately from the facts, by `TimelineSearch.Rank`, at most 3 entries per turn under "Shared history".

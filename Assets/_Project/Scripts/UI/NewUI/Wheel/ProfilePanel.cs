@@ -28,6 +28,7 @@ namespace AICompanion.NewUI.Wheel
         public ProfileIntimateSecrets IntimateSecrets;
         public ProfileWorld World;
         public string MemoriesSummary = string.Empty;
+        public string LinkedMemory;
         public readonly List<string> Memories = new List<string>();
         public int MemoryCount;
         public readonly List<ProfileTimelineRow> Timeline = new List<ProfileTimelineRow>();
