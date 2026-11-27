@@ -89,6 +89,7 @@ namespace AICompanion.Settings
         public event Action SetupReplayRequested;
 
         public CompanionSettings CurrentSettings => _settings;
+        public CompanionSettings EffectiveSettings { get; private set; }
 
         public bool PrivateMode => _settings != null && _settings.PrivateMode;
 
@@ -122,7 +123,6 @@ namespace AICompanion.Settings
 
             // A new install starts as Happi; existing settings keep their persona.
             _settings.PersonaId = PersonaDefaults.ForLaunch(exists, _settings.PersonaId);
-            PersonaRuntime.ApplySelected(_settings, Folder());
             EnsureVideoAvatar();
             if (GetComponent<CompanionMoodKeeper>() == null)
                 gameObject.AddComponent<CompanionMoodKeeper>();
@@ -163,7 +163,7 @@ namespace AICompanion.Settings
             _applying = true;
             try
             {
-                SettingsApplicator.Apply(_settings, this);
+                ApplyEffectiveSettings();
                 if (_settings.ChatHistory)
                     LoadHistory();
                 GreetIfEmpty();
@@ -181,7 +181,6 @@ namespace AICompanion.Settings
                 SaveSettings();
             var chat = GetComponent<ChatPanel>();
             _historyRevision = chat != null ? chat.TranscriptRevision : 0;
-            BuildChrome();
             Close();
         }
 
@@ -338,6 +337,8 @@ namespace AICompanion.Settings
 
             if (_tray != null)
                 _tray.ShowCompanion();
+            if (_canvasObject == null)
+                BuildChrome();
             _open = true;
             if (_canvasObject != null)
                 _canvasObject.SetActive(true);
@@ -484,7 +485,7 @@ namespace AICompanion.Settings
             _applying = true;
             try
             {
-                SettingsApplicator.Apply(_settings, this);
+                ApplyEffectiveSettings();
             }
             finally
             {
@@ -493,6 +494,14 @@ namespace AICompanion.Settings
 
             _personaRevision++;
             SaveSettings();
+        }
+
+        void ApplyEffectiveSettings()
+        {
+            _settings.Normalize();
+            EffectiveSettings = PersonaRuntime.ResolveSelected(_settings, Folder());
+            SettingsApplicator.Apply(EffectiveSettings, this);
+            _settings.StartWithWindows = EffectiveSettings.StartWithWindows;
         }
 
         void SaveSettings()
@@ -1202,16 +1211,33 @@ namespace AICompanion.Settings
                 return;
             }
 
+            BeginConnectionProbe(_settings.ProviderId);
+        }
+
+        public void TestConfiguredConnection(bool ollama)
+        {
+            if (_probeBusy)
+                return;
+            if (!ollama && !OutboundPrivacy.AllowsCloudChat(_settings.PrivateMode))
+            {
+                SetStatus("Switch to Public mode to test the cloud connection.");
+                return;
+            }
+            BeginConnectionProbe(ollama ? ChatDefaults.LocalId : ChatDefaults.GrokId);
+        }
+
+        void BeginConnectionProbe(string providerId)
+        {
             _probeSerial++;
             _probeBusy = true;
             SetStatus("Testing connection...");
             _rebuild = true;
-            StartCoroutine(Probe(_probeSerial));
+            StartCoroutine(Probe(_probeSerial, providerId));
         }
 
-        IEnumerator Probe(int serial)
+        IEnumerator Probe(int serial, string providerId)
         {
-            var plan = ConnectionProbe.Plan(_settings.PrivateMode, _settings.ProviderId,
+            var plan = ConnectionProbe.Plan(_settings.PrivateMode, providerId,
                 string.IsNullOrWhiteSpace(_settings.BaseUrl) ? ChatDefaults.BaseUrl : _settings.BaseUrl,
                 _settings.LocalBaseUrl);
             SetStatus(plan.Summary);

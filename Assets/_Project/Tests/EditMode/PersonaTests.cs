@@ -17,6 +17,40 @@ namespace AICompanion.Tests.EditMode
 {
     public class PersonaTests
     {
+
+        [Test]
+        public void PersonaOverridesNeverBecomeTheNextPersonasDefaults()
+        {
+            var defaults = CompanionSettings.CreateDefault();
+            defaults.ProviderId = ChatDefaults.GrokId;
+            defaults.Model = "global-cloud";
+            defaults.LocalModel = "global-local";
+            defaults.VoiceId = "ara";
+            defaults.KokoroVoice = "global-voice";
+            var selected = new PersonaDefinition
+            {
+                Id = "one",
+                DisplayName = "One",
+                ProviderId = ChatDefaults.LocalId,
+                Model = "persona-local",
+                KokoroVoiceId = "persona-voice",
+            };
+
+            var first = PersonaApply.Resolve(defaults, selected, _ => false, _ => false);
+            var second = PersonaApply.Resolve(defaults, new PersonaDefinition { Id = "two", DisplayName = "Two" }, _ => false, _ => false);
+            Assert.AreEqual(ChatDefaults.LocalId, first.ProviderId);
+            Assert.AreEqual("persona-local", first.LocalModel);
+            Assert.AreEqual("persona-voice", first.KokoroVoice);
+            Assert.AreEqual("One", first.CompanionName);
+            Assert.AreEqual(ChatDefaults.GrokId, second.ProviderId);
+            Assert.AreEqual("global-cloud", second.Model);
+            Assert.AreEqual("global-local", second.LocalModel);
+            Assert.AreEqual("global-voice", second.KokoroVoice);
+            Assert.AreEqual("Two", second.CompanionName);
+            Assert.AreEqual(ChatDefaults.GrokId, defaults.ProviderId);
+            Assert.AreEqual("global-local", defaults.LocalModel);
+            Assert.AreEqual("global-voice", defaults.KokoroVoice);
+        }
         const string ExampleLocalModel = "hf.co/mradermacher/Rocinante-X-12B-v1-Heretic-Uncensored-i1-GGUF:Q4_K_M";
 
         [Test]
@@ -292,10 +326,12 @@ namespace AICompanion.Tests.EditMode
                 var settings = CompanionSettings.CreateDefault();
                 settings.PersonaId = "friend";
                 settings.VoiceId = "ara";
-                PersonaRuntime.ApplySelected(settings, directory);
-                Assert.AreEqual(ChatDefaults.LocalId, settings.ProviderId);
-                Assert.AreEqual(ExampleLocalModel, settings.LocalModel);
-                Assert.AreEqual("ara", settings.VoiceId);
+                var defaults = settings.ProviderId;
+                var effective = PersonaRuntime.ResolveSelected(settings, directory);
+                Assert.AreEqual(ChatDefaults.LocalId, effective.ProviderId);
+                Assert.AreEqual(ExampleLocalModel, effective.LocalModel);
+                Assert.AreEqual("ara", effective.VoiceId);
+                Assert.AreEqual(defaults, settings.ProviderId);
 
                 var chat = ScriptableObject.CreateInstance<ChatSettings>();
                 try

@@ -41,7 +41,7 @@ namespace AICompanion.NewUI
             var pagesY = Sidebar
                 ? _navTop
                 : _navTop + (SettingsMenu.TabCount / _columns) * (_tabHeight + _gap);
-            PageColumns = bodyW >= 495f * s ? SettingsMenu.MaxPages : 3;
+            PageColumns = bodyW >= 590f * s ? SettingsMenu.MaxPages : 3;
             var pageRows = Mathf.CeilToInt(SettingsMenu.MaxPages / (float)PageColumns);
             var pageHeight = 26f * s;
             Pages = new Rect(bodyX, pagesY, bodyW, pageHeight);

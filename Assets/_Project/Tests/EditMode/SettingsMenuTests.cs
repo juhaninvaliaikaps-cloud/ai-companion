@@ -17,7 +17,7 @@ namespace AICompanion.Tests.EditMode
             Assert.That(layout.Frame.center, Is.EqualTo(work.center));
             Assert.That(layout.Tab(0).xMax, Is.LessThan(layout.Body.x));
             Assert.That(layout.Tab(7).yMax, Is.LessThan(layout.Status.y));
-            Assert.That(layout.PageColumns, Is.EqualTo(5));
+            Assert.That(layout.PageColumns, Is.EqualTo(6));
         }
 
         [TestCase(390f, 600f, 1f)]
@@ -39,7 +39,7 @@ namespace AICompanion.Tests.EditMode
         [Test]
         public void EightTabs_InOrder()
         {
-            CollectionAssert.AreEqual(new[] { "Her", "AI", "Voice", "Look", "Chat", "Senses", "18+", "App" }, SettingsMenu.TabLabels);
+            CollectionAssert.AreEqual(new[] { "Her", "AI", "Voice", "Appearance", "Chat", "Senses", "18+", "App" }, SettingsMenu.TabLabels);
             Assert.AreEqual(Enum.GetValues(typeof(SettingsTab)).Length, SettingsMenu.TabCount);
         }
 
@@ -97,14 +97,14 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(SettingsPage.VoiceEngine, SettingsMenu.Resolve(SettingsTab.Voice, SettingsPage.VoiceEngine, false, false));
             Assert.AreEqual(SettingsPage.VoiceSpeaking, SettingsMenu.Resolve(SettingsTab.Voice, SettingsPage.AiChat, false, false), "a page of another tab");
             Assert.AreEqual(SettingsPage.AdultStatus, SettingsMenu.Resolve(SettingsTab.Adult, SettingsPage.AdultHer, false, false), "the gate closed");
-            Assert.AreEqual(SettingsPage.AppKeys, SettingsMenu.Resolve(SettingsTab.App, SettingsPage.AppDeveloper, false, false), "developer settings off");
+            Assert.AreEqual(SettingsPage.AppGeneral, SettingsMenu.Resolve(SettingsTab.App, SettingsPage.AppDeveloper, false, false), "developer settings off");
         }
 
         [Test]
         public void ThePisaraKey_IsOnTheAiTab()
         {
             Assert.AreEqual(SettingsTab.Ai, SettingsMenu.TabOf(SettingsPage.AiPisara));
-            Assert.AreEqual("Pisara", SettingsMenu.Label(SettingsPage.AiPisara));
+            Assert.AreEqual("Persona reading", SettingsMenu.Label(SettingsPage.AiPisara));
         }
 
         [TestCase("Short one. And the rest of it.", "Short one. And the rest of it.")]

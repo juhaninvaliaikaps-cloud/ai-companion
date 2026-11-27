@@ -278,7 +278,7 @@ namespace AICompanion.Settings
         {
             if (_settings == null || _settings.CurrentSettings == null)
                 return string.Empty;
-            return _settings.CurrentSettings.PortraitFolder ?? string.Empty;
+            return (_settings.EffectiveSettings ?? _settings.CurrentSettings).PortraitFolder ?? string.Empty;
         }
 
         bool AnimatorAlive()

@@ -144,8 +144,9 @@ namespace AICompanion.Settings
 
         string ActiveModelText()
         {
-            var effective = OutboundPrivacy.ChatProviderId(_settings.PrivateMode, _settings.ProviderId, _settings.PrivateEndpointType);
-            return ActiveChatLabel.Format(effective, _settings.PrivateMode, _settings.Model, _settings.LocalModel, _settings.PrivateModel);
+            var active = EffectiveSettings ?? _settings;
+            var provider = OutboundPrivacy.ChatProviderId(active.PrivateMode, active.ProviderId, active.PrivateEndpointType);
+            return ActiveChatLabel.Format(provider, active.PrivateMode, active.Model, active.LocalModel, active.PrivateModel);
         }
 
         static string ProviderButton(string name, bool remembered, bool overridden)
@@ -176,8 +177,8 @@ namespace AICompanion.Settings
 
             SwitchPersonaHistory(persona.Id);
             var beforeVoice = _settings.PiperVoice;
-            PersonaApply.Overlay(_settings, persona, File.Exists, Directory.Exists);
             ApplyLive();
+            GreetIfEmpty();
             // The same id can come back with another temperament (a deleted saved copy of a
             // built-in). A different id is loaded by the keeper with its mood.
             ReloadMoodTemperament();
@@ -239,7 +240,6 @@ namespace AICompanion.Settings
                 if (applyLive)
                 {
                     var beforeVoice = _settings.PiperVoice;
-                    PersonaApply.Overlay(_settings, saved, File.Exists, Directory.Exists);
                     ApplyLive();
                     SetStatus(SavedStatus(saved, beforeVoice));
                 }
@@ -306,23 +306,22 @@ namespace AICompanion.Settings
 
             if (_settings.ChatHistory)
                 LoadHistory();
-            GreetIfEmpty();
         }
 
         void ClearActivePersona()
         {
             SwitchPersonaHistory(string.Empty);
-            _settings.PortraitFolder = string.Empty;
             ApplyLive();
+            GreetIfEmpty();
             _rebuild = true;
-            SetStatus("Using the setup name. Voice and model stay as they are.");
+            SetStatus("Using the setup name and global voice and model defaults.");
         }
 
         string UseStatus(PersonaDefinition persona, string piperVoiceBefore)
         {
             var name = PersonaName(persona);
             if (PiperMissed(persona, piperVoiceBefore))
-                return "Using " + name + ". That Piper voice was not found, so the current voice file stays.";
+                return "Using " + name + ". That Piper voice was not found, so the global voice file is used.";
             return "Using " + name + ".";
         }
 
@@ -330,7 +329,7 @@ namespace AICompanion.Settings
         {
             var name = PersonaName(persona);
             if (PiperMissed(persona, piperVoiceBefore))
-                return "Saved " + name + ". That Piper voice was not found, so the current voice file stays.";
+                return "Saved " + name + ". That Piper voice was not found, so the global voice file is used.";
             return "Saved " + name + ".";
         }
 

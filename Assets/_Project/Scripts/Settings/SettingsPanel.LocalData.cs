@@ -110,7 +110,6 @@ namespace AICompanion.Settings
             _settings = CompanionSettings.CreateDefault();
             // After a full wipe she starts again as on a new install: Happi.
             _settings.PersonaId = PersonaDefaults.HappiId;
-            PersonaRuntime.ApplySelected(_settings, folder);
             var chat = GetComponent<ChatPanel>();
             if (chat != null)
                 chat.ClearTranscript();
@@ -119,7 +118,7 @@ namespace AICompanion.Settings
             _applying = true;
             try
             {
-                SettingsApplicator.Apply(_settings, this);
+                ApplyEffectiveSettings();
             }
             finally
             {
