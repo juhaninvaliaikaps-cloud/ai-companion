@@ -446,6 +446,8 @@ Without new threads her world runs dry: the two or three seeded ones turn out an
 
 ### Floating changes (JUH-122)
 
+- **Ribbon feedback** (JUH-216). A normal affection gain gets a brief pink heart pulse. A familiarity milestone appears in mint. A first-time secret gets a gold reveal and a longer reading hold, even if ordinary feedback arrives immediately afterwards. Ribbon chat keeps a colored line for each change. The existing reaction effects setting controls new reveals and chat notes. Persona and privacy switches clear floating effects, and closing the 18+ gate removes gated effects immediately.
+
 While you chat, small pieces float up beside her head when a landing moves the relationship, like floating combat text: `+1.5 Compliment` with a pink heart, `-2.4 Brushed off` with a grey one, and `You know each other well now` when familiarity crosses into a new band. Each rises about 30 px and fades in about 1.5 s; older ones keep drifting up while new ones appear.
 
 - **Critical hits** (`RelationshipMath`): a real landing (not neutral) is a crit when the cue intensity is `CritIntensity` (0.85) or more. A crit multiplies the affection change by `CritMultiplier` (2), inside the same clamps. `RelationshipChange.Critical` says so, the log line says `(critical)`, and the Mood card reason starts with `Critical: `. No random crits. `Land(..., secretHit)` takes the first find of a secret (JUH-123, below). Both numbers are proposed defaults for Jussi to confirm.

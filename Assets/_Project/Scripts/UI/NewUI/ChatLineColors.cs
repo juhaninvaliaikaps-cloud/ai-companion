@@ -17,6 +17,7 @@ namespace AICompanion.NewUI
         public const string Down = "#B4C3DC";
         public const string Gold = "#FFD166";
         public const string Familiarity = "#9FD4FF";
+        const string RibbonFamiliarity = "#68F5BD";
         public const string DesireUp = "#E86BFF";
         public const string DesireDown = "#B79CE0";
 
@@ -34,7 +35,7 @@ namespace AICompanion.NewUI
                 case FeedbackKind.Up: return Up;
                 case FeedbackKind.CritUp:
                 case FeedbackKind.Secret: return Gold;
-                case FeedbackKind.Familiarity: return Familiarity;
+                case FeedbackKind.Familiarity: return RibbonMenu.Enabled ? RibbonFamiliarity : Familiarity;
                 case FeedbackKind.DesireUp: return DesireUp;
                 case FeedbackKind.DesireDown: return DesireDown;
                 default: return Down;
@@ -48,6 +49,19 @@ namespace AICompanion.NewUI
             if (color.Length == 0)
                 return literalText;
             var body = "<color=" + color + ">" + literalText + "</color>";
+            if (RibbonMenu.Enabled && line.Tag == ChatLineTag.Change)
+            {
+                switch ((FeedbackKind)line.Change)
+                {
+                    case FeedbackKind.Secret:
+                        return "<mark=#FFD16624><b>" + body + "</b></mark>";
+                    case FeedbackKind.Familiarity:
+                        return "<mark=#68F5BD20><b>" + body + "</b></mark>";
+                    case FeedbackKind.Up:
+                    case FeedbackKind.CritUp:
+                        return "<b>" + body + "</b>";
+                }
+            }
             return line.Tag == ChatLineTag.Scene ? "<i>" + body + "</i>" : body;
         }
     }

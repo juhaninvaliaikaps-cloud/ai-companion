@@ -27,12 +27,14 @@ namespace AICompanion.NewUI
         const int SortingOrder = 58;
 
         static readonly Color Background = HappiTheme.Hex("#0B1530");
+        static readonly Color RibbonBackground = HappiTheme.Hex("#171A20");
         static readonly Color Text = HappiTheme.Hex("#EAF2FF");
         static readonly Color Pink = HappiTheme.Hex("#FF7EB6");
         static readonly Color Grey = HappiTheme.Hex("#B4C3DC");
         static readonly Color GreyBorder = HappiTheme.Hex("#7FA8E0");
         static readonly Color Gold = HappiTheme.Hex("#FFD166");
         static readonly Color Light = HappiTheme.Hex("#9FD4FF");
+        static readonly Color Mint = HappiTheme.Hex("#68F5BD");
         static readonly Color Magenta = HappiTheme.Hex("#E86BFF");
         static readonly Color Violet = HappiTheme.Hex("#9A7BC4");
 
@@ -49,6 +51,7 @@ namespace AICompanion.NewUI
             public RectTransform Column;
             public TextMeshProUGUI Caption;
             public TextMeshProUGUI Label;
+            public LayoutElement LabelSize;
             public HorizontalLayoutGroup Row;
 
             /// <summary>The piece this slot was last set up for; 0 for none.</summary>
@@ -61,16 +64,19 @@ namespace AICompanion.NewUI
         SettingsPanel _settings;
         ChatPanel _chat;
         Wheel.HeadLocator _head;
-        readonly RelationshipFeedback _feedback = new RelationshipFeedback();
+        readonly RelationshipFeedback _feedback = new RelationshipFeedback(RibbonMenu.Enabled);
         readonly Slot[] _slots = new Slot[RelationshipFeedback.Capacity];
         GameObject _canvasObject;
         Canvas _canvas;
         bool _subscribed;
         bool _attached;
+        string _persona;
+        bool _private;
 
         public void Attach(SettingsPanel settings)
         {
             _settings = settings;
+            _chat = GetComponent<ChatPanel>();
             _head = new Wheel.HeadLocator(gameObject);
             _attached = true;
             if (_canvasObject == null)
@@ -97,6 +103,7 @@ namespace AICompanion.NewUI
         void OnDisable()
         {
             Subscribe(false);
+            _feedback.Clear();
         }
 
         void OnDestroy()
@@ -135,6 +142,7 @@ namespace AICompanion.NewUI
 
         void OnDesire(DesireNotice notice)
         {
+            SyncContext();
             // JUH-174: a moment's change also gets a readable line in the chat box; time alone only floats.
             if (_feedback.AddDesire(notice, Time.unscaledTime, DesireEnabled) && !notice.ByTime)
                 CopyToChat(1);
@@ -169,12 +177,24 @@ namespace AICompanion.NewUI
 
         void OnChanged(RelationshipNotice notice)
         {
-            var added = _feedback.Add(notice, Time.unscaledTime, Enabled);
+            SyncContext();
+            var added = _feedback.Add(notice, Time.unscaledTime, Enabled, IntimateExpressions.Active);
             if (added > 0)
             {
                 Debug.Log("Relationship feedback: " + DescribeNewest(added));
                 CopyToChat(added);
             }
+        }
+
+        void SyncContext()
+        {
+            var persona = _settings != null ? _settings.CurrentSettings?.PersonaId : null;
+            var isPrivate = _chat != null && _chat.PrivateNow;
+            if (_persona == persona && _private == isPrivate)
+                return;
+            _persona = persona;
+            _private = isPrivate;
+            _feedback.Clear();
         }
 
         string DescribeNewest(int added)
@@ -192,6 +212,7 @@ namespace AICompanion.NewUI
         {
             if (!_attached || _canvasObject == null)
                 return;
+            SyncContext();
             var now = Time.unscaledTime;
             if (_feedback.Count > 0)
             {
@@ -200,6 +221,8 @@ namespace AICompanion.NewUI
                     _feedback.Drop(false);
                 if (!DesireEnabled && _feedback.Has(true))
                     _feedback.Drop(true);
+                if (!IntimateExpressions.Active)
+                    _feedback.DropAdult();
             }
             _feedback.Tick(now);
 
@@ -222,15 +245,26 @@ namespace AICompanion.NewUI
                 var slot = _slots[i];
                 Show(slot, piece);
                 var height = slot.Root.rect.height;
+                var punch = RelationshipFeedback.Punch(piece, now) * scale;
                 var y = anchor.y + RelationshipFeedback.Rise(piece, now) * scale;
                 if (y < floor)
                     y = floor;
-                floor = y + height * RelationshipFeedback.Punch(piece, now) + 6f * scale;
+                floor = y + height * punch + 6f * scale;
                 slot.Root.pivot = new Vector2(right ? 0f : 1f, 0f);
-                slot.Root.anchoredPosition = new Vector2(anchor.x, y);
-                var punch = RelationshipFeedback.Punch(piece, now) * scale;
+                var x = anchor.x;
+                if (RibbonMenu.Enabled)
+                {
+                    var width = slot.Root.rect.width * punch;
+                    x = Mathf.Clamp(x, 8f + (right ? 0f : width), Screen.width - 8f - (right ? width : 0f));
+                }
+                slot.Root.anchoredPosition = new Vector2(x, y);
                 slot.Root.localScale = new Vector3(punch, punch, 1f);
                 slot.Group.alpha = RelationshipFeedback.Alpha(piece, now);
+                if (piece.Discovery)
+                {
+                    var flash = 1f - Mathf.Clamp01((now - piece.StartTime) / .65f);
+                    slot.Glow.color = HappiTheme.WithAlpha(Gold, .28f * flash * flash);
+                }
             }
 
             HideFrom(_feedback.Count);
@@ -243,7 +277,7 @@ namespace AICompanion.NewUI
         bool Anchor(out Vector2 anchor, float scale)
         {
             Vector2 head;
-            var side = 56f * scale;
+            var side = (RibbonMenu.Enabled ? 90f : 56f) * scale;
             if (_head != null && _head.TryGet(Time.unscaledDeltaTime, out head))
             {
                 var right = head.x + side + 240f * scale < Screen.width;
@@ -319,6 +353,12 @@ namespace AICompanion.NewUI
                 case FeedbackKind.Familiarity:
                     border = Light;
                     icon = null;
+                    if (piece.Milestone)
+                    {
+                        border = Mint;
+                        iconColor = Mint;
+                        icon = FeedbackSprites.Star();
+                    }
                     break;
                 case FeedbackKind.Secret:
                     border = Gold;
@@ -336,42 +376,60 @@ namespace AICompanion.NewUI
             }
 
             slot.Border.color = border;
-            slot.Glow.gameObject.SetActive(piece.Kind == FeedbackKind.CritUp);
+            slot.Glow.color = HappiTheme.WithAlpha(Gold, 0.35f);
+            slot.Glow.gameObject.SetActive(piece.Kind == FeedbackKind.CritUp || piece.Discovery);
             slot.Icon.gameObject.SetActive(icon != null);
             slot.Icon.sprite = icon;
             slot.Icon.color = iconColor;
-            var iconSize = crit ? 26f : 14f;
+            var iconSize = piece.Discovery ? 29f : crit ? 26f : 14f;
             slot.IconSize.preferredWidth = iconSize;
             slot.IconSize.preferredHeight = iconSize;
 
-            var thick = crit ? 3f : 1f;
+            var thick = crit || piece.Discovery ? 3f : 1f;
             slot.Fill.rectTransform.offsetMin = new Vector2(thick, thick);
             slot.Fill.rectTransform.offsetMax = new Vector2(-thick, -thick);
-            slot.Row.padding = crit ? new RectOffset(18, 18, 8, 8) : new RectOffset(10, 10, 4, 4);
-            slot.Row.spacing = crit ? 10f : 6f;
+            slot.Row.padding = crit || piece.Discovery ? new RectOffset(18, 18, 8, 8) : new RectOffset(12, 12, 5, 5);
+            slot.Row.spacing = crit || piece.Discovery ? 10f : 6f;
 
-            if (crit)
+            slot.Amount.gameObject.SetActive(crit);
+            slot.Column.gameObject.SetActive(true);
+            slot.Caption.characterSpacing = RibbonMenu.Enabled ? 2.5f : 8f;
+            slot.Label.fontSize = piece.Discovery ? 15f : 13f;
+            if (piece.Discovery)
             {
-                slot.Amount.gameObject.SetActive(true);
+                slot.Caption.text = "SECRET FOUND";
+                slot.Caption.color = Gold;
+                slot.Label.text = piece.Label.Substring(RelationshipFeedback.SecretPrefix.Length);
+            }
+            else if (crit)
+            {
                 slot.Amount.text = piece.Amount;
                 slot.Amount.color = amountColor;
-                slot.Column.gameObject.SetActive(true);
                 slot.Caption.text = RelationshipFeedback.CriticalLabel;
                 slot.Caption.color = amountColor;
                 slot.Label.text = piece.Label;
-                slot.Label.fontSize = 13f;
             }
             else
             {
-                // One line: "+1.5 Compliment".
-                slot.Amount.gameObject.SetActive(false);
-                slot.Column.gameObject.SetActive(true);
                 slot.Caption.text = string.Empty;
                 slot.Label.text = piece.Amount.Length > 0 ? piece.Amount + " " + piece.Label : piece.Label;
-                slot.Label.fontSize = 13f;
             }
 
-            slot.Caption.gameObject.SetActive(crit);
+            if (RibbonMenu.Enabled)
+            {
+                slot.Label.textWrappingMode = TextWrappingModes.NoWrap;
+                var width = Mathf.Min(268f, Mathf.Ceil(slot.Label.GetPreferredValues(slot.Label.text).x) + 4f);
+                slot.LabelSize.preferredWidth = width;
+                slot.LabelSize.preferredHeight = -1f;
+                if (piece.Discovery)
+                {
+                    var lineHeight = Mathf.Ceil(slot.Label.GetPreferredValues("Ag").y) + 1f;
+                    slot.Label.textWrappingMode = TextWrappingModes.Normal;
+                    var height = Mathf.Ceil(slot.Label.GetPreferredValues(slot.Label.text, width, 0f).y) + 1f;
+                    slot.LabelSize.preferredHeight = Mathf.Min(lineHeight * 2f, height);
+                }
+            }
+            slot.Caption.gameObject.SetActive(crit || piece.Discovery);
             LayoutRebuilder.ForceRebuildLayoutImmediate(slot.Root);
         }
 
@@ -406,10 +464,16 @@ namespace AICompanion.NewUI
             slot.Border.sprite = HappiUiKit.Rounded();
             slot.Border.type = Image.Type.Sliced;
             slot.Border.raycastTarget = false;
-            slot.Fill = HappiUiKit.Panel(slot.Root, "Fill", Background, false);
+            slot.Fill = HappiUiKit.Panel(slot.Root, "Fill", RibbonMenu.Enabled ? RibbonBackground : Background, false);
             slot.Fill.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             slot.Fill.rectTransform.anchorMin = Vector2.zero;
             slot.Fill.rectTransform.anchorMax = Vector2.one;
+            if (RibbonMenu.Enabled)
+            {
+                RibbonShape.Apply(slot.Glow, false);
+                RibbonShape.Apply(slot.Border, false);
+                RibbonShape.Apply(slot.Fill, false);
+            }
 
             slot.Row = slot.Root.gameObject.AddComponent<HorizontalLayoutGroup>();
             slot.Row.childAlignment = TextAnchor.MiddleLeft;
@@ -440,6 +504,10 @@ namespace AICompanion.NewUI
             slot.Caption = NoWrap(HappiUiKit.Text(slot.Column, "Caption", RelationshipFeedback.CriticalLabel, 12f, Gold, TextAlignmentOptions.MidlineLeft, true));
             slot.Caption.characterSpacing = 8f;
             slot.Label = NoWrap(HappiUiKit.Text(slot.Column, "Label", string.Empty, 13f, Text, TextAlignmentOptions.MidlineLeft, true));
+            slot.Label.richText = false;
+            slot.LabelSize = slot.Label.gameObject.AddComponent<LayoutElement>();
+            if (RibbonMenu.Enabled)
+                slot.Label.overflowMode = TextOverflowModes.Ellipsis;
 
             slot.Root.gameObject.SetActive(false);
             return slot;
