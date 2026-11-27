@@ -588,18 +588,21 @@ namespace AICompanion.NewUI.Wheel
         /// <summary>Gathers the Profile panel's data from the keepers. Runs when the panel or a tab opens, never per frame.</summary>
         ProfileData BuildProfileData()
         {
-            var data = new ProfileData { Name = HappiNames.Companion(_settings) };
-            // JUH-154: her picture, from the shared cache (loaded once per persona or picture change).
-            var personaId = _settings != null && _settings.CurrentSettings != null ? _settings.CurrentSettings.PersonaId : string.Empty;
-            if (!string.IsNullOrEmpty(personaId))
-            {
-                var persona = _settings.PersonaCatalogNow().Find(personaId);
-                data.Picture = PersonaPictureCache.Get(_settings.PersonasFolderPath, persona);
-                data.PictureRound = persona == null || PersonaPictureShapes.Normalize(persona.PictureShape) == PersonaPictureShapes.Round;
-            }
+            var data = new ProfileData();
             var reading = GetComponent<PisaraReadingKeeper>();
             var sheet = reading != null ? reading.Sheet : null;
-            data.RoleLine = sheet != null ? ProfileHeader.RoleLine(sheet.relationship) : string.Empty;
+            if (!RibbonMenu.Enabled)
+            {
+                data.Name = HappiNames.Companion(_settings);
+                data.RoleLine = sheet != null ? ProfileHeader.RoleLine(sheet.relationship) : string.Empty;
+                var personaId = _settings?.CurrentSettings?.PersonaId;
+                if (!string.IsNullOrEmpty(personaId))
+                {
+                    var persona = _settings.PersonaCatalogNow().Find(personaId);
+                    data.Picture = PersonaPictureCache.Get(_settings.PersonasFolderPath, persona);
+                    data.PictureRound = persona == null || PersonaPictureShapes.Normalize(persona.PictureShape) == PersonaPictureShapes.Round;
+                }
+            }
 
             var moods = new CompanionMood[3];
             var strengths = new float[3];

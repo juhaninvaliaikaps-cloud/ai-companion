@@ -59,10 +59,6 @@ namespace AICompanion.NewUI.Wheel
 
         readonly HappiTheme _theme;
         readonly bool _ribbon;
-        readonly RectTransform _ribbonHeaderRoot;
-        readonly RibbonShape _ribbonHeader;
-        readonly RectTransform _ribbonHeaderRule;
-        readonly RectTransform _ribbonTitleStripe;
         readonly RawImage _ribbonArt;
         readonly RibbonShape _ribbonArtShape;
         readonly RibbonGlyph _ribbonClose;
@@ -105,37 +101,25 @@ namespace AICompanion.NewUI.Wheel
             if (_ribbon)
             {
                 RibbonShape.Apply(panel, RibbonShape.Kind.ChatFrame);
-                var header = HappiUiKit.Panel(_root, "Profile header", new Color32(25, 30, 39, 255), false);
-                _ribbonHeaderRoot = header.rectTransform;
-                _ribbonHeader = RibbonShape.Apply(header, RibbonShape.Kind.ChatHeader);
-                _ribbonHeaderRule = HappiUiKit.Panel(_root, "Header rule", new Color32(112, 131, 146, 155), false).rectTransform;
-                _ribbonArt = HappiUiKit.Rect(_root, "Yellow Profile artwork").gameObject.AddComponent<RawImage>();
-                _ribbonArt.texture = Resources.Load<Texture2D>("RibbonArt/Profile");
+                _ribbonArt = HappiUiKit.Rect(_root, "Happi-Mood banner").gameObject.AddComponent<RawImage>();
+                _ribbonArt.texture = Resources.Load<Texture2D>("RibbonArt/Happi-Mood");
+                _ribbonArt.color = _ribbonArt.texture != null ? Color.white : new Color32(255, 202, 34, 255);
                 _ribbonArt.raycastTarget = false;
-                _ribbonArtShape = RibbonShape.Apply(_ribbonArt, RibbonShape.Kind.HeaderArt);
-                _ribbonTitleStripe = HappiUiKit.Panel(_root, "Title stripe", new Color32(255, 202, 34, 255), false).rectTransform;
-                RibbonShape.Apply(_ribbonTitleStripe.GetComponent<Image>(), true);
+                _ribbonArtShape = RibbonShape.Apply(_ribbonArt, RibbonShape.Kind.ChatHeader);
             }
             else
             {
                 var outline = panel.gameObject.AddComponent<Outline>();
                 outline.effectColor = theme.Border;
                 outline.effectDistance = new Vector2(1f, -1f);
+                _picture = PersonaPictureCache.Frame(_root, "Picture", theme, out _pictureFrame);
+                _pictureFrame.gameObject.SetActive(false);
+                _name = HappiUiKit.Text(_root, "Name", string.Empty, theme.FontTitle, theme.Text, TextAlignmentOptions.TopLeft, true);
+                _role = HappiUiKit.Text(_root, "Role", string.Empty, theme.FontSmall, theme.Text, TextAlignmentOptions.TopLeft, false);
             }
-            _picture = PersonaPictureCache.Frame(_root, "Picture", theme, out _pictureFrame);
-            _pictureFrame.gameObject.SetActive(false);
-            _name = HappiUiKit.Text(_root, "Name", string.Empty, theme.FontTitle, theme.Text, TextAlignmentOptions.TopLeft, true);
-            _role = HappiUiKit.Text(_root, "Role", string.Empty, theme.FontSmall, theme.Text, TextAlignmentOptions.TopLeft, false);
             _close = HappiUiKit.Button(_root, "Close", "X", theme.FontTitle, () => { if (OnClose != null) OnClose(); });
             if (_ribbon)
             {
-                _name.font = HappiFonts.For(HappiTypeface.Family, "ExtraBold Italic");
-                _name.fontStyle = FontStyles.Normal;
-                _name.enableAutoSizing = true;
-                _name.textWrappingMode = TextWrappingModes.NoWrap;
-                _name.overflowMode = TextOverflowModes.Ellipsis;
-                _role.color = theme.TextMuted;
-                _role.overflowMode = TextOverflowModes.Ellipsis;
                 StyleRibbonButton(_close);
                 _close.Label.gameObject.SetActive(false);
                 _ribbonClose = RibbonGlyph.Add(_close.Rect, "Close profile", RibbonGlyph.Mark.Close, theme.Text);
@@ -295,35 +279,11 @@ namespace AICompanion.NewUI.Wheel
             _inner = frame.width - 2f * pad;
             _root.sizeDelta = frame.size;
             _root.anchoredPosition = frame.center;
-            var corners = RibbonShape.ChatFrameCorners(frame.width, frame.height);
-            _ribbonHeader.SetHeaderCorners(corners);
-            HappiUiKit.Place(_ribbonHeaderRoot, 0f, 0f, frame.width, layout.HeaderHeight);
-            HappiUiKit.Place(_ribbonHeaderRule, 0f, layout.HeaderHeight - s, frame.width, s);
-            var artWidth = _ribbonArt.texture != null ? layout.ArtWidth : 0f;
-            _ribbonArt.gameObject.SetActive(artWidth > 0f);
-            if (artWidth > 0f)
-            {
-                _ribbonArtShape.SetHeaderCorners(corners);
-                HappiUiKit.Place(_ribbonArt.rectTransform, frame.width - artWidth, 0f, artWidth, layout.HeaderHeight);
-                var source = _ribbonArt.texture;
-                var cropWidth = artWidth / layout.HeaderHeight * source.height / source.width;
-                _ribbonArt.uvRect = new Rect(0.64f - cropWidth * 0.5f, 0f, cropWidth, 1f);
-            }
-
-            var closeSize = 30f * s;
-            var closeX = frame.width - artWidth - pad - closeSize;
-            HappiUiKit.Place(_close.Rect, closeX, (layout.HeaderHeight - closeSize) * 0.5f, closeSize, closeSize);
+            _ribbonArtShape.SetHeaderCorners(RibbonShape.ChatFrameCorners(frame.width, frame.height));
+            HappiUiKit.Place(_ribbonArt.rectTransform, 0f, 0f, frame.width, layout.HeaderHeight);
+            var close = layout.Close;
+            HappiUiKit.Place(_close.Rect, close.x, close.y, close.width, close.height);
             HappiUiKit.Place(_ribbonClose.rectTransform, 5f * s, 5f * s, 20f * s, 20f * s);
-            _headerPad = pad + 4f * s;
-            _headerGap = 9f * s;
-            _headerNameH = 34f * s;
-            _headerRoleH = 21f * s;
-            _headerClose = frame.width - closeX - pad;
-            _name.fontSizeMin = 17f * s;
-            _name.fontSizeMax = 29f * s;
-            _role.fontSize = 13f * s;
-            HappiUiKit.Place(_ribbonTitleStripe, pad - s, _headerPad, 3f * s, _headerNameH + _headerRoleH);
-            PlaceHeader(false);
 
             for (var i = 0; i < _tabs.Count; i++)
             {
@@ -373,10 +333,13 @@ namespace AICompanion.NewUI.Wheel
             _data = _source != null ? _source() : null;
             if (_data == null)
                 _data = new ProfileData();
-            _name.text = HappiUiKit.Literal(_data.Name);
-            _role.text = HappiUiKit.Literal(_data.RoleLine);
-            PersonaPictureCache.Show(_pictureFrame, _picture, _data.Picture, _data.PictureRound);
-            PlaceHeader(_data.Picture != null);
+            if (!_ribbon)
+            {
+                _name.text = HappiUiKit.Literal(_data.Name);
+                _role.text = HappiUiKit.Literal(_data.RoleLine);
+                PersonaPictureCache.Show(_pictureFrame, _picture, _data.Picture, _data.PictureRound);
+                PlaceHeader(_data.Picture != null);
+            }
             for (var i = 0; i < _tabs.Count; i++)
             {
                 var colors = _tabs[i].Button.colors;

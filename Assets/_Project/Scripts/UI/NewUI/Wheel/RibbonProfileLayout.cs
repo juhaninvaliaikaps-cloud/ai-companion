@@ -10,7 +10,7 @@ namespace AICompanion.NewUI.Wheel
         public readonly float Padding;
         public readonly float Gap;
         public readonly float HeaderHeight;
-        public readonly float ArtWidth;
+        public readonly Rect Close;
         public readonly float TabHeight;
         public readonly int TabColumns;
         public readonly float BodyTop;
@@ -28,8 +28,9 @@ namespace AICompanion.NewUI.Wheel
             Gap = 6f * Scale;
             TabHeight = 32f * Scale;
             TabColumns = width >= 430f * Scale ? 4 : 2;
-            HeaderHeight = (TabColumns == 4 ? 93f : 75f) * Scale;
-            ArtWidth = TabColumns == 4 ? Mathf.Min(172f * Scale, width * 0.32f) : 0f;
+            // Happi-Mood is 3:1. The illustration spans the frame without stretching or cropping.
+            HeaderHeight = width / 3f;
+            Close = new Rect(width - 53f * Scale, 22f * Scale, 32f * Scale, 32f * Scale);
             var rows = 4 / TabColumns;
             BodyTop = HeaderHeight + Gap + rows * (TabHeight + Gap);
         }
