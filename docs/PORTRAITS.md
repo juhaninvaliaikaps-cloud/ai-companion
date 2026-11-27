@@ -122,14 +122,14 @@ Defaults:
 
 The other names are already in the map. An unknown name uses neutral.
 
-`04_neutral` and `05_smile` are stills you can point at. `05_smile` is the short in-between when she goes from neutral to happy.
+`04_neutral` and `05_smile` are stills you can point at. The built-in neutral-to-happy transition uses `05_smile` for framed portraits and a direct fade when both Ribbon portraits are cutouts. A custom mapping can still name its own in-between.
 
 ## Motion
 
 - Blink, when both blink frames are on disk: open → half → closed → half → open. Each frame holds 40–60 ms. The gap is 2–6 s. About one blink in five plays twice. A missing blink file stays on the still.
 - Talk uses the talk frame from the expression she is holding (`sad_talk` while sad, `concerned_talk` while concerned). It does not switch to `neutral_talk` or `smile_talk` just because audio starts. The open and talk frames follow lip-sync loudness (`IMouthDriver.MouthOverride`). If that level never moves, they take turns on a short random hold. A missing talk file stays on the still.
 - The portrait holds for the whole utterance. A neutral cue that arrives before the audio, or a quiet gap between clips, keeps the current set. About 1.5 seconds after she is quiet and the cue is neutral, that portrait hold releases. A new non-neutral expression replaces it immediately. **F9** preview flaps blink and talk on the cycled expression without starting that utterance.
-- Changing emotion crossfades for 150–250 ms. If `transitions` has `from->to` with `inBetween`, that image holds the middle of the fade. Blink and talk wait until the fade finishes.
+- Changing emotion crossfades for 150–250 ms. If `transitions` has `from->to` with `inBetween`, that image holds the middle of the fade. When both blended frames are Ribbon cutouts, opaque areas remain opaque through the fade and soft hair edges retain their alpha. Blink and talk wait until the fade finishes.
 - The 3D face uses the same expression for the whole reply and returns to neutral about 0.8 seconds after speech ends. The next cue replaces it. The face does not go neutral when the mouth starts moving. The animator `Talking` bool stays unset, including while an upper-body gesture plays.
 
 The portrait uses the expression name from the animation director (`IExpressionHint`) when that name is set, and `IAvatarAnimator.Emotion` otherwise. During an utterance it keeps the expression already on screen when the live cue is neutral. It does not parse chat and it does not edit `Companion.controller`.

@@ -454,6 +454,32 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void DirectRibbonFadeSkipsOnlyTheBuiltInNeutralToHappyIntermediate()
+        {
+            var library = PortraitLibrary.FromFileNames(new[] { "neutral_open.png", "smile_open.png", "05_smile.png" });
+            var map = PortraitMap.CreateDefaults();
+            var direct = Midpoint(map);
+            Assert.IsNull(direct.Mid);
+            Assert.AreEqual("neutral_open.png", direct.Back);
+            Assert.AreEqual("smile_open.png", direct.Front);
+            Assert.AreEqual(1f, direct.BackAlpha + direct.FrontAlpha, 0.001f);
+
+            var explicitMap = PortraitMapJson.Parse("{\"transitions\":{\"neutral->happy\":{\"inBetween\":\"05_smile\"}}}");
+            Assert.AreEqual("05_smile.png", Midpoint(explicitMap).Mid);
+            var perEmotion = PortraitMapJson.Parse("{\"happy\":{\"open\":\"smile_open\",\"inBetween\":\"05_smile\"}}");
+            Assert.AreEqual("05_smile.png", Midpoint(perEmotion).Mid);
+
+            Assert.AreEqual("05_smile.png", Midpoint(map, false).Mid);
+
+            PortraitView Midpoint(PortraitMap settings, bool useDirect = true)
+            {
+                var director = new PortraitDirector(_ => { }, (_, _) => useDirect);
+                director.Tick(0f, "neutral", false, false, 0f, settings, library, 1f, 1f, 1f, 0f, 0.5f);
+                return director.Tick(0.10f, "happy", false, false, 0f, settings, library, 1f, 1f, 1f, 0f, 0.5f);
+            }
+        }
+
+        [Test]
         public void MissingFolder_HidesLogsOnceAndFallsBackToPersistentData()
         {
             var off = PortraitShowPlan.Describe(false, false, false);

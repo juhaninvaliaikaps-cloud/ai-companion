@@ -100,6 +100,7 @@ namespace AICompanion.Settings
     {
         readonly HashSet<string> _warned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         readonly Action<string> _warn;
+        readonly Func<string, string, bool> _preferDirect;
         PortraitBlinkScheduler _blink;
         PortraitTalkMotion _talk;
         PortraitCrossfade _fade;
@@ -111,9 +112,10 @@ namespace AICompanion.Settings
         {
         }
 
-        public PortraitDirector(Action<string> warn)
+        public PortraitDirector(Action<string> warn, Func<string, string, bool> preferDirect = null)
         {
             _warn = warn;
+            _preferDirect = preferDirect;
         }
 
         public string Emotion
@@ -185,7 +187,9 @@ namespace AICompanion.Settings
             var to = ResolveExisting(map, library, toSet.Open, toSet.Open);
             string betweenStem;
             string between = null;
-            if (map.TryTransition(fromEmotion, toEmotion, out betweenStem))
+            var skipBuiltIn = _preferDirect != null && map.HasBuiltInNeutralSmile(fromEmotion, toEmotion)
+                && _preferDirect(from, to);
+            if (map.TryTransition(fromEmotion, toEmotion, out betweenStem, skipBuiltIn))
                 between = library != null ? library.Existing(betweenStem) : null;
             _fade.Begin(from, to, between, PortraitCrossfade.DurationFor(unit));
         }
