@@ -396,8 +396,8 @@ namespace AICompanion.NewUI.Wheel
             _content.sizeDelta = new Vector2(0f, _y + 8f);
             if (_ribbon)
             {
-                SetScrollOffset(scrollOffset);
                 _ribbonScroll.gameObject.SetActive(ScrollRange() > 0f);
+                SetScrollOffset(scrollOffset);
             }
             else
                 _scroll.verticalNormalizedPosition = 1f;
@@ -408,7 +408,10 @@ namespace AICompanion.NewUI.Wheel
         void SetScrollOffset(float offset)
         {
             _scroll.StopMovement();
-            _content.anchoredPosition = new Vector2(_content.anchoredPosition.x, Mathf.Clamp(offset, 0f, ScrollRange()));
+            var range = ScrollRange();
+            var position = Mathf.Clamp(offset, 0f, range);
+            _content.anchoredPosition = new Vector2(_content.anchoredPosition.x, position);
+            _ribbonScroll.SetValueWithoutNotify(range > 0f ? 1f - position / range : 1f);
         }
 
         internal void CycleTab(int direction)
