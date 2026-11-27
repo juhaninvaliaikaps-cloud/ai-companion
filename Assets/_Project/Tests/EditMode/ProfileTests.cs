@@ -10,6 +10,23 @@ namespace AICompanion.Tests.EditMode
     /// <summary>JUH-121: the data behind the Profile panel (Feelings, Personality, Her world, Memories).</summary>
     public class ProfileTests
     {
+        [TestCase("2026-11-24T05:00:00Z", true)]
+        [TestCase("", false)]
+        [TestCase("not a date", false)]
+        public void TimelineRowsKeepDatesAndKindsSeparateFromTheSummary(string rawDate, bool validDate)
+        {
+            var entry = new TimelineEntry { happenedAtUtc = rawDate, kind = "event", summary = "A summary [with brackets]." };
+            var row = ProfileTimelineRow.From(entry);
+            var expected = validDate
+                ? DateTime.Parse(rawDate, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToLocalTime()
+                    .ToString("d.M.yyyy", CultureInfo.InvariantCulture)
+                : string.Empty;
+
+            Assert.That(row.When, Is.EqualTo(expected));
+            Assert.That(row.Kind, Is.EqualTo(MemoryDurability.KindLabel(entry.kind)));
+            Assert.That(row.Text, Is.EqualTo(entry.summary));
+        }
+
         static readonly DateTime Now = new DateTime(2026, 11, 15, 12, 0, 0, DateTimeKind.Utc);
 
         // ---- Feelings (option A) -------------------------------------------------------------
@@ -26,8 +43,13 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("80 · you know each other very well", f.FamiliarityValue);
             Assert.AreEqual(0.8f, f.FamiliarityFill, 0.001f);
             Assert.AreEqual("Mood now: Happy", f.MoodTitle);
+            Assert.AreEqual(CompanionMood.Happy, f.CurrentMood);
+            Assert.AreEqual("She likes you", f.AffectionDescription);
+            Assert.AreEqual("You know each other very well", f.FamiliarityDescription);
             Assert.AreEqual(2, f.Moods.Count, "an empty slot is not shown");
             Assert.AreEqual("Happy", f.Moods[0].Label);
+            Assert.AreEqual(CompanionMood.Happy, f.Moods[0].Mood);
+            Assert.AreEqual(CompanionMood.Annoyed, f.Moods[1].Mood);
             Assert.AreEqual("62%", f.Moods[0].Value);
             Assert.AreEqual("Nothing has moved yet this session.", f.ReasonsNote);
         }
@@ -49,12 +71,47 @@ namespace AICompanion.Tests.EditMode
 
             var on = ProfileFeelings.Build(0f, 0f, CompanionMood.Content, null, null, history, true);
             Assert.AreEqual(2, on.Reasons.Count);
+            CollectionAssert.AreEqual(new[] { 1, -1 }, on.ReasonDirections);
             StringAssert.StartsWith("A compliment landed well", on.Reasons[0], "newest first");
             Assert.AreEqual(string.Empty, on.ReasonsNote);
 
             var off = ProfileFeelings.Build(0f, 0f, CompanionMood.Content, null, null, history, false);
             Assert.AreEqual(0, off.Reasons.Count);
+            Assert.IsEmpty(off.ReasonDirections);
             StringAssert.Contains("switched off", off.ReasonsNote);
+        }
+
+        [Test]
+        public void Feelings_PublishesMoodAndGateChangesButSkipsStrengthOnlyUpdates()
+        {
+            var shown = CompanionMoodNow.Shown;
+            var strength = CompanionMoodNow.Strength;
+            var enabled = IntimateExpressions.Enabled;
+            var privateMode = IntimateExpressions.PrivateMode;
+            var hasFolder = IntimateExpressions.FolderPresent;
+            var changes = new List<CompanionMood>();
+            void OnChanged() => changes.Add(CompanionMoodNow.Effective);
+            IntimateExpressions.Configure(false, false, false);
+            CompanionMoodNow.Reset();
+            CompanionMoodNow.DisplayChanged += OnChanged;
+            try
+            {
+                CompanionMoodNow.Set(CompanionMood.Happy, 0.7f);
+                CompanionMoodNow.Set(CompanionMood.Happy, 0.8f);
+                IntimateExpressions.Configure(true, true, true);
+                CompanionMoodNow.Set(CompanionMood.Intimate, 0.9f);
+                IntimateExpressions.Configure(true, false, true);
+                CollectionAssert.AreEqual(new[]
+                {
+                    CompanionMood.Happy, CompanionMood.Happy, CompanionMood.Intimate, CompanionMood.Content,
+                }, changes);
+            }
+            finally
+            {
+                CompanionMoodNow.DisplayChanged -= OnChanged;
+                IntimateExpressions.Configure(enabled, privateMode, hasFolder);
+                CompanionMoodNow.Set(shown, strength);
+            }
         }
 
         // ---- Personality ---------------------------------------------------------------------

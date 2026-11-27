@@ -1,3 +1,4 @@
+using AICompanion.Core;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -6,9 +7,30 @@ namespace AICompanion.NewUI
 {
     /// <summary>Decorative marks for the Ribbon UI. The surrounding control owns the hit area.</summary>
     [RequireComponent(typeof(CanvasRenderer))]
-    sealed class RibbonGlyph : MaskableGraphic
+    sealed partial class RibbonGlyph : MaskableGraphic
     {
-        internal enum Mark { Menu, Door, Ink, Voice, Muted, Screen, Profile, Model, Settings, Close, Chevron, Lock, OpenLock, Minimize, ChevronUp, Check, ChevronDown }
+        internal enum Mark
+        {
+            Menu, Door, Ink, Voice, Muted, Screen, Profile, Model, Settings, Close, Chevron, Lock, OpenLock,
+            Minimize, ChevronUp, Check, ChevronDown, Warmth, Volatility, Assertiveness, Playfulness, Openness,
+            Energy, Directness, Confidence, Curiosity,
+            MoodContent, MoodHappy, MoodFlustered, MoodAnnoyed, MoodSad, MoodAnxious, MoodSleepy, MoodIntimate,
+            Heart, Link, People, Activity, Rise, Fall, Key, CrackedHeart, Spark,
+            Compass, Calendar, Book, HollowDot
+        }
+
+        internal static Mark TemperamentMark(int axis) => axis switch
+        {
+            TemperamentAxes.Warmth => Mark.Warmth,
+            TemperamentAxes.Volatility => Mark.Volatility,
+            TemperamentAxes.Assertiveness => Mark.Assertiveness,
+            TemperamentAxes.Playfulness => Mark.Playfulness,
+            TemperamentAxes.Openness => Mark.Openness,
+            TemperamentAxes.Energy => Mark.Energy,
+            TemperamentAxes.Directness => Mark.Directness,
+            TemperamentAxes.Confidence => Mark.Confidence,
+            _ => Mark.Curiosity
+        };
         internal TMP_Text Label { get; set; }
         internal Mark Shape
         {
@@ -119,8 +141,48 @@ namespace AICompanion.NewUI
                 case Mark.Minimize:
                     Line(mesh, 0.19f, 0.36f, 0.81f, 0.36f);
                     break;
+                case Mark.Warmth:
+                    Ring(mesh, new Vector2(0.5f, 0.5f), 0.20f);
+                    TraitPath(mesh, 9, 1, 9, 3); TraitPath(mesh, 9, 15, 9, 17);
+                    TraitPath(mesh, 1, 9, 3, 9); TraitPath(mesh, 15, 9, 17, 9);
+                    TraitPath(mesh, 3, 3, 4.5f, 4.5f); TraitPath(mesh, 13.5f, 13.5f, 15, 15);
+                    TraitPath(mesh, 13.5f, 4.5f, 15, 3); TraitPath(mesh, 3, 15, 4.5f, 13.5f);
+                    break;
+                case Mark.Volatility:
+                    TraitPath(mesh, 10, 1, 3, 10, 8, 10, 7, 17, 15, 7, 10, 7, 10, 1);
+                    break;
+                case Mark.Assertiveness:
+                    TraitPath(mesh, 4, 17, 4, 2, 14, 2, 12, 5, 14, 8, 4, 8);
+                    break;
+                case Mark.Playfulness:
+                    TraitPath(mesh, 8, 2, 10, 7, 15, 9, 10, 11, 8, 16, 6, 11, 1, 9, 6, 7, 8, 2);
+                    TraitPath(mesh, 15, 2, 15, 6); TraitPath(mesh, 13, 4, 17, 4);
+                    break;
+                case Mark.Openness:
+                    TraitPath(mesh, 3, 16, 3, 2, 14, 2, 14, 16);
+                    TraitPath(mesh, 3, 2, 10, 5, 10, 17, 3, 16); TraitPath(mesh, 7, 10, 8, 10);
+                    break;
+                case Mark.Energy:
+                    TraitPath(mesh, 2, 4.5f, 14.5f, 4.5f, 14.5f, 13.5f, 2, 13.5f, 2, 4.5f);
+                    TraitPath(mesh, 15, 7, 17, 7, 17, 11, 15, 11);
+                    TraitPath(mesh, 5.5f, 7, 5.5f, 11); TraitPath(mesh, 8.5f, 7, 8.5f, 11);
+                    break;
+                case Mark.Directness:
+                    TraitPath(mesh, 2, 9, 15, 9); TraitPath(mesh, 10, 4, 15, 9, 10, 14);
+                    break;
+                case Mark.Confidence:
+                    TraitPath(mesh, 9, 1, 15, 4, 14.5f, 10, 12, 14, 9, 17, 6, 14, 3.5f, 10, 3, 4, 9, 1);
+                    TraitPath(mesh, 6, 9, 8, 11.5f, 12, 7);
+                    break;
+                case Mark.Curiosity:
+                    Ring(mesh, new Vector2(7.5f / 18f, 10.5f / 18f), 5f / 18f);
+                    TraitPath(mesh, 11, 11, 16, 16);
+                    break;
                 case Mark.Ink:
                     Stamp(mesh);
+                    break;
+                default:
+                    DrawProfileMark(mesh);
                     break;
             }
         }
@@ -197,6 +259,14 @@ namespace AICompanion.NewUI
             Vertex(mesh, x0 - offset.x, y0 - offset.y);
             mesh.AddTriangle(index, index + 1, index + 2);
             mesh.AddTriangle(index, index + 2, index + 3);
+        }
+
+        void TraitPath(VertexHelper mesh, params float[] coordinates)
+        {
+            const float basis = 18f;
+            for (var i = 0; i + 3 < coordinates.Length; i += 2)
+                Line(mesh, coordinates[i] / basis, 1f - coordinates[i + 1] / basis,
+                    coordinates[i + 2] / basis, 1f - coordinates[i + 3] / basis);
         }
 
         void Stamp(VertexHelper mesh)

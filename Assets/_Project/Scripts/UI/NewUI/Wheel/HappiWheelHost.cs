@@ -67,7 +67,8 @@ namespace AICompanion.NewUI.Wheel
             _profile = new ProfilePanel(_canvasObject.transform, _theme)
             {
                 OnClose = Back,
-                OpenSettings = () => Do(() => { if (OpenSettings != null) OpenSettings(); }),
+                OpenSettings = () => OpenProfileSettings(SettingsPage.HerMemories),
+                EditTemperament = () => OpenProfileSettings(SettingsPage.HerPersonality),
             };
             if (OpenSettings == null)
                 OpenSettings = () => { if (_settings != null) _settings.Open(); };
@@ -76,6 +77,7 @@ namespace AICompanion.NewUI.Wheel
                 _interactions = gameObject.AddComponent<AvatarInteractions>();
             AvatarContextMenu.Handler = OnRightClickOnHer;
             _attached = true;
+            CompanionMoodNow.DisplayChanged += OnMoodDisplayChanged;
             Debug.Log("New UI: radial wheel on (right-click head, Shift+right-click anywhere; body zones are quick touch)");
         }
 
@@ -84,6 +86,7 @@ namespace AICompanion.NewUI.Wheel
             if (!_attached)
                 return;
             _attached = false;
+            CompanionMoodNow.DisplayChanged -= OnMoodDisplayChanged;
             if (AvatarContextMenu.Handler == OnRightClickOnHer)
                 AvatarContextMenu.Handler = null;
             Close();
@@ -196,6 +199,9 @@ namespace AICompanion.NewUI.Wheel
                 return;
             }
 
+            if (_profile.Visible && RibbonMenu.Enabled && Application.isFocused)
+                ReadProfileKeys();
+
             if (_noteUntil > 0f && Time.unscaledTime > _noteUntil)
             {
                 _noteUntil = -1f;
@@ -240,6 +246,24 @@ namespace AICompanion.NewUI.Wheel
                 return;
 
             _pressed = _wheel.HitTest(pointer.Value);
+        }
+
+        void ReadProfileKeys()
+        {
+            var control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            if (control && Input.GetKeyDown(KeyCode.Tab))
+            {
+                var reverse = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+                _profile.CycleTab(reverse ? -1 : 1);
+            }
+            else if (Input.GetKeyDown(KeyCode.PageDown))
+                _profile.ScrollPage(1);
+            else if (Input.GetKeyDown(KeyCode.PageUp))
+                _profile.ScrollPage(-1);
+            else if (Input.GetKeyDown(KeyCode.Home))
+                _profile.ScrollToEdge(false);
+            else if (Input.GetKeyDown(KeyCode.End))
+                _profile.ScrollToEdge(true);
         }
 
         const int NoPress = int.MinValue;
@@ -555,11 +579,21 @@ namespace AICompanion.NewUI.Wheel
             var visibleArea = OverlayVisibleArea.Get(_window);
             HappiUiKit.FollowCamera(_canvas, PlaneDistance);
             _profile.Show(BuildProfileData, visibleArea.center, _scale,
-                new Vector2(Screen.width, Screen.height), tab);
+                new Vector2(Screen.width, Screen.height), tab, visibleArea);
 
             var typing = GetComponent<ITypingFocus>();
             if (typing != null)
                 typing.FocusForTyping();
+        }
+
+        void OpenProfileSettings(SettingsPage page)
+        {
+            Do(() =>
+            {
+                var settingsView = GetComponent<HappiSettingsView>();
+                if (!RibbonMenu.Enabled || settingsView == null || !settingsView.TryOpenPage(page))
+                    OpenSettings?.Invoke();
+            });
         }
 
         void ShowProfile()
@@ -569,39 +603,55 @@ namespace AICompanion.NewUI.Wheel
             if (_wheel != null)
                 _wheel.Root.gameObject.SetActive(false);
             var center = _wheel != null ? _wheel.Center : _clickPoint;
-            _profile.Show(BuildProfileData, center, Mathf.Max(1f, _scale), new Vector2(Screen.width, Screen.height));
+            _profile.Show(BuildProfileData, center, Mathf.Max(1f, _scale), new Vector2(Screen.width, Screen.height),
+                visibleArea: OverlayVisibleArea.Get(_window));
             Debug.Log("Wheel: opened the Profile panel");
         }
 
-        /// <summary>Gathers the Profile panel's data from the keepers. Runs when the panel or a tab opens, never per frame.</summary>
-        ProfileData BuildProfileData()
+        void OnMoodDisplayChanged()
         {
-            var data = new ProfileData { Name = HappiNames.Companion(_settings) };
-            // JUH-154: her picture, from the shared cache (loaded once per persona or picture change).
-            var personaId = _settings != null && _settings.CurrentSettings != null ? _settings.CurrentSettings.PersonaId : string.Empty;
-            if (!string.IsNullOrEmpty(personaId))
-            {
-                var persona = _settings.PersonaCatalogNow().Find(personaId);
-                data.Picture = PersonaPictureCache.Get(_settings.PersonasFolderPath, persona);
-                data.PictureRound = persona == null || PersonaPictureShapes.Normalize(persona.PictureShape) == PersonaPictureShapes.Round;
-            }
-            var reading = GetComponent<PisaraReadingKeeper>();
-            var sheet = reading != null ? reading.Sheet : null;
-            data.RoleLine = sheet != null ? ProfileHeader.RoleLine(sheet.relationship) : string.Empty;
+            if (RibbonMenu.Enabled && _profile.ShowsRibbonFeelings)
+                _profile.RefreshFeelings(BuildFeelingsData(GetComponent<RelationshipKeeper>()));
+        }
 
+        ProfileFeelings BuildFeelingsData(RelationshipKeeper relationship)
+        {
             var moods = new CompanionMood[3];
             var strengths = new float[3];
             var mood = GetComponent<CompanionMoodKeeper>();
             if (mood != null && mood.State != null)
                 mood.State.Top3(moods, strengths);
-            var relationship = GetComponent<RelationshipKeeper>();
             var loaded = relationship != null && relationship.IsLoaded;
-            data.Feelings = ProfileFeelings.Build(
+            return ProfileFeelings.Build(
                 loaded ? relationship.State.Affection : 0f,
                 loaded ? relationship.State.Familiarity : 0f,
-                CompanionMoodNow.Shown, moods, strengths,
+                RibbonMenu.Enabled ? CompanionMoodNow.Effective : CompanionMoodNow.Shown, moods, strengths,
                 loaded ? relationship.History : null,
                 PisaraSwitches.Relationship);
+        }
+
+        /// <summary>Gathers the Profile panel's data from the keepers when the panel or a tab opens.</summary>
+        ProfileData BuildProfileData()
+        {
+            var data = new ProfileData();
+            var reading = GetComponent<PisaraReadingKeeper>();
+            var sheet = reading != null ? reading.Sheet : null;
+            if (!RibbonMenu.Enabled)
+            {
+                data.Name = HappiNames.Companion(_settings);
+                data.RoleLine = sheet != null ? ProfileHeader.RoleLine(sheet.relationship) : string.Empty;
+                var personaId = _settings?.CurrentSettings?.PersonaId;
+                if (!string.IsNullOrEmpty(personaId))
+                {
+                    var persona = _settings.PersonaCatalogNow().Find(personaId);
+                    data.Picture = PersonaPictureCache.Get(_settings.PersonasFolderPath, persona);
+                    data.PictureRound = persona == null || PersonaPictureShapes.Normalize(persona.PictureShape) == PersonaPictureShapes.Round;
+                }
+            }
+
+            var relationship = GetComponent<RelationshipKeeper>();
+            var loaded = relationship != null && relationship.IsLoaded;
+            data.Feelings = BuildFeelingsData(relationship);
 
             var innocence = GetComponent<InnocenceKeeper>();
             var gate = IntimateExpressions.Active && innocence != null && innocence.IsLoaded;
@@ -627,16 +677,7 @@ namespace AICompanion.NewUI.Wheel
             data.TimelineCount = timeline.Count;
             var recent = timeline.Page(6);
             for (var i = 0; i < recent.Count; i++)
-            {
-                var entry = recent[i];
-                DateTime at;
-                var when = DateTime.TryParse(entry.happenedAtUtc, out at)
-                    ? at.ToLocalTime().ToString("d.M.yyyy")
-                    : string.Empty;
-                var kind = MemoryDurability.KindLabel(entry.kind);
-                data.Timeline.Add((when.Length > 0 ? when + " — " : string.Empty)
-                    + "[" + kind + "] " + entry.summary);
-            }
+                data.Timeline.Add(ProfileTimelineRow.From(recent[i]));
             return data;
         }
 

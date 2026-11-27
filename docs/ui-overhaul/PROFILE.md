@@ -11,6 +11,15 @@ Mockup: https://claude.ai/artifact/3Za6cHCRA24ozNUnTz6ceD. Jussi picked Feelings
 | **Her world** | What she is doing right now, what she is waiting for (open threads), what happened while you were away, her last days, and her backstory (6 shown, "Show all"). | `Memory/ProfileWorld.cs` `ProfileWorld` |
 | **Memories** | What she remembers about you, newest first (8 shown), and Manage in Settings. Her own life is on Her world, not here. | `ProfileMemories` |
 
-The header shows her name and who she is to you, for example "Stepsister (family) · you share a past" (`ProfileHeader`).
+### Ribbon preview
 
-The data is gathered when the panel or a tab opens (`HappiWheelHost.BuildProfileData`), never per frame. Nothing in the panel is sent anywhere.
+Launch with `--ribbon-ui`. Profile uses the charcoal frame, the full-width Happi-Mood banner, and cyan tabs. The banner keeps its original proportions with Close in the upper-right corner. The frame fits the visible work area, and the tabs use a second row when needed. Both the Ribbon and radial wheel open the same Profile view. Ctrl+Tab and Ctrl+Shift+Tab cycle through the tabs. Page Up and Page Down scroll the current tab, and Home and End jump to its edges. Each tab keeps its reading position while Profile stays open.
+
+- Feelings updates the headline icon and mood name when her mood changes. Content uses a calm wave, Happy uses a smile, and each other mood has its own symbol. The strongest moods have labeled strength bars. Relationship cards show a centered affection gauge and a familiarity gauge. Recent changes use arrows to show the direction of each change.
+- Personality shows an icon, ten numbered steps, and a description for each trait. Reached steps turn from cyan to pink at 8, and the current step is taller. Edit temperament opens the same tracks as controls. Click a step or focus a track and use Left and Right. Up and Down move between tracks. Her secrets shows segmented discovery progress and separate cards for What stings her and What wins her over. Locked tiles show Undiscovered. The newest discovery has a gold outline and a label.
+- Her world leads with a prominent Right now card. Open threads use hollow markers, While you were away gives a dated catch-up, and Recent days shows a timeline. Dates stack above the entry text at narrower widths. Her backstory previews the first entry and expands with Show more when there are additional entries.
+- Memories shows remembered details in individual cards, newest first. Manage memories sits beside the summary and opens the Memories settings directly. The relationship timeline has its own dated entries with event types. Each section explains when its preview omits earlier entries.
+
+The classic header shows her name and who she is to you, for example "Stepsister (family) · you share a past" (`ProfileHeader`).
+
+The data is gathered when the panel or a tab opens (`HappiWheelHost.BuildProfileData`). While Feelings is open, a change in her effective mood refreshes only its cards and preserves the reading position. Nothing in the panel is sent anywhere.
