@@ -63,6 +63,29 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void RibbonCutoutRejectsAnOpaquePictureWithAThinTransparentBorder()
+        {
+            const int size = 96;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            try
+            {
+                texture.wrapMode = TextureWrapMode.Clamp;
+                var pixels = new Color32[size * size];
+                for (var y = 1; y < size - 1; y++)
+                for (var x = 1; x < size - 1; x++)
+                    pixels[y * size + x] = new Color32(100, 80, 120, 255);
+                texture.SetPixels32(pixels);
+                texture.Apply();
+
+                Assert.That(PortraitCutout.Measure(texture).Valid, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+        }
+
+        [Test]
         public void Defaults_MapTheEmotionSetAndFallBackToNeutral()
         {
             var map = PortraitMap.CreateDefaults();

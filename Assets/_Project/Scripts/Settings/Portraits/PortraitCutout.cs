@@ -29,25 +29,29 @@ namespace AICompanion.Settings
             var clear = 0;
             for (var i = 0; i < Grid; i++)
             {
-                var at = (i + .5f) / Grid;
-                if (texture.GetPixelBilinear(at, 0f).a < .08f) clear++;
-                if (texture.GetPixelBilinear(at, 1f).a < .08f) clear++;
-                if (texture.GetPixelBilinear(0f, at).a < .08f) clear++;
-                if (texture.GetPixelBilinear(1f, at).a < .08f) clear++;
+                var x = Sample(i, texture.width);
+                var y = Sample(i, texture.height);
+                if (texture.GetPixel(x, 0).a < .08f) clear++;
+                if (texture.GetPixel(x, texture.height - 1).a < .08f) clear++;
+                if (texture.GetPixel(0, y).a < .08f) clear++;
+                if (texture.GetPixel(texture.width - 1, y).a < .08f) clear++;
             }
-            if (clear < Grid)
+            if (clear < Grid / 2)
                 return default;
 
             var bottom = -1;
             var left = Grid;
             var right = -1;
+            var clearPixels = 0;
             for (var y = 0; y < Grid; y++)
             {
-                if (bottom >= 0 && y >= bottom + Grid / 7)
-                    break;
+                var py = Sample(y, texture.height);
                 for (var x = 0; x < Grid; x++)
                 {
-                    if (texture.GetPixelBilinear((x + .5f) / Grid, (y + .5f) / Grid).a < .5f)
+                    var alpha = texture.GetPixel(Sample(x, texture.width), py).a;
+                    if (alpha < .08f)
+                        clearPixels++;
+                    if (alpha < .5f || (bottom >= 0 && y >= bottom + Grid / 7))
                         continue;
                     if (bottom < 0)
                         bottom = y;
@@ -55,11 +59,14 @@ namespace AICompanion.Settings
                     right = Mathf.Max(right, x);
                 }
             }
-            if (bottom < 0 || right - left < Grid / 10)
+            // A thin alpha border around an otherwise opaque image is not a cutout.
+            if (bottom < 0 || right - left < Grid / 10 || clearPixels < Grid * Grid / 12)
                 return default;
 
             return new PortraitCutout(left / (float)Grid, (right + 1f) / Grid, bottom / (float)Grid);
         }
+
+        static int Sample(int cell, int size) => (2 * cell + 1) * size / (2 * Grid);
     }
 
     sealed class RibbonPortraitBase : MaskableGraphic
