@@ -6,9 +6,10 @@ namespace AICompanion.NewUI
     /// <summary>Ribbon geometry changes the rendered mesh while controls keep rectangular hit areas.</summary>
     sealed class RibbonShape : BaseMeshEffect
     {
-        internal enum Kind { Panel, Tab, ChatFrame, Composer, HeaderArt, ScrollPaper }
+        internal enum Kind { Panel, Tab, ChatFrame, Composer, ChatHeader, HeaderArt, ScrollPaper }
         Kind _kind;
         bool _mirrored;
+        Vector2 _headerCorners;
         Vector2 _paperEdge;
         Vector2 _flare;
         float _flareProgress;
@@ -35,6 +36,14 @@ namespace AICompanion.NewUI
             shape._kind = kind;
             graphic.SetVerticesDirty();
             return shape;
+        }
+
+        public void SetHeaderCorners(Vector2 corners)
+        {
+            if (_headerCorners == corners)
+                return;
+            _headerCorners = corners;
+            graphic.SetVerticesDirty();
         }
 
         public void SetScrollPaper(bool mirrored, Vector2 paperEdge, Vector2 flare, float flareProgress)
@@ -69,7 +78,7 @@ namespace AICompanion.NewUI
             var count = VertexCount(_kind);
             for (var i = 0; i < count; i++)
             {
-                var point = Point(_kind, rect, i);
+                var point = Point(_kind, rect, i, _headerCorners);
                 var u = uv.x + uv.width * (point.x - rect.xMin) / rect.width;
                 var v = uv.y + uv.height * (point.y - rect.yMin) / rect.height;
                 var tint = _kind == Kind.ChatFrame
@@ -124,10 +133,18 @@ namespace AICompanion.NewUI
         {
             if (kind == Kind.ChatFrame)
                 return 8;
-            return kind is Kind.Tab or Kind.HeaderArt ? 4 : 6;
+            if (kind == Kind.HeaderArt)
+                return 5;
+            return kind == Kind.Tab ? 4 : 6;
         }
 
-        internal static Vector2 Point(Kind kind, Rect rect, int index)
+        internal static Vector2 ChatFrameCorners(float width, float height)
+        {
+            var major = Mathf.Min(Mathf.Clamp(height * 0.082f, 14f, 28f), width * 0.14f);
+            return new Vector2(major, major * 0.66f);
+        }
+
+        internal static Vector2 Point(Kind kind, Rect rect, int index, Vector2 headerCorners = default)
         {
             var left = rect.xMin;
             var right = rect.xMax;
@@ -135,8 +152,9 @@ namespace AICompanion.NewUI
             var bottom = rect.yMin;
             if (kind == Kind.ChatFrame)
             {
-                var major = Mathf.Min(Mathf.Clamp(rect.height * 0.082f, 14f, 28f), rect.width * 0.14f);
-                var minor = major * 0.66f;
+                var corners = ChatFrameCorners(rect.width, rect.height);
+                var major = corners.x;
+                var minor = corners.y;
                 return index switch
                 {
                     0 => new Vector2(left, bottom + minor),
@@ -150,14 +168,28 @@ namespace AICompanion.NewUI
                 };
             }
 
+            if (kind == Kind.ChatHeader)
+            {
+                return index switch
+                {
+                    0 => new Vector2(left, bottom),
+                    1 => new Vector2(left, top - headerCorners.x),
+                    2 => new Vector2(left + headerCorners.x, top),
+                    3 => new Vector2(right - headerCorners.y, top),
+                    4 => new Vector2(right, top - headerCorners.y),
+                    _ => new Vector2(right, bottom)
+                };
+            }
+
             if (kind == Kind.HeaderArt)
             {
-                var cut = Mathf.Min(rect.height * 0.38f, rect.width * 0.25f);
+                var cut = Mathf.Min(rect.height * 0.59f, rect.width * 0.36f);
                 return index switch
                 {
                     0 => new Vector2(left, bottom),
                     1 => new Vector2(left + cut, top),
-                    2 => new Vector2(right, top),
+                    2 => new Vector2(right - headerCorners.y, top),
+                    3 => new Vector2(right, top - headerCorners.y),
                     _ => new Vector2(right, bottom)
                 };
             }
