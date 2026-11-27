@@ -3,6 +3,37 @@ using NUnit.Framework;
 
 namespace AICompanion.Tests.EditMode
 {
+    public sealed class RibbonFlyoutPressTests
+    {
+        [Test]
+        public void ClickRequiresPressAndReleaseOverTheSameButton()
+        {
+            var press = new RibbonFlyoutPress();
+            Assert.AreEqual(-1, press.Update(1, true, false));
+            Assert.AreEqual(1, press.Update(1, false, true));
+            Assert.AreEqual(-1, press.Update(1, false, true));
+        }
+
+        [TestCase(-1, 1)]
+        [TestCase(1, -1)]
+        [TestCase(1, 2)]
+        public void DraggingFromOrToAnotherTargetDoesNotSelect(int down, int up)
+        {
+            var press = new RibbonFlyoutPress();
+            press.Update(down, true, false);
+            Assert.AreEqual(-1, press.Update(up, false, true));
+        }
+
+        [Test]
+        public void ChangingOrClosingTheFlyoutClearsTheOldPress()
+        {
+            var press = new RibbonFlyoutPress();
+            press.Update(1, true, false);
+            press.Clear();
+            Assert.AreEqual(-1, press.Update(1, false, true));
+        }
+    }
+
     public sealed class RibbonKeyboardTests
     {
         [Test]

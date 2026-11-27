@@ -2,6 +2,26 @@ using UnityEngine;
 
 namespace AICompanion.NewUI
 {
+    /// <summary>Matches a pointer release to the flyout button that received its press.</summary>
+    public struct RibbonFlyoutPress
+    {
+        int _heldTarget;
+
+        public int Update(int target, bool pressed, bool released)
+        {
+            if (pressed)
+                _heldTarget = target + 1;
+            if (!released)
+                return -1;
+
+            var activate = target >= 0 && _heldTarget == target + 1;
+            Clear();
+            return activate ? target : -1;
+        }
+
+        public void Clear() => _heldTarget = 0;
+    }
+
     /// <summary>Ribbon layout in overlay pixels, with the origin at the top left.</summary>
     public static class RibbonMenuPlacement
     {

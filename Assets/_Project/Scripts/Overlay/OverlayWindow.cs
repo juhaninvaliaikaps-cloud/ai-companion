@@ -256,7 +256,7 @@ namespace AICompanion.Overlay
             bool overUi = overPanel || overOtherUi;
             var pixel = new Vector2Int(Mathf.RoundToInt(unityScreen.x), Mathf.RoundToInt(unityScreen.y));
             bool outsideSlack = !_hasSample || !SilhouetteHit.WithinSlack(_sampledPixel, pixel, SilhouetteHit.SampleSlackPixels);
-            bool onSilhouette = inside && _onSilhouette;
+            bool onSilhouette = inside && _onSilhouette && (overUi || !IsOverDecoration(unityScreen));
             bool leftHeld = LeftHeld();
             bool leftDown = leftHeld && !_leftWasHeld;
             _leftWasHeld = leftHeld;
@@ -871,6 +871,17 @@ namespace AICompanion.Overlay
                     return true;
             }
 
+            return false;
+        }
+
+        bool IsOverDecoration(Vector2 unityScreen)
+        {
+            if (_behaviours == null)
+                _behaviours = GetComponents<MonoBehaviour>();
+
+            for (var i = 0; i < _behaviours.Length; i++)
+                if (_behaviours[i] is IOverlayDecoration decoration && decoration.ContainsDecoration(unityScreen))
+                    return true;
             return false;
         }
 
