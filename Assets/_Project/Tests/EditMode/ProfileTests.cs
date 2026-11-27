@@ -10,6 +10,23 @@ namespace AICompanion.Tests.EditMode
     /// <summary>JUH-121: the data behind the Profile panel (Feelings, Personality, Her world, Memories).</summary>
     public class ProfileTests
     {
+        [TestCase("2026-11-24T05:00:00Z", true)]
+        [TestCase("", false)]
+        [TestCase("not a date", false)]
+        public void TimelineRowsKeepDatesAndKindsSeparateFromTheSummary(string rawDate, bool validDate)
+        {
+            var entry = new TimelineEntry { happenedAtUtc = rawDate, kind = "event", summary = "A summary [with brackets]." };
+            var row = ProfileTimelineRow.From(entry);
+            var expected = validDate
+                ? DateTime.Parse(rawDate, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToLocalTime()
+                    .ToString("d.M.yyyy", CultureInfo.InvariantCulture)
+                : string.Empty;
+
+            Assert.That(row.When, Is.EqualTo(expected));
+            Assert.That(row.Kind, Is.EqualTo(MemoryDurability.KindLabel(entry.kind)));
+            Assert.That(row.Text, Is.EqualTo(entry.summary));
+        }
+
         static readonly DateTime Now = new DateTime(2026, 11, 15, 12, 0, 0, DateTimeKind.Utc);
 
         // ---- Feelings (option A) -------------------------------------------------------------

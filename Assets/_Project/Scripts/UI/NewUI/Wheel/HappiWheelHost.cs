@@ -677,16 +677,7 @@ namespace AICompanion.NewUI.Wheel
             data.TimelineCount = timeline.Count;
             var recent = timeline.Page(6);
             for (var i = 0; i < recent.Count; i++)
-            {
-                var entry = recent[i];
-                DateTime at;
-                var when = DateTime.TryParse(entry.happenedAtUtc, out at)
-                    ? at.ToLocalTime().ToString("d.M.yyyy")
-                    : string.Empty;
-                var kind = MemoryDurability.KindLabel(entry.kind);
-                data.Timeline.Add((when.Length > 0 ? when + " — " : string.Empty)
-                    + "[" + kind + "] " + entry.summary);
-            }
+                data.Timeline.Add(ProfileTimelineRow.From(recent[i]));
             return data;
         }
 

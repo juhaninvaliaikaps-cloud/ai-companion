@@ -95,6 +95,28 @@ namespace AICompanion.Memory
         }
     }
 
+    public readonly struct ProfileTimelineRow
+    {
+        public readonly string When;
+        public readonly string Kind;
+        public readonly string Text;
+
+        public ProfileTimelineRow(string when, string kind, string text)
+        {
+            When = when;
+            Kind = kind;
+            Text = text;
+        }
+
+        public static ProfileTimelineRow From(TimelineEntry entry)
+        {
+            var when = DateTime.TryParse(entry.happenedAtUtc, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at)
+                ? at.ToLocalTime().ToString("d.M.yyyy", CultureInfo.InvariantCulture)
+                : string.Empty;
+            return new ProfileTimelineRow(when, MemoryDurability.KindLabel(entry.kind), entry.summary);
+        }
+    }
+
     /// <summary>JUH-121, Profile → Memories: what she remembers about the user, newest first. Her own life is on Her world.</summary>
     public static class ProfileMemories
     {

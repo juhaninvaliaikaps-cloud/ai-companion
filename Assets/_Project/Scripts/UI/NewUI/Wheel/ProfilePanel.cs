@@ -30,7 +30,7 @@ namespace AICompanion.NewUI.Wheel
         public string MemoriesSummary = string.Empty;
         public readonly List<string> Memories = new List<string>();
         public int MemoryCount;
-        public readonly List<string> Timeline = new List<string>();
+        public readonly List<ProfileTimelineRow> Timeline = new List<ProfileTimelineRow>();
         public int TimelineCount;
     }
 
@@ -828,21 +828,20 @@ namespace AICompanion.NewUI.Wheel
 
         void BuildMemories()
         {
+            if (_ribbon)
+            {
+                BuildRibbonMemories();
+                return;
+            }
+
             var box = Begin();
             Heading("What she remembers about you");
             Paragraph(_data.MemoriesSummary, true);
-            if (_ribbon && OpenSettings != null)
-                Button("Manage memories", OpenSettings);
             for (var i = 0; i < _data.Memories.Count; i++)
                 Paragraph("• " + _data.Memories[i], false);
             if (_data.MemoryCount > _data.Memories.Count)
                 Paragraph("And " + (_data.MemoryCount - _data.Memories.Count) + " more.", true);
 
-            if (_ribbon)
-            {
-                End(box);
-                box = Begin();
-            }
             Heading("Relationship timeline");
             if (_data.TimelineCount == 0)
             {
@@ -851,13 +850,16 @@ namespace AICompanion.NewUI.Wheel
             else
             {
                 for (var i = 0; i < _data.Timeline.Count; i++)
-                    Paragraph("• " + _data.Timeline[i], false);
+                {
+                    var row = _data.Timeline[i];
+                    var date = row.When.Length > 0 ? row.When + " — " : string.Empty;
+                    Paragraph("• " + date + "[" + row.Kind + "] " + row.Text, false);
+                }
                 if (_data.TimelineCount > _data.Timeline.Count)
                     Paragraph("And " + (_data.TimelineCount - _data.Timeline.Count) + " earlier.", true);
             }
 
-            if (!_ribbon)
-                Button("Manage in Settings", () => { if (OpenSettings != null) OpenSettings(); });
+            Button("Manage in Settings", () => { if (OpenSettings != null) OpenSettings(); });
             End(box);
         }
 
