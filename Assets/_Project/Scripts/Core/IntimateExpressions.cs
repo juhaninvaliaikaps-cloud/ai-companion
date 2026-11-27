@@ -34,6 +34,7 @@ namespace AICompanion.Core
             Active = enabled && privateMode && folderPresent;
             if (!Active)
                 Undressed = false;
+            CompanionMoodNow.PublishEffectiveMood();
         }
 
         /// <summary>Called by the video avatar when an undressing clip is accepted.</summary>

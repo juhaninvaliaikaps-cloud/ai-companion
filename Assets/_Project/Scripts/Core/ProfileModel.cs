@@ -10,6 +10,7 @@ namespace AICompanion.Core
         public string Label;
         public string Value;
         public float Fill;
+        public CompanionMood Mood;
     }
 
     /// <summary>
@@ -26,9 +27,13 @@ namespace AICompanion.Core
         public float AffectionMarker = 0.5f;
         public string FamiliarityValue = string.Empty;
         public float FamiliarityFill;
+        public string AffectionDescription = string.Empty;
+        public string FamiliarityDescription = string.Empty;
+        public CompanionMood CurrentMood;
         public string MoodTitle = string.Empty;
         public readonly List<ProfileBar> Moods = new List<ProfileBar>(3);
         public readonly List<string> Reasons = new List<string>(MaxReasons);
+        public readonly List<int> ReasonDirections = new List<int>(MaxReasons);
         /// <summary>Shown instead of the reasons when there are none, or when relationship changes are off.</summary>
         public string ReasonsNote = string.Empty;
 
@@ -36,12 +41,17 @@ namespace AICompanion.Core
         {
             affection = RelationshipMath.ClampAffection(affection);
             familiarity = RelationshipMath.ClampFamiliarity(familiarity);
+            var feeling = RelationshipCard.Feeling(affection);
+            var knowing = RelationshipCard.Knowing(familiarity);
             var view = new ProfileFeelings
             {
-                AffectionValue = affection.ToString("+0;-0;0", CultureInfo.InvariantCulture) + " · " + RelationshipCard.Feeling(affection),
+                AffectionValue = affection.ToString("+0;-0;0", CultureInfo.InvariantCulture) + " · " + feeling,
+                AffectionDescription = Capital(feeling),
                 AffectionMarker = (affection + 100f) / 200f,
-                FamiliarityValue = familiarity.ToString("0", CultureInfo.InvariantCulture) + " · " + RelationshipCard.Knowing(familiarity),
+                FamiliarityValue = familiarity.ToString("0", CultureInfo.InvariantCulture) + " · " + knowing,
+                FamiliarityDescription = Capital(knowing),
                 FamiliarityFill = familiarity / 100f,
+                CurrentMood = shown,
                 MoodTitle = "Mood now: " + Capital(CompanionMoodNames.Name(shown)),
             };
 
@@ -57,6 +67,7 @@ namespace AICompanion.Core
                         Label = Capital(CompanionMoodNames.Name(top[i])),
                         Value = Math.Round(fill * 100f).ToString("0", CultureInfo.InvariantCulture) + "%",
                         Fill = fill,
+                        Mood = top[i],
                     });
                 }
             }
@@ -70,7 +81,10 @@ namespace AICompanion.Core
             if (history != null)
             {
                 for (var i = 0; i < history.Count && i < MaxReasons; i++)
+                {
                     view.Reasons.Add(history.Line(i));
+                    view.ReasonDirections.Add(history.Direction(i));
+                }
             }
 
             if (view.Reasons.Count == 0)

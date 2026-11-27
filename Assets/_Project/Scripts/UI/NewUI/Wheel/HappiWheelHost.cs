@@ -77,6 +77,7 @@ namespace AICompanion.NewUI.Wheel
                 _interactions = gameObject.AddComponent<AvatarInteractions>();
             AvatarContextMenu.Handler = OnRightClickOnHer;
             _attached = true;
+            CompanionMoodNow.DisplayChanged += OnMoodDisplayChanged;
             Debug.Log("New UI: radial wheel on (right-click head, Shift+right-click anywhere; body zones are quick touch)");
         }
 
@@ -85,6 +86,7 @@ namespace AICompanion.NewUI.Wheel
             if (!_attached)
                 return;
             _attached = false;
+            CompanionMoodNow.DisplayChanged -= OnMoodDisplayChanged;
             if (AvatarContextMenu.Handler == OnRightClickOnHer)
                 AvatarContextMenu.Handler = null;
             Close();
@@ -606,7 +608,29 @@ namespace AICompanion.NewUI.Wheel
             Debug.Log("Wheel: opened the Profile panel");
         }
 
-        /// <summary>Gathers the Profile panel's data from the keepers. Runs when the panel or a tab opens, never per frame.</summary>
+        void OnMoodDisplayChanged()
+        {
+            if (RibbonMenu.Enabled && _profile.ShowsRibbonFeelings)
+                _profile.RefreshFeelings(BuildFeelingsData(GetComponent<RelationshipKeeper>()));
+        }
+
+        ProfileFeelings BuildFeelingsData(RelationshipKeeper relationship)
+        {
+            var moods = new CompanionMood[3];
+            var strengths = new float[3];
+            var mood = GetComponent<CompanionMoodKeeper>();
+            if (mood != null && mood.State != null)
+                mood.State.Top3(moods, strengths);
+            var loaded = relationship != null && relationship.IsLoaded;
+            return ProfileFeelings.Build(
+                loaded ? relationship.State.Affection : 0f,
+                loaded ? relationship.State.Familiarity : 0f,
+                RibbonMenu.Enabled ? CompanionMoodNow.Effective : CompanionMoodNow.Shown, moods, strengths,
+                loaded ? relationship.History : null,
+                PisaraSwitches.Relationship);
+        }
+
+        /// <summary>Gathers the Profile panel's data from the keepers when the panel or a tab opens.</summary>
         ProfileData BuildProfileData()
         {
             var data = new ProfileData();
@@ -625,19 +649,9 @@ namespace AICompanion.NewUI.Wheel
                 }
             }
 
-            var moods = new CompanionMood[3];
-            var strengths = new float[3];
-            var mood = GetComponent<CompanionMoodKeeper>();
-            if (mood != null && mood.State != null)
-                mood.State.Top3(moods, strengths);
             var relationship = GetComponent<RelationshipKeeper>();
             var loaded = relationship != null && relationship.IsLoaded;
-            data.Feelings = ProfileFeelings.Build(
-                loaded ? relationship.State.Affection : 0f,
-                loaded ? relationship.State.Familiarity : 0f,
-                CompanionMoodNow.Shown, moods, strengths,
-                loaded ? relationship.History : null,
-                PisaraSwitches.Relationship);
+            data.Feelings = BuildFeelingsData(relationship);
 
             var innocence = GetComponent<InnocenceKeeper>();
             var gate = IntimateExpressions.Active && innocence != null && innocence.IsLoaded;

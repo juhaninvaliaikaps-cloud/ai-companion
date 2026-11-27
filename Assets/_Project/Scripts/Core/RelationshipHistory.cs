@@ -12,6 +12,7 @@ namespace AICompanion.Core
         public const int Capacity = 8;
 
         readonly string[] _lines = new string[Capacity];
+        readonly sbyte[] _directions = new sbyte[Capacity];
         int _next;
         int _count;
 
@@ -27,6 +28,7 @@ namespace AICompanion.Core
             if (line.Length == 0)
                 return line;
             _lines[_next] = line;
+            _directions[_next] = change.AffectionDelta > 0f ? (sbyte)1 : (sbyte)-1;
             _next = (_next + 1) % Capacity;
             if (_count < Capacity)
                 _count++;
@@ -38,9 +40,12 @@ namespace AICompanion.Core
         {
             if (back < 0 || back >= _count)
                 return string.Empty;
-            var index = (_next - 1 - back + Capacity * 2) % Capacity;
-            return _lines[index] ?? string.Empty;
+            return _lines[Index(back)] ?? string.Empty;
         }
+
+        public int Direction(int back) => back >= 0 && back < _count ? _directions[Index(back)] : 0;
+
+        int Index(int back) => (_next - 1 - back + Capacity) % Capacity;
 
         public void Clear()
         {

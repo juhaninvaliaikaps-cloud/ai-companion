@@ -7,13 +7,15 @@ namespace AICompanion.NewUI
 {
     /// <summary>Decorative marks for the Ribbon UI. The surrounding control owns the hit area.</summary>
     [RequireComponent(typeof(CanvasRenderer))]
-    sealed class RibbonGlyph : MaskableGraphic
+    sealed partial class RibbonGlyph : MaskableGraphic
     {
         internal enum Mark
         {
             Menu, Door, Ink, Voice, Muted, Screen, Profile, Model, Settings, Close, Chevron, Lock, OpenLock,
             Minimize, ChevronUp, Check, ChevronDown, Warmth, Volatility, Assertiveness, Playfulness, Openness,
-            Energy, Directness, Confidence, Curiosity
+            Energy, Directness, Confidence, Curiosity,
+            MoodContent, MoodHappy, MoodFlustered, MoodAnnoyed, MoodSad, MoodAnxious, MoodSleepy, MoodIntimate,
+            Heart, Link, People, Activity, Rise, Fall, Key, CrackedHeart, Spark
         }
 
         internal static Mark TemperamentMark(int axis) => axis switch
@@ -177,6 +179,9 @@ namespace AICompanion.NewUI
                     break;
                 case Mark.Ink:
                     Stamp(mesh);
+                    break;
+                default:
+                    DrawProfileMark(mesh);
                     break;
             }
         }

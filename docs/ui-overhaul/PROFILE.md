@@ -15,11 +15,11 @@ Mockup: https://claude.ai/artifact/3Za6cHCRA24ozNUnTz6ceD. Jussi picked Feelings
 
 Launch with `--ribbon-ui`. Profile uses the charcoal frame, the full-width Happi-Mood banner, and cyan tabs. The banner keeps its original proportions with Close in the upper-right corner. The frame fits the visible work area, and the tabs use a second row when needed. Both the Ribbon and radial wheel open the same Profile view. Ctrl+Tab and Ctrl+Shift+Tab cycle through the tabs. Page Up and Page Down scroll the current tab, and Home and End jump to its edges. Each tab keeps its reading position while Profile stays open.
 
-- Feelings starts with her current mood, then shows the relationship and recent changes.
-- Personality shows an icon, ten numbered steps, and a description for each trait. Reached steps turn from cyan to pink at 8, and the current step is taller. Edit temperament opens the same tracks as controls. Click a step or focus a track and use Left and Right. Up and Down move between tracks. Discoveries and gated details keep their existing sections.
+- Feelings updates the headline icon and mood name when her mood changes. Content uses a calm wave, Happy uses a smile, and each other mood has its own symbol. The strongest moods have labeled strength bars. Relationship cards show a centered affection gauge and a familiarity gauge. Recent changes use arrows to show the direction of each change.
+- Personality shows an icon, ten numbered steps, and a description for each trait. Reached steps turn from cyan to pink at 8, and the current step is taller. Edit temperament opens the same tracks as controls. Click a step or focus a track and use Left and Right. Up and Down move between tracks. Her secrets shows segmented discovery progress and separate cards for What stings her and What wins her over. Locked tiles show Undiscovered. The newest discovery has a gold outline and a label.
 - Her world puts current activity, open threads, events while away, recent days, and backstory in distinct cards.
 - Memories separates what she remembers about you from the relationship timeline. Manage memories opens the Memories settings directly.
 
 The classic header shows her name and who she is to you, for example "Stepsister (family) · you share a past" (`ProfileHeader`).
 
-The data is gathered when the panel or a tab opens (`HappiWheelHost.BuildProfileData`), never per frame. Nothing in the panel is sent anywhere.
+The data is gathered when the panel or a tab opens (`HappiWheelHost.BuildProfileData`). While Feelings is open, a change in her effective mood refreshes only its cards and preserves the reading position. Nothing in the panel is sent anywhere.

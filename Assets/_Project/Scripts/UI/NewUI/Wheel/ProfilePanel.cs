@@ -41,7 +41,7 @@ namespace AICompanion.NewUI.Wheel
     /// Built like <see cref="WheelCard"/>: plain UGUI objects under the wheel's canvas. A tab is
     /// rebuilt only when it is opened, never per frame.
     /// </summary>
-    public sealed class ProfilePanel
+    public sealed partial class ProfilePanel
     {
         public enum Tab
         {
@@ -438,20 +438,23 @@ namespace AICompanion.NewUI.Wheel
             }
 
             if (_ribbon)
-                BuildMood(f);
+            {
+                BuildRibbonFeelings(f);
+                return;
+            }
+
             var box = Begin();
-            Heading(_ribbon ? "Your relationship" : "How she feels about you");
+            Heading("How she feels about you");
             Row("Affection", f.AffectionValue);
             AffectionBar(f.AffectionMarker);
             Row("Familiarity", f.FamiliarityValue);
             FillBar(f.FamiliarityFill, _theme.Hover);
             End(box);
 
-            if (!_ribbon)
-                BuildMood(f);
+            BuildMood(f);
 
             box = Begin();
-            Heading(_ribbon ? "Recent changes" : "Why it moved recently");
+            Heading("Why it moved recently");
             if (f.Reasons.Count == 0)
                 Paragraph(f.ReasonsNote, true);
             for (var i = 0; i < f.Reasons.Count; i++)
@@ -562,6 +565,12 @@ namespace AICompanion.NewUI.Wheel
         {
             if (s == null)
                 return;
+            if (_ribbon)
+            {
+                BuildRibbonSecrets(s);
+                return;
+            }
+
             var box = Begin();
             Heading(s.Total == 0 ? "Her secrets" : s.Title);
             if (s.Total == 0)

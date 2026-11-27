@@ -7,6 +7,11 @@ namespace AICompanion.Core
     /// </summary>
     public static class CompanionMoodNow
     {
+        public static event System.Action DisplayChanged;
+
+        static CompanionMood _publishedMood;
+        static bool _publishedGate;
+
         public static CompanionMood Shown { get; private set; }
 
         /// <summary>Strength of the shown mood, 0 to 1. 0 for Content.</summary>
@@ -16,6 +21,18 @@ namespace AICompanion.Core
         {
             Shown = shown;
             Strength = float.IsNaN(strength) ? 0f : (strength < 0f ? 0f : (strength > 1f ? 1f : strength));
+            PublishEffectiveMood();
+        }
+
+        internal static void PublishEffectiveMood()
+        {
+            var mood = Effective;
+            var gate = IntimateExpressions.Active;
+            if (mood == _publishedMood && gate == _publishedGate)
+                return;
+            _publishedMood = mood;
+            _publishedGate = gate;
+            DisplayChanged?.Invoke();
         }
 
         public static void Reset()
