@@ -28,7 +28,7 @@ namespace AICompanion.Settings
     /// </summary>
     public sealed class CompanionSettings
     {
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 2;
         public const int MaxModelLength = 200;
 
         public int Version = CurrentVersion;
@@ -323,10 +323,10 @@ namespace AICompanion.Settings
         public float SpokenGlowIntensity = 0.6f;
 
         /// <summary>Font family used by the chat box's dialogue, transcript, and input.</summary>
-        public string ChatFontFamily = "Segoe UI";
+        public string ChatFontFamily = HappiTypeface.Family;
 
         /// <summary>Base chat text size in pixels at 100% scaling, 10 to 24.</summary>
-        public float ChatFontSize = 14f;
+        public float ChatFontSize = HappiTypeface.ChatSize;
 
         // 0 = ask on first use, 1 = allowed, 2 = denied.
         public int DesktopFilesPermission;
@@ -434,9 +434,9 @@ namespace AICompanion.Settings
             if (float.IsNaN(SpokenGlowIntensity) || float.IsInfinity(SpokenGlowIntensity))
                 SpokenGlowIntensity = 0.6f;
             SpokenGlowIntensity = Math.Max(0f, Math.Min(1f, SpokenGlowIntensity));
-            ChatFontFamily = CleanToken(ChatFontFamily, "Segoe UI", 64);
+            ChatFontFamily = CleanToken(ChatFontFamily, HappiTypeface.Family, 64);
             if (float.IsNaN(ChatFontSize) || float.IsInfinity(ChatFontSize))
-                ChatFontSize = 14f;
+                ChatFontSize = HappiTypeface.ChatSize;
             ChatFontSize = Math.Max(10f, Math.Min(24f, ChatFontSize));
             KokoroGameCores = AICompanion.Voice.KokoroCpuLimit.Clean(KokoroGameCores);
             DesktopFilesPermission = CleanPermission(DesktopFilesPermission);
@@ -956,10 +956,16 @@ namespace AICompanion.Settings
                 settings.SpokenGlow = flag;
             if (TryNumber(json, "spokenGlowIntensity", out number))
                 settings.SpokenGlowIntensity = (float)number;
-            if (TryString(json, "chatFontFamily", out text))
-                settings.ChatFontFamily = text;
-            if (TryNumber(json, "chatFontSize", out number))
-                settings.ChatFontSize = (float)number;
+            var hasFontFamily = TryString(json, "chatFontFamily", out var chatFamily);
+            var hasFontSize = TryNumber(json, "chatFontSize", out var chatSize);
+            var oldTypography = !TryNumber(json, "version", out var version) || version < 2;
+            var useNewDefaults = oldTypography
+                && (!hasFontFamily || string.Equals(chatFamily.Trim(), "Segoe UI", StringComparison.OrdinalIgnoreCase))
+                && (!hasFontSize || chatSize == 14d);
+            if (!useNewDefaults && hasFontFamily)
+                settings.ChatFontFamily = chatFamily;
+            if (!useNewDefaults && hasFontSize)
+                settings.ChatFontSize = (float)chatSize;
             if (TryNumber(json, "desktopFilesPermission", out number))
                 settings.DesktopFilesPermission = (int)Math.Round(number);
             if (TryNumber(json, "desktopAppsPermission", out number))

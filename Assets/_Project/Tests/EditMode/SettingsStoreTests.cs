@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using AICompanion.AI;
+using AICompanion.Core;
 using AICompanion.Overlay;
 using AICompanion.Settings;
 using AICompanion.UI;
@@ -17,7 +18,9 @@ namespace AICompanion.Tests.EditMode
             var settings = CompanionSettings.CreateDefault();
             settings.Normalize();
 
-            Assert.AreEqual(1, settings.Version);
+            Assert.AreEqual(CompanionSettings.CurrentVersion, settings.Version);
+            Assert.AreEqual(HappiTypeface.Family, settings.ChatFontFamily);
+            Assert.AreEqual(HappiTypeface.ChatSize, settings.ChatFontSize);
             Assert.AreEqual(ChatDefaults.GrokId, settings.ProviderId);
             Assert.AreEqual(ChatDefaults.Model, settings.Model);
             Assert.AreEqual(ChatDefaults.LocalModel, settings.LocalModel);
@@ -39,6 +42,22 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(settings.AlwaysOnTop);
             Assert.IsTrue(settings.CursorLookAt);
             Assert.AreEqual(ChatDefaults.GrokId, OutboundPrivacy.ChatProviderId(settings.PrivateMode, settings.ProviderId));
+        }
+
+        [TestCase("{\"version\":1,\"chatFontFamily\":\"Segoe UI\",\"chatFontSize\":14}", HappiTypeface.Family, HappiTypeface.ChatSize)]
+        [TestCase("{\"chatFontFamily\":\"Segoe UI\",\"chatFontSize\":14}", HappiTypeface.Family, HappiTypeface.ChatSize)]
+        [TestCase("{\"version\":1,\"chatFontFamily\":\"Georgia\",\"chatFontSize\":14}", "Georgia", 14f)]
+        [TestCase("{\"version\":1,\"chatFontFamily\":\"Segoe UI\",\"chatFontSize\":20}", "Segoe UI", 20f)]
+        [TestCase("{\"version\":2,\"chatFontFamily\":\"Segoe UI\",\"chatFontSize\":14}", "Segoe UI", 14f)]
+        public void ChatTypographyMigratesOnlyTheOldDefaultPair(string json, string family, float size)
+        {
+            var loaded = CompanionSettingsJson.Parse(json, SettingsLegacyPrefs.None);
+            Assert.That(loaded.ChatFontFamily, Is.EqualTo(family));
+            Assert.That(loaded.ChatFontSize, Is.EqualTo(size));
+
+            var roundTrip = CompanionSettingsJson.Parse(CompanionSettingsJson.Write(loaded), SettingsLegacyPrefs.None);
+            Assert.That(roundTrip.ChatFontFamily, Is.EqualTo(family));
+            Assert.That(roundTrip.ChatFontSize, Is.EqualTo(size));
         }
 
         [Test]
@@ -160,7 +179,7 @@ namespace AICompanion.Tests.EditMode
             Assert.IsTrue(loaded.Paused);
             Assert.IsFalse(loaded.PrivateMode);
             Assert.AreEqual(ChatDefaults.GrokId, loaded.ProviderId);
-            Assert.AreEqual(1, loaded.Version);
+            Assert.AreEqual(CompanionSettings.CurrentVersion, loaded.Version);
         }
 
         [Test]
@@ -182,7 +201,7 @@ namespace AICompanion.Tests.EditMode
             Assert.IsFalse(saved.Contains("apiKey"));
             Assert.IsFalse(saved.Contains("xaiApiKey"));
             Assert.IsFalse(CompanionSettingsSecrets.ContainsForbiddenSecretField(saved));
-            Assert.AreEqual(1, loaded.Version);
+            Assert.AreEqual(CompanionSettings.CurrentVersion, loaded.Version);
         }
 
         [Test]
@@ -190,7 +209,7 @@ namespace AICompanion.Tests.EditMode
         {
             var legacy = new SettingsLegacyPrefs { HasHideTaskbar = true, HideTaskbar = false, HasMuted = true, Muted = true };
             var loaded = CompanionSettingsJson.Parse(
-                "{\"version\":2,\"providerId\":\"local\",\"hideTaskbarButton\":true,\"futureFlag\":true,\"model\":\"grok-4.7\",\"localModel\":\"mistral\"}",
+                "{\"version\":99,\"providerId\":\"local\",\"hideTaskbarButton\":true,\"futureFlag\":true,\"model\":\"grok-4.7\",\"localModel\":\"mistral\"}",
                 legacy);
             Assert.AreEqual(ChatDefaults.LocalId, loaded.ProviderId);
             Assert.IsTrue(loaded.HideTaskbarButton);
@@ -199,7 +218,7 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual("grok-4.7", loaded.Model);
             var saved = CompanionSettingsJson.Write(loaded);
             Assert.IsFalse(saved.Contains("futureFlag"));
-            Assert.IsFalse(saved.Contains("\"version\": 2"));
+            Assert.AreEqual(CompanionSettings.CurrentVersion, CompanionSettingsJson.Parse(saved, SettingsLegacyPrefs.None).Version);
         }
 
         [Test]

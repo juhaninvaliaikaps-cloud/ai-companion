@@ -509,7 +509,7 @@ namespace AICompanion.Settings
             closeText.color = Color.white;
             closeText.fontSize = 22;
             closeText.raycastTarget = false;
-            closeText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            closeText.font = HappiTypeface.Load() ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (closeText.font == null)
                 closeText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
 

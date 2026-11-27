@@ -1041,7 +1041,8 @@ namespace AICompanion.NewUI
                 titleColors.selectedColor = new Color32(34, 72, 83, 255);
                 _personaTitle.Button.colors = titleColors;
                 _name = _personaTitle.Label;
-                _name.fontStyle |= FontStyles.Italic;
+                _name.font = HappiFonts.For(HappiTypeface.Family, "ExtraBold Italic");
+                _name.fontStyle = FontStyles.Normal;
                 _name.enableAutoSizing = true;
                 _name.overflowMode = TextOverflowModes.Ellipsis;
                 _name.alignment = TextAlignmentOptions.MidlineLeft;
@@ -1076,6 +1077,8 @@ namespace AICompanion.NewUI
             {
                 StyleRibbonHeaderIcon(_mute);
                 StyleRibbonControl(_privacy, clipped: false);
+                _privacy.Label.font = HappiFonts.Regular;
+                _privacy.Label.fontStyle = FontStyles.Normal;
                 StyleRibbonHeaderIcon(_close);
                 _ribbonOptionsIcon = RibbonGlyph.Add(_close.Rect, "Chat options", RibbonGlyph.Mark.Settings, _theme.Text);
                 _ribbonOptionsIcon.Label = _close.Label;
@@ -1226,7 +1229,8 @@ namespace AICompanion.NewUI
                 _sendHover = _send.Button.GetComponent<HappiHoverText>();
                 _sendHover.Normal = RibbonMenu.Ink;
                 _send.Label.color = RibbonMenu.Ink;
-                _send.Label.fontStyle |= FontStyles.Italic;
+                _send.Label.font = HappiFonts.For(HappiTypeface.Family, "ExtraBold Italic");
+                _send.Label.fontStyle = FontStyles.Normal;
             }
 
             _keyInput = HappiUiKit.Input(_box, "ApiKey", "API key", _theme.FontSmall, true);
@@ -1584,11 +1588,11 @@ namespace AICompanion.NewUI
                 _menuProgram.Label.fontSize = _theme.FontSmall * s;
             _close.Label.fontSize = _theme.FontBody * s;
             if (wideRibbon)
-                _privacy.Label.fontSize = 14f * s;
+                _privacy.Label.fontSize = 15f * s;
             if (_ribbonExtrasMenu != null)
             {
                 _ribbonExtrasMenu.Label.fontSize = _theme.FontSmall * s;
-                _send.Label.fontSize = (wideRibbon ? 20f : 16f) * s;
+                _send.Label.fontSize = (wideRibbon ? 22f : 16f) * s;
             }
             SetInputFont(_input, ChatFontSize() * s);
             SetInputFont(_keyInput, _theme.FontSmall * s);
@@ -1599,7 +1603,7 @@ namespace AICompanion.NewUI
         float ChatFontSize()
         {
             var settings = _settings != null ? _settings.CurrentSettings : null;
-            return settings != null && settings.ChatFontSize >= 10f ? settings.ChatFontSize : _theme.FontBody;
+            return settings != null && settings.ChatFontSize >= 10f ? settings.ChatFontSize : HappiTypeface.ChatSize;
         }
 
         /// <summary>
@@ -1649,7 +1653,11 @@ namespace AICompanion.NewUI
             if (_input != null && _input.placeholder is TMP_Text hint)
             {
                 if (font != null)
-                    hint.font = font;
+                {
+                    var bundled = string.Equals(family, HappiTypeface.Family, StringComparison.OrdinalIgnoreCase);
+                    hint.font = bundled ? HappiFonts.For(family, "Italic") : font;
+                    hint.fontStyle = bundled ? FontStyles.Normal : FontStyles.Italic;
+                }
                 hint.fontSize = size;
             }
             if (_keyInput != null && _keyInput.textComponent != null)

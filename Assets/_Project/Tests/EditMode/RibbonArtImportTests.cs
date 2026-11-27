@@ -1,5 +1,6 @@
 using System.IO;
 using AICompanion.NewUI;
+using AICompanion.Core;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -8,6 +9,20 @@ namespace AICompanion.Tests.EditMode
 {
     public sealed class RibbonArtImportTests
     {
+        [TestCase("Regular")]
+        [TestCase("Bold")]
+        [TestCase("Italic")]
+        [TestCase("ExtraBold Italic")]
+        public void HappiDefaultFaceLoadsFromTheBundle(string style)
+        {
+            Assert.That(HappiTypeface.Load(style), Is.Not.Null);
+            var face = HappiFonts.For(HappiTypeface.Family, style);
+
+            Assert.That(face, Is.Not.Null);
+            Assert.That(face.faceInfo.familyName, Is.EqualTo(HappiTypeface.Family));
+            Assert.That(face.HasCharacter('ä', tryAddCharacter: true), Is.True);
+        }
+
         [TestCase("Profile")]
         [TestCase("AI")]
         [TestCase("Settings")]

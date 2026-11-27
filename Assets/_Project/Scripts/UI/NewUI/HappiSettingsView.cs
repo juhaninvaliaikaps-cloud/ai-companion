@@ -2563,7 +2563,7 @@ namespace AICompanion.NewUI
 
         static IReadOnlyList<string> ChatFontFamilies()
         {
-            return new[] { "Segoe UI", "Georgia", "Trebuchet MS", "Consolas" };
+            return new[] { HappiTypeface.Family, "Segoe UI", "Georgia", "Trebuchet MS", "Consolas" };
         }
 
         static IReadOnlyList<string> ChatFontSizes()
