@@ -119,7 +119,12 @@ still needed; small samples are directional only.
 
 ```text
 TemperamentPairedPromptTests: 4 passed, 0 failed, 0 skipped
+Full EditMode run:            2169 passed, 1 failed, 2 skipped (2172 total)
 ```
+
+The one full-run failure is the existing
+`SpeechToTextTests.NativeLoad_ListsEditorAndPlayerPluginFolders` on this Windows
+batchmode run; it is unrelated to this change.
 
 The class pins the low/high manner words, the cached-voice NoStammer gap for
 Directness, the Curiosity negative control, and that every non-target axis stays
