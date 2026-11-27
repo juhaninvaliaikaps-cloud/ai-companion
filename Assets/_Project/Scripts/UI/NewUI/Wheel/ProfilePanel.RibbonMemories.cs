@@ -12,7 +12,7 @@ namespace AICompanion.NewUI.Wheel
         {
             var box = Begin();
             MemoryHeading("What she remembers about you", RibbonGlyph.Mark.Book, RibbonMenu.Cyan);
-            var actionWidth = OpenSettings == null ? 0f : 140f * _scale;
+            var actionWidth = OpenSettings == null ? 0f : 156f * _scale;
             var summaryWidth = TextWidth - (actionWidth > 0f ? actionWidth + Gap : 0f);
             var summary = CardText(_content, "Memory summary", _data.MemoriesSummary, Pad, _y,
                 summaryWidth, 26f * _scale, 13f, _theme.TextMuted);
@@ -61,7 +61,7 @@ namespace AICompanion.NewUI.Wheel
 
         void MemoryManageButton(float x, float width)
         {
-            var button = HappiUiKit.Button(_content, "Manage memories", "Manage memories", 13f * _scale, OpenSettings);
+            var button = HappiUiKit.Button(_content, "Manage memories", "Manage memories", 12f * _scale, OpenSettings);
             StyleRibbonButton(button);
             var hover = button.Button.GetComponent<HappiHoverText>();
             button.Label.color = hover.Normal = RibbonMint;
