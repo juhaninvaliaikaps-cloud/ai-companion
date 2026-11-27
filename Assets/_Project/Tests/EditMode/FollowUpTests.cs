@@ -481,6 +481,57 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void RibbonDockTracksChatEdgesWithAnOffsetWorkArea()
+        {
+            var area = new Rect(320f, 50f, 1200f, 710f);
+            var chat = new Rect(660f, 230f, 560f, 392f);
+            var size = new Vector2(240f, 270f);
+            var left = PortraitDocking.RibbonSide(chat, area, size, 12f, PortraitDocking.LeftOfBox);
+            var right = PortraitDocking.RibbonSide(chat, area, size, 12f, PortraitDocking.RightOfBox);
+            Assert.AreEqual(chat.xMin - 12f, left.xMax, 0.01f);
+            Assert.AreEqual(chat.xMax + 12f, right.xMin, 0.01f);
+            Assert.AreEqual(chat.center.y, left.center.y, 0.01f);
+            Assert.AreEqual(size, right.size);
+            Assert.AreEqual(left, PortraitDocking.RibbonTarget(left, right, chat, area, size, 12f));
+        }
+
+        [Test]
+        public void RibbonDockScalesIntoTheFreeStripAndCanFlipBack()
+        {
+            var area = new Rect(320f, 80f, 760f, 500f);
+            var chat = new Rect(400f, 120f, 500f, 392f);
+            var size = new Vector2(240f, 270f);
+            var left = PortraitDocking.RibbonSide(chat, area, size, 12f, PortraitDocking.LeftOfBox);
+            var right = PortraitDocking.RibbonSide(chat, area, size, 12f, PortraitDocking.RightOfBox);
+            Assert.AreEqual(168f, right.width, 0.01f);
+            Assert.AreEqual(size.x / size.y, right.width / right.height, 0.001f);
+            Assert.AreEqual(area.xMax, right.xMax, 0.01f);
+            Assert.IsFalse(right.Overlaps(chat));
+            Assert.AreEqual(right, PortraitDocking.RibbonTarget(left, right, chat, area, size, 12f));
+            Assert.AreEqual(left, PortraitDocking.RibbonTarget(left, right, chat, area, size, 12f, keepSide: true));
+            var larger = new Rect(60f, 80f, 1020f, 500f);
+            left = PortraitDocking.RibbonSide(chat, larger, size, 12f, PortraitDocking.LeftOfBox);
+            Assert.AreEqual(left, PortraitDocking.RibbonTarget(left, right, chat, larger, size, 12f));
+        }
+
+        [Test]
+        public void RibbonDockHasASeparateFallbackAndRejectsUnavailableDropZones()
+        {
+            var area = new Rect(100f, 80f, 560f, 600f);
+            var chat = new Rect(108f, 280f, 544f, 392f);
+            var size = new Vector2(240f, 270f);
+            var left = PortraitDocking.RibbonSide(chat, area, size, 12f, PortraitDocking.LeftOfBox);
+            var right = PortraitDocking.RibbonSide(chat, area, size, 12f, PortraitDocking.RightOfBox);
+            Assert.AreEqual(default(Rect), left);
+            Assert.AreEqual(default(Rect), right);
+            var fallback = PortraitDocking.RibbonTarget(left, right, chat, area, size, 12f);
+            Assert.AreEqual(chat.yMin - 12f, fallback.yMax, 0.01f);
+            Assert.IsFalse(fallback.Overlaps(chat));
+            Assert.AreEqual(PortraitDocking.Auto, PortraitDocking.NearestVisible(fallback, left, right, 1000f));
+            Assert.AreEqual(default(Rect), PortraitDocking.RibbonTarget(left, right, chat, chat, size, 12f));
+        }
+
+        [Test]
         public void PortraitClamp_KeepsItOnScreen()
         {
             var area = new Rect(0f, 0f, 1000f, 800f);

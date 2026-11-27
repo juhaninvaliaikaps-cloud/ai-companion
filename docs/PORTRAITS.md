@@ -6,6 +6,10 @@ Press **F9** to cycle the portrait expressions without a model reply and without
 
 **Settings → Avatar → Show expression portrait.** The switch is `showExpressionPortrait` in `settings.json`. The default is off. Empty pixels outside the frame still click through. The frame itself catches clicks so the desktop under the picture is not pressed by accident.
 
+## Ribbon chat docking
+
+With Ribbon chat open, the expression portrait automatically sits beside the chatbox. Drag the portrait to a highlighted side to save that dock, or drop it in a clear area for free placement. A side dock scales down when space is tight and can use the opposite side or a clear spot above or below chat. The preferred side returns when it fits. If the whole work area is needed for chat, the portrait returns when chat closes or space becomes available. Manual portrait sizes and positions are kept in Settings.
+
 ## Where the images go
 
 Do not put the pictures in the git repository. This repo is public. The player reads them from the same per-user folder as settings:

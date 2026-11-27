@@ -259,6 +259,53 @@ namespace AICompanion.NewUI
             return Auto;
         }
 
+        /// <summary>A Ribbon side dock that fits without moving its chat-facing edge.</summary>
+        public static Rect RibbonSide(Rect chat, Rect area, Vector2 size, float gap, int side)
+        {
+            var left = side == LeftOfBox;
+            var edge = left ? chat.xMin - gap : chat.xMax + gap;
+            var width = left ? edge - area.xMin : area.xMax - edge;
+            var fitted = RibbonSize(size, width, area.height);
+            if (fitted.x <= 0f)
+                return default;
+            return new Rect(left ? edge - fitted.x : edge,
+                Mathf.Clamp(chat.center.y - fitted.y * 0.5f, area.yMin, area.yMax - fitted.y),
+                fitted.x, fitted.y);
+        }
+
+        /// <summary>Keep the requested side when it fits. Use the other side when it has more room.</summary>
+        public static Rect RibbonTarget(Rect preferred, Rect other, Rect chat, Rect area, Vector2 size, float gap, bool keepSide = false)
+        {
+            if (preferred.width > 0f || other.width > 0f)
+                return (keepSide && preferred.width > 0f) || preferred.width + 0.5f >= other.width ? preferred : other;
+
+            var below = area.yMax - chat.yMax - gap;
+            var above = chat.yMin - area.yMin - gap;
+            var fitted = RibbonSize(size, area.width, Mathf.Max(below, above));
+            if (fitted.x <= 0f)
+                return default;
+            var x = Mathf.Clamp(chat.center.x - fitted.x * 0.5f, area.xMin, area.xMax - fitted.x);
+            return new Rect(x, below >= above ? chat.yMax + gap : chat.yMin - gap - fitted.y, fitted.x, fitted.y);
+        }
+
+        public static Vector2 RibbonSize(Vector2 size, float width, float height)
+        {
+            if (size.x <= 0f || size.y <= 0f)
+                return Vector2.zero;
+            var factor = Mathf.Min(1f, Mathf.Min(width / size.x, height / size.y));
+            var fitted = size * Mathf.Max(0f, factor);
+            return fitted.x >= PortraitResize.MinWidth && fitted.y >= PortraitResize.MinHeight ? fitted : Vector2.zero;
+        }
+
+        public static int NearestVisible(Rect dragged, Rect left, Rect right, float radius)
+        {
+            var toLeft = left.width > 0f ? Vector2.Distance(dragged.center, left.center) : float.PositiveInfinity;
+            var toRight = right.width > 0f ? Vector2.Distance(dragged.center, right.center) : float.PositiveInfinity;
+            if (toLeft <= radius && toLeft <= toRight)
+                return LeftOfBox;
+            return toRight <= radius ? RightOfBox : Auto;
+        }
+
         /// <summary>Keeps a top-left rectangle inside an area (also top-left based).</summary>
         public static Rect Clamp(Rect rect, Rect area)
         {

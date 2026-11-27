@@ -155,6 +155,8 @@ namespace AICompanion.NewUI
         Vector2 _boxCenter;
         float _boxMargin = 8f;
         Rect _visibleArea;
+        Vector2 _visibleScreenSize;
+        Vector2 _layoutWorkSize;
         float _visibleCheckAt = -1f;
         OverlayWindow _window;
         Wheel.HeadLocator _bodyLocator;
@@ -164,11 +166,12 @@ namespace AICompanion.NewUI
         bool _portraitDragPending;
         bool _portraitDragging;
         Vector2 _portraitDragOffset;
+        Vector2 _portraitDragSize;
         bool _portraitResizing;
         ResizeEdges _portraitResizeEdges;
         Rect _portraitResizeStart;
         Vector2 _portraitResizePointerStart;
-        Vector2 _portraitResizeSize;
+        Rect _portraitResizeRect;
         int _placedSnap = ChatSnapSpots.Default;
         float _roomBoxHeight;
 
@@ -226,7 +229,7 @@ namespace AICompanion.NewUI
             _settings = settings;
             _theme = RibbonMenu.Enabled ? new HappiTheme
             {
-                ChatBoxWidth = 560f,
+                ChatBoxWidth = ChatBoxResize.RibbonWidth,
                 PanelBackground = RibbonMenu.Ink,
                 PanelInset = new Color32(28, 31, 38, 255),
                 Border = new Color32(114, 238, 207, 255),
@@ -339,8 +342,11 @@ namespace AICompanion.NewUI
                     CloseChatMenu();
                 _wasVisible = false;
                 _dragging = false;
+                _dragPending = false;
                 _resizing = false;
                 _resizePending = ResizeEdges.None;
+                if (_snapMarkers.Count > 0 && _snapMarkers[0].gameObject.activeSelf)
+                    ShowSnapMarkers(false, default, 0f, ChatSnapSpots.Free, false);
                 _middleScrolling = false;
                 ClearPortraitHooks();
                 if (_picturePreview != null)
@@ -356,6 +362,7 @@ namespace AICompanion.NewUI
             }
 
             HappiUiKit.FollowCamera(_canvas, PlaneDistance);
+            RefreshVisibleArea();
             Layout();
             PlaceBox(settings);
             UpdatePersonaMenu();
@@ -447,12 +454,6 @@ namespace AICompanion.NewUI
         {
             if (_boxSize.x <= 0f)
                 return;
-            if (Time.unscaledTime >= _visibleCheckAt || _visibleArea.width <= 0f)
-            {
-                _visibleCheckAt = Time.unscaledTime + _theme.MonitorCheckSeconds;
-                _visibleArea = VisibleArea();
-            }
-
             // Where she is: the box lives beside (or under) her and follows her when she walks or is moved.
             HerBody body;
             if (!_bodyLocator.TryGetBody(Time.unscaledDeltaTime, out body))
@@ -478,13 +479,17 @@ namespace AICompanion.NewUI
                 _resizeSize = _boxSize;
             }
 
+            var resized = false;
             if (_resizing)
             {
                 if (!LeftHeld())
                 {
                     // Let go: save the size (100% units) and where it is, the same way a header drag does.
                     _resizing = false;
-                    var near = ChatSnapSpots.Nearest(_boxCenter, body, _boxSize, gap, _theme.ChatSnapRadius * scale, under, _visibleArea, _boxMargin);
+                    resized = true;
+                    var snapRadius = (_ribbonVoiceIcon != null ? 4f : _theme.ChatSnapRadius) * scale;
+                    var near = _placedSnap == ChatSnapSpots.Under && under ? ChatSnapSpots.Under
+                        : ChatSnapSpots.Nearest(_boxCenter, body, _boxSize, gap, snapRadius, under, _visibleArea, _boxMargin);
                     var placed = ChatSnapSpots.OffsetFor(_boxCenter, body, scale);
                     var widthUnits = ChatBoxResize.ToUnits(_resizeSize.x, scale);
                     var heightUnits = ChatBoxResize.ToUnits(_resizeSize.y, scale);
@@ -507,10 +512,11 @@ namespace AICompanion.NewUI
                         _visibleArea.yMin + _boxMargin,
                         Mathf.Max(0f, _visibleArea.width - 2f * _boxMargin),
                         Mathf.Max(0f, _visibleArea.height - 2f * _boxMargin));
-                    var min = new Vector2(ChatBoxResize.MinWidth * scale, MinBoxHeight(scale));
+                    var min = Vector2.Min(new Vector2(ChatBoxResize.MinWidth * scale, MinBoxHeight(scale)), bounds.size);
                     var rect = ChatBoxResize.Apply(_resizeStart, pointer - _resizePointerStart, _resizeEdges, min, bounds);
                     _resizeSize = rect.size;
                     _boxCenter = rect.center;
+                    Layout();
                 }
             }
 
@@ -518,12 +524,12 @@ namespace AICompanion.NewUI
             {
                 _dragPending = false;
                 _dragging = true;
-                _dragOffset = _boxCenter - pointer;
             }
 
             var snap = settings != null ? settings.ChatBoxSnap : ChatSnapSpots.Default;
             if (_dragging)
             {
+                _boxCenter = ChatBoxPlacement.Clamp(pointer + _dragOffset, _boxSize, _visibleArea, _boxMargin);
                 var near = ChatSnapSpots.Nearest(_boxCenter, body, _boxSize, gap, _theme.ChatSnapRadius * scale, under, _visibleArea, _boxMargin);
                 if (!LeftHeld())
                 {
@@ -541,12 +547,11 @@ namespace AICompanion.NewUI
                 }
                 else
                 {
-                    _boxCenter = ChatBoxPlacement.Clamp(pointer + _dragOffset, _boxSize, _visibleArea, _boxMargin);
                     ShowSnapMarkers(true, body, gap, near, under);
                 }
             }
 
-            if (!_dragging && !_resizing)
+            if (!_dragging && !_resizing && !resized)
             {
                 // A spot without room (she stands at a screen edge) flips to her other side; spot 5
                 // needs the 2D avatar and becomes spot 4 without it.
@@ -556,6 +561,8 @@ namespace AICompanion.NewUI
                 _boxCenter = ChatBoxPlacement.Clamp(ChatSnapSpots.Resolve(snap, offset, scale, body, _boxSize, gap, under), _boxSize, _visibleArea, _boxMargin);
             }
 
+            if (resized)
+                _placedSnap = ChatSnapSpots.Effective(snap, under);
             if ((_box.anchoredPosition - _boxCenter).sqrMagnitude > 0.01f)
                 _box.anchoredPosition = _boxCenter;
 
@@ -615,22 +622,23 @@ namespace AICompanion.NewUI
             var guiVisible = new Rect(_visibleArea.x, Screen.height - _visibleArea.yMax, _visibleArea.width, _visibleArea.height);
             var pointerGui = new Vector2(pointer.x, Screen.height - pointer.y);
             var headGui = new Vector2(body.Head.x, Screen.height - body.Head.y);
+            var ribbon = _ribbonVoiceIcon != null;
+            var chatRect = ExpressionPortraitPanel.NewUiAvoid;
+            var saved = settings != null ? settings.PortraitDock : PortraitDocking.Auto;
             var savedWidth = settings != null ? settings.PortraitWidthPx : 0f;
             var savedHeight = settings != null ? settings.PortraitHeightPx : 0f;
-            var normal = PortraitResize.Resolve(
-                savedWidth,
-                savedHeight,
-                new Vector2(PortraitPlacement.Width, PortraitPlacement.Height),
-                scale,
-                ExpressionPortraitPanel.NativeSize);
+            var native = ExpressionPortraitPanel.NativeSize;
+            var automaticHeight = saved == PortraitDocking.Free ? 288f * scale : _boxSize.y * 0.94f;
+            var automatic = ribbon
+                ? new Vector2(automaticHeight * native.x / Mathf.Max(1f, native.y), automaticHeight)
+                : new Vector2(PortraitPlacement.Width, PortraitPlacement.Height);
+            var normal = PortraitResize.Resolve(savedWidth, savedHeight, automatic, scale, native);
+            var left = PortraitDockSpot(chatRect, guiVisible, normal, gap, PortraitDocking.LeftOfBox, ribbon);
+            var right = PortraitDockSpot(chatRect, guiVisible, normal, gap, PortraitDocking.RightOfBox, ribbon);
+            ExpressionPortraitPanel.NewUiSuppressForChat = false;
 
-            var left = PortraitDocking.DockRect(_boxCenter, _boxSize, PortraitDocking.LeftOfBox, gap, Screen.height);
-            var right = PortraitDocking.DockRect(_boxCenter, _boxSize, PortraitDocking.RightOfBox, gap, Screen.height);
-            // JUH-139: keep the edge next to the box when the user resized the portrait.
-            left = PortraitDocking.Sized(left, normal, PortraitDocking.LeftOfBox);
-            right = PortraitDocking.Sized(right, normal, PortraitDocking.RightOfBox);
-
-            if (!_portraitResizing && shown.width > 0f && Input.GetMouseButtonDown(0))
+            if (!_portraitResizing && shown.width > 0f && Input.GetMouseButtonDown(0)
+                && (!ribbon || (!_dragging && !_resizing && !chatRect.Contains(pointerGui))))
             {
                 var edge = PortraitResize.EdgeAt(shown, pointerGui, scale);
                 if (edge != ResizeEdges.None)
@@ -639,7 +647,7 @@ namespace AICompanion.NewUI
                     _portraitResizeEdges = edge;
                     _portraitResizeStart = shown;
                     _portraitResizePointerStart = pointerGui;
-                    _portraitResizeSize = shown.size;
+                    _portraitResizeRect = shown;
                     _portraitDragPending = false;
                     _portraitDragging = false;
                 }
@@ -660,7 +668,12 @@ namespace AICompanion.NewUI
                         max,
                         guiVisible,
                         aspect);
-                    _portraitResizeSize = rect.size;
+                    if (ribbon)
+                    {
+                        rect.size = Vector2.Max(Vector2.one, Vector2.Min(rect.size, guiVisible.size));
+                        rect = PortraitDocking.Clamp(rect, guiVisible);
+                    }
+                    _portraitResizeRect = rect;
                     ExpressionPortraitPanel.NewUiTarget = rect;
                     PlacePortraitHandle(rect);
                     return;
@@ -672,11 +685,20 @@ namespace AICompanion.NewUI
                 {
                     _settings.SaveLayoutSetting(s =>
                     {
-                        s.PortraitWidthPx = PortraitResize.ToUnits(_portraitResizeSize.x, scale);
-                        s.PortraitHeightPx = PortraitResize.ToUnits(_portraitResizeSize.y, scale);
+                        s.PortraitWidthPx = PortraitResize.ToUnits(_portraitResizeRect.width, scale);
+                        s.PortraitHeightPx = PortraitResize.ToUnits(_portraitResizeRect.height, scale);
+                        if (ribbon && saved == PortraitDocking.Free)
+                        {
+                            var offset = (_portraitResizeRect.position - headGui) / scale;
+                            s.PortraitOffsetX = offset.x;
+                            s.PortraitOffsetY = offset.y;
+                        }
                     });
                 }
                 settings = _settings != null ? _settings.CurrentSettings : settings;
+                normal = _portraitResizeRect.size;
+                left = PortraitDockSpot(chatRect, guiVisible, normal, gap, PortraitDocking.LeftOfBox, ribbon);
+                right = PortraitDockSpot(chatRect, guiVisible, normal, gap, PortraitDocking.RightOfBox, ribbon);
             }
 
             if (_portraitDragPending)
@@ -685,18 +707,23 @@ namespace AICompanion.NewUI
                 if (shown.width > 0f)
                 {
                     _portraitDragging = true;
-                    // Keep the grab point at the same place on the picture.
-                    _portraitDragOffset = shown.position - pointerGui;
+                    _portraitDragSize = shown.size;
                 }
             }
 
             if (_portraitDragging)
             {
-                var dragged = new Rect(pointerGui + _portraitDragOffset, normal);
-                var near = PortraitDocking.Nearest(dragged, left, right, _theme.ChatSnapRadius * scale);
+                var dragged = new Rect(pointerGui + _portraitDragOffset, ribbon ? _portraitDragSize : normal);
+                if (ribbon)
+                    dragged.size = PortraitDocking.RibbonSize(dragged.size, guiVisible.width, guiVisible.height);
+                var clamped = PortraitDocking.Clamp(dragged, guiVisible);
+                var radius = _theme.ChatSnapRadius * scale;
+                var near = ribbon ? PortraitDocking.NearestVisible(clamped, left, right, radius)
+                    : PortraitDocking.Nearest(dragged, left, right, radius);
                 if (LeftHeld())
                 {
-                    ExpressionPortraitPanel.NewUiTarget = PortraitDocking.Clamp(dragged, guiVisible);
+                    ExpressionPortraitPanel.NewUiSuppressForChat = ribbon && clamped.width <= 0f;
+                    ExpressionPortraitPanel.NewUiTarget = clamped;
                     ShowPortraitMarkers(true, left, right, near);
                     PlacePortraitHandle(shown);
                     return;
@@ -705,42 +732,78 @@ namespace AICompanion.NewUI
                 _portraitDragging = false;
                 ShowPortraitMarkers(false, left, right, 0);
                 var dock = near != PortraitDocking.Auto ? near : PortraitDocking.Free;
-                var offset = (dragged.position - headGui) / Mathf.Max(0.01f, scale);
+                var offset = ((ribbon ? clamped.position : dragged.position) - headGui) / scale;
+                var keepSize = ribbon && dock == PortraitDocking.Free && savedWidth <= 0f && savedHeight <= 0f;
+                if (keepSize)
+                    normal = _portraitDragSize;
                 if (_settings != null)
                     _settings.SaveLayoutSetting(s =>
                     {
                         s.PortraitDock = dock;
                         s.PortraitOffsetX = offset.x;
                         s.PortraitOffsetY = offset.y;
+                        if (keepSize)
+                        {
+                            s.PortraitWidthPx = PortraitResize.ToUnits(normal.x, scale);
+                            s.PortraitHeightPx = PortraitResize.ToUnits(normal.y, scale);
+                        }
                     });
                 settings = _settings != null ? _settings.CurrentSettings : settings;
             }
 
-            var saved = settings != null ? settings.PortraitDock : PortraitDocking.Auto;
-            var target = new Rect(0f, 0f, 0f, 0f);
+            saved = settings != null ? settings.PortraitDock : PortraitDocking.Auto;
+            if (ribbon)
+            {
+                var leftPreferred = saved == PortraitDocking.LeftOfBox
+                    || (saved != PortraitDocking.RightOfBox && headGui.x <= chatRect.center.x);
+                var target = PortraitDocking.RibbonTarget(leftPreferred ? left : right, leftPreferred ? right : left,
+                    chatRect, guiVisible, normal, gap, saved == PortraitDocking.LeftOfBox || saved == PortraitDocking.RightOfBox);
+                if (saved == PortraitDocking.Free && settings != null)
+                {
+                    var fitted = PortraitDocking.RibbonSize(normal, guiVisible.width, guiVisible.height);
+                    var free = new Rect(headGui + new Vector2(settings.PortraitOffsetX, settings.PortraitOffsetY) * scale, fitted);
+                    free = PortraitDocking.Clamp(free, guiVisible);
+                    if (free.width > 0f && !PortraitPlacement.Overlaps(free, chatRect))
+                        target = free;
+                }
+
+                ExpressionPortraitPanel.NewUiTarget = target;
+                ExpressionPortraitPanel.NewUiSuppressForChat = target.width <= 0f;
+                PlacePortraitHandle(shown.width > 0f ? target : default);
+                return;
+            }
+
+            var targetLegacy = new Rect(0f, 0f, 0f, 0f);
             if (saved == PortraitDocking.LeftOfBox || saved == PortraitDocking.RightOfBox)
             {
                 var side = PortraitDocking.FitSide(saved, left, right, guiVisible.xMin, guiVisible.xMax);
-                target = side == PortraitDocking.LeftOfBox ? left : right;
+                targetLegacy = side == PortraitDocking.LeftOfBox ? left : right;
             }
             else if (saved == PortraitDocking.Free && settings != null)
             {
-                target = new Rect(headGui + new Vector2(settings.PortraitOffsetX, settings.PortraitOffsetY) * scale, normal);
+                targetLegacy = new Rect(headGui + new Vector2(settings.PortraitOffsetX, settings.PortraitOffsetY) * scale, normal);
             }
             else
             {
-                target = PortraitPlacement.Beside(headGui, Screen.width, Screen.height,
+                targetLegacy = PortraitPlacement.Beside(headGui, Screen.width, Screen.height,
                     ExpressionPortraitPanel.NewUiAvoid, PortraitPlacement.DebugLabel, ExpressionPortraitPanel.NewUiPreferLeft);
             }
 
-            if (target.width > 0f)
+            if (targetLegacy.width > 0f)
             {
-                target.size = normal;
-                target = PortraitDocking.Clamp(target, guiVisible);
+                targetLegacy.size = normal;
+                targetLegacy = PortraitDocking.Clamp(targetLegacy, guiVisible);
             }
 
-            ExpressionPortraitPanel.NewUiTarget = target.width > 0f ? target : new Rect(0f, 0f, 0f, 0f);
+            ExpressionPortraitPanel.NewUiTarget = targetLegacy.width > 0f ? targetLegacy : new Rect(0f, 0f, 0f, 0f);
             PlacePortraitHandle(shown);
+        }
+
+        Rect PortraitDockSpot(Rect chat, Rect area, Vector2 size, float gap, int side, bool ribbon)
+        {
+            if (ribbon)
+                return PortraitDocking.RibbonSide(chat, area, size, gap, side);
+            return PortraitDocking.Sized(PortraitDocking.DockRect(_boxCenter, _boxSize, side, gap, Screen.height), size, side);
         }
 
         /// <summary>An invisible handle over the portrait (in this canvas), so it can be pressed and dragged.</summary>
@@ -760,11 +823,12 @@ namespace AICompanion.NewUI
             for (var i = 0; i < _portraitMarkers.Count; i++)
             {
                 var marker = _portraitMarkers[i];
-                if (marker.gameObject.activeSelf != show)
-                    marker.gameObject.SetActive(show);
-                if (!show)
-                    continue;
                 var rect = i == 0 ? left : right;
+                var visible = show && rect.width > 0f;
+                if (marker.gameObject.activeSelf != visible)
+                    marker.gameObject.SetActive(visible);
+                if (!visible)
+                    continue;
                 marker.rectTransform.sizeDelta = rect.size;
                 marker.rectTransform.anchoredPosition = new Vector2(rect.x + rect.width * 0.5f, Screen.height - (rect.y + rect.height * 0.5f));
                 marker.color = active == i + 1 ? _theme.SnapMarkerActive : _theme.SnapMarker;
@@ -775,6 +839,10 @@ namespace AICompanion.NewUI
         {
             ExpressionPortraitPanel.NewUiAvoid = new Rect(0f, 0f, 0f, 0f);
             ExpressionPortraitPanel.NewUiPreferLeft = null;
+            ExpressionPortraitPanel.NewUiSuppressForChat = false;
+            if (_portraitHandle != null && _portraitHandle.gameObject.activeSelf)
+                PlacePortraitHandle(default);
+            ShowPortraitMarkers(false, default, default, PortraitDocking.Auto);
             ExpressionPortraitPanel.NewUiTarget = new Rect(0f, 0f, 0f, 0f);
             _portraitDragging = false;
             _portraitDragPending = false;
@@ -807,6 +875,16 @@ namespace AICompanion.NewUI
             // Small changes (rounding, DPI) are ignored, so the window is not resized over and over.
             if (ChatSnapSpots.BottomRoomChanged(_window.BottomRoom, below))
                 _window.SetBottomRoom(below);
+        }
+
+        void RefreshVisibleArea()
+        {
+            var screen = new Vector2(Screen.width, Screen.height);
+            if (screen == _visibleScreenSize && _visibleArea.width > 0f && Time.unscaledTime < _visibleCheckAt)
+                return;
+            _visibleScreenSize = screen;
+            _visibleCheckAt = Time.unscaledTime + _theme.MonitorCheckSeconds;
+            _visibleArea = VisibleArea();
         }
 
         Rect VisibleArea()
@@ -998,7 +1076,12 @@ namespace AICompanion.NewUI
             portraitHit.raycastTarget = true;
             _portraitHandle = portraitHandle.gameObject.AddComponent<HappiDragHandle>();
             _portraitHandle.Rect = portraitHandle;
-            _portraitHandle.Pressed = () => _portraitDragPending = true;
+            _portraitHandle.Pressed = () =>
+            {
+                var pointer = Pointer();
+                _portraitDragOffset = ExpressionPortraitPanel.ShownRect.position - new Vector2(pointer.x, Screen.height - pointer.y);
+                _portraitDragPending = true;
+            };
             portraitHandle.gameObject.SetActive(false);
 
             var boxImage = HappiUiKit.Panel(_canvasObject.transform, "HappiChat", _theme.PanelBackground, true);
@@ -1026,7 +1109,11 @@ namespace AICompanion.NewUI
             handleImage.raycastTarget = true;
             _dragHandle = handle.gameObject.AddComponent<HappiDragHandle>();
             _dragHandle.Rect = handle;
-            _dragHandle.Pressed = () => _dragPending = true;
+            _dragHandle.Pressed = () =>
+            {
+                _dragOffset = _boxCenter - Pointer();
+                _dragPending = true;
+            };
 
             _avatar = PersonaPictureCache.Frame(_box, "Avatar", _theme, out _avatarFrame);
             _avatarFrame.gameObject.SetActive(false);
@@ -1306,10 +1393,15 @@ namespace AICompanion.NewUI
             // JUH-127: the size the user dragged to (100% units, 0 for automatic), or the size being dragged now.
             var savedWidth = settings != null ? settings.ChatBoxWidthPx : 0f;
             var savedHeight = settings != null ? settings.ChatBoxHeightPx : 0f;
+            var workSize = ribbon && _visibleArea.width > 0f && _visibleArea.height > 0f
+                ? _visibleArea.size : new Vector2(Screen.width, Screen.height);
+            if (ribbon)
+                scale = ChatBoxResize.FitRibbonScale(scale, workSize, keyRow);
             var targetWidth = _resizing ? _resizeSize.x : savedWidth;
             var targetHeight = _resizing ? _resizeSize.y : savedHeight;
             if (Mathf.Approximately(_layoutWidth, Screen.width) && Mathf.Approximately(_layoutHeight, Screen.height)
                 && Mathf.Approximately(_layoutScale, scale) && Mathf.Approximately(_layoutChatHeight, chatHeight)
+                && _layoutWorkSize == workSize
                 && _layoutKeyRow == keyRow && _layoutPlayback == showPlayback && _layoutNote == showNote && _layoutMic == showMic
                 && Mathf.Approximately(_layoutBoxWidth, targetWidth) && Mathf.Approximately(_layoutBoxHeight, targetHeight))
                 return;
@@ -1317,6 +1409,7 @@ namespace AICompanion.NewUI
             _layoutWidth = Screen.width;
             _layoutHeight = Screen.height;
             _layoutScale = scale;
+            _layoutWorkSize = workSize;
             _layoutChatHeight = chatHeight;
             _layoutKeyRow = keyRow;
             _layoutPlayback = showPlayback;
@@ -1332,9 +1425,11 @@ namespace AICompanion.NewUI
             var gap = _theme.Spacing * s;
             var row = 26f * s;
             // Automatic: a fixed-width box (not the whole window), so it fits beside her.
-            var maxWidth = Screen.width - 2f * margin;
-            var maxHeight = Screen.height - 2f * margin;
-            var autoWidth = Mathf.Max(220f, Mathf.Min(_theme.ChatBoxWidth * s, maxWidth));
+            var maxWidth = Mathf.Max(1f, workSize.x - 2f * margin);
+            var maxHeight = Mathf.Max(1f, workSize.y - 2f * margin);
+            var autoWidth = Mathf.Min(_theme.ChatBoxWidth * s, maxWidth);
+            if (!ribbon)
+                autoWidth = Mathf.Max(220f, autoWidth);
             var collapsed = ChatBoxResize.AutomaticHeight(bodyHeight, s, chatHeight, ribbon);
             float width;
             float height;
@@ -1355,18 +1450,17 @@ namespace AICompanion.NewUI
                 }
                 else
                 {
-                    height = collapsed;
+                    height = ribbon ? ChatBoxResize.RibbonHeight(width, s, chatHeight) : collapsed;
                     if (keyRow)
                         height += row + gap;
-                    // The room under her (spot 5) follows the closed box.
-                    _roomBoxHeight = collapsed + (!_keySaved ? row + gap : 0f);
+                    _roomBoxHeight = Mathf.Min(height, maxHeight);
                 }
 
                 _roomBoxWidth = width;
             }
 
             var inner = width - 2f * pad;
-            height = Mathf.Min(height, Screen.height - 2f * margin);
+            height = Mathf.Min(height, maxHeight);
 
             _box.anchorMin = Vector2.zero;
             _box.anchorMax = Vector2.zero;
@@ -1374,7 +1468,6 @@ namespace AICompanion.NewUI
             _box.sizeDelta = new Vector2(width, height);
             _boxSize = new Vector2(width, height);
             _boxMargin = margin;
-            _visibleCheckAt = -1f;
 
             var minExpandedHeaderHeight = (keyRow ? 257f : 225f) * s
                 - (showPlayback ? 0f : row + gap) - (showNote ? 0f : 16f * s + gap * 0.5f);
