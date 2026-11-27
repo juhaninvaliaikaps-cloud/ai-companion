@@ -119,6 +119,23 @@ namespace AICompanion.Settings
             return UnityEngine.Random.Range(0, count);
         }
 
+        public void PlayRibbonReward(RibbonRewardSound reward)
+        {
+            var now = Time.unscaledTime;
+            if (reward == RibbonRewardSound.None || !Allowed() || _source == null || _source.isPlaying ||
+                ReactionSpeechLead.NeedsAnswer || ReactionSpeechLead.Blocks(now))
+                return;
+
+            var discovery = reward == RibbonRewardSound.Discovery;
+            var expression = discovery ? "surprised" : "smile";
+            var id = discovery ? "surprised_oh_1" : "smile_mm_1";
+            if (_catalog.TryFind(expression, id, out var chosen) && TryPlay(chosen))
+            {
+                _playingUntil = now + PlaybackSeconds(_clip, chosen);
+                Debug.Log("Ribbon reward voice: " + chosen.Id);
+            }
+        }
+
         bool Allowed()
         {
             if (!_pauseSearched)

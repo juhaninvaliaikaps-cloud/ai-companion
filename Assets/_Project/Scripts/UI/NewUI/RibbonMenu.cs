@@ -107,6 +107,8 @@ namespace AICompanion.NewUI
         bool _closeHighlighted;
         bool _leftWasHeld;
         int _hoveredDestination = -1;
+        RibbonAudio _audio;
+        RectTransform _soundedRow;
         RibbonFlyoutPress _destinationPress;
         readonly RibbonKeyboard _keyboard = new RibbonKeyboard();
         Vector2 _keyboardPointer;
@@ -122,6 +124,7 @@ namespace AICompanion.NewUI
 
         public void Attach(ChatPanel chat, SettingsPanel settings)
         {
+            _audio = GetComponent<RibbonAudio>();
             _chat = chat;
             _settings = settings;
             _settingsView = GetComponent<HappiSettingsView>();
@@ -240,6 +243,7 @@ namespace AICompanion.NewUI
                     if (_pendingSelection != null)
                         return;
                     _clickAccent.Play(button);
+                    _audio?.Activate();
                     _pendingSelection = action;
                     _selectionReadyAt = Time.unscaledTime + RibbonClickAccent.ReadableSeconds;
                 });
@@ -371,6 +375,7 @@ namespace AICompanion.NewUI
 
         void Close()
         {
+            _soundedRow = null;
             _pendingSelection = null;
             _clickAccent.Stop();
             EndKeyboard();
@@ -467,6 +472,7 @@ namespace AICompanion.NewUI
                 return;
             HighlightClose(_keyboard.Row == CloseRow);
             var row = _keyboard.Destination >= 0 ? _destinations[_keyboard.Destination] : _rows[_keyboard.Row];
+            SoundRow(row.Button.IsInteractable() ? row.Rect : null);
             if (_keyboardMark.parent != row.Rect)
             {
                 _keyboardMark.SetParent(row.Rect, false);
@@ -593,6 +599,10 @@ namespace AICompanion.NewUI
             }
 
             SetDestinationHover(destination);
+            if (destination >= 0 && _destinations[destination].Button.IsInteractable())
+                SoundRow(_destinations[destination].Rect);
+            else
+                SoundRow(pointerRow >= 0 && _rows[pointerRow].Button.IsInteractable() ? _rows[pointerRow].Rect : null);
             if (nativePointer)
             {
                 var clicked = _destinationPress.Update(destination, leftDown, leftUp);
@@ -661,6 +671,15 @@ namespace AICompanion.NewUI
         {
             SetDestinationHover(-1);
             _destinationPress.Clear();
+        }
+
+        void SoundRow(RectTransform row)
+        {
+            if (_soundedRow == row)
+                return;
+            _soundedRow = row;
+            if (row != null)
+                _audio?.Navigate();
         }
 
         void SetDestinationHover(int index)

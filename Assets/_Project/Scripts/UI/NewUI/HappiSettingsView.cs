@@ -1843,6 +1843,9 @@ namespace AICompanion.NewUI
             Section("Reaction effects");
             Toggle("Show reaction effects", S.ShowRelationshipFeedback, v => Change(s => s.ShowRelationshipFeedback = v));
             Note("Shows a heart when affection changes. Her life controls whether the relationship itself changes.");
+            if (RibbonMenu.Enabled)
+                Slider(v => "UI sound volume " + Mathf.RoundToInt(v * 100f) + "%", S.RibbonSoundVolume, 0f, 1f, false,
+                    v => P.Change(s => s.RibbonSoundVolume = v));
         }
 
         /// <summary>JUH-182: Chat → Text and box.</summary>

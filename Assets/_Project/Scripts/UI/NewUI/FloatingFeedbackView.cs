@@ -66,6 +66,9 @@ namespace AICompanion.NewUI
         SettingsPanel _settings;
         ChatPanel _chat;
         HappiChatView _chatView;
+        RibbonAudio _audio;
+        RibbonRewardSound _rewardSound;
+        RibbonRewardSound _adultRewardSound;
         Wheel.HeadLocator _head;
         readonly RelationshipFeedback _feedback = new RelationshipFeedback(RibbonMenu.Enabled);
         readonly List<RelationshipNotice> _pending = new List<RelationshipNotice>(4);
@@ -82,6 +85,7 @@ namespace AICompanion.NewUI
             _settings = settings;
             _chat = GetComponent<ChatPanel>();
             _chatView = GetComponent<HappiChatView>();
+            _audio = GetComponent<RibbonAudio>();
             _head = new Wheel.HeadLocator(gameObject);
             _attached = true;
             if (_canvasObject == null)
@@ -93,6 +97,8 @@ namespace AICompanion.NewUI
         public void Detach()
         {
             _attached = false;
+            _rewardSound = RibbonRewardSound.None;
+            _adultRewardSound = RibbonRewardSound.None;
             Subscribe(false);
             _feedback.Clear();
             _pending.Clear();
@@ -108,6 +114,8 @@ namespace AICompanion.NewUI
 
         void OnDisable()
         {
+            _rewardSound = RibbonRewardSound.None;
+            _adultRewardSound = RibbonRewardSound.None;
             Subscribe(false);
             _feedback.Clear();
             _pending.Clear();
@@ -202,6 +210,17 @@ namespace AICompanion.NewUI
             {
                 Debug.Log("Relationship feedback: " + DescribeNewest(added));
                 CopyToChat(added);
+                if (_audio != null)
+                {
+                    for (var i = _feedback.Count - added; i < _feedback.Count; i++)
+                    {
+                        var piece = _feedback.Piece(i);
+                        if (piece.Adult)
+                            _adultRewardSound = RibbonSound.Include(_adultRewardSound, piece.Kind);
+                        else
+                            _rewardSound = RibbonSound.Include(_rewardSound, piece.Kind);
+                    }
+                }
             }
         }
 
@@ -213,6 +232,8 @@ namespace AICompanion.NewUI
                 return;
             _persona = persona;
             _private = isPrivate;
+            _rewardSound = RibbonRewardSound.None;
+            _adultRewardSound = RibbonRewardSound.None;
             _feedback.Clear();
             _pending.Clear();
         }
@@ -256,6 +277,13 @@ namespace AICompanion.NewUI
                     _feedback.DropAdult();
             }
             _feedback.Tick(now);
+
+            var rewardSound = IntimateExpressions.Active && _adultRewardSound > _rewardSound
+                ? _adultRewardSound : _rewardSound;
+            _rewardSound = RibbonRewardSound.None;
+            _adultRewardSound = RibbonRewardSound.None;
+            if (Enabled && rewardSound != RibbonRewardSound.None)
+                _audio?.Reward(rewardSound);
 
             if (_feedback.Count == 0)
             {

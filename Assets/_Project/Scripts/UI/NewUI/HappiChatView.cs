@@ -2305,6 +2305,8 @@ namespace AICompanion.NewUI
         {
             _ribbonSendAccent?.Play(_send);
             _ribbonSendFlourish?.PlaySend();
+            if (TryGetComponent<RibbonAudio>(out var audio))
+                audio.Send();
         }
 
         /// <summary>
