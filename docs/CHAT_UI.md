@@ -86,3 +86,6 @@ A missing key, a rejected request, or a model the key cannot use shows as a **No
 3. The panel is to her left, with empty space between the panel and her body. Click the panel or press **F10** so the window comes forward, then type and press **Enter**. The reply streams. Speech is in [VOICE.md](VOICE.md).
 4. **Esc** or **Stop** cancels. **F10** hides the panel without ending the overlay. Empty pixels still click through to the desktop. Drag the window from her or from the top-left label, not from the panel.
 5. Leave the field, wait a few seconds with the pointer outside the window, and the frame rate drops toward 15. Click the field or send another message and it returns to about 60 for the typing or the stream.
+## Expressions within a spoken line
+
+In Ribbon chat, the model can put up to two face-only cues within a reply. A cue such as `<animation portrait_beat="surprised" />` changes the drawn 2D expression at the following phrase. The words remain one line and the cues are omitted from speech and chat history. The portrait follows actual clip progress with an estimated word position. Muted replies use reading pace. Nearby cues are spaced so each face has time to settle. The main animation cue still handles body movement, mood, and relationship signals.

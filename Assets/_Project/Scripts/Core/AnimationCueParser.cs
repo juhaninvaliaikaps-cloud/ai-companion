@@ -119,6 +119,37 @@ namespace AICompanion.Core
             return Scan(reply ?? string.Empty, false);
         }
 
+        /// <summary>A face beat is stripped from dialogue but never counts as a reply-wide cue.</summary>
+        public static bool TryReadFaceBeat(string tag, out string expression)
+        {
+            expression = null;
+            return TryReadTag(tag ?? string.Empty, 0, out _, out var body, out var closed) && closed &&
+                ReadFaceBeat(body, out expression);
+        }
+
+        static bool ReadFaceBeat(string body, out string expression)
+        {
+            expression = null;
+            const string attribute = "portrait_beat";
+            if (body.IndexOf(attribute, StringComparison.OrdinalIgnoreCase) < 0)
+                return false;
+            foreach (Match match in AttributePattern.Matches(body))
+            {
+                if (!string.Equals(match.Groups[1].Value, attribute, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var value = (match.Groups[2].Success ? match.Groups[2].Value :
+                    match.Groups[3].Success ? match.Groups[3].Value : match.Groups[4].Value).Trim();
+                if (IsCueToken(value) && char.IsLetter(value[0]) && !IntimateExpressions.IsIntimateId(value) &&
+                    EmotionNames.TryParse(value, out var emotion))
+                {
+                    var alias = EmotionNames.PortraitAlias(value);
+                    expression = alias.Length > 0 ? alias : emotion.ToString().ToLowerInvariant();
+                }
+                return true;
+            }
+            return false;
+        }
+
         /// <summary>
         /// The part of a still-streaming reply that is safe to show and speak.
         /// A finished cue tag is already removed. A suffix that could still grow
@@ -259,6 +290,11 @@ namespace AICompanion.Core
                 removed = true;
                 if (closed)
                 {
+                    if (ReadFaceBeat(body, out _))
+                    {
+                        i = SkipTag(slice, builder, i, end);
+                        continue;
+                    }
                     AnimationCue parsed;
                     var raw = RawTagText(slice, i, end);
                     if (TryReadCue(body, out parsed))

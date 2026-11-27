@@ -103,8 +103,12 @@ namespace AICompanion.Settings
         PortraitPreview _preview;
         bool _shown;
         bool _logged;
+        string _dialogueExpression;
 
         public bool RibbonCutouts { get; set; }
+
+        /// <summary>A temporary face override for a spoken clause. Body animation and mood keep their own cues.</summary>
+        public void SetDialogueExpression(string expression) => _dialogueExpression = expression;
 
         public Rect InteractiveRect
         {
@@ -197,6 +201,9 @@ namespace AICompanion.Settings
             {
                 emotion = PortraitHold.ResolveUtterance(live, ref _heldExpression, uttered, delta, ref _quietFor);
             }
+            var reactionExpression = emotion;
+            if (!_preview.Active && _dialogueExpression != null)
+                emotion = _dialogueExpression;
 
             var view = _director.Tick(
                 delta,
@@ -235,7 +242,7 @@ namespace AICompanion.Settings
             _loggedReason = PortraitHideReason.None;
             _shown = true;
             string reaction;
-            if (_portraitVoice.TryChange(emotion, out reaction))
+            if (_portraitVoice.TryChange(reactionExpression, out reaction))
                 ReactionVoiceRequests.Offer(reaction, ReactionVoiceCause.Portrait);
             if (_canvasObject != null && !_canvasObject.activeSelf)
                 _canvasObject.SetActive(true);
