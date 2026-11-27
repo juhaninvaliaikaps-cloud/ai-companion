@@ -63,7 +63,11 @@ namespace AICompanion.NewUI
             settingsView.Attach(settings, chat);
 
             if (RibbonMenu.Enabled)
+            {
                 gameObject.AddComponent<RibbonMenu>().Attach(chat, settings);
+                if (TryGetComponent<ExpressionPortraitPanel>(out var portrait))
+                    portrait.RibbonCutouts = true;
+            }
 
             // JUH-150: the Persona Studio window, opened from the Persona tab.
             var studio = GetComponent<PersonaStudioView>();
@@ -86,6 +90,9 @@ namespace AICompanion.NewUI
 
         void TurnOff()
         {
+            if (TryGetComponent<ExpressionPortraitPanel>(out var portrait))
+                portrait.RibbonCutouts = false;
+
             var ribbon = GetComponent<RibbonMenu>();
             if (ribbon != null)
                 Destroy(ribbon);

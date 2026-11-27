@@ -29,7 +29,7 @@ are shared and unchanged. Section 9 lists what is new.
 | P-04 | Model badge (active provider/model, green local, amber cloud) | `UI/ChatPanel.cs` `RefreshModelBadge` | always while chat canvas exists | new chat view header (PR C) |
 | P-05 | Settings panel with 8 tabs | `Settings/SettingsPanel.cs` `BuildChrome`, `RebuildBody`, `Open`, `Close`, `Place` | F12, tray "Settings" | new settings view (PR E) |
 | P-06 | First-run setup wizard (5 steps) | `Settings/SetupWizard.cs` `Show`, `Hide`, `BuildChrome`, `RebuildBody`; flow in `Settings/SetupWizardLogic.cs` | first launch without settings/key, `--setup`, Settings → Privacy → "Run setup again" | old wizard (PR E if time) |
-| P-07 | Expression portrait panel | `Settings/ExpressionPortraitPanel.cs` `EnsureUi`, `Refresh`, `Place`, `Apply` | Settings → Avatar → "Show expression portrait" | unchanged (shared) |
+| P-07 | Expression portrait panel | `Settings/ExpressionPortraitPanel.cs` `EnsureUi`, `Refresh`, `Place`, `Apply` | Settings → Appearance → 3D model → "Show expression portrait" | Ribbon mode shows transparent regular portraits with a mint angled base. Opaque portrait packs keep the framed style. |
 | P-08 | Screen-look exact-frame viewer | `Settings/SettingsPanel.Screen.cs` `BuildExactFrame`, `OpenExactFrame`, `CloseExactFrame` | Settings → Screen → "Inspect exact frame" | old panel (linked from new settings) |
 | P-09 | Mood readout | `Settings/CompanionMoodKeeper.cs` `OnGUI` | Settings → Developer → "Show mood readout"; top-left, below the debug text when that is shown | unchanged (shared) |
 | P-10 | System tray icon and menu | `Overlay/CompanionTray.cs`, `Overlay/WindowsTrayHost.cs`, `Overlay/TrayMenuState.cs` `Build` | right-click tray icon | unchanged (shared) |
