@@ -69,7 +69,7 @@ namespace AICompanion.Tests.EditMode
         [Test]
         public void LabelKeepsTheExistingHintAndNamesTheStep()
         {
-            Assert.AreEqual("Curiosity 4 - 0 reacts, 100 asks",
+            Assert.AreEqual("Curiosity 4/10 · reacts → asks",
                 TemperamentSteps.Label(TemperamentAxes.Curiosity, 4));
         }
     }

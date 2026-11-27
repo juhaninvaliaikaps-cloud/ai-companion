@@ -587,7 +587,7 @@ namespace AICompanion.NewUI
             }
 
             Section("Custom temperament");
-            Note("1 is low and 10 is high. Moving a slider overrides Auto and the presets; a saved value keeps its precision until you move its slider.");
+            Note("Moving a slider overrides Auto and the presets.");
             var editing = (view.Axes ?? TemperamentAxes.Neutral()).Clone();
             for (var axis = 0; axis < TemperamentAxes.Count; axis++)
             {

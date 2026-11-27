@@ -45,7 +45,8 @@ namespace AICompanion.Core
             if (axis < 0 || axis >= TemperamentAxes.Count)
                 return string.Empty;
             var bounded = Math.Min(Max, Math.Max(Min, step));
-            return TemperamentAxes.Names[axis] + " " + bounded + " - " + TemperamentAxes.Hints[axis];
+            ProfilePersonality.SliderEnds(axis, out var low, out var high);
+            return $"{TemperamentAxes.Names[axis]} {bounded}/10 · {low} → {high}";
         }
 
         static float Finite(float stored)
