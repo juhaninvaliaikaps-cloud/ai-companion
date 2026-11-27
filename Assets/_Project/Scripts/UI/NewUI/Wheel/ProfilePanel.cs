@@ -500,7 +500,7 @@ namespace AICompanion.NewUI.Wheel
                         var scale = new RibbonTemperamentScale(_content, _theme, TextWidth, _scale, axis => p.Sliders[axis]);
                         HappiUiKit.Place(scale.Root, Pad, _y, TextWidth, scale.Height);
                         _y += scale.Height + Gap;
-                        Paragraph(PersonaManner.CuriosityHelp, true);
+                        Paragraph(PersonaManner.ConversationStyleHelp, true);
                     }
                     else
                         Radar(p.Axes);
@@ -545,7 +545,7 @@ namespace AICompanion.NewUI.Wheel
                     FillBar(value / 100f, _theme.Hover);
                 }
 
-                Paragraph("Each runs from 0 to 100. " + PersonaManner.CuriosityHelp + " Set it in Settings → Her → Personality.", true);
+                Paragraph("Each runs from 0 to 100. " + PersonaManner.ConversationStyleHelp + " Set it in Settings → Her → Personality.", true);
             }
             else if (p.HasReading)
             {

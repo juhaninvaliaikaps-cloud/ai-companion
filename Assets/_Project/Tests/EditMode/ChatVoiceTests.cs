@@ -128,7 +128,7 @@ namespace AICompanion.Tests.EditMode
             {
                 var chat = host.AddComponent<ChatPanel>();
                 var prompt = typeof(ChatPanel).GetMethod("PersonaPrompt", BindingFlags.Instance | BindingFlags.NonPublic);
-                string Build(bool ordinaryChat) => (string)prompt.Invoke(chat, new object[] { ordinaryChat });
+                string Build(bool ordinaryChat) => (string)prompt.Invoke(chat, new object[] { ordinaryChat, false });
                 var axes = TemperamentAxes.Neutral();
                 axes.Set(TemperamentAxes.Curiosity, 100);
                 PersonaMannerNow.Set(axes);
@@ -145,6 +145,51 @@ namespace AICompanion.Tests.EditMode
                 StringAssert.DoesNotContain("one specific follow-up", Build(true));
                 PersonaMannerNow.Reset();
                 StringAssert.DoesNotContain("Conversation curiosity:", Build(true));
+            }
+            finally
+            {
+                PersonaMannerNow.Reset();
+                VoiceNow.Reset();
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void CurrentInitiativeAndDirectnessReachOnlyOrdinaryChat(bool cachedVoice)
+        {
+            var host = new GameObject("Chat style prompt test");
+            host.SetActive(false);
+            try
+            {
+                var chat = host.AddComponent<ChatPanel>();
+                var prompt = typeof(ChatPanel).GetMethod("PersonaPrompt", BindingFlags.Instance | BindingFlags.NonPublic);
+                string Build(bool ordinary, bool interaction = false) =>
+                    (string)prompt.Invoke(chat, new object[] { ordinary, interaction });
+                VoiceNow.Set(cachedVoice ? "Fixed voice calibration." : string.Empty, null, null);
+                var axes = TemperamentAxes.Neutral();
+                PersonaMannerNow.Set(axes);
+                var neutral = Build(true);
+                StringAssert.DoesNotContain("Initiative:", neutral);
+                StringAssert.DoesNotContain("Directness:", neutral);
+                axes.Set(TemperamentAxes.Assertiveness, TemperamentSteps.ValueForStep(9));
+                axes.Set(TemperamentAxes.Directness, TemperamentSteps.ValueForStep(2));
+                PersonaMannerNow.Set(axes);
+                var first = Build(true);
+                StringAssert.Contains("propose one specific action to try now", first);
+                StringAssert.Contains("Start with a relevant observation", first);
+                if (cachedVoice)
+                    StringAssert.Contains("Fixed voice calibration.\n\nInitiative:", first);
+                StringAssert.DoesNotContain("Initiative:", Build(false));
+                StringAssert.DoesNotContain("Directness:", Build(true, interaction: true));
+
+                axes.Set(TemperamentAxes.Assertiveness, TemperamentSteps.ValueForStep(2));
+                axes.Set(TemperamentAxes.Directness, TemperamentSteps.ValueForStep(9));
+                PersonaMannerNow.Set(axes);
+                var second = Build(true);
+                StringAssert.Contains("Leave the next move with the user", second);
+                StringAssert.Contains("State your take plainly in the first sentence", second);
+                StringAssert.DoesNotContain("propose one specific action to try now", second);
             }
             finally
             {

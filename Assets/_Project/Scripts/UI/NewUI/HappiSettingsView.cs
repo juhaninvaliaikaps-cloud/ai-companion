@@ -830,7 +830,7 @@ namespace AICompanion.NewUI
 
             Section("Custom temperament");
             Note(RibbonMenu.Enabled ? "Choose a step to override Auto or the current preset." : "Moving a slider overrides Auto and the presets.");
-            Note(PersonaManner.CuriosityHelp);
+            Note(PersonaManner.ConversationStyleHelp);
             var editing = (view.Axes ?? TemperamentAxes.Neutral()).Clone();
             void ChooseStep(int axis, int step)
             {

@@ -16,13 +16,36 @@ namespace AICompanion.Core
         public const int High = 70;
         public const int Low = 30;
 
-        // Indexed by TemperamentAxes. Curiosity guides conversation separately.
+        // Indexed by TemperamentAxes. The live conversation guidance works alongside this description.
         static readonly string[] HighWords = { "warm", "quick to react", "takes the lead", "teasing", "open about her feelings", "animated", "says what she means", "self-assured", null };
         static readonly string[] LowWords = { "cool and distant", "steady and hard to rattle", "lets others lead", "serious", "guarded about her feelings", "quiet", "speaks in hints", "insecure", null };
 
         public const string KeepIt = "Keep to this in every scene, romantic and intimate ones included: a mood, a blush or a guarded moment colours it but does not replace it.";
         public const string NotTimid = "Being flustered, guarded or aroused never makes her timid or tongue-tied; she stays sure of herself and acts on what she wants.";
-        public const string CuriosityHelp = "Curiosity guides follow-up questions in chat. Low lets you lead. High invites her to ask about a detail you shared.";
+        public const string ConversationStyleHelp = "Assertiveness guides who leads. Directness guides how plainly she speaks. Curiosity guides follow-up questions.";
+
+        const string LowAssertiveness = "Initiative: Leave the next move with the user. If asked for ideas, present choices without taking charge of a plan. Acknowledge a choice they have already made.";
+        const string HighAssertiveness = "Initiative: When the user invites help moving forward, propose one specific action to try now. Say what it is in a statement they can accept or decline. Offer the action itself instead of asking whether they want suggestions. Follow their lead if they have chosen or are closing the topic.";
+        const string LowDirectness = "Directness: Start with a relevant observation or condition before stating your take. Use a gentle, natural lead-in. Give a clear answer if the user explicitly asks for one.";
+        const string HighDirectness = "Directness: State your take plainly in the first sentence, then give a short reason. If the answer depends on a missing fact, state that dependency plainly.";
+
+        public static string ConversationLine(TemperamentAxes axes)
+        {
+            if (axes == null)
+                return string.Empty;
+            var initiative = AtEnds(axes.Value(TemperamentAxes.Assertiveness), LowAssertiveness, HighAssertiveness);
+            var directness = AtEnds(axes.Value(TemperamentAxes.Directness), LowDirectness, HighDirectness);
+            var curiosity = CuriosityLine(axes);
+            var line = new StringBuilder();
+            if (initiative.Length > 0)
+                line.AppendLine(initiative);
+            if (directness.Length > 0)
+                line.AppendLine(directness);
+            line.Append(curiosity);
+            return line.ToString().TrimEnd();
+        }
+
+        static string AtEnds(float value, string low, string high) => value <= Low ? low : value >= High ? high : string.Empty;
 
         public static string CuriosityLine(TemperamentAxes axes)
         {
@@ -76,7 +99,7 @@ namespace AICompanion.Core
     public static class PersonaMannerNow
     {
         static string _line = string.Empty;
-        static string _curiosity = string.Empty;
+        static string _conversation = string.Empty;
 
         public static string PromptLine
         {
@@ -86,7 +109,7 @@ namespace AICompanion.Core
         public static void Set(TemperamentAxes axes)
         {
             _line = PersonaManner.Line(axes);
-            _curiosity = PersonaManner.CuriosityLine(axes);
+            _conversation = PersonaManner.ConversationLine(axes);
         }
 
         /// <summary>The prompt with her manner after it, or unchanged when there is none.</summary>
@@ -101,14 +124,14 @@ namespace AICompanion.Core
         public static void Reset()
         {
             _line = string.Empty;
-            _curiosity = string.Empty;
+            _conversation = string.Empty;
         }
 
-        public static string AppendCuriosity(string prompt)
+        public static string AppendConversation(string prompt)
         {
-            if (_curiosity.Length == 0)
+            if (_conversation.Length == 0)
                 return prompt;
-            return string.IsNullOrEmpty(prompt) ? _curiosity : prompt + "\n\n" + _curiosity;
+            return string.IsNullOrEmpty(prompt) ? _conversation : prompt + "\n\n" + _conversation;
         }
     }
 }

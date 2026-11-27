@@ -52,7 +52,7 @@ namespace AICompanion.UI
         /// <paramref name="chatMessage"/> is true for a typed or spoken message; the first scene
         /// is only added there, and only when the conversation has no earlier lines.
         /// </summary>
-        string PersonaPrompt(bool chatMessage)
+        string PersonaPrompt(bool chatMessage, bool interaction = false)
         {
             var prompt = CompanionMoodPrompt.AppendCurrent(settings != null ? settings.systemPrompt : string.Empty);
             // JUH-171: how she carries herself, from her temperament sliders, so a mood or the
@@ -74,10 +74,10 @@ namespace AICompanion.UI
             // JUH-150: the persona's 18+ notes; empty while the gate is closed.
             prompt = AdultNotesNow.Append(prompt);
             prompt = WorldPromptNow.Append(prompt, chatMessage && ConversationIsEmpty());
-            // The voice block explains how she talks. Live curiosity follows it for ordinary
-            // conversation only, so changing the slider takes effect with a cached voice reading.
+            // The voice block explains how she talks. Current conversation guidance follows it
+            // so slider edits take effect on ordinary chat even with a cached voice reading.
             prompt = VoiceNow.Append(prompt);
-            return chatMessage ? PersonaMannerNow.AppendCuriosity(prompt) : prompt;
+            return chatMessage && !interaction ? PersonaMannerNow.AppendConversation(prompt) : prompt;
         }
 
         bool ConversationIsEmpty()
