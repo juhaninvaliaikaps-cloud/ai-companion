@@ -97,6 +97,26 @@ namespace AICompanion.NewUI
                     TraitPath(mesh, 8.4f, 8.2f, 15.5f, 15.5f, 17, 14);
                     TraitPath(mesh, 13.2f, 13.2f, 15, 11.4f);
                     break;
+                case Mark.Compass:
+                    ProfileRing(mesh, 9, 9, 7.5f);
+                    TraitPath(mesh, 5, 13, 7.2f, 7.2f, 13, 5, 10.8f, 10.8f, 5, 13);
+                    break;
+                case Mark.Calendar:
+                    Box(mesh, 0.12f, 0.15f, 0.88f, 0.76f);
+                    TraitPath(mesh, 2.2f, 8, 15.8f, 8);
+                    TraitPath(mesh, 5.5f, 2, 5.5f, 6);
+                    TraitPath(mesh, 12.5f, 2, 12.5f, 6);
+                    TraitPath(mesh, 5.2f, 11.8f, 6.1f, 11.8f);
+                    TraitPath(mesh, 9, 11.8f, 9.9f, 11.8f);
+                    TraitPath(mesh, 12.8f, 11.8f, 13.7f, 11.8f);
+                    break;
+                case Mark.Book:
+                    TraitPath(mesh, 9, 5, 6, 3.3f, 1.8f, 3.7f, 1.8f, 13.2f, 6, 12.8f, 9, 14.5f,
+                        12, 12.8f, 16.2f, 13.2f, 16.2f, 3.7f, 12, 3.3f, 9, 5, 9, 14.5f);
+                    break;
+                case Mark.HollowDot:
+                    ProfileRing(mesh, 9, 9, 5f);
+                    break;
                 case Mark.Spark:
                     TraitPath(mesh, 9, 1, 10.8f, 6.9f, 17, 9, 10.8f, 11, 9, 17, 7.2f, 11, 1, 9, 7.2f, 7, 9, 1);
                     break;

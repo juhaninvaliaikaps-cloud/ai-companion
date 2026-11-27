@@ -774,6 +774,12 @@ namespace AICompanion.NewUI.Wheel
                 return;
             }
 
+            if (_ribbon)
+            {
+                BuildRibbonWorld(w);
+                return;
+            }
+
             if (w.RightNow.Length > 0)
             {
                 var box = Begin();
@@ -782,13 +788,13 @@ namespace AICompanion.NewUI.Wheel
                 End(box);
             }
 
-            if (w.Waiting.Count > 0 || (!_ribbon && w.WhileAway.Count > 0))
+            if (w.Waiting.Count > 0 || w.WhileAway.Count > 0)
             {
                 var box = Begin();
-                Heading(_ribbon ? "Open threads" : "Things she is waiting for");
+                Heading("Things she is waiting for");
                 for (var i = 0; i < w.Waiting.Count; i++)
                     Paragraph("• " + w.Waiting[i], false);
-                if (!_ribbon && w.WhileAway.Count > 0)
+                if (w.WhileAway.Count > 0)
                 {
                     SubHeading("While you were away");
                     for (var i = 0; i < w.WhileAway.Count; i++)
@@ -798,19 +804,10 @@ namespace AICompanion.NewUI.Wheel
                 End(box);
             }
 
-            if (_ribbon && w.WhileAway.Count > 0)
-            {
-                var box = Begin();
-                Heading("While you were away");
-                for (var i = 0; i < w.WhileAway.Count; i++)
-                    Paragraph(w.WhileAway[i].When + ": " + w.WhileAway[i].Text, false);
-                End(box);
-            }
-
             if (w.Week.Count > 0)
             {
                 var box = Begin();
-                Heading(_ribbon ? "Recent days" : "Her last days");
+                Heading("Her last days");
                 for (var i = 0; i < w.Week.Count; i++)
                     Paragraph(w.Week[i].When + ": " + w.Week[i].Text, false);
                 End(box);
@@ -824,11 +821,7 @@ namespace AICompanion.NewUI.Wheel
                 for (var i = 0; i < shown; i++)
                     Paragraph("• " + w.Backstory[i], false);
                 if (w.Backstory.Count > MaxBackstoryCollapsed)
-                    Button(_allBackstory ? "Show fewer" : "Show all " + w.Backstory.Count, () =>
-                    {
-                        _allBackstory = !_allBackstory;
-                        Rebuild(_ribbon ? _content.anchoredPosition.y : 0f);
-                    });
+                    Button(_allBackstory ? "Show fewer" : "Show all " + w.Backstory.Count, ToggleBackstory);
                 End(box);
             }
         }

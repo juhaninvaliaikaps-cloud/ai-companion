@@ -15,7 +15,8 @@ namespace AICompanion.NewUI
             Minimize, ChevronUp, Check, ChevronDown, Warmth, Volatility, Assertiveness, Playfulness, Openness,
             Energy, Directness, Confidence, Curiosity,
             MoodContent, MoodHappy, MoodFlustered, MoodAnnoyed, MoodSad, MoodAnxious, MoodSleepy, MoodIntimate,
-            Heart, Link, People, Activity, Rise, Fall, Key, CrackedHeart, Spark
+            Heart, Link, People, Activity, Rise, Fall, Key, CrackedHeart, Spark,
+            Compass, Calendar, Book, HollowDot
         }
 
         internal static Mark TemperamentMark(int axis) => axis switch
