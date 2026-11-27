@@ -158,6 +158,17 @@ dedicated characterization class. It pins the 1–10→0–100 mapping, the 5/6
 middle pair, the mood fingerprints at 1/5/10, the manner 7→8 threshold, the
 voice prompt values, GameVoice's coarse thresholds, and the persona round trip.
 
+Result in Unity 6000.6.6f1 batchmode:
+
+```text
+TemperamentControlTraceTests: 7 passed, 0 failed, 0 skipped
+Full EditMode run:            2172 passed, 1 failed, 2 skipped (2175 total)
+```
+
+The one full-run failure is the existing
+`SpeechToTextTests.NativeLoad_ListsEditorAndPlayerPluginFolders` on this
+Windows batchmode run; it is unrelated to the temperament change.
+
 Run:
 
 ```text
