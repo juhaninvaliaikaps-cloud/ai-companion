@@ -1,6 +1,14 @@
 # Agent rules for this repository
 
-Several AI agents work on this project at the same time (Cursor, DeepSeek, Grok, Claude). Linear is the shared memory between them. Every agent follows the rules below, whichever tool it runs in.
+Several AI agents work on this project at the same time. Linear is the shared memory between them. Every agent follows the rules below, whichever tool it runs in.
+
+## Agent roles
+
+- **Codex and Claude — lead architects.** Own technical design, turn Jussi's product decisions into implementation plans, and review changes that affect shared systems.
+- **Grokbot — project coordinator and liaison.** Keep Linear organized, record decisions, prepare handovers, and bring blockers and open questions to Jussi.
+- **DeepSeek — implementation.** Handle well-scoped coding, bug fixes, tests, and repetitive work. Bring design questions and scope changes to Codex or Claude.
+
+Jussi has final say on product direction and merges.
 
 ## 1. Log your work to Linear
 
