@@ -12,7 +12,7 @@ using UnityEngine.UI;
 namespace AICompanion.NewUI
 {
     /// <summary>Opt-in Ribbon menu. Uses the same presenters as the existing Happi views.</summary>
-    sealed class RibbonMenu : MonoBehaviour, IOverlayKeepAwake
+    sealed class RibbonMenu : MonoBehaviour, IOverlayKeepAwake, IOverlayDecoration
     {
         public const string LaunchArgument = "--ribbon-ui";
         public static bool Enabled { get; } = Array.IndexOf(Environment.GetCommandLineArgs(), LaunchArgument) >= 0;
@@ -113,6 +113,12 @@ namespace AICompanion.NewUI
         RectTransform _keyboardMark;
 
         public bool KeepFrameRateActive => _menu != null && _menu.gameObject.activeInHierarchy;
+
+        public bool ContainsDecoration(Vector2 unityScreen)
+        {
+            return _flyout != null && _flyout.gameObject.activeInHierarchy
+                && _visiblePaperBounds.Contains(new Vector2(unityScreen.x, Screen.height - unityScreen.y));
+        }
 
         public void Attach(ChatPanel chat, SettingsPanel settings)
         {
