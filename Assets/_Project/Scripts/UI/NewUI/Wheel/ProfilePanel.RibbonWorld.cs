@@ -7,6 +7,7 @@ namespace AICompanion.NewUI.Wheel
 {
     public sealed partial class ProfilePanel
     {
+        const float WorldVerticalTrim = 4f;
         static readonly Color WorldCalendar = new Color32(147, 226, 244, 255);
         static readonly Color WorldBook = new Color32(216, 185, 244, 255);
         static readonly Color WorldDate = new Color32(174, 197, 218, 255);
@@ -56,6 +57,7 @@ namespace AICompanion.NewUI.Wheel
         RectTransform BeginWorldCard(string title, RibbonGlyph.Mark mark, Color tint, float badgeSize = 38f)
         {
             var box = Begin();
+            _y -= WorldVerticalTrim * _scale;
             CardIcon(_content, mark, tint, Pad, _y, badgeSize * _scale);
             var heading = CardText(_content, "World section", title, WorldTextX, _y, WorldTextWidth,
                 24f * _scale, 16f, _theme.Text, true);
@@ -65,8 +67,8 @@ namespace AICompanion.NewUI.Wheel
 
         void EndWorldCard(RectTransform box, float badgeSize = 38f)
         {
-            var badgeBottom = -box.anchoredPosition.y + Pad + badgeSize * _scale;
-            _y = Mathf.Max(_y, badgeBottom + Gap);
+            var badgeBottom = -box.anchoredPosition.y + Pad + (badgeSize - WorldVerticalTrim) * _scale;
+            _y = Mathf.Max(_y, badgeBottom + Gap) - WorldVerticalTrim * _scale;
             End(box);
         }
 
