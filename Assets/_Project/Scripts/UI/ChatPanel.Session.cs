@@ -76,7 +76,9 @@ namespace AICompanion.UI
             prompt = WorldPromptNow.Append(prompt, chatMessage && ConversationIsEmpty());
             // JUH-171: how she talks, last, where a small local model follows it best. Its 18+
             // part is only there while the gate is open (and the chat is local then).
-            return VoiceNow.Append(prompt);
+            // JUH-224: Assertiveness and Directness stay live after a cached voice block too;
+            // the manner line is skipped in that path, but this behaviour line is not.
+            return PersonaMannerNow.AppendDirective(VoiceNow.Append(prompt));
         }
 
         bool ConversationIsEmpty()

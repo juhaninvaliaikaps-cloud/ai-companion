@@ -52,6 +52,31 @@ namespace AICompanion.Core
                 sb.Append(' ').Append(NotTimid);
             return sb.ToString();
         }
+
+        /// <summary>
+        /// JUH-224: the behavioural half of Assertiveness and Directness, added after a cached
+        /// voice block. The manner line is deliberately skipped when cached voice exists; this
+        /// line keeps the two displayed controls live without re-reading the voice.
+        /// </summary>
+        public static string Directive(TemperamentAxes axes)
+        {
+            if (axes == null)
+                return string.Empty;
+            var assertiveness = axes.Value(TemperamentAxes.Assertiveness);
+            var directness = axes.Value(TemperamentAxes.Directness);
+            var parts = new List<string>(2);
+            if (assertiveness >= High)
+                parts.Add("Offer one concrete next step yourself when there is a natural opening.");
+            else if (assertiveness <= Low)
+                parts.Add("Let the user name the next step; do not invent one for them.");
+
+            if (directness >= High)
+                parts.Add("State your take plainly and early.");
+            else if (directness <= Low)
+                parts.Add("Hint at your take rather than stating it outright.");
+
+            return parts.Count == 0 ? string.Empty : "How she acts in this reply: " + string.Join(" ", parts);
+        }
     }
 
     /// <summary>
@@ -61,15 +86,22 @@ namespace AICompanion.Core
     public static class PersonaMannerNow
     {
         static string _line = string.Empty;
+        static string _directive = string.Empty;
 
         public static string PromptLine
         {
             get { return _line; }
         }
 
+        public static string DirectiveLine
+        {
+            get { return _directive; }
+        }
+
         public static void Set(TemperamentAxes axes)
         {
             _line = PersonaManner.Line(axes);
+            _directive = PersonaManner.Directive(axes);
         }
 
         /// <summary>The prompt with her manner after it, or unchanged when there is none.</summary>
@@ -81,9 +113,23 @@ namespace AICompanion.Core
             return body.Length == 0 ? _line : body + "\n" + _line;
         }
 
+        /// <summary>
+        /// The behaviour line after the cached voice or the rest of the prompt. This is the
+        /// JUH-224 path that keeps Assertiveness and Directness live when <see cref="Append"/>
+        /// is skipped because a cached voice block exists.
+        /// </summary>
+        public static string AppendDirective(string prompt)
+        {
+            var body = prompt == null ? string.Empty : prompt.TrimEnd();
+            if (_directive.Length == 0)
+                return body;
+            return body.Length == 0 ? _directive : body + "\n" + _directive;
+        }
+
         public static void Reset()
         {
             _line = string.Empty;
+            _directive = string.Empty;
         }
     }
 }
