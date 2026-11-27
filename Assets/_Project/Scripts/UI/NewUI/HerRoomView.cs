@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using AICompanion.Core;
 using AICompanion.NewUI.Wheel;
 using AICompanion.Overlay;
@@ -15,7 +16,11 @@ namespace AICompanion.NewUI
     /// out of the doorway. Inside, the player walks by clicking the floor or with the arrow keys,
     /// she strolls on her own and goes to bed at night, and the light follows the computer's
     /// clock. The logic is in Core (RoomLayout, RoomWalker, RoomDoor, RoomClock, RoomWander);
-    /// this view only draws it. Stand-in art from Codex's drafts lives in Resources/HerRoom.
+    /// this view only draws it.
+    /// JUH-229: the v1 art pack (Resources/HerRoom, placed from room_catalog.json), animated
+    /// characters, furniture drawn back to front with them, and picture-layer lighting: the clock
+    /// tint, the tinted sky, a sunbeam on the floor, the night shade with the lamp's pool of light,
+    /// and the lamp glow (RoomLighting).
     /// </summary>
     public sealed class HerRoomView : MonoBehaviour, IOverlayKeepAwake
     {
@@ -23,8 +28,16 @@ namespace AICompanion.NewUI
         const float TitleHeight = 34f;
         const float Padding = 8f;
 
-        /// <summary>A 256 px character frame drawn at this fraction of the room's side.</summary>
-        const float FigureFrame = 0.21f;
+        /// <summary>A 256 px character frame drawn at this fraction of the room's side (256 of the shell's 1024 px).</summary>
+        const float FigureFrame = 0.25f;
+
+        /// <summary>How often the lighting is worked out again from the clock (it changes slowly).</summary>
+        const float LightEvery = 0.5f;
+
+        /// <summary>The lamp glow picture is 384 px on the 1024 px shell.</summary>
+        const float GlowSize = 384f / 1024f;
+
+        static readonly Color NightShade = new Color(0.03f, 0.04f, 0.12f, 1f);
 
         /// <summary>The feet line of a character frame, from the bottom (frames have feet at y = 240 of 256).</summary>
         const float FeetPivot = 16f / 256f;
@@ -38,18 +51,29 @@ namespace AICompanion.NewUI
         RectTransform _frame;
         RectTransform _content;
         RawImage _shell;
-        Image _sky;
+        RawImage _sky;
         RawImage _her;
         RawImage _player;
+        RectTransform _things;
+        HerRoomBeam _beam;
+        RawImage _shadePool;
+        Image _shadePlain;
+        RawImage _glow;
+        readonly List<Graphic> _tinted = new List<Graphic>();
+        RectTransform[] _drawn;
+        float[] _depths;
+        int[] _order;
+        float _nextLight;
         RectTransform _doorway;
         Image _doorwayImage;
         RectTransform _doorPanel;
         RawImage _doorImage;
 
         Texture2D _shellTexture;
-        Texture2D _herTexture;
-        Texture2D _playerTexture;
+        Texture2D _poolMask;
         Texture2D _wallpaper;
+        CharacterArt _herArt;
+        CharacterArt _playerArt;
 
         RoomLayout _layout;
         RoomWalker _herWalk;
@@ -64,7 +88,6 @@ namespace AICompanion.NewUI
         float _scale = 1f;
         Rect _frameRect;
         Rect _doorRect;
-        bool _herInFront;
         bool _built;
 
         public bool IsOpen => !_door.IsClosed;
@@ -102,6 +125,7 @@ namespace AICompanion.NewUI
             }
 
             _door.Open();
+            _nextLight = 0f;
             HerRoomNow.IsOpen = true;
             // Her desktop walk stops; the desktop presence also pauses while the room is open.
             var walk = GetComponent<IWalkRequest>();
@@ -119,9 +143,9 @@ namespace AICompanion.NewUI
             if (_built)
                 return true;
             _shellTexture = Resources.Load<Texture2D>("HerRoom/room_shell");
-            _herTexture = Resources.Load<Texture2D>("HerRoom/happi_idle");
-            _playerTexture = Resources.Load<Texture2D>("HerRoom/player_idle");
-            if (_shellTexture == null || _herTexture == null || _playerTexture == null)
+            _herArt = CharacterArt.Load("happi");
+            _playerArt = CharacterArt.Load("player");
+            if (_shellTexture == null || _herArt == null || _playerArt == null)
             {
                 Debug.LogWarning("Her room: the room art is missing from Resources/HerRoom.");
                 return false;
@@ -167,17 +191,38 @@ namespace AICompanion.NewUI
             close.Rect.anchoredPosition = new Vector2(-6f, -5f);
             close.Rect.sizeDelta = new Vector2(26f, 24f);
 
-            // The room: sky behind the shell's open window, then the shell, then the figures.
+            // The room, back to front: the sky behind the shell's open window, the shell, the rug and
+            // wall pieces, the sunbeam, the furniture and the characters (sorted every frame), the
+            // night shade, and the lamp glow.
             _content = HappiUiKit.Rect(_frame, "Room");
-            _sky = HappiUiKit.Panel(_content, "Sky", Color.white, false);
+            _sky = Raw(_content, "Sky", Resources.Load<Texture2D>("HerRoom/lighting/room_window_sky"), false);
+            if (_sky.texture == null)
+                _sky.texture = Texture2D.whiteTexture;
             Anchor(_sky.rectTransform, _layout.WindowLeft, _layout.WindowTop, _layout.WindowRight, _layout.WindowBottom);
             _shell = Raw(_content, "Shell", _shellTexture, true);
             HappiUiKit.Stretch(_shell.rectTransform, 0f, 0f, 0f, 0f);
             _shell.gameObject.AddComponent<HerRoomInput>().Pressed = OnFloorPressed;
-            _player = Raw(_content, "Player", _playerTexture, false);
-            _her = Raw(_content, "Her", _herTexture, false);
-            Figure(_player.rectTransform);
-            Figure(_her.rectTransform);
+            _tinted.Add(_shell);
+
+            var back = HappiUiKit.Rect(_content, "Rug and walls");
+            HappiUiKit.Stretch(back, 0f, 0f, 0f, 0f);
+            _beam = new GameObject("Sunbeam", typeof(RectTransform), typeof(HerRoomBeam)).GetComponent<HerRoomBeam>();
+            _beam.transform.SetParent(_content, false);
+            _beam.raycastTarget = false;
+            HappiUiKit.Stretch(_beam.rectTransform, 0f, 0f, 0f, 0f);
+            _things = HappiUiKit.Rect(_content, "Furniture and people");
+            HappiUiKit.Stretch(_things, 0f, 0f, 0f, 0f);
+            BuildFurniture(back);
+
+            _shadePlain = HappiUiKit.Panel(_content, "Night shade", NightShade, false);
+            HappiUiKit.Stretch(_shadePlain.rectTransform, 0f, 0f, 0f, 0f);
+            _poolMask = PoolMask();
+            _shadePool = Raw(_content, "Night shade with lamp light", _poolMask, false);
+            HappiUiKit.Stretch(_shadePool.rectTransform, 0f, 0f, 0f, 0f);
+            _glow = Raw(_content, "Lamp glow", Resources.Load<Texture2D>("HerRoom/lighting/room_lamp_glow"), false);
+            var shade = RoomLighting.LampShade;
+            Anchor(_glow.rectTransform, shade.x - GlowSize * 0.5f, shade.y - GlowSize * 0.5f, shade.x + GlowSize * 0.5f, shade.y + GlowSize * 0.5f);
+            _glow.gameObject.SetActive(_glow.texture != null);
 
             var corner = HappiUiKit.Panel(_frame, "Resize", RibbonMenu.Cyan, true).rectTransform;
             corner.anchorMin = corner.anchorMax = new Vector2(1f, 0f);
@@ -191,6 +236,81 @@ namespace AICompanion.NewUI
             _canvas.gameObject.SetActive(false);
             _built = true;
             return true;
+        }
+
+        /// <summary>The furniture from the catalogue, then the two characters, all under one parent so they can be sorted together.</summary>
+        void BuildFurniture(RectTransform back)
+        {
+            var asset = Resources.Load<TextAsset>("HerRoom/room_catalog");
+            var catalog = RoomCatalog.Parse(asset != null ? asset.text : null);
+            var room = catalog.DefaultRoom();
+            var drawn = new List<RectTransform>();
+            var depths = new List<float>();
+            foreach (var piece in room)
+            {
+                var texture = Resources.Load<Texture2D>(piece.ResourcePath);
+                if (texture == null)
+                {
+                    Debug.LogWarning("Her room: missing furniture picture " + piece.id + ".");
+                    continue;
+                }
+
+                var depth = RoomCatalog.DepthOf(piece, room);
+                var parent = depth < 0f ? back : _things;
+                var image = Raw(parent, piece.id, texture, false);
+                var rect = RoomCatalog.RectOf(piece);
+                Anchor(image.rectTransform, rect.xMin, rect.yMin, rect.xMax, rect.yMax);
+                _tinted.Add(image);
+                if (depth < 0f)
+                {
+                    // Rugs lie under the wall pieces.
+                    if (depth <= RoomCatalog.RugDepth)
+                        image.transform.SetAsFirstSibling();
+                    continue;
+                }
+
+                // Keep the list sorted by depth (insertion; a dozen pieces, built once).
+                var at = depths.Count;
+                while (at > 0 && depths[at - 1] > depth)
+                    at--;
+                depths.Insert(at, depth);
+                drawn.Insert(at, image.rectTransform);
+            }
+
+            _player = Raw(_things, "Player", _playerArt.Idle[0], false);
+            _her = Raw(_things, "Her", _herArt.Idle[0], false);
+            Figure(_player.rectTransform);
+            Figure(_her.rectTransform);
+            _tinted.Add(_player);
+            _tinted.Add(_her);
+
+            drawn.Add(_her.rectTransform);
+            drawn.Add(_player.rectTransform);
+            _drawn = drawn.ToArray();
+            _depths = depths.ToArray();
+            _order = new int[_drawn.Length];
+        }
+
+        /// <summary>The night shade's cover, baked once: clear around the lamp, full elsewhere.</summary>
+        static Texture2D PoolMask()
+        {
+            const int size = 128;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, name = "HerRoomPool" };
+            var pixels = new Color32[size * size];
+            for (var y = 0; y < size; y++)
+            {
+                for (var x = 0; x < size; x++)
+                {
+                    // Texture rows go up; room fractions go down.
+                    var point = new Vector2((x + 0.5f) / size, 1f - (y + 0.5f) / size);
+                    var cover = (byte)Mathf.RoundToInt(RoomLighting.PoolCover(point) * 255f);
+                    pixels[y * size + x] = new Color32(255, 255, 255, cover);
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+            return texture;
         }
 
         static RawImage Raw(Transform parent, string name, Texture texture, bool raycast)
@@ -252,8 +372,18 @@ namespace AICompanion.NewUI
                 return;
             }
 
+            var now = DateTime.Now;
+            if (Time.unscaledTime >= _nextLight)
+            {
+                _nextLight = Time.unscaledTime + LightEvery;
+                Light(now);
+            }
+
             if (!_door.IsOpen)
+            {
+                PlaceFigures();
                 return;
+            }
 
             if (Input.GetKeyDown(KeyCode.Escape) && CanTakeKeys())
             {
@@ -265,18 +395,34 @@ namespace AICompanion.NewUI
             _playerWalk.Tick(delta);
             _herWalk.Tick(delta);
 
-            var light = RoomClock.At(DateTime.Now);
+            var night = RoomClock.At(now).Night;
             RoomTile target;
-            if (_wander.TryNext(Time.unscaledTime, _herWalk.Tile, _herWalk.Walking, _playerWalk.Tile, light.Night, out target))
+            if (_wander.TryNext(Time.unscaledTime, _herWalk.Tile, _herWalk.Walking, _playerWalk.Tile, night, out target))
                 _herWalk.WalkTo(target);
             if (!_herWalk.Walking && RoomWander.Close(_herWalk.Tile, _playerWalk.Tile))
                 _herWalk.Face(_playerWalk.Tile);
 
-            _shell.color = light.Tint;
-            _her.color = light.Tint;
-            _player.color = light.Tint;
-            _sky.color = light.Sky;
             PlaceFigures();
+        }
+
+        /// <summary>The picture-layer lighting for this moment (option 1 in JUH-229: no engine lights).</summary>
+        void Light(DateTime now)
+        {
+            var light = RoomClock.At(now);
+            var hour = (float)now.TimeOfDay.TotalHours;
+            for (var i = 0; i < _tinted.Count; i++)
+                _tinted[i].color = light.Tint;
+            _sky.color = RoomLighting.SkyTint(light.Sky);
+            _beam.Set(hour);
+
+            var shade = RoomLighting.Shade(light.Tint);
+            var lamp = Mathf.Clamp01(light.Lamp);
+            _shadePool.color = new Color(NightShade.r, NightShade.g, NightShade.b, shade * lamp);
+            _shadePlain.color = new Color(NightShade.r, NightShade.g, NightShade.b, shade * (1f - lamp));
+            _shadePool.enabled = shade * lamp > 0.001f;
+            _shadePlain.enabled = shade * (1f - lamp) > 0.001f;
+            _glow.color = new Color(1f, 1f, 1f, RoomLighting.Glow(lamp));
+            _glow.enabled = lamp > 0.001f;
         }
 
         /// <summary>Where the window and the door go: centred in the visible part of Happi's window.</summary>
@@ -362,27 +508,70 @@ namespace AICompanion.NewUI
         void PlaceFigures()
         {
             var side = _content.rect.width;
-            Place(_her.rectTransform, _herWalk, side);
-            Place(_player.rectTransform, _playerWalk, side);
+            Place(_her, _herWalk, _herArt, side, 0f);
+            Place(_player, _playerWalk, _playerArt, side, 1.7f);
 
-            // Back to front: the one lower on the floor is drawn over the other.
-            var herInFront = _herWalk.Y >= _playerWalk.Y;
-            if (herInFront != _herInFront)
+            // Back to front with the furniture, by where their feet are on the floor.
+            RoomDepth.Order(_depths, _layout.FeetOf(_herWalk.X, _herWalk.Y).y, _layout.FeetOf(_playerWalk.X, _playerWalk.Y).y, _order);
+            for (var k = 0; k < _order.Length; k++)
             {
-                _herInFront = herInFront;
-                (herInFront ? _her.rectTransform : _player.rectTransform).SetAsLastSibling();
+                var item = _drawn[_order[k]];
+                if (item.GetSiblingIndex() != k)
+                    item.SetSiblingIndex(k);
             }
         }
 
-        void Place(RectTransform rect, RoomWalker walker, float side)
+        void Place(RawImage image, RoomWalker walker, CharacterArt art, float side, float offset)
         {
+            var rect = image.rectTransform;
             var feet = _layout.FeetOf(walker.X, walker.Y);
             rect.anchorMin = rect.anchorMax = new Vector2(feet.x, 1f - feet.y);
-            // Until the walk frames exist, a small bob shows she is walking.
-            var bob = walker.Walking ? Mathf.Abs(Mathf.Sin(Time.unscaledTime * 11f)) * side * 0.006f : 0f;
-            rect.anchoredPosition = new Vector2(0f, bob);
+            rect.anchoredPosition = Vector2.zero;
             var frame = side * FigureFrame;
             rect.sizeDelta = new Vector2(frame, frame);
+            image.texture = art.Frame(walker.Walking, walker.Facing, Time.unscaledTime + offset);
+        }
+
+        /// <summary>A character's frames from the art pack: four idle (facing you) and four walking per direction.</summary>
+        sealed class CharacterArt
+        {
+            public readonly Texture2D[] Idle = new Texture2D[4];
+            public readonly Texture2D[] Walk = new Texture2D[16];
+
+            static readonly string[] Directions = { "down", "up", "left", "right" };
+
+            /// <summary>Null when the first idle frame is missing; any other missing frame falls back to it.</summary>
+            public static CharacterArt Load(string who)
+            {
+                var art = new CharacterArt();
+                var first = Resources.Load<Texture2D>("HerRoom/characters/" + who + "_idle_0");
+                if (first == null)
+                    return null;
+                for (var i = 0; i < 4; i++)
+                    art.Idle[i] = Or(Resources.Load<Texture2D>("HerRoom/characters/" + who + "_idle_" + i), first);
+                for (var d = 0; d < 4; d++)
+                {
+                    for (var i = 0; i < 4; i++)
+                        art.Walk[d * 4 + i] = Or(Resources.Load<Texture2D>("HerRoom/characters/" + who + "_walk_" + Directions[d] + "_" + i), first);
+                }
+
+                return art;
+            }
+
+            static Texture2D Or(Texture2D frame, Texture2D fallback)
+            {
+                return frame != null ? frame : fallback;
+            }
+
+            public Texture2D Frame(bool walking, RoomFacing facing, float time)
+            {
+                var direction = (int)facing;
+                if (walking)
+                    return Walk[direction * 4 + RoomFrames.Walk(time)];
+                if (facing == RoomFacing.Down)
+                    return Idle[RoomFrames.Idle(time)];
+                return Walk[direction * 4 + RoomFrames.StandFrame];
+            }
         }
 
         void OnFloorPressed(PointerEventData eventData)
@@ -438,6 +627,8 @@ namespace AICompanion.NewUI
         {
             HerRoomNow.IsOpen = false;
             ReleaseWallpaper();
+            if (_poolMask != null)
+                Destroy(_poolMask);
             if (_canvas != null)
                 Destroy(_canvas.gameObject);
         }

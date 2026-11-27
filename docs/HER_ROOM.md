@@ -28,7 +28,7 @@ Her Room is a small 2D top-down room that she and the player share. It is reache
 | `RoomClock` | From the local time: a tint that blends smoothly between night, morning (from 05:30), day (09:00–17:00), dusk (to 21:00) and night. Also the sky colour, the lamp (on 18:30–07:00, with half-hour fades) and bedtime (22:30–06:30). |
 | `RoomWindowSize` | Keeps the square window between 480 px and the work-area height, and converts a click in the window to a point on the room picture. |
 
-Tests: `RoomLogicTests`, `RoomWanderTests` and `WallpaperCropTests`.
+Tests: `RoomLogicTests`, `RoomWanderTests`, `WallpaperCropTests` and `RoomArtTests`.
 
 ## The room window (phase 1b, NewUI assembly)
 
@@ -65,10 +65,37 @@ Tests: `RoomLogicTests`, `RoomWanderTests` and `WallpaperCropTests`.
 - `HerRoomNow.IsOpen` pauses her desktop walking (`DesktopPresence`) while the room is open.
 - Her desktop figure is behind the room window. It is not hidden separately.
 
-**Stand-in art** (`Resources/HerRoom/`, from Codex's drafts in JUH-225)
-- `room_shell.png`: 1024 px, with the window opening made transparent.
-- `happi_idle.png` and `player_idle.png`: 256 px, with the feet at y = 240.
-- Happi's room outfit is the swimsuit (Jussi).
-- The finished art replaces these files in place.
+**Not yet:** chat docking and her speech bubble, slots and activities.
 
-**Not yet:** chat docking and her speech bubble, slots and activities, walk frames, and the lamp glow.
+## The v1 art and the lighting (JUH-229)
+
+**The art** (`Resources/HerRoom/`, from ChatGPT's pack in JUH-225)
+- `room_shell.png` is 1024 px, with a transparent window.
+- `lighting/` holds the sky picture and the lamp glow.
+- `furniture/` holds 20 pieces, `characters/` 60 frames of 256 px with the feet at y = 240.
+- `room_catalog.json` is the pack's catalogue, unchanged. `RoomCatalog` (Core) reads it.
+- Every piece with a `defaultAnchorRoomPx` and no `variantOf` is placed. Each is placed by its anchor: the point where it touches the floor at the front.
+- If the PNGs are missing, the room logs a warning and stays closed. A missing piece is just skipped.
+
+**Depth**
+- Rugs lie under everything, and wall pieces hang behind everything.
+- Floor pieces and the two characters are drawn back to front by the y of their floor contact (`RoomDepth.Order`).
+- A surface piece (the pot on the wardrobe) is drawn just in front of the piece it stands on.
+
+**The characters**
+- Walking: the four walk frames for the direction, at 8 fps.
+- Standing and facing you: the idle frames, which blink every 4 s and otherwise hold frame 0.
+- Standing and facing away or sideways: walk frame 1, which has the legs together.
+
+**The lighting** (option 1: picture layers, no engine lights; `RoomLighting` in Core)
+- **Ambient:** `RoomClock`'s tint goes on the shell, the furniture and both characters.
+- **Sky:** the sky picture is tinted by the clock's sky, relative to the day sky.
+- **Sunbeam (`HerRoomBeam`):** a soft patch from under the window that fades toward the front.
+  - It is full from 9 to 16 and fades in from 7 and out by 18:30.
+  - Its far end leans right in the morning and left in the evening.
+- **Night shade:** a navy layer, as deep as the room's darkness (up to 0.35).
+  - While the lamp is on, its texture leaves a soft pool of light around the lamp (baked once, `PoolCover`).
+- **Lamp glow:** the glow picture on the lamp shade, faded by the clock's lamp level.
+- The lighting is worked out twice a second, not every frame.
+
+**Pathing:** the blocked tiles match the art. The desk is now columns 8–10, the desk chair is (9,1), the pouf (8,3) and the piano bench (9,7). `RoomArtTests` checks that every floor piece stands on a blocked tile.

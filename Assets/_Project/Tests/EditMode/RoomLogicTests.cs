@@ -29,7 +29,9 @@ namespace AICompanion.Tests.EditMode
             var layout = RoomLayout.V1();
             Assert.IsTrue(layout.IsBlocked(new RoomTile(1, 1)), "bed");
             Assert.IsTrue(layout.IsBlocked(new RoomTile(8, 0)), "desk");
-            Assert.IsTrue(layout.IsBlocked(new RoomTile(7, 3)), "pouf");
+            Assert.IsTrue(layout.IsBlocked(new RoomTile(8, 3)), "pouf");
+            Assert.IsTrue(layout.IsBlocked(new RoomTile(9, 1)), "desk chair");
+            Assert.IsTrue(layout.IsBlocked(new RoomTile(9, 7)), "piano bench");
             Assert.IsTrue(layout.IsFree(new RoomTile(5, 4)), "rug");
             Assert.IsTrue(layout.IsBlocked(new RoomTile(-1, 0)) && layout.IsBlocked(new RoomTile(12, 0)), "off the floor");
         }
