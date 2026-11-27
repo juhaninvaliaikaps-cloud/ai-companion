@@ -8,13 +8,23 @@ namespace AICompanion.NewUI
     sealed class RibbonChatFrameEdge : MaskableGraphic
     {
         RibbonShape.Kind _kind;
+        bool _focused;
 
-        public static void Add(Transform parent, RibbonShape.Kind kind = RibbonShape.Kind.ChatFrame)
+        public static RibbonChatFrameEdge Add(Transform parent, RibbonShape.Kind kind = RibbonShape.Kind.ChatFrame)
         {
             var edge = HappiUiKit.Rect(parent, "Ribbon outline").gameObject.AddComponent<RibbonChatFrameEdge>();
             edge._kind = kind;
             edge.raycastTarget = false;
             HappiUiKit.Stretch(edge.rectTransform, 0f, 0f, 0f, 0f);
+            return edge;
+        }
+
+        public void SetFocused(bool focused)
+        {
+            if (_focused == focused)
+                return;
+            _focused = focused;
+            SetVerticesDirty();
         }
 
         protected override void OnPopulateMesh(VertexHelper mesh)
@@ -25,14 +35,15 @@ namespace AICompanion.NewUI
                 return;
 
             var frame = _kind == RibbonShape.Kind.ChatFrame;
-            var neutral = frame ? new Color32(165, 180, 193, 225) : new Color32(152, 165, 181, 240);
             var mint = new Color32(114, 238, 207, 255);
+            var neutral = frame ? new Color32(165, 180, 193, 225)
+                : _focused ? mint : new Color32(152, 165, 181, 240);
             var count = RibbonShape.VertexCount(_kind);
             for (var i = 0; i < count; i++)
             {
                 var from = RibbonShape.Point(_kind, rect, i);
                 var to = RibbonShape.Point(_kind, rect, (i + 1) % count);
-                Stroke(mesh, from, to, neutral, frame ? 0.75f : 0.55f);
+                Stroke(mesh, from, to, neutral, frame || _focused ? 0.75f : 0.55f);
                 if (!frame)
                     continue;
                 if (i == 1 || i == 5)

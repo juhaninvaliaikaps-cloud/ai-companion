@@ -48,6 +48,8 @@ namespace AICompanion.NewUI
         HappiButton _ribbonLatest;
         readonly List<(Image Card, Image Accent, RibbonChatSpeaker Speaker)> _ribbonHistoryCards = new();
         RibbonChatSpeaker _ribbonLiveSpeaker;
+        Image _ribbonLiveAccent;
+        RibbonChatFrameEdge _composerEdge;
         Texture2D _ribbonPortraitFallback;
 
         public const string ModePref = "happi.vn-mode";
@@ -1140,7 +1142,7 @@ namespace AICompanion.NewUI
             if (RibbonMenu.Enabled)
             {
                 _dialogueHit.color = RibbonReplyCard;
-                AddReplyAccent(_dialogueHit.transform);
+                _ribbonLiveAccent = AddReplyAccent(_dialogueHit.transform);
                 _ribbonPortraitFallback = Resources.Load<Texture2D>("RibbonArt/ChatPortrait");
                 _ribbonLiveSpeaker = new RibbonChatSpeaker(_historyContent);
             }
@@ -1175,7 +1177,13 @@ namespace AICompanion.NewUI
                 var composer = _input.GetComponent<Image>();
                 composer.color = new Color32(35, 41, 53, 255);
                 RibbonShape.Apply(composer, RibbonShape.Kind.Composer);
-                RibbonChatFrameEdge.Add(composer.transform, RibbonShape.Kind.Composer);
+                _composerEdge = RibbonChatFrameEdge.Add(composer.transform, RibbonShape.Kind.Composer);
+                var defaultOutline = _input.GetComponent<HappiFocusRing>();
+                defaultOutline.enabled = false;
+                defaultOutline.Ring.enabled = false;
+                _input.textComponent.alignment = TextAlignmentOptions.MidlineLeft;
+                if (_input.placeholder is TMP_Text hint)
+                    hint.alignment = TextAlignmentOptions.MidlineLeft;
                 _input.selectionColor = new Color32(38, 230, 255, 100);
             }
             _input.onSubmit.AddListener(OnSubmit);
@@ -1442,6 +1450,8 @@ namespace AICompanion.NewUI
                 HappiUiKit.Place(_mic.Rect, pad, bottom - inputRow, micW, inputRow);
             HappiUiKit.Place((RectTransform)_input.transform, pad + micSpace, bottom - inputRow,
                 Mathf.Max(1f, inner - micSpace - sendW - gap), inputRow);
+            if (ribbon)
+                HappiUiKit.Stretch(_input.textViewport, 12f * s, 2f * s, 16f * s, 2f * s);
             HappiUiKit.Place(_send.Rect, pad + inner - sendW, bottom - inputRow, sendW, inputRow);
             if (ribbon)
                 HappiUiKit.Place(_ribbonSendFlourish.rectTransform, sendW - 48f * s, -18f * s, 52f * s, 25f * s);
@@ -1650,7 +1660,7 @@ namespace AICompanion.NewUI
             var persona = id.Length == 0 ? null : _settings.PersonaCatalogNow().Find(id);
             var texture = PersonaPictureCache.Get(_settings.PersonasFolderPath, persona);
             var round = persona == null || PersonaPictureShapes.Normalize(persona.PictureShape) == PersonaPictureShapes.Round;
-            if (_ribbonLiveSpeaker != null && _avatar.texture != texture)
+            if (_ribbonLiveSpeaker != null)
                 _liveDirty = true;
             PersonaPictureCache.Show(_avatarFrame, _avatar, texture, round);
             var shown = texture != null;
@@ -1675,6 +1685,7 @@ namespace AICompanion.NewUI
                 _ribbonVoiceIcon.Shape = presenter.Muted ? RibbonGlyph.Mark.Muted : RibbonGlyph.Mark.Voice;
             RefreshPrivacy(presenter.ReplyBusy);
             _input.interactable = !presenter.ReplyBusy;
+            _composerEdge?.SetFocused(_input.isFocused && _input.interactable);
 
             var recording = _chat.MicRecording;
             _mic.Text = ChatPresenter.MicLabelFor(recording, _chat.MicTranscribing);
@@ -1837,16 +1848,10 @@ namespace AICompanion.NewUI
             _liveDirty = false;
             var count = _transcript.Count;
             var historySize = HistoryFontSize();
-            var roomy = ribbon && width >= 360f * _layoutScale;
-            var cardPadding = (roomy ? 13f : 8f) * _layoutScale;
-            var messageInset = (roomy ? 9f : 6f) * _layoutScale;
-            var messageGap = (roomy ? 14f : 8f) * _layoutScale;
-            var showSpeakers = ribbon && width >= 158f * _layoutScale;
-            var speakerSize = (roomy ? 38f : 31f) * _layoutScale;
-            var gutter = showSpeakers ? speakerSize + (roomy ? 14f : 8f) * _layoutScale : 0f;
-            var cardWidth = Mathf.Max(1f, width - 4f - gutter);
-            var textWidth = Mathf.Max(1f, cardWidth - (ribbon ? 2f * cardPadding : 0f));
-            var portrait = _avatarShown && _avatar != null ? _avatar.texture : _ribbonPortraitFallback;
+            var messages = new RibbonMessageLayout(width, _layoutScale);
+            var showSpeakers = ribbon && messages.ShowSpeakers;
+            var legacyWidth = Mathf.Max(1f, width - 4f);
+            var portrait = ribbon ? RibbonPortrait() : null;
             while (_historyTexts.Count < count)
             {
                 Transform parent = _historyContent;
@@ -1898,13 +1903,16 @@ namespace AICompanion.NewUI
 
                 if (!rowObject.activeSelf)
                     rowObject.SetActive(true);
+                var kind = _transcript.KindAt(i);
+                var isReply = kind == ChatLineKind.Assistant;
+                var showBadge = showSpeakers && kind != ChatLineKind.System;
+                var textWidth = ribbon ? messages.TextWidth(isReply, showBadge) : legacyWidth;
                 if (_transcript.Changed(i) || widthChanged || _historyHeights[i] < 0f)
                 {
                     // JUH-132: the transcript used the old History tab's small font after a
                     // reply finished, while the live reply was body size. Keep one size.
                     text.fontSize = HistoryFontSize();
-                    var hasAuthor = showSpeakers && _transcript.KindAt(i) != ChatLineKind.System;
-                    text.text = HistoryEntry(_transcript.Entry(i), hasAuthor);
+                    text.text = HistoryEntry(_transcript.Entry(i), showBadge);
                     _historyHeights[i] = Mathf.Max(8f, text.GetPreferredValues(text.text, textWidth, 0f).y);
                 }
 
@@ -1912,20 +1920,20 @@ namespace AICompanion.NewUI
                 if (ribbon)
                 {
                     var (card, accent, speaker) = _ribbonHistoryCards[i];
-                    var kind = _transcript.KindAt(i);
-                    var isReply = kind == ChatLineKind.Assistant;
-                    var showBadge = showSpeakers && kind != ChatLineKind.System;
-                    var cardHeight = Mathf.Max(messageHeight + 2f * messageInset, showBadge ? speakerSize : 0f);
+                    var bounds = messages.Card(isReply, showBadge, y, messageHeight);
                     if (showBadge)
-                        speaker.Show(isReply, portrait, 2f, y + (cardHeight - speakerSize) * 0.5f, speakerSize);
+                        speaker.Show(isReply, portrait, messages.Badge(isReply, bounds));
                     else
                         speaker.Hide();
                     card.enabled = kind != ChatLineKind.System;
                     card.color = isReply ? RibbonReplyCard : new Color32(49, 52, 63, 255);
                     accent.gameObject.SetActive(isReply);
-                    HappiUiKit.Place(card.rectTransform, 2f + gutter, y, cardWidth, cardHeight);
-                    HappiUiKit.Place(text.rectTransform, cardPadding, (cardHeight - messageHeight) * 0.5f, textWidth, messageHeight);
-                    y += cardHeight + messageGap;
+                    if (isReply)
+                        PlaceReplyAccent(accent, _layoutScale);
+                    HappiUiKit.Place(card.rectTransform, bounds.x, bounds.y, bounds.width, bounds.height);
+                    HappiUiKit.Place(text.rectTransform, messages.TextPadding(isReply), (bounds.height - messageHeight) * 0.5f,
+                        textWidth, messageHeight);
+                    y = bounds.yMax + messages.Gap;
                 }
                 else
                 {
@@ -1936,25 +1944,35 @@ namespace AICompanion.NewUI
                 }
             }
 
-            _ribbonLiveSpeaker?.Hide();
+            if (!live || !showSpeakers)
+                _ribbonLiveSpeaker?.Hide();
             if (_dialogueHit != null && _dialogueHit.gameObject.activeSelf)
             {
                 var liveRect = _dialogueHit.rectTransform;
                 liveRect.anchorMin = new Vector2(0f, 1f);
                 liveRect.anchorMax = new Vector2(0f, 1f);
                 liveRect.pivot = new Vector2(0f, 1f);
-                var liveHeight = ribbon
-                    ? Mathf.Max(showSpeakers ? speakerSize : 24f * _layoutScale,
-                        _dialogue.GetPreferredValues(_dialogue.text, textWidth, 0f).y + 2f * messageInset)
-                    : Mathf.Max(24f * _layoutScale,
-                        _dialogue.GetPreferredValues(_dialogue.text, Mathf.Max(1f, cardWidth - 16f), 0f).y + 12f * _layoutScale);
-                liveRect.anchoredPosition = new Vector2(2f + gutter, -y);
-                liveRect.sizeDelta = new Vector2(cardWidth, liveHeight);
                 if (ribbon)
-                    HappiUiKit.Stretch(_dialogue.rectTransform, cardPadding, messageInset, cardPadding, messageInset);
-                if (showSpeakers)
-                    _ribbonLiveSpeaker.Show(true, portrait, 2f, y + (liveHeight - speakerSize) * 0.5f, speakerSize);
-                y += liveHeight + (ribbon ? messageGap : 6f);
+                {
+                    var textWidth = messages.TextWidth(true, showSpeakers);
+                    var textHeight = Mathf.Max(8f, _dialogue.GetPreferredValues(_dialogue.text, textWidth, 0f).y);
+                    var bounds = messages.Card(true, showSpeakers, y, textHeight);
+                    var pad = messages.TextPadding(true);
+                    HappiUiKit.Place(liveRect, bounds.x, bounds.y, bounds.width, bounds.height);
+                    HappiUiKit.Stretch(_dialogue.rectTransform, pad, messages.VerticalPadding, pad, messages.VerticalPadding);
+                    PlaceReplyAccent(_ribbonLiveAccent, _layoutScale);
+                    if (showSpeakers)
+                        _ribbonLiveSpeaker.Show(true, portrait, messages.Badge(true, bounds));
+                    y = bounds.yMax + messages.Gap;
+                }
+                else
+                {
+                    var liveHeight = Mathf.Max(24f * _layoutScale,
+                        _dialogue.GetPreferredValues(_dialogue.text, Mathf.Max(1f, legacyWidth - 16f), 0f).y + 12f * _layoutScale);
+                    liveRect.anchoredPosition = new Vector2(2f, -y);
+                    liveRect.sizeDelta = new Vector2(legacyWidth, liveHeight);
+                    y += liveHeight + 6f;
+                }
             }
 
             _historyContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(8f, y));
@@ -2071,15 +2089,25 @@ namespace AICompanion.NewUI
 
         // ---- Actions ---------------------------------------------------------------------
 
-        static Image AddReplyAccent(Transform parent)
+        Texture RibbonPortrait()
         {
-            var accent = HappiUiKit.Panel(parent, "Happi reply stripe", RibbonMenu.Cyan, false);
+            if (_avatarShown && _avatar != null)
+                return _avatar.texture;
+            var defaultHappi = string.Equals(_avatarPersona, PersonaDefaults.HappiId, StringComparison.OrdinalIgnoreCase)
+                || (string.IsNullOrEmpty(_avatarPersona) && string.Equals(CompanionName(), "Happi", StringComparison.OrdinalIgnoreCase));
+            return defaultHappi ? _ribbonPortraitFallback : null;
+        }
+
+        static Image AddReplyAccent(Transform parent) =>
+            HappiUiKit.Panel(parent, "Happi reply stripe", new Color32(59, 239, 194, 255), false);
+
+        static void PlaceReplyAccent(Image accent, float scale)
+        {
             var edge = accent.rectTransform;
             edge.anchorMin = Vector2.zero;
             edge.anchorMax = Vector2.up;
-            edge.offsetMin = new Vector2(2f, 4f);
-            edge.offsetMax = new Vector2(4f, -4f);
-            return accent;
+            edge.offsetMin = new Vector2(1.5f * scale, 5f * scale);
+            edge.offsetMax = new Vector2(5.5f * scale, -5f * scale);
         }
 
         static void StyleRibbonControl(HappiButton button, bool angled = false, bool clipped = true)
