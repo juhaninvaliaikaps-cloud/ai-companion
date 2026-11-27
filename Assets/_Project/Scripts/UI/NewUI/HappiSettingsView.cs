@@ -587,16 +587,23 @@ namespace AICompanion.NewUI
             }
 
             Section("Custom temperament");
-            Note("50 is the middle. Moving a slider overrides Auto and the presets.");
+            Note("Moving a slider overrides Auto and the presets.");
             var editing = (view.Axes ?? TemperamentAxes.Neutral()).Clone();
             for (var axis = 0; axis < TemperamentAxes.Count; axis++)
             {
                 var index = axis;
-                Slider(v => TemperamentAxes.SliderLabel(index, v), editing.Value(index), TemperamentAxes.Min, TemperamentAxes.Max, true, v =>
-                {
-                    editing.Set(index, v);
-                    _settings.SetPersonaTemperamentAxes(id, editing);
-                });
+                var shown = TemperamentSteps.DisplayStep(editing.Value(index));
+                Slider(v => TemperamentSteps.Label(index, Mathf.RoundToInt(v)), shown,
+                    TemperamentSteps.Min, TemperamentSteps.Max, true, v =>
+                    {
+                        var step = Mathf.RoundToInt(v);
+                        // Reselecting the displayed step is not an edit. It must not turn a
+                        // stored 11/15 (both shown as 2) into a new quantized value.
+                        if (!TemperamentSteps.IsNewStep(editing.Value(index), step))
+                            return;
+                        editing.Set(index, TemperamentSteps.ValueForStep(step));
+                        _settings.SetPersonaTemperamentAxes(id, editing);
+                    });
             }
         }
 
