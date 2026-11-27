@@ -207,6 +207,14 @@ namespace AICompanion.NewUI
         /// <summary>The chat box centre in Unity screen pixels.</summary>
         public Vector2 BoxCenter => _boxCenter;
 
+        internal bool ReplyPresentationPending => _attached && (_sink.Streaming || _player.Active);
+
+        internal Rect FeedbackWorkArea => _visibleArea.width > 0f ? _visibleArea : OverlayVisibleArea.Get(_window);
+
+        internal Rect FeedbackChatFrame => _attached && _chat.ChatVisible && _boxSize.x > 0f
+            ? new Rect(_boxCenter - _boxSize * .5f, _boxSize)
+            : default;
+
         public bool KeepFrameRateActive
         {
             get
