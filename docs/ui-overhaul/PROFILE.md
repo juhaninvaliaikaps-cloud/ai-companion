@@ -13,7 +13,7 @@ Mockup: https://claude.ai/artifact/3Za6cHCRA24ozNUnTz6ceD. Jussi picked Feelings
 
 ### Ribbon preview
 
-Launch with `--ribbon-ui`. Profile uses the charcoal frame, the full-width Happi-Mood banner, and cyan tabs. The banner keeps its original proportions with Close in the upper-right corner. The frame fits the visible work area, and the tabs use a second row when needed. Both the Ribbon and radial wheel open the same Profile view.
+Launch with `--ribbon-ui`. Profile uses the charcoal frame, the full-width Happi-Mood banner, and cyan tabs. The banner keeps its original proportions with Close in the upper-right corner. The frame fits the visible work area, and the tabs use a second row when needed. Both the Ribbon and radial wheel open the same Profile view. Ctrl+Tab and Ctrl+Shift+Tab cycle through the tabs. Page Up and Page Down scroll the current tab, and Home and End jump to its edges. Each tab keeps its reading position while Profile stays open.
 
 - Feelings starts with her current mood, then shows the relationship and recent changes.
 - Personality shows her temperament in words. Edit temperament opens the Personality settings. Discoveries and gated details keep their existing sections.

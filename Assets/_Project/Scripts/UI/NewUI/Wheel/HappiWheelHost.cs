@@ -197,6 +197,9 @@ namespace AICompanion.NewUI.Wheel
                 return;
             }
 
+            if (_profile.Visible && RibbonMenu.Enabled && Application.isFocused)
+                ReadProfileKeys();
+
             if (_noteUntil > 0f && Time.unscaledTime > _noteUntil)
             {
                 _noteUntil = -1f;
@@ -241,6 +244,24 @@ namespace AICompanion.NewUI.Wheel
                 return;
 
             _pressed = _wheel.HitTest(pointer.Value);
+        }
+
+        void ReadProfileKeys()
+        {
+            var control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            if (control && Input.GetKeyDown(KeyCode.Tab))
+            {
+                var reverse = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+                _profile.CycleTab(reverse ? -1 : 1);
+            }
+            else if (Input.GetKeyDown(KeyCode.PageDown))
+                _profile.ScrollPage(1);
+            else if (Input.GetKeyDown(KeyCode.PageUp))
+                _profile.ScrollPage(-1);
+            else if (Input.GetKeyDown(KeyCode.Home))
+                _profile.ScrollToEdge(false);
+            else if (Input.GetKeyDown(KeyCode.End))
+                _profile.ScrollToEdge(true);
         }
 
         const int NoPress = int.MinValue;

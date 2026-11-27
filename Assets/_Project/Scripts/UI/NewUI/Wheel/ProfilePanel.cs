@@ -79,6 +79,7 @@ namespace AICompanion.NewUI.Wheel
         ProfileData _data;
         Tab _tab = Tab.Feelings;
         bool _allBackstory;
+        readonly float[] _tabScrollOffsets = new float[TabLabels.Length];
         float _scale = 1f;
         float _y;
         float _inner;
@@ -220,13 +221,18 @@ namespace AICompanion.NewUI.Wheel
             _scale = Mathf.Max(1f, scale);
             _allBackstory = false;
             if (_ribbon)
+            {
+                Array.Clear(_tabScrollOffsets, 0, _tabScrollOffsets.Length);
                 ShowRibbon(center, scale, visibleArea ?? new Rect(Vector2.zero, screen));
+            }
             else
                 ShowClassic(center, screen);
 
             _root.gameObject.SetActive(true);
             _root.SetAsLastSibling();
-            Select(initialTab ?? _tab);
+            Select(initialTab ?? _tab, rememberScroll: false);
+            if (_ribbon)
+                _tabs[(int)_tab].Button.Select();
         }
 
         void ShowClassic(Vector2 center, Vector2 screen)
@@ -313,6 +319,13 @@ namespace AICompanion.NewUI.Wheel
 
         public void Hide()
         {
+            if (_ribbon && Visible)
+            {
+                var events = EventSystem.current;
+                var selected = events != null ? events.currentSelectedGameObject : null;
+                if (selected != null && selected.transform.IsChildOf(_root))
+                    events.SetSelectedGameObject(null);
+            }
             HideTip();
             _root.gameObject.SetActive(false);
         }
@@ -326,8 +339,14 @@ namespace AICompanion.NewUI.Wheel
             return Mathf.Abs(unityScreen.x - center.x) <= size.x * 0.5f + 2f && Mathf.Abs(unityScreen.y - center.y) <= size.y * 0.5f + 2f;
         }
 
-        void Select(Tab tab)
+        void Select(Tab tab, bool rememberScroll = true)
         {
+            if (_ribbon && rememberScroll)
+            {
+                if (tab == _tab)
+                    return;
+                _tabScrollOffsets[(int)_tab] = _content.anchoredPosition.y;
+            }
             HideTip();
             _tab = tab;
             _data = _source != null ? _source() : null;
@@ -352,10 +371,10 @@ namespace AICompanion.NewUI.Wheel
                     _tabs[i].Button.GetComponent<HappiHoverText>().HoldHoverColor = selected;
             }
 
-            Rebuild();
+            Rebuild(_ribbon ? _tabScrollOffsets[(int)tab] : 0f);
         }
 
-        void Rebuild()
+        void Rebuild(float scrollOffset)
         {
             HideTip();
             for (var i = _content.childCount - 1; i >= 0; i--)
@@ -375,10 +394,34 @@ namespace AICompanion.NewUI.Wheel
             }
 
             _content.sizeDelta = new Vector2(0f, _y + 8f);
-            _scroll.verticalNormalizedPosition = 1f;
             if (_ribbon)
-                _ribbonScroll.gameObject.SetActive(_content.sizeDelta.y > ((RectTransform)_scroll.transform).rect.height);
+            {
+                SetScrollOffset(scrollOffset);
+                _ribbonScroll.gameObject.SetActive(ScrollRange() > 0f);
+            }
+            else
+                _scroll.verticalNormalizedPosition = 1f;
         }
+
+        float ScrollRange() => Mathf.Max(0f, _content.rect.height - _viewport.rect.height);
+
+        void SetScrollOffset(float offset)
+        {
+            _scroll.StopMovement();
+            _content.anchoredPosition = new Vector2(_content.anchoredPosition.x, Mathf.Clamp(offset, 0f, ScrollRange()));
+        }
+
+        internal void CycleTab(int direction)
+        {
+            var next = ((int)_tab + direction + _tabs.Count) % _tabs.Count;
+            Select((Tab)next);
+            _tabs[next].Button.Select();
+        }
+
+        internal void ScrollPage(int direction) =>
+            SetScrollOffset(_content.anchoredPosition.y + direction * _viewport.rect.height * 0.88f);
+
+        internal void ScrollToEdge(bool bottom) => SetScrollOffset(bottom ? ScrollRange() : 0f);
 
         // ---- Tabs ------------------------------------------------------------------------
 
@@ -768,7 +811,11 @@ namespace AICompanion.NewUI.Wheel
                 for (var i = 0; i < shown; i++)
                     Paragraph("• " + w.Backstory[i], false);
                 if (w.Backstory.Count > MaxBackstoryCollapsed)
-                    Button(_allBackstory ? "Show fewer" : "Show all " + w.Backstory.Count, () => { _allBackstory = !_allBackstory; Rebuild(); });
+                    Button(_allBackstory ? "Show fewer" : "Show all " + w.Backstory.Count, () =>
+                    {
+                        _allBackstory = !_allBackstory;
+                        Rebuild(_ribbon ? _content.anchoredPosition.y : 0f);
+                    });
                 End(box);
             }
         }
