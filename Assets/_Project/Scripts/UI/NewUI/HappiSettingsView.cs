@@ -1544,7 +1544,16 @@ namespace AICompanion.NewUI
                 Change(s => s.ChatFontSize = size);
                 ApplyChatFont();
             });
-            Note("Applies to the dialogue, transcript and message box. The rest of the UI keeps its own font.");
+            Button("Reset chat font and size", () =>
+            {
+                Change(s =>
+                {
+                    s.ChatFontFamily = HappiTypeface.Family;
+                    s.ChatFontSize = HappiTypeface.ChatSize;
+                });
+                ApplyChatFont();
+            });
+            Note("Applies to the dialogue, transcript and message box.");
 
             Section("Chat box");
             Note("Drag the chat box by its top bar to put it anywhere around her. While you drag, spots appear: 1 left of her head, 2 right of her head (the portrait moves to her left), 3 beside her on the left, 4 beside her on the right, 5 under her, so she stands on it (2D video avatar only). Let go near one to snap there. The box stays with her when she walks.");
