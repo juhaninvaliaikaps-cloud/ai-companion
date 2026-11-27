@@ -135,13 +135,13 @@ namespace AICompanion.Tests.EditMode
         public void Walker_ArrowKeys_StepOneFreeTile_OrJustTurn()
         {
             var layout = RoomLayout.V1();
-            var walker = new RoomWalker(layout, new RoomTile(6, 3));
+            var walker = new RoomWalker(layout, new RoomTile(7, 3));
             Assert.IsFalse(walker.Step(RoomFacing.Right), "the pouf is in the way");
             Assert.AreEqual(RoomFacing.Right, walker.Facing);
 
             Assert.IsTrue(walker.Step(RoomFacing.Left));
             walker.Tick(10f);
-            Assert.AreEqual(new RoomTile(5, 3), walker.Tile);
+            Assert.AreEqual(new RoomTile(6, 3), walker.Tile);
         }
 
         [Test]
