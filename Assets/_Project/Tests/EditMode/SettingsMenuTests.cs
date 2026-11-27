@@ -1,12 +1,41 @@
 using System;
 using AICompanion.NewUI;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace AICompanion.Tests.EditMode
 {
     /// <summary>JUH-182: Settings tabs, sub-tabs and when each page shows.</summary>
     public sealed class SettingsMenuTests
     {
+        [Test]
+        public void RibbonSettings_UsesSidebarInAWideWorkArea()
+        {
+            var work = new Rect(80f, 40f, 1080f, 800f);
+            var layout = new RibbonSettingsLayout(work, 1f);
+            Assert.That(layout.Sidebar, Is.True);
+            Assert.That(layout.Frame.center, Is.EqualTo(work.center));
+            Assert.That(layout.Tab(0).xMax, Is.LessThan(layout.Body.x));
+            Assert.That(layout.Tab(7).yMax, Is.LessThan(layout.Status.y));
+            Assert.That(layout.PageColumns, Is.EqualTo(5));
+        }
+
+        [TestCase(390f, 600f, 1f)]
+        [TestCase(450f, 300f, 1.5f)]
+        public void RibbonSettings_KeepsNavigationAndAScrollableBodyInCompactWorkAreas(float width, float height, float dpi)
+        {
+            var work = new Rect(120f, 70f, width, height);
+            var layout = new RibbonSettingsLayout(work, dpi);
+            Assert.That(layout.Sidebar, Is.False);
+            Assert.That(layout.Tab(4).y, Is.GreaterThan(layout.Tab(0).y));
+            Assert.That(layout.Tab(7).yMax, Is.LessThan(layout.Pages.y));
+            Assert.That(layout.Frame.xMin, Is.GreaterThan(work.xMin));
+            Assert.That(layout.Frame.yMax, Is.LessThan(work.yMax));
+            Assert.That(layout.Body.height, Is.GreaterThan(115f * layout.Scale));
+            Assert.That(layout.Body.yMax, Is.LessThan(layout.Status.y));
+            Assert.That(layout.Close.xMax, Is.LessThan(layout.Frame.width));
+        }
+
         [Test]
         public void EightTabs_InOrder()
         {

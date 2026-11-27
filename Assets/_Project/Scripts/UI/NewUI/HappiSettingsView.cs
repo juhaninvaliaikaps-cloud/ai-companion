@@ -33,6 +33,9 @@ namespace AICompanion.NewUI
         // JUH-182: eight top tabs, each with sub-tabs (SettingsMenu). Developer is a page under App,
         // shown only with "Show developer settings"; the 18+ pages but Status only while the gate is open.
         const float PlaneDistance = 0.36f;
+        static readonly Color SettingsInk = new Color32(18, 22, 29, 255);
+        static readonly Color SettingsCard = new Color32(36, 42, 53, 255);
+        static readonly Color SettingsGold = new Color32(255, 202, 34, 255);
 
         SettingsPanel _settings;
         ChatPanel _chat;
@@ -43,6 +46,9 @@ namespace AICompanion.NewUI
         TextMeshProUGUI _title;
         TextMeshProUGUI _status;
         HappiButton _close;
+        RectTransform _ribbonTitleAccent;
+        RibbonGlyph _ribbonCloseIcon;
+        int _ribbonPageColumns;
         readonly List<HappiButton> _tabs = new List<HappiButton>();
         readonly List<HappiButton> _pageButtons = new List<HappiButton>();
         readonly List<SettingsPage> _shownPages = new List<SettingsPage>(SettingsMenu.MaxPages);
@@ -263,10 +269,22 @@ namespace AICompanion.NewUI
             _canvasObject = HappiUiKit.CreateCanvas(transform, "HappiSettingsCanvas", 80, out _canvas);
             var panel = HappiUiKit.Panel(_canvasObject.transform, "HappiSettings", _theme.PanelBackground, true);
             _panel = panel.rectTransform;
-            var outline = panel.gameObject.AddComponent<Outline>();
-            outline.effectColor = _theme.Border;
-            outline.effectDistance = new Vector2(1f, -1f);
-            _title = HappiUiKit.Text(_panel, "Title", "Happi · Settings", _theme.FontTitle, _theme.Text, TextAlignmentOptions.MidlineLeft, true);
+            if (RibbonMenu.Enabled)
+            {
+                panel.color = SettingsInk;
+                RibbonShape.Apply(panel, RibbonShape.Kind.ChatFrame);
+                RibbonChatFrameEdge.Add(_panel);
+                var accent = HappiUiKit.Panel(_panel, "Title accent", SettingsGold, false);
+                RibbonShape.Apply(accent, RibbonShape.Kind.Tab);
+                _ribbonTitleAccent = accent.rectTransform;
+            }
+            else
+            {
+                var outline = panel.gameObject.AddComponent<Outline>();
+                outline.effectColor = _theme.Border;
+                outline.effectDistance = new Vector2(1f, -1f);
+            }
+            _title = HappiUiKit.Text(_panel, "Title", RibbonMenu.Enabled ? "Settings" : "Happi · Settings", _theme.FontTitle, _theme.Text, TextAlignmentOptions.MidlineLeft, true);
             _title.textWrappingMode = TextWrappingModes.NoWrap;
             _close = HappiUiKit.Button(_panel, "Close", "×", _theme.FontBody, Close);
             for (var i = 0; i < SettingsMenu.TabCount; i++)
@@ -289,6 +307,18 @@ namespace AICompanion.NewUI
                     _pageFor[(int)_tab] = _shownPages[index];
                     LeavePage();
                 }));
+            }
+
+            if (RibbonMenu.Enabled)
+            {
+                _close.Text = string.Empty;
+                StyleRibbonNavigation(_close);
+                _ribbonCloseIcon = RibbonGlyph.Add(_close.Rect, "Close Settings icon", RibbonGlyph.Mark.Close, _theme.Text);
+                _ribbonCloseIcon.Label = _close.Label;
+                foreach (var tab in _tabs)
+                    StyleRibbonNavigation(tab);
+                foreach (var page in _pageButtons)
+                    StyleRibbonNavigation(page);
             }
 
             for (var t = 0; t < SettingsMenu.TabCount; t++)
@@ -322,6 +352,12 @@ namespace AICompanion.NewUI
                 return;
             _layoutW = Screen.width;
             _layoutH = Screen.height;
+            if (RibbonMenu.Enabled)
+            {
+                LayoutRibbon();
+                return;
+            }
+
             _s = Mathf.Min(_theme.UiScale(Screen.dpi), Mathf.Max(1f, Screen.width / 470f));
             var s = _s;
             var margin = 8f;
@@ -364,6 +400,70 @@ namespace AICompanion.NewUI
             _rebuild = true;
         }
 
+        void LayoutRibbon()
+        {
+            var area = OverlayVisibleArea.Get(GetComponent<OverlayWindow>());
+            var layout = new RibbonSettingsLayout(area, _theme.UiScale(Screen.dpi));
+            _s = layout.Scale;
+            _panel.anchorMin = _panel.anchorMax = new Vector2(.5f, .5f);
+            _panel.pivot = new Vector2(.5f, .5f);
+            _panel.anchoredPosition = layout.Frame.center - new Vector2(Screen.width, Screen.height) * .5f;
+            _panel.sizeDelta = layout.Frame.size;
+
+            PlaceInFrame(_title.rectTransform, layout.Title);
+            _title.fontSize = 23f * _s;
+            HappiUiKit.Place(_ribbonTitleAccent, layout.Title.x - 13f * _s, layout.Title.y + 1f * _s,
+                9f * _s, layout.Title.height - 2f * _s);
+            PlaceInFrame(_close.Rect, layout.Close);
+            HappiUiKit.Place(_ribbonCloseIcon.rectTransform, 5f * _s, 5f * _s, 18f * _s, 18f * _s);
+            for (var i = 0; i < _tabs.Count; i++)
+            {
+                PlaceInFrame(_tabs[i].Rect, layout.Tab(i));
+                SetRibbonNavFont(_tabs[i].Label, 13f);
+            }
+
+            _pagesX = layout.Pages.x;
+            _pagesY = layout.Pages.y;
+            _pagesW = layout.Pages.width;
+            _pagesH = layout.Pages.height;
+            _ribbonPageColumns = layout.PageColumns;
+            PlacePages();
+            PlaceInFrame((RectTransform)_scroll.transform, layout.Body);
+            PlaceInFrame(_status.rectTransform, layout.Status);
+            _status.fontSize = _theme.FontSmall * _s;
+            _width = layout.Body.width - 12f;
+            _rebuild = true;
+        }
+
+        static void PlaceInFrame(RectTransform transform, Rect rect)
+            => HappiUiKit.Place(transform, rect.x, rect.y, rect.width, rect.height);
+
+        void SetRibbonNavFont(TMP_Text label, float size)
+        {
+            label.enableAutoSizing = true;
+            label.fontSizeMin = 10f * _s;
+            label.fontSizeMax = size * _s;
+        }
+
+        void StyleRibbonNavigation(HappiButton button)
+        {
+            RibbonShape.Apply(button.Image, RibbonShape.Kind.Tab);
+            RefreshRibbonNavigation(button, false, _theme.Text);
+        }
+
+        static void RefreshRibbonNavigation(HappiButton button, bool selected, Color inactiveText)
+        {
+            var colors = button.Button.colors;
+            colors.normalColor = selected ? RibbonMenu.Cyan : SettingsCard;
+            colors.highlightedColor = RibbonMenu.Cyan;
+            colors.pressedColor = SettingsGold;
+            colors.selectedColor = colors.normalColor;
+            button.Button.colors = colors;
+            var hover = button.Button.GetComponent<HappiHoverText>();
+            button.Label.color = hover.Normal = selected ? SettingsInk : inactiveText;
+            hover.Hover = SettingsInk;
+        }
+
         // ---- Body --------------------------------------------------------------------------
 
         void RebuildBody()
@@ -394,6 +494,11 @@ namespace AICompanion.NewUI
             for (var i = 0; i < _tabs.Count; i++)
             {
                 var selected = i == (int)_tab;
+                if (RibbonMenu.Enabled)
+                {
+                    RefreshRibbonNavigation(_tabs[i], selected, i == (int)SettingsTab.Adult ? _theme.Intimate : _theme.Text);
+                    continue;
+                }
                 var colors = _tabs[i].Button.colors;
                 colors.normalColor = selected ? _theme.Selected : _theme.Button;
                 _tabs[i].Button.colors = colors;
@@ -438,8 +543,9 @@ namespace AICompanion.NewUI
             if (_pageButtons.Count == 0 || _pagesW <= 0f)
                 return;
             var n = Mathf.Max(1, _shownPages.Count);
-            var gap = _theme.Spacing * _s * 0.5f;
-            var w = (_pagesW - gap * (n - 1)) / n;
+            var gap = (RibbonMenu.Enabled ? 5f : _theme.Spacing * .5f) * _s;
+            var columns = RibbonMenu.Enabled ? Mathf.Min(n, Mathf.Max(1, _ribbonPageColumns)) : n;
+            var w = (_pagesW - gap * (columns - 1)) / columns;
             for (var i = 0; i < _pageButtons.Count; i++)
             {
                 var button = _pageButtons[i];
@@ -447,10 +553,17 @@ namespace AICompanion.NewUI
                 button.Rect.gameObject.SetActive(on);
                 if (!on)
                     continue;
-                HappiUiKit.Place(button.Rect, _pagesX + i * (w + gap), _pagesY, w, _pagesH);
+                HappiUiKit.Place(button.Rect, _pagesX + i % columns * (w + gap),
+                    _pagesY + i / columns * (_pagesH + gap), w, _pagesH);
                 button.Label.text = HappiUiKit.Literal(SettingsMenu.Label(_shownPages[i]));
                 button.Label.fontSize = _theme.FontSmall * _s * 0.95f;
                 var selected = _shownPages[i] == _page;
+                if (RibbonMenu.Enabled)
+                {
+                    SetRibbonNavFont(button.Label, 13f);
+                    RefreshRibbonNavigation(button, selected, _tab == SettingsTab.Adult ? _theme.Intimate : _theme.Text);
+                    continue;
+                }
                 var colors = button.Button.colors;
                 colors.normalColor = selected ? _theme.Hover : HappiTheme.Darken(_theme.Button, 0.15f);
                 colors.selectedColor = colors.normalColor;
@@ -1440,7 +1553,6 @@ namespace AICompanion.NewUI
                 Button("Allow " + DesktopToolCatalog.Label(kind), () => SetToolPermission(kind, DesktopToolPermissions.Allowed));
                 Button("Ask on first use", () => SetToolPermission(kind, DesktopToolPermissions.Ask));
                 Button("Block", () => SetToolPermission(kind, DesktopToolPermissions.Denied));
-                Button("Preview first-use prompt", () => DesktopToolPermissions.Request(_settings, kind, "preview", _ => { _rebuild = true; }));
             }
 
             Section("Web search test");
@@ -2264,7 +2376,6 @@ namespace AICompanion.NewUI
 
             var lookButton = Button(look.IsBusy ? "Stop look" : "Look at screen", () => { if (look.IsBusy) look.Stop(); else look.RequestLook(); _rebuild = true; });
             lookButton.Interactable = ScreenLookPolicy.LookButtonInteractable(decision.SendButtonEnabled, look.IsBusy);
-            Button(look.IsBusy ? "Stop" : "Stop look", () => { look.Stop(); _rebuild = true; });
             Button("Clear window", () => { look.ClearSelection(); if (S.ScreenCaptureWholeMonitor) look.RefreshMonitors(); _rebuild = true; });
             Note("Stop cancels the current frame. Clear window drops the selection and the preview.");
             if (_framePreview && look.PreviewTexture != null)
@@ -2349,7 +2460,9 @@ namespace AICompanion.NewUI
         /// <summary>Opens a box at the current line. Rows placed after it go inside, until <see cref="CloseCard"/>.</summary>
         void OpenCard()
         {
-            var bg = HappiUiKit.Panel(_body, "Box", _theme.PanelInset, false);
+            var bg = HappiUiKit.Panel(_body, "Box", RibbonMenu.Enabled ? SettingsCard : _theme.PanelInset, false);
+            if (RibbonMenu.Enabled)
+                RibbonShape.Apply(bg, RibbonShape.Kind.Panel);
             var rect = bg.rectTransform;
             rect.anchorMin = new Vector2(0f, 1f);
             rect.anchorMax = new Vector2(1f, 1f);
