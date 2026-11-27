@@ -29,7 +29,9 @@ namespace AICompanion.Tests.EditMode
             var layout = RoomLayout.V1();
             Assert.IsTrue(layout.IsBlocked(new RoomTile(1, 1)), "bed");
             Assert.IsTrue(layout.IsBlocked(new RoomTile(8, 0)), "desk");
-            Assert.IsTrue(layout.IsBlocked(new RoomTile(7, 3)), "pouf");
+            Assert.IsTrue(layout.IsBlocked(new RoomTile(8, 3)), "pouf");
+            Assert.IsTrue(layout.IsBlocked(new RoomTile(9, 1)), "desk chair");
+            Assert.IsTrue(layout.IsBlocked(new RoomTile(9, 7)), "piano bench");
             Assert.IsTrue(layout.IsFree(new RoomTile(5, 4)), "rug");
             Assert.IsTrue(layout.IsBlocked(new RoomTile(-1, 0)) && layout.IsBlocked(new RoomTile(12, 0)), "off the floor");
         }
@@ -133,13 +135,13 @@ namespace AICompanion.Tests.EditMode
         public void Walker_ArrowKeys_StepOneFreeTile_OrJustTurn()
         {
             var layout = RoomLayout.V1();
-            var walker = new RoomWalker(layout, new RoomTile(6, 3));
+            var walker = new RoomWalker(layout, new RoomTile(7, 3));
             Assert.IsFalse(walker.Step(RoomFacing.Right), "the pouf is in the way");
             Assert.AreEqual(RoomFacing.Right, walker.Facing);
 
             Assert.IsTrue(walker.Step(RoomFacing.Left));
             walker.Tick(10f);
-            Assert.AreEqual(new RoomTile(5, 3), walker.Tile);
+            Assert.AreEqual(new RoomTile(6, 3), walker.Tile);
         }
 
         [Test]

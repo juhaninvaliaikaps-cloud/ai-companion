@@ -108,11 +108,13 @@ namespace AICompanion.Core
                 new RoomTile(5, 8), new RoomTile(6, 8));
             layout.Block(0, 0, 3, 3);   // bed
             layout.Block(3, 0, 1, 1);   // lamp
-            layout.Block(7, 0, 3, 1);   // desk
+            layout.Block(8, 0, 3, 1);   // desk (JUH-229: matched to the v1 art)
+            layout.Block(9, 1, 1, 1);   // desk chair
             layout.Block(11, 1, 1, 3);  // bookshelf
-            layout.Block(7, 3, 1, 1);   // pouf
+            layout.Block(8, 3, 1, 1);   // pouf
             layout.Block(0, 4, 2, 4);   // wardrobe
             layout.Block(10, 5, 2, 3);  // hobby (piano in the draft)
+            layout.Block(9, 7, 1, 1);   // piano bench
             return layout;
         }
 
