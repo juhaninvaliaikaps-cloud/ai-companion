@@ -203,6 +203,12 @@ namespace AICompanion.Core
         public SheetLanding landing = new SheetLanding();
         public SheetWorld world = new SheetWorld();
 
+        /// <summary>
+        /// JUH-231: her hobby in Her Room, one of <see cref="RoomHobbies.Keys"/>, or empty
+        /// (older sheets): then <see cref="RoomHobbies.For"/> guesses it from her description.
+        /// </summary>
+        public string roomHobby = string.Empty;
+
         /// <summary>A neutral sheet: balanced temperament, a stranger at 0 and 0, an empty world.</summary>
         public static CharacterSheet Neutral(string personaPrompt)
         {
@@ -346,6 +352,8 @@ namespace AICompanion.Core
                 landing = new SheetLanding();
             landing.touchy = Lines(landing.touchy, MaxLandingPhrases, MaxPhraseLength);
             landing.winsHerOver = Lines(landing.winsHerOver, MaxLandingPhrases, MaxPhraseLength);
+
+            roomHobby = RoomHobbies.Normalize(roomHobby);
 
             if (world == null)
                 world = new SheetWorld();

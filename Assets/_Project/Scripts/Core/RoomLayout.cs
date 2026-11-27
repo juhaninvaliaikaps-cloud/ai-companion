@@ -102,6 +102,12 @@ namespace AICompanion.Core
         /// </summary>
         public static RoomLayout V1()
         {
+            return V1(RoomHobby.Piano);
+        }
+
+        /// <summary>JUH-231: the v1 room with her hobby in the hobby slot. Only the piano has a bench.</summary>
+        public static RoomLayout V1(RoomHobby hobby)
+        {
             var layout = new RoomLayout(12, 9,
                 94f / 1254f, 296f / 1254f, 1166f / 1254f, 1139f / 1254f,
                 454f / 1254f, 66f / 1254f, 800f / 1254f, 258f / 1254f,
@@ -114,7 +120,8 @@ namespace AICompanion.Core
             layout.Block(8, 3, 1, 1);   // pouf
             layout.Block(0, 4, 2, 4);   // wardrobe
             layout.Block(10, 5, 2, 3);  // hobby (piano in the draft)
-            layout.Block(9, 7, 1, 1);   // piano bench
+            if (hobby == RoomHobby.Piano)
+                layout.Block(9, 7, 1, 1);   // piano bench
             return layout;
         }
 

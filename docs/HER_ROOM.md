@@ -5,7 +5,7 @@ Her Room is a small 2D top-down room that she and the player share. It is reache
 **Status:**
 - **Phase 1a, the room logic (JUH-226):** built.
 - **Phase 1b, the room window (JUH-228):** built, using Codex's draft art as stand-ins. Launch with `--ribbon-ui` and click the door glyph beside the Ribbon menu.
-- **Phase 2, slots and activities:** not started.
+- **Phase 2a, activities, slots and her hobby, the logic (JUH-231):** built. Phase 2b, drawing them, waits for the Windows check of the v1 art.
 
 ## v1 in short
 
@@ -28,7 +28,7 @@ Her Room is a small 2D top-down room that she and the player share. It is reache
 | `RoomClock` | From the local time: a tint that blends smoothly between night, morning (from 05:30), day (09:00–17:00), dusk (to 21:00) and night. Also the sky colour, the lamp (on 18:30–07:00, with half-hour fades) and bedtime (22:30–06:30). |
 | `RoomWindowSize` | Keeps the square window between 480 px and the work-area height, and converts a click in the window to a point on the room picture. |
 
-Tests: `RoomLogicTests`, `RoomWanderTests`, `WallpaperCropTests` and `RoomArtTests`.
+Tests: `RoomLogicTests`, `RoomWanderTests`, `WallpaperCropTests`, `RoomArtTests` and `RoomActivityTests`.
 
 ## The room window (phase 1b, NewUI assembly)
 
@@ -99,3 +99,36 @@ Tests: `RoomLogicTests`, `RoomWanderTests`, `WallpaperCropTests` and `RoomArtTes
 - The lighting is worked out twice a second, not every frame.
 
 **Pathing:** the blocked tiles match the art. The desk is now columns 8–10, the desk chair is (9,1), the pouf (8,3) and the piano bench (9,7). `RoomArtTests` checks that every floor piece stands on a blocked tile.
+
+## Activities, slots and her hobby (phase 2a, JUH-231, Core)
+
+**Her hobby (`RoomHobbies`)**
+- One of piano, squat rack, easel, guitar, plants or telescope.
+- Pisara's reading gives it as `roomHobby`. An older sheet, or a reading without it, falls back to keywords in her description, and then to the piano.
+- It decides which piece stands in the hobby slot, and her pose there. The piano and the squat rack have poses; for the others she stands and faces it.
+- Only the piano has a bench, so `RoomLayout.V1(hobby)` frees the bench tile for the others.
+
+**Slots (`RoomSlots.V1`)** Each activity has a tile she walks to, a facing, the furniture it uses, the pose from the art pack, and the point where the pose's feet go. The pose points are first values from the catalogue anchors; phase 2b lines them up by eye.
+
+| Activity | Stand tile | Faces | Pose | Uses | Lasts |
+|---|---|---|---|---|---|
+| Sit | (6,4) on the rug | down | sit | rug | 20–45 s |
+| Read | (8,4) | up | read | pouf | 40–90 s |
+| Use the PC | (9,2) | up | use_pc | desk chair | 40–90 s |
+| Look out of the window | (6,0) | up | look_window | — | 12–25 s |
+| Wardrobe | (2,5) | left | wardrobe | wardrobe (opens) | 6–10 s |
+| Hobby | (8,7) piano, (9,6) others | right | the hobby's | hobby piece | 30–70 s |
+| Sleep | (1,3) | up | sleep | bed | until morning |
+
+The player can sit on the rug, the pouf and the desk chair (he has a sit pose). A click on a piece of furniture maps to its activity: for example the bookshelf means reading, the desk the PC, the bench the piano.
+
+**Her routine (`RoomRoutine`)** This replaces the random stroll.
+- After a 6–14 s pause she picks an activity, or a stroll, by weight:
+  - **Time of day:** mornings lean to the window and the wardrobe, days to the PC and her hobby, evenings to reading and sitting.
+  - **Mood:** happy means hobby, sad means window, sleepy means sitting and reading, and so on. Intimate counts as Content: 18+ stays out of the room.
+  - **What she just did:** that gets one fifth of its weight.
+  - **The player's spot:** nothing the player is using.
+- She walks to the slot, does it for its time, then gets up. If the walk ends short of the slot, she gives up on it.
+- With the player beside her she stays.
+- **Night:** she goes to bed and sleeps until the night ends.
+- **Requests:** the player can ask for an activity. That's refused at night, for sleep, and for a spot he is standing on.
