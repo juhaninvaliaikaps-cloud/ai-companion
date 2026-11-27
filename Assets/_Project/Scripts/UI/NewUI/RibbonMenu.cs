@@ -106,6 +106,8 @@ namespace AICompanion.NewUI
         bool _closedOverTrigger;
         bool _closeHighlighted;
         bool _leftWasHeld;
+        int _hoveredDestination = -1;
+        RibbonFlyoutPress _destinationPress;
         readonly RibbonKeyboard _keyboard = new RibbonKeyboard();
         Vector2 _keyboardPointer;
         RectTransform _keyboardMark;
@@ -211,6 +213,9 @@ namespace AICompanion.NewUI
             {
                 var index = i;
                 var destination = Button(_flyout, string.Empty, () => OpenDestination(index));
+                destination.Button.transition = Selectable.Transition.None;
+                destination.Button.GetComponent<HappiHoverText>().enabled = false;
+                destination.Image.canvasRenderer.SetColor(Ink);
                 destination.Label.alignment = TextAlignmentOptions.MidlineLeft;
                 destination.Label.overflowMode = TextOverflowModes.Truncate;
                 _destinations[i] = destination;
@@ -295,6 +300,7 @@ namespace AICompanion.NewUI
         {
             if (_activeFlyout == flyout)
                 return;
+            ClearDestinationPointer();
             SetParentTabHighlight(_activeFlyout, false);
             _activeFlyout = flyout;
             _flyoutPointerAt = float.NegativeInfinity;
@@ -315,7 +321,10 @@ namespace AICompanion.NewUI
                 var visible = i < labels.Length;
                 _destinations[i].Button.gameObject.SetActive(visible);
                 if (visible)
+                {
                     _destinations[i].Label.text = labels[i];
+                    _destinations[i].Image.CrossFadeColor(Ink, 0f, true, true);
+                }
             }
             _flyout.gameObject.SetActive(true);
         }
@@ -348,6 +357,7 @@ namespace AICompanion.NewUI
 
         void HideFlyout()
         {
+            ClearDestinationPointer();
             SetParentTabHighlight(_activeFlyout, false);
             _activeFlyout = Flyout.None;
             _flyout.gameObject.SetActive(false);
@@ -368,6 +378,7 @@ namespace AICompanion.NewUI
         {
             GetComponent<ITypingFocus>()?.FocusForTyping();
             EventSystem.current?.SetSelectedGameObject(null);
+            ClearDestinationPointer();
             _keyboard.Open(row);
             _keyboardPointer = ReadPointer();
             _closedOverTrigger = false;
@@ -472,8 +483,10 @@ namespace AICompanion.NewUI
             if (_canvas == null)
                 return;
             var chrome = _window != null ? _window.Chrome : null;
-            var left = chrome != null && chrome.IsSupported ? chrome.IsLeftButtonHeld() : Input.GetMouseButton(0);
+            var nativePointer = chrome != null && chrome.IsSupported;
+            var left = nativePointer ? chrome.IsLeftButtonHeld() : Input.GetMouseButton(0);
             var leftDown = left && !_leftWasHeld;
+            var leftUp = !left && _leftWasHeld;
             _leftWasHeld = left;
             if ((_window != null && !_window.IsCompanionVisible) || !_head.TryGet(Time.unscaledDeltaTime, out var head))
             {
@@ -547,7 +560,10 @@ namespace AICompanion.NewUI
             if (_activeFlyout != Flyout.None)
                 PlaceFlyout(area, scale);
             var overFlyout = _activeFlyout != Flyout.None && _visiblePaperBounds.Contains(pointer);
-            if (leftDown && !overTrigger && pointerRow < 0 && !OverDestination(pointer))
+            var destination = overFlyout ? DestinationAt(pointer) : -1;
+            if (destination >= 0 && nativePointer && !chrome.IsWindowUnderPointer())
+                destination = -1;
+            if (leftDown && !overTrigger && pointerRow < 0 && destination < 0)
             {
                 Close();
                 return;
@@ -568,6 +584,17 @@ namespace AICompanion.NewUI
                 if (Application.isFocused)
                     UpdateKeyboard(area, scale);
                 return;
+            }
+
+            SetDestinationHover(destination);
+            if (nativePointer)
+            {
+                var clicked = _destinationPress.Update(destination, leftDown, leftUp);
+                if (clicked >= 0)
+                {
+                    _destinations[clicked].Button.onClick.Invoke();
+                    return;
+                }
             }
 
             HighlightClose(pointerRow == CloseRow);
@@ -615,13 +642,37 @@ namespace AICompanion.NewUI
             return selected == null || !selected.TryGetComponent<TMP_InputField>(out var input) || !input.isFocused;
         }
 
-        bool OverDestination(Vector2 pointer)
+        int DestinationAt(Vector2 pointer)
         {
             var count = LabelsFor(_activeFlyout).Length;
             for (var i = 0; i < count; i++)
-                if (_destinationBounds[i].Contains(pointer))
-                    return true;
-            return false;
+                if (_destinationBounds[i].Contains(pointer) && _destinations[i].Button.IsInteractable())
+                    return i;
+            return -1;
+        }
+
+        void ClearDestinationPointer()
+        {
+            SetDestinationHover(-1);
+            _destinationPress.Clear();
+        }
+
+        void SetDestinationHover(int index)
+        {
+            if (index == _hoveredDestination)
+                return;
+            if (_hoveredDestination >= 0)
+                TintDestination(_hoveredDestination, false);
+            _hoveredDestination = index;
+            if (index >= 0)
+                TintDestination(index, true);
+        }
+
+        void TintDestination(int index, bool over)
+        {
+            var destination = _destinations[index];
+            destination.Image.CrossFadeColor(over ? Cyan : Ink, destination.Button.colors.fadeDuration, true, true);
+            destination.Label.color = over ? Ink : HappiTheme.Current.Text;
         }
 
         int MainRowAt(Vector2 pointer)

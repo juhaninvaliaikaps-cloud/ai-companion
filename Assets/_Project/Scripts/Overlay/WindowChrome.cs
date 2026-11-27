@@ -24,6 +24,7 @@ namespace AICompanion.Overlay
         bool IsRightButtonHeld();
         bool IsMiddleButtonHeld();
         bool TryGetScreenCursor(out Vector2Int screenPixels);
+        bool IsWindowUnderPointer();
         bool TryGetClientCursor(out Vector2Int clientPixels, out Vector2Int clientSize);
         bool TryGetWindowPosition(out Vector2Int topLeft);
         bool TryGetMonitorSize(out Vector2Int size);
@@ -85,6 +86,7 @@ namespace AICompanion.Overlay
         }
 
         public bool IsLeftButtonHeld() => false;
+        public bool IsWindowUnderPointer() => false;
 
         public bool IsRightButtonHeld() => false;
 

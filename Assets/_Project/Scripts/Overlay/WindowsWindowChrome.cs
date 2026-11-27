@@ -154,6 +154,11 @@ namespace AICompanion.Overlay
             SetWindowPos(_hwnd, IntPtr.Zero, 0, 0, 0, 0, SwpFrameChanged | SwpNoMove | SwpNoSize | SwpNoZOrder | SwpNoActivate);
         }
 
+        public bool IsWindowUnderPointer()
+        {
+            return TryGetHwnd() && GetCursorPos(out var point) && WindowFromPoint(point) == _hwnd;
+        }
+
         public bool IsLeftButtonHeld()
         {
             return (GetAsyncKeyState(VkLButton) & 0x8000) != 0;
@@ -390,6 +395,9 @@ namespace AICompanion.Overlay
 
         [DllImport("user32.dll")]
         static extern bool GetCursorPos(out WinPoint point);
+
+        [DllImport("user32.dll")]
+        static extern IntPtr WindowFromPoint(WinPoint point);
 
         [DllImport("user32.dll")]
         static extern bool ScreenToClient(IntPtr hWnd, ref WinPoint point);
