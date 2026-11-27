@@ -140,6 +140,8 @@ The character sheet may also carry `temperament.axes` with `axesSet: true`. When
 
 **Curiosity in chat (JUH-220).** Values at displayed steps 1–3 ask the model to let the user lead. Steps 4–6 use its usual judgment. Steps 7–8 allow a specific follow-up where the user opens a thread, and steps 9–10 encourage exploring it with one grounded question. Ordinary typed and spoken chat get the current instruction even with a cached voice reading. Screen and game requests keep their existing prompts. The 1–10 editor still represents stored 0–100 values, with 50 between the two central steps. Curiosity has no mood multiplier or relationship effect.
 
+**Assertiveness and Directness in chat (JUH-224).** Low Assertiveness leaves the next move to the user. High Assertiveness offers one concrete next step when the user is open to it. Low Directness leads with context, and High Directness leads with her take. These use the existing 30 and 70 boundaries. Ordinary chat reads the current guidance after voice calibration, while game, screen and avatar interaction requests retain their prior style. The model interprets the guidance when it replies.
+
 **Persona settings** (old and new settings window) show, for the active persona:
 
 - `Temperament: Auto (Shy 60%, Cheerful 40%): <reason>`, or `Temperament: Tsundere (your pick)`, or `Temperament: Cheerful (built-in)`;
