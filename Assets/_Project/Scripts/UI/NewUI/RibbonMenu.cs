@@ -608,7 +608,7 @@ namespace AICompanion.NewUI
         {
             if (!Application.isFocused || (_settingsView != null && _settingsView.IsOpen) || (_wheel != null && _wheel.IsOpen))
                 return false;
-            if (_chatView != null && _chatView.PersonaMenuOpen)
+            if (_chatView != null && _chatView.ChatMenuOwnsKeyboard)
                 return false;
 
             var selected = EventSystem.current?.currentSelectedGameObject;

@@ -100,7 +100,11 @@ namespace AICompanion.NewUI
                 if (!visible)
                     continue;
                 _quick[i].Text = HappiUiKit.Literal(choices[i].Name);
-                _checks[i].gameObject.SetActive(choices[i].Active);
+                var active = choices[i].Active;
+                _checks[i].gameObject.SetActive(active);
+                var colors = _quick[i].Button.colors;
+                colors.normalColor = active ? new Color32(29, 63, 70, 255) : RibbonMenu.Ink;
+                _quick[i].Button.colors = colors;
             }
             _openedAt = Time.unscaledTime;
             _viewport.SetAsLastSibling();
@@ -270,7 +274,8 @@ namespace AICompanion.NewUI
             {
                 var row = _quick[i];
                 if (row.Label.isTextTruncated && (selected == row.Button.gameObject ||
-                    RectTransformUtility.RectangleContainsScreenPoint(row.Rect, pointer, camera)))
+                    (RectTransformUtility.RectangleContainsScreenPoint(_viewport, pointer, camera) &&
+                     RectTransformUtility.RectangleContainsScreenPoint(row.Rect, pointer, camera))))
                     hint = row.Text;
             }
             _status.text = hint ?? string.Empty;

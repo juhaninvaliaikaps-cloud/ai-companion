@@ -88,6 +88,9 @@ namespace AICompanion.NewUI
         GameObject _chatMenu;
         HappiButton _menuCopy;
         HappiButton _ribbonExtrasMenu;
+        RibbonGlyph _ribbonExtrasCheck;
+        HappiButton[] _ribbonChatOptions;
+        TMP_InputField _chatOptionsReturnFocus;
         bool _ribbonExtras;
         bool _layoutPlayback;
         bool _layoutMic;
@@ -195,7 +198,8 @@ namespace AICompanion.NewUI
         bool _glowDirty;
 
         public VnPlayer Player => _player;
-        internal bool PersonaMenuOpen => _personaMenu != null && _personaMenu.IsOpen;
+        internal bool ChatMenuOwnsKeyboard => (_personaMenu != null && _personaMenu.IsOpen)
+            || (_ribbonChatOptions != null && _menuOpen);
 
         /// <summary>The chat box centre in Unity screen pixels.</summary>
         public Vector2 BoxCenter => _boxCenter;
@@ -331,6 +335,8 @@ namespace AICompanion.NewUI
             if (!visible)
             {
                 ClosePersonaMenu();
+                if (_ribbonChatOptions != null)
+                    CloseChatMenu();
                 _wasVisible = false;
                 _dragging = false;
                 _resizing = false;
@@ -398,11 +404,20 @@ namespace AICompanion.NewUI
                     ClosePersonaMenu(restoreFocus: true);
                 return;
             }
-            if (_menuOpen && Input.GetKeyDown(KeyCode.Escape))
+            if (_ribbonChatOptions != null && Application.isFocused && Input.GetKeyDown(KeyCode.O)
+                && (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)))
             {
-                CloseChatMenu();
+                if (GetComponent<HappiSettingsView>()?.IsOpen != true && GetComponent<PersonaStudioView>()?.IsOpen != true)
+                    ToggleChatMenu();
                 return;
             }
+            if (_menuOpen && Input.GetKeyDown(KeyCode.Escape))
+            {
+                CloseChatMenu(restoreFocus: true);
+                return;
+            }
+            if (_menuOpen && _ribbonChatOptions != null)
+                return;
 
             var typing = (_input != null && _input.isFocused) || (_keyInput != null && _keyInput.isFocused);
             var control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
@@ -1096,16 +1111,25 @@ namespace AICompanion.NewUI
             if (RibbonMenu.Enabled)
             {
                 RibbonShape.Apply(menuPanel, false);
-                var border = menuPanel.gameObject.AddComponent<Outline>();
-                border.effectColor = new Color32(114, 238, 207, 155);
-                border.effectDistance = new Vector2(1f, -1f);
-                StyleRibbonControl(_menuSettings, angled: true);
-                StyleRibbonControl(_menuClose, angled: true);
-                StyleRibbonControl(_menuProgram, angled: true);
-                StyleRibbonControl(_menuCopy, angled: true);
+                RibbonChatFrameEdge.Add(menuPanel.transform, RibbonShape.Kind.Panel);
+                _menuClose.Text = "Hide chat";
+                _menuProgram.Text = "Quit Happi";
                 _ribbonExtrasMenu = HappiUiKit.Button(_chatMenu.transform, "Playback & mic",
-                    "Show playback & mic", _theme.FontSmall, ToggleRibbonExtras);
-                StyleRibbonControl(_ribbonExtrasMenu, angled: true);
+                    "Playback & mic", _theme.FontSmall, ToggleRibbonExtras);
+                _ribbonExtrasCheck = RibbonGlyph.Add(_ribbonExtrasMenu.Rect, "Playback and microphone controls shown", RibbonGlyph.Mark.Check, _theme.Text);
+                _ribbonExtrasCheck.Label = _ribbonExtrasMenu.Label;
+                _ribbonExtrasCheck.gameObject.SetActive(_ribbonExtras);
+                _ribbonChatOptions = new[] { _menuSettings, _ribbonExtrasMenu, _menuCopy, _menuClose, _menuProgram };
+                foreach (var option in _ribbonChatOptions)
+                {
+                    StyleRibbonControl(option, angled: true);
+                    var colors = option.Button.colors;
+                    colors.selectedColor = new Color32(40, 100, 108, 255);
+                    option.Button.colors = colors;
+                    option.Label.alignment = TextAlignmentOptions.MidlineLeft;
+                    option.Label.enableAutoSizing = true;
+                    option.Label.overflowMode = TextOverflowModes.Ellipsis;
+                }
             }
             _chatMenu.SetActive(false);
 
@@ -2349,31 +2373,64 @@ namespace AICompanion.NewUI
         void OnApplicationFocus(bool focused)
         {
             if (!focused)
+            {
                 ClosePersonaMenu();
+                if (_ribbonChatOptions != null)
+                    CloseChatMenu();
+            }
         }
 
         void ToggleChatMenu()
         {
             ClosePersonaMenu();
-            _menuOpen = !_menuOpen;
-            if (_chatMenu != null)
-            {
-                _chatMenu.SetActive(_menuOpen);
-                if (_menuOpen)
-                    _chatMenu.transform.SetAsLastSibling();
-            }
             if (_menuOpen)
             {
-                var scale = _layoutScale > 0f ? _layoutScale : 1f;
-                PlaceChatMenu(scale, _theme.Padding * scale, 26f * scale, _theme.Spacing * scale, -_close.Rect.anchoredPosition.y + _close.Rect.rect.height);
+                CloseChatMenu(restoreFocus: true);
+                return;
             }
+
+            _menuOpen = true;
+            _chatMenu.SetActive(true);
+            _chatMenu.transform.SetAsLastSibling();
+            var scale = _layoutScale > 0f ? _layoutScale : 1f;
+            var headerBottom = _ribbonChatOptions != null
+                ? _dragHandle.Rect.rect.height - _theme.Spacing * scale * 0.5f
+                : -_close.Rect.anchoredPosition.y + _close.Rect.rect.height;
+            PlaceChatMenu(scale, _theme.Padding * scale, 26f * scale, _theme.Spacing * scale, headerBottom);
+
+            if (_ribbonChatOptions == null)
+                return;
+            _chatOptionsReturnFocus = _input.isFocused ? _input : _keyInput.isFocused ? _keyInput : null;
+            _chatOptionsReturnFocus?.DeactivateInputField();
+            ReleaseFocus();
+            GetComponent<ITypingFocus>()?.FocusForTyping();
+            _ribbonChatOptions[0].Button.Select();
         }
 
-        void CloseChatMenu()
+        void CloseChatMenu(bool restoreFocus = false)
         {
+            var input = _chatOptionsReturnFocus;
+            _chatOptionsReturnFocus = null;
+            if (_ribbonChatOptions != null && _menuOpen)
+            {
+                var events = EventSystem.current;
+                var selection = events != null ? events.currentSelectedGameObject : null;
+                if (selection != null && selection.transform.IsChildOf(_chatMenu.transform))
+                    events.SetSelectedGameObject(null);
+            }
             _menuOpen = false;
             if (_chatMenu != null)
                 _chatMenu.SetActive(false);
+
+            if (!restoreFocus || _ribbonChatOptions == null)
+                return;
+            if (input != null && input.isActiveAndEnabled && input.interactable)
+            {
+                input.ActivateInputField();
+                input.Select();
+            }
+            else
+                _close.Button.Select();
         }
 
         void OpenSettingsFromMenu()
@@ -2385,7 +2442,7 @@ namespace AICompanion.NewUI
 
         void CopyTranscriptFromMenu()
         {
-            CloseChatMenu();
+            CloseChatMenu(restoreFocus: true);
             CopyTranscript();
         }
 
@@ -2436,38 +2493,65 @@ namespace AICompanion.NewUI
         void ToggleRibbonExtras()
         {
             _ribbonExtras = !_ribbonExtras;
-            _ribbonExtrasMenu.Text = _ribbonExtras ? "Hide playback & mic" : "Show playback & mic";
+            _ribbonExtrasCheck.gameObject.SetActive(_ribbonExtras);
             _layoutWidth = -1f;
-            CloseChatMenu();
+            CloseChatMenu(restoreFocus: true);
         }
 
         void PlaceChatMenu(float s, float pad, float row, float gap, float headerBottom)
         {
             if (_chatMenu == null)
                 return;
+            if (_ribbonChatOptions != null)
+            {
+                PlaceRibbonChatOptions(s, headerBottom);
+                return;
+            }
             var rect = (RectTransform)_chatMenu.transform;
             rect.anchorMin = new Vector2(1f, 1f);
             rect.anchorMax = new Vector2(1f, 1f);
             rect.pivot = new Vector2(1f, 1f);
             var width = 170f * s;
-            var options = _ribbonExtrasMenu != null ? 5 : 4;
-            var height = row * options + gap * (options + 1);
-            rect.sizeDelta = new Vector2(width, height);
-            var rightInset = pad;
-            if (_ribbonHide != null)
-            {
-                var gearRight = _close.Rect.anchoredPosition.x + _close.Rect.rect.width;
-                rightInset = Mathf.Clamp(_box.rect.width - gearRight, pad, Mathf.Max(pad, _box.rect.width - width - pad));
-            }
-            var top = _ribbonHide != null ? Mathf.Min(headerBottom + gap, Mathf.Max(pad, _box.rect.height - height - pad)) : headerBottom + gap;
-            rect.anchoredPosition = new Vector2(-rightInset, -top);
+            rect.sizeDelta = new Vector2(width, row * 4f + gap * 5f);
+            rect.anchoredPosition = new Vector2(-pad, -headerBottom - gap);
             HappiUiKit.Place(_menuSettings.Rect, gap, gap, width - 2f * gap, row);
             HappiUiKit.Place(_menuClose.Rect, gap, gap * 2f + row, width - 2f * gap, row);
             HappiUiKit.Place(_menuProgram.Rect, gap, gap * 3f + row * 2f, width - 2f * gap, row);
             HappiUiKit.Place(_menuCopy.Rect, gap, gap * 4f + row * 3f, width - 2f * gap, row);
-            if (_ribbonExtrasMenu != null)
-                HappiUiKit.Place(_ribbonExtrasMenu.Rect, gap, gap * 5f + row * 4f, width - 2f * gap, row);
         }
+
+        void PlaceRibbonChatOptions(float scale, float headerBottom)
+        {
+            var gearRight = _close.Rect.anchoredPosition.x + _close.Rect.rect.width;
+            var layout = new RibbonChatOptionsLayout(_box.rect.size, headerBottom, gearRight, scale);
+            PlaceHeaderRect((RectTransform)_chatMenu.transform, layout.Bounds);
+            for (var i = 0; i < _ribbonChatOptions.Length; i++)
+            {
+                var option = _ribbonChatOptions[i];
+                PlaceHeaderRect(option.Rect, layout.Option(i));
+                var showCheck = _ribbonExtras && option.Button == _ribbonExtrasMenu.Button;
+                HappiUiKit.Stretch(option.Label.rectTransform, 11f * scale, 0f, (showCheck ? 19f : 7f) * scale, 0f);
+                if (showCheck)
+                {
+                    var size = 9f * scale;
+                    var cell = layout.Option(i);
+                    HappiUiKit.Place(_ribbonExtrasCheck.rectTransform, cell.width - 19f * scale,
+                        (cell.height - size) * 0.5f, size, size);
+                }
+                option.Label.fontSizeMin = 10f * scale;
+                option.Label.fontSizeMax = 13f * scale;
+                option.Button.navigation = new Navigation
+                {
+                    mode = Navigation.Mode.Explicit,
+                    selectOnUp = ChatOptionAt(layout.Neighbor(i, 0, -1)),
+                    selectOnDown = ChatOptionAt(layout.Neighbor(i, 0, 1)),
+                    selectOnLeft = ChatOptionAt(layout.Neighbor(i, -1, 0)),
+                    selectOnRight = ChatOptionAt(layout.Neighbor(i, 1, 0))
+                };
+            }
+        }
+
+        Button ChatOptionAt(int index) => index < 0 ? null : _ribbonChatOptions[index].Button;
 
         /// <summary>The Windows resize cursor while over an edge or corner, or while resizing.</summary>
         void ShowResizeCursor()
