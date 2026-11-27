@@ -36,6 +36,15 @@ The chat box header has a **Private / Public** switch in the place of "What do y
 
 The kind is the strongest seen during the private chapter. It comes from each private reply's cue only: an 18+ interaction, `heat` hot or release, an intimate expression or the intimate mood mean intimate; `heat` warm, a flirt or the affectionate mood mean romantic. No text is used. After a restart the kind is unknown, so "what kind" falls back to "that it happened". This is the one exception to "nothing from private mode goes to the cloud" (AGENTS.md).
 
+**The session memory follows the same setting (JUH-233).** When a session held an 18+ moment and its public part is summarised, `SessionMemories.PublicMarker` adds one public memory, also written by code:
+- **Nothing:** none. Public facts from that session carry no `moment` kind either.
+- **That it happened:** "The user and <her name> had a private talk."
+- **What kind of moment:** "The user and <her name> shared a private, intimate moment."
+
+The private part keeps its own marker ("… were intimate."), which stays local.
+
+A session handoff saved for a later retry keeps the setting it was saved with (`publicHint`). A handoff from before that key existed reads as Nothing, the strictest choice, and so does a caller that doesn't pass the setting.
+
 ## Hotkeys
 
 | Key | When | What it does |
