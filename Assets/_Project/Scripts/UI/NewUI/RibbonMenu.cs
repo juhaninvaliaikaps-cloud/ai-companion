@@ -26,6 +26,7 @@ namespace AICompanion.NewUI
         const float MainRowHeight = 35f;
         const float MainRowPitch = 39f;
         const float CloseGap = 7f;
+        const int CloseRow = 5;
         const float FlyoutRowHeight = 31f;
         const float FlyoutRowPitch = 35f;
         const float FlyoutMinWidth = 158f;
@@ -66,12 +67,13 @@ namespace AICompanion.NewUI
         RibbonScrollFinish _scrollFinish;
         RawImage _scrollRoll;
         float _flyoutShownAt;
+        Texture2D _screenArt;
         Texture2D _profileArt;
         Texture2D _aiArt;
         Texture2D _settingsArt;
         HappiButton[] _destinations;
         // Flyouts sit next to the main row with the same index.
-        enum Flyout { None = -1, Profile = 2, Ai = 3, Settings = 4 }
+        enum Flyout { None = -1, Look = 1, Profile = 2, Ai = 3, Settings = 4 }
         Flyout _activeFlyout = Flyout.None;
 
         static readonly ProfilePanel.Tab[] ProfileTabs =
@@ -102,6 +104,7 @@ namespace AICompanion.NewUI
         float _flyoutPointerAt;
         float _closeAt;
         bool _closedOverTrigger;
+        bool _closeHighlighted;
         bool _leftWasHeld;
         readonly RibbonKeyboard _keyboard = new RibbonKeyboard();
         Vector2 _keyboardPointer;
@@ -185,6 +188,7 @@ namespace AICompanion.NewUI
                 RibbonShape.Apply(accent, true);
             }
 
+            _screenArt = Resources.Load<Texture2D>("RibbonArt/Happi-Screen");
             _profileArt = Resources.Load<Texture2D>("RibbonArt/Profile");
             _aiArt = Resources.Load<Texture2D>("RibbonArt/AI");
             _settingsArt = Resources.Load<Texture2D>("RibbonArt/Settings");
@@ -277,7 +281,7 @@ namespace AICompanion.NewUI
         }
 
         static Flyout FlyoutAtRow(int row) =>
-            row >= (int)Flyout.Profile && row <= (int)Flyout.Settings ? (Flyout)row : Flyout.None;
+            row >= (int)Flyout.Look && row <= (int)Flyout.Settings ? (Flyout)row : Flyout.None;
 
         static string[] LabelsFor(Flyout flyout) => flyout switch
         {
@@ -299,6 +303,7 @@ namespace AICompanion.NewUI
             var labels = LabelsFor(flyout);
             _painting.texture = flyout switch
             {
+                Flyout.Look => _screenArt,
                 Flyout.Profile => _profileArt,
                 Flyout.Ai => _aiArt,
                 Flyout.Settings => _settingsArt,
@@ -320,7 +325,20 @@ namespace AICompanion.NewUI
             if (flyout == Flyout.None)
                 return;
 
-            var parent = _rows[(int)flyout];
+            SetRowHighlight((int)flyout, active);
+        }
+
+        void HighlightClose(bool highlighted)
+        {
+            if (_closeHighlighted == highlighted)
+                return;
+            _closeHighlighted = highlighted;
+            SetRowHighlight(CloseRow, highlighted);
+        }
+
+        void SetRowHighlight(int row, bool active)
+        {
+            var parent = _rows[row];
             var colors = parent.Button.colors;
             colors.normalColor = active ? Cyan : Ink;
             colors.selectedColor = colors.normalColor;
@@ -340,6 +358,7 @@ namespace AICompanion.NewUI
             _pendingSelection = null;
             _clickAccent.Stop();
             EndKeyboard();
+            HighlightClose(false);
             _closedOverTrigger = true;
             _menu.gameObject.SetActive(false);
             HideFlyout();
@@ -402,7 +421,7 @@ namespace AICompanion.NewUI
                 _keyboardPointer = ReadPointer();
                 _keyboard.Move(direction, _rows.Length, destinationCount, _rows[1].Button.interactable);
             }
-            else if (!inFlyout && parentFlyout != Flyout.None && (confirm || Input.GetKeyDown(enterSide)))
+            else if (!inFlyout && LabelsFor(parentFlyout).Length > 0 && (confirm || Input.GetKeyDown(enterSide)))
             {
                 ShowFlyout(parentFlyout);
                 _keyboard.EnterFlyout();
@@ -415,6 +434,13 @@ namespace AICompanion.NewUI
                     choice.Button.onClick.Invoke();
             }
 
+            if (_keyboard.Destination < 0 && (Flyout)_keyboard.Row == Flyout.Look)
+            {
+                ShowFlyout(Flyout.Look);
+                PlaceFlyout(area, scale);
+            }
+            else if (_activeFlyout == Flyout.Look)
+                HideFlyout();
             ShowKeyboardMark();
         }
 
@@ -422,6 +448,7 @@ namespace AICompanion.NewUI
         {
             if (!_keyboard.Active)
                 return;
+            HighlightClose(_keyboard.Row == CloseRow);
             var row = _keyboard.Destination >= 0 ? _destinations[_keyboard.Destination] : _rows[_keyboard.Row];
             if (_keyboardMark.parent != row.Rect)
             {
@@ -543,6 +570,7 @@ namespace AICompanion.NewUI
                 return;
             }
 
+            HighlightClose(pointerRow == CloseRow);
             if (overMain || overFlyout)
                 _closeAt = Time.unscaledTime + HoverGrace;
             else if (!overTrigger && Time.unscaledTime >= _closeAt)
@@ -555,7 +583,7 @@ namespace AICompanion.NewUI
                 return;
 
             var target = FlyoutAtRow(pointerRow);
-            if (target != _activeFlyout && _activeFlyout != Flyout.None
+            if (pointerRow != CloseRow && target != _activeFlyout && _activeFlyout != Flyout.None
                 && Time.unscaledTime - _flyoutPointerAt < HoverGrace
                 && RibbonMenuPlacement.AimsAtFlyout(_flyoutPointerOrigin, pointer, _openPaperBounds, _flyoutOpensRight, 8f * scale))
                 return;
@@ -632,14 +660,14 @@ namespace AICompanion.NewUI
             for (var i = 0; i < _rows.Length; i++)
             {
                 var stagger = (i % 2) * 7f * scale;
-                var rowTop = (i * MainRowPitch + (i == _rows.Length - 1 ? CloseGap : 0f)) * scale;
+                var rowTop = (i * MainRowPitch + (i == CloseRow ? CloseGap : 0f)) * scale;
                 var row = _rows[i];
                 var rowWidth = menuWidth - stagger;
                 var rowHeight = MainRowHeight * scale;
                 _rowBounds[i] = new Rect(menuX + stagger, menuY + rowTop, rowWidth, rowHeight);
                 HappiUiKit.Place(row.Rect, stagger, rowTop, rowWidth, rowHeight);
                 HappiUiKit.Place(_rowIcons[i].rectTransform, 15f * scale, 8f * scale, 19f * scale, 19f * scale);
-                var trailing = FlyoutAtRow(i) != Flyout.None ? 30f : 12f;
+                var trailing = LabelsFor(FlyoutAtRow(i)).Length > 0 ? 30f : 12f;
                 HappiUiKit.Stretch(row.Label.rectTransform, 42f * scale, 0f, trailing * scale, 0f);
                 row.Label.fontSize = 18f * scale;
             }
@@ -664,7 +692,8 @@ namespace AICompanion.NewUI
             var preferredWidth = RibbonMenuPlacement.PreferredFlyoutWidth * scale;
             var openRight = RibbonMenuPlacement.OpensRight(area, _menuBounds, preferredWidth);
             var count = LabelsFor(_activeFlyout).Length;
-            var rollHeight = (count * FlyoutRowPitch + 13f) * scale;
+            var artPreview = _activeFlyout == Flyout.Look;
+            var rollHeight = (artPreview ? 117f : count * FlyoutRowPitch + 13f) * scale;
             var row = (int)_activeFlyout;
             var rowOffset = row * MainRowPitch * scale;
             var width = RibbonMenuPlacement.FlyoutWidth(area, _menuBounds, preferredWidth, openRight);
@@ -683,7 +712,7 @@ namespace AICompanion.NewUI
             var remaining = 1f - Mathf.Clamp01((Time.unscaledTime - _flyoutShownAt) / PaperRevealSeconds);
             var eased = 1f - remaining * remaining * remaining;
             // Leave room for the tapered outer edge beyond the buttons in the opening frame.
-            var initialWidth = Mathf.Min(width, buttonWidth + 40f * scale);
+            var initialWidth = Mathf.Min(width, artPreview ? 70f * scale : buttonWidth + 40f * scale);
             var shownWidth = Mathf.Lerp(initialWidth, width, eased);
             var revealX = openRight ? 0f : width - shownWidth;
             var spread = Mathf.Lerp(0.3f, 1f, eased);
@@ -692,7 +721,10 @@ namespace AICompanion.NewUI
                 rollHeight + (flare.x + flare.y) * spread);
             _paperShape.SetScrollPaper(!openRight, paperEdge, flare, spread);
             HappiUiKit.Place(_paper.rectTransform, revealX, 0f, shownWidth, height);
-            PlaceFlyoutPainting(width, height, buttonWidth, revealX, openRight, scale);
+            if (artPreview)
+                PlaceScreenPainting(width, height, rollHeight, curlWidthInFlyout, revealX, openRight, scale);
+            else
+                PlaceFlyoutPainting(width, height, buttonWidth, revealX, openRight, scale);
             _scrollFinish.SetPaper(!openRight, paperEdge, flare, spread, rollWidth);
             if (_scrollRoll.enabled)
             {
@@ -713,6 +745,29 @@ namespace AICompanion.NewUI
                 _destinationBounds[i] = new Rect(bounds.x + actionX, bounds.y + actionY, actionWidth, actionHeight);
                 HappiUiKit.Place(destination.Rect, actionX, actionY, actionWidth, actionHeight);
             }
+        }
+
+        void PlaceScreenPainting(float width, float height, float rollHeight, float curlWidth, float revealX, bool openRight, float scale)
+        {
+            if (_painting.texture == null)
+                return;
+
+            // The first quarter of the source is blank yellow. Keep the entire figure and monitor.
+            const float trim = 0.27f;
+            var aspect = (float)_painting.texture.width / _painting.texture.height * (1f - trim);
+            var outerInset = Mathf.Min(42f * scale, width * 0.17f);
+            var availableWidth = width - curlWidth - outerInset - 6f * scale;
+            var maxHeight = Mathf.Lerp(rollHeight, height, Mathf.InverseLerp(230f * scale, 660f * scale, width));
+            var artWidth = Mathf.Min(availableWidth, (maxHeight - 12f * scale) * aspect);
+            _painting.enabled = artWidth > 0f;
+            if (!_painting.enabled)
+                return;
+
+            var artHeight = artWidth / aspect;
+            _painting.SetFadeSide(true);
+            _painting.uvRect = new Rect(trim, 0f, 1f - trim, 1f);
+            var x = openRight ? width - outerInset - artWidth : outerInset;
+            HappiUiKit.Place(_painting.rectTransform, x - revealX, (height - artHeight) * 0.5f, artWidth, artHeight);
         }
 
         void PlaceFlyoutPainting(float width, float height, float buttonWidth, float revealX, bool openRight, float scale)
