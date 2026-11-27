@@ -69,6 +69,9 @@ namespace AICompanion.NewUI
         RibbonAudio _audio;
         RibbonRewardSound _rewardSound;
         RibbonRewardSound _adultRewardSound;
+        RibbonRewardSound _rewardVoice;
+        float _rewardVoiceUntil;
+        bool _rewardVoiceAdult;
         Wheel.HeadLocator _head;
         readonly RelationshipFeedback _feedback = new RelationshipFeedback(RibbonMenu.Enabled);
         readonly List<RelationshipNotice> _pending = new List<RelationshipNotice>(4);
@@ -97,6 +100,7 @@ namespace AICompanion.NewUI
         public void Detach()
         {
             _attached = false;
+            _rewardVoice = RibbonRewardSound.None;
             _rewardSound = RibbonRewardSound.None;
             _adultRewardSound = RibbonRewardSound.None;
             Subscribe(false);
@@ -114,6 +118,7 @@ namespace AICompanion.NewUI
 
         void OnDisable()
         {
+            _rewardVoice = RibbonRewardSound.None;
             _rewardSound = RibbonRewardSound.None;
             _adultRewardSound = RibbonRewardSound.None;
             Subscribe(false);
@@ -224,6 +229,35 @@ namespace AICompanion.NewUI
             }
         }
 
+        void PlayReward(float now, bool enabled, bool adultActive)
+        {
+            var adultReward = adultActive && _adultRewardSound > _rewardSound;
+            var sound = adultReward ? _adultRewardSound : _rewardSound;
+            _rewardSound = RibbonRewardSound.None;
+            _adultRewardSound = RibbonRewardSound.None;
+
+            if (!enabled || now > _rewardVoiceUntil || (_rewardVoiceAdult && !adultActive))
+                _rewardVoice = RibbonRewardSound.None;
+
+            if (_audio == null || !enabled)
+                return;
+
+            if (sound != RibbonRewardSound.None)
+            {
+                _audio.Reward(sound);
+                if (sound >= _rewardVoice)
+                {
+                    _rewardVoice = sound;
+                    _rewardVoiceAdult = adultReward;
+                    _rewardVoiceUntil = now + 0.9f;
+                }
+            }
+
+            if (_rewardVoice != RibbonRewardSound.None && !ReplyPending &&
+                _audio.FinishRewardVoice(_rewardVoice))
+                _rewardVoice = RibbonRewardSound.None;
+        }
+
         void SyncContext()
         {
             var persona = _settings != null ? _settings.CurrentSettings?.PersonaId : null;
@@ -232,6 +266,7 @@ namespace AICompanion.NewUI
                 return;
             _persona = persona;
             _private = isPrivate;
+            _rewardVoice = RibbonRewardSound.None;
             _rewardSound = RibbonRewardSound.None;
             _adultRewardSound = RibbonRewardSound.None;
             _feedback.Clear();
@@ -278,12 +313,7 @@ namespace AICompanion.NewUI
             }
             _feedback.Tick(now);
 
-            var rewardSound = IntimateExpressions.Active && _adultRewardSound > _rewardSound
-                ? _adultRewardSound : _rewardSound;
-            _rewardSound = RibbonRewardSound.None;
-            _adultRewardSound = RibbonRewardSound.None;
-            if (Enabled && rewardSound != RibbonRewardSound.None)
-                _audio?.Reward(rewardSound);
+            PlayReward(now, Enabled, IntimateExpressions.Active);
 
             if (_feedback.Count == 0)
             {

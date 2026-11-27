@@ -64,10 +64,13 @@ namespace AICompanion.NewUI
             if (_settings == null || reward == RibbonRewardSound.None)
                 return;
             Play(reward == RibbonRewardSound.Discovery ? _discovery : _affection);
+        }
 
+        public bool FinishRewardVoice(RibbonRewardSound reward)
+        {
             if (_voice == null)
                 TryGetComponent(out _voice);
-            _voice?.PlayRibbonReward(reward);
+            return _settings == null || _voice == null || _voice.FinishRibbonReward(reward);
         }
 
         void Play(AudioClip clip)
