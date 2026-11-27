@@ -20,7 +20,19 @@ namespace AICompanion.Settings
     {
         const float RefreshSeconds = 3f;
 
-        readonly Dictionary<string, Sprite> _sprites = new Dictionary<string, Sprite>(StringComparer.Ordinal);
+        readonly Dictionary<string, PortraitAsset> _sprites = new Dictionary<string, PortraitAsset>(StringComparer.Ordinal);
+
+        readonly struct PortraitAsset
+        {
+            public readonly Sprite Sprite;
+            public readonly PortraitCutout Cutout;
+
+            public PortraitAsset(Sprite sprite, PortraitCutout cutout)
+            {
+                Sprite = sprite;
+                Cutout = cutout;
+            }
+        }
         readonly PortraitDirector _director = new PortraitDirector();
 
         SettingsPanel _settings;
@@ -36,6 +48,8 @@ namespace AICompanion.Settings
         Canvas _canvas;
         GameObject _canvasObject;
         RectTransform _frame;
+        Image _plate;
+        RibbonPortraitBase _ribbonBase;
         Image _back;
         Image _mid;
         Image _front;
@@ -86,6 +100,8 @@ namespace AICompanion.Settings
         PortraitPreview _preview;
         bool _shown;
         bool _logged;
+
+        public bool RibbonCutouts { get; set; }
 
         public Rect InteractiveRect
         {
@@ -363,7 +379,7 @@ namespace AICompanion.Settings
             List<string> drop = null;
             foreach (var pair in _sprites)
             {
-                if (pair.Value != null)
+                if (pair.Value.Sprite != null)
                     continue;
                 if (drop == null)
                     drop = new List<string>();
@@ -469,8 +485,51 @@ namespace AICompanion.Settings
             any |= ApplySlot(_mid, ref _midPath, view.Mid, view.MidAlpha);
             any |= ApplySlot(_front, ref _frontPath, view.Front, view.FrontAlpha);
             if (any)
+            {
                 UpdateNativeSize();
+                ApplyPortraitStyle();
+            }
             return any;
+        }
+
+        void ApplyPortraitStyle()
+        {
+            var line = Vector3.zero;
+            var cutouts = 0f;
+            var total = 0f;
+            if (RibbonCutouts && !_intimateMode)
+            {
+                IncludeCutout(_back, _backPath, ref line, ref cutouts, ref total);
+                IncludeCutout(_mid, _midPath, ref line, ref cutouts, ref total);
+                IncludeCutout(_front, _frontPath, ref line, ref cutouts, ref total);
+            }
+
+            var fade = total > 0f ? cutouts / total : 0f;
+            var color = _plate.color;
+            color.a = .92f * (1f - fade);
+            if (_plate.color != color)
+                _plate.color = color;
+            _ribbonBase.SetLine(cutouts > 0f ? line / cutouts : Vector3.zero, fade);
+        }
+
+        void IncludeCutout(Image image, string path, ref Vector3 line, ref float cutouts, ref float total)
+        {
+            if (!image.enabled)
+                return;
+
+            var alpha = image.color.a;
+            total += alpha;
+            if (!_sprites.TryGetValue(path, out var asset) || !asset.Cutout.Valid)
+                return;
+
+            var rect = image.rectTransform;
+            var corner = rect.anchoredPosition - rect.sizeDelta * .5f;
+            var crop = asset.Cutout;
+            var left = corner.x + crop.Left * rect.sizeDelta.x;
+            var right = corner.x + crop.Right * rect.sizeDelta.x;
+            var bottom = corner.y + crop.Bottom * rect.sizeDelta.y;
+            line += new Vector3(left, right, bottom) * alpha;
+            cutouts += alpha;
         }
 
         /// <summary>The unzoomed image dimensions, so the resizable frame never upscales a drawing.</summary>
@@ -479,7 +538,7 @@ namespace AICompanion.Settings
             var max = Vector2.zero;
             foreach (var pair in _sprites)
             {
-                var sprite = pair.Value;
+                var sprite = pair.Value.Sprite;
                 if (sprite == null)
                     continue;
                 var size = sprite.rect.size;
@@ -502,7 +561,8 @@ namespace AICompanion.Settings
                 return false;
             }
 
-            var sprite = SpriteFor(path);
+            var asset = AssetFor(path);
+            var sprite = asset.Sprite;
             if (sprite == null)
             {
                 image.enabled = false;
@@ -522,22 +582,24 @@ namespace AICompanion.Settings
             color.b = 1f;
             color.a = alpha;
             image.color = color;
+            var masked = !RibbonCutouts || _intimateMode || !asset.Cutout.Valid;
+            if (image.maskable != masked)
+                image.maskable = masked;
             image.enabled = true;
             return true;
         }
 
-        Sprite SpriteFor(string path)
+        PortraitAsset AssetFor(string path)
         {
-            Sprite sprite;
-            if (_sprites.TryGetValue(path, out sprite))
-                return sprite;
-
-            sprite = LoadSprite(path);
-            _sprites[path] = sprite;
-            return sprite;
+            if (!_sprites.TryGetValue(path, out var asset))
+            {
+                asset = LoadAsset(path);
+                _sprites[path] = asset;
+            }
+            return asset;
         }
 
-        static Sprite LoadSprite(string path)
+        static PortraitAsset LoadAsset(string path)
         {
             try
             {
@@ -547,7 +609,7 @@ namespace AICompanion.Settings
                 if (!ImageConversion.LoadImage(texture, bytes))
                 {
                     Destroy(texture);
-                    return null;
+                    return default;
                 }
 
                 texture.wrapMode = TextureWrapMode.Clamp;
@@ -557,11 +619,11 @@ namespace AICompanion.Settings
                     new Vector2(0.5f, 0.5f),
                     100f);
                 sprite.hideFlags = HideFlags.HideAndDontSave;
-                return sprite;
+                return new PortraitAsset(sprite, PortraitCutout.Measure(texture));
             }
             catch (Exception)
             {
-                return null;
+                return default;
             }
         }
 
@@ -735,11 +797,11 @@ namespace AICompanion.Settings
             _frame.anchorMin = new Vector2(0f, 1f);
             _frame.anchorMax = new Vector2(0f, 1f);
             _frame.pivot = new Vector2(0f, 1f);
-            var plateImage = plate.AddComponent<Image>();
-            plateImage.sprite = _rounded;
-            plateImage.type = Image.Type.Sliced;
-            plateImage.color = new Color(0.08f, 0.07f, 0.12f, 0.92f);
-            plateImage.raycastTarget = true;
+            _plate = plate.AddComponent<Image>();
+            _plate.sprite = _rounded;
+            _plate.type = Image.Type.Sliced;
+            _plate.color = new Color(0.08f, 0.07f, 0.12f, 0.92f);
+            _plate.raycastTarget = true;
 
             var maskObject = new GameObject("Mask");
             maskObject.transform.SetParent(plate.transform, false);
@@ -758,6 +820,16 @@ namespace AICompanion.Settings
             _back = Photo(maskObject.transform, "Back");
             _mid = Photo(maskObject.transform, "Mid");
             _front = Photo(maskObject.transform, "Front");
+
+            var accent = new GameObject("Ribbon portrait base", typeof(RectTransform));
+            accent.transform.SetParent(maskObject.transform, false);
+            _ribbonBase = accent.AddComponent<RibbonPortraitBase>();
+            var accentRect = _ribbonBase.rectTransform;
+            accentRect.anchorMin = Vector2.zero;
+            accentRect.anchorMax = Vector2.one;
+            accentRect.offsetMin = accentRect.offsetMax = Vector2.zero;
+            _ribbonBase.raycastTarget = false;
+            _ribbonBase.maskable = false;
         }
 
         static Image Photo(Transform parent, string name)
@@ -827,10 +899,11 @@ namespace AICompanion.Settings
         {
             foreach (var pair in _sprites)
             {
-                if (pair.Value == null)
+                var sprite = pair.Value.Sprite;
+                if (sprite == null)
                     continue;
-                var texture = pair.Value.texture;
-                Destroy(pair.Value);
+                var texture = sprite.texture;
+                Destroy(sprite);
                 if (texture != null)
                     Destroy(texture);
             }

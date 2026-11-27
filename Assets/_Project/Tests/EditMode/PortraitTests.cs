@@ -10,6 +10,58 @@ namespace AICompanion.Tests.EditMode
 {
     public class PortraitTests
     {
+        [TestCase(false)]
+        [TestCase(true)]
+        public void RibbonCutoutMeasuresTheSubjectOnlyWhenTheCanvasHasTransparency(bool transparent)
+        {
+            const int size = 48;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            try
+            {
+                texture.wrapMode = TextureWrapMode.Clamp;
+                var pixels = new Color32[size * size];
+                for (var y = 0; y < size; y++)
+                {
+                    for (var x = 0; x < size; x++)
+                    {
+                        var art = x >= 10 && x < 38 && y >= 4 && y < 42;
+                        pixels[y * size + x] = new Color32(100, 80, 120, art || !transparent ? (byte)255 : (byte)0);
+                    }
+                }
+                texture.SetPixels32(pixels);
+                texture.Apply();
+
+                var measured = PortraitCutout.Measure(texture);
+                Assert.That(measured.Valid, Is.EqualTo(transparent));
+                if (transparent)
+                {
+                    Assert.That(measured.Left, Is.EqualTo(10f / size).Within(1f / size));
+                    Assert.That(measured.Right, Is.EqualTo(38f / size).Within(1f / size));
+                    Assert.That(measured.Bottom, Is.EqualTo(4f / size).Within(1f / size));
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+        }
+
+        [Test]
+        public void RibbonCutoutRejectsAnEmptyTransparentImage()
+        {
+            var texture = new Texture2D(16, 16, TextureFormat.RGBA32, false);
+            try
+            {
+                texture.SetPixels32(new Color32[16 * 16]);
+                texture.Apply();
+                Assert.That(PortraitCutout.Measure(texture).Valid, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+        }
+
         [Test]
         public void Defaults_MapTheEmotionSetAndFallBackToNeutral()
         {
