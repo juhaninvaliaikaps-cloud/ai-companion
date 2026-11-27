@@ -7,6 +7,19 @@ namespace AICompanion.Tests.EditMode
     public sealed class RibbonMenuPlacementTests
     {
         [Test]
+        public void MoodBadgeUsesTheOppositeSideOfTheHead()
+        {
+            var area = new Rect(100f, 50f, 650f, 500f);
+            var controlsRight = new Rect(350f, 170f, 64f, 30f);
+            var controlsLeft = new Rect(262f, 170f, 64f, 30f);
+            Assert.AreEqual(new Rect(280f, 172f, 26f, 26f),
+                RibbonMenuPlacement.MoodBadge(area, 330f, controlsRight, 24f, 26f));
+            Assert.AreEqual(new Rect(374f, 172f, 26f, 26f),
+                RibbonMenuPlacement.MoodBadge(area, 350f, controlsLeft, 24f, 26f));
+            Assert.AreEqual(default(Rect), RibbonMenuPlacement.MoodBadge(area, 120f, controlsRight, 24f, 26f));
+        }
+
+        [Test]
         public void ShortWorkAreaScalesTheStackAndKeepsTheTriggerOutsideTheRows()
         {
             var area = new Rect(20f, 70f, 620f, 200f);

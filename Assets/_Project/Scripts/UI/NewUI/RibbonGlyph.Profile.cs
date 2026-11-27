@@ -19,6 +19,19 @@ namespace AICompanion.NewUI
             _ => Mark.MoodContent,
         };
 
+        internal static Color MoodTint(CompanionMood mood) => mood switch
+        {
+            CompanionMood.Affectionate => new Color32(255, 128, 174, 255),
+            CompanionMood.Flustered => new Color32(255, 167, 154, 255),
+            CompanionMood.Annoyed => new Color32(255, 209, 102, 255),
+            CompanionMood.Sad => new Color32(156, 180, 255, 255),
+            CompanionMood.Anxious => new Color32(224, 174, 255, 255),
+            CompanionMood.Sleepy => new Color32(153, 191, 218, 255),
+            CompanionMood.Intimate => new Color32(255, 151, 203, 255),
+            CompanionMood.Content => new Color32(114, 238, 207, 255),
+            _ => RibbonMenu.Cyan,
+        };
+
         void ProfileRing(VertexHelper mesh, float x, float y, float radius)
             => Ring(mesh, new Vector2(x / 18f, 1f - y / 18f), radius / 18f);
 

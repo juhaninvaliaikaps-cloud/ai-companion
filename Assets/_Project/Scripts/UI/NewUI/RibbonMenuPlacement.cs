@@ -28,6 +28,15 @@ namespace AICompanion.NewUI
         public const float PreferredFlyoutWidth = 1000f;
         public const float PreferredPersonaWidth = 980f;
 
+        public static Rect MoodBadge(Rect area, float headX, Rect controls, float gap, float size)
+        {
+            var x = controls.center.x >= headX ? headX - gap - size : headX + gap;
+            if (size <= 0f || x < area.xMin || x + size > area.xMax || size > area.height)
+                return default;
+            var y = Mathf.Clamp(controls.center.y - size * 0.5f, area.yMin, area.yMax - size);
+            return new Rect(x, y, size, size);
+        }
+
         public static float FitScale(Vector2 visibleSize, Vector2 menuSize, float dpiScale)
         {
             return Mathf.Min(dpiScale, Mathf.Min(visibleSize.x / menuSize.x, visibleSize.y / menuSize.y));

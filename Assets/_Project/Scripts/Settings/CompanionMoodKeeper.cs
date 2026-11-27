@@ -25,6 +25,7 @@ namespace AICompanion.Settings
         float _tickIn;
         float _saveIn = SaveSeconds;
         string _readout = string.Empty;
+        public bool SuppressDesktopReadout { get; set; }
         RelationshipKeeper _relationship;
         GUIStyle _style;
         bool _lookLogged;
@@ -114,14 +115,14 @@ namespace AICompanion.Settings
                 Save();
             }
 
-            _readout = settings.ShowMoodDebug ? Readout() : string.Empty;
+            _readout = settings.ShowMoodDebug && !SuppressDesktopReadout ? Readout() : string.Empty;
         }
 
         AICompanion.Overlay.OverlayWindow _window;
 
         void OnGUI()
         {
-            if (_readout.Length == 0)
+            if (SuppressDesktopReadout || _readout.Length == 0)
                 return;
             if (_style == null)
             {
