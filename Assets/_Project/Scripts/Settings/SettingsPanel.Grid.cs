@@ -50,7 +50,7 @@ namespace AICompanion.Settings
 
             message = "Made " + copy.DisplayName + ".";
             SetStatus(message);
-            _rebuild = true;
+            SettingsRevision++;
             return true;
         }
 
@@ -87,7 +87,7 @@ namespace AICompanion.Settings
             if (wasActive)
                 UsePersona(PersonaDefaults.HappiId);
             SetStatus(message);
-            _rebuild = true;
+            SettingsRevision++;
             return true;
         }
 

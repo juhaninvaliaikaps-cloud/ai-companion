@@ -16,6 +16,7 @@ namespace AICompanion.Tests.EditMode
             { "Version", "file format number, not a user setting" },
             { "CompanionName", "setup wizard (Data > Run setup again)" },
             { "Relationship", "setup wizard (Data > Run setup again)" },
+            { "PortraitFolder", "Persona Studio identity editor" },
             { "ScreenMonitorDevice", "set by picking a display on the Screen tab (ScreenLookPresenter.SelectMonitor)" },
             { "DesktopFilesPermission", "Tools tab uses DesktopToolPermissions.SetState" },
             { "DesktopAppsPermission", "Tools tab uses DesktopToolPermissions.SetState" },
@@ -48,9 +49,9 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
-        public void TheTabsAreTheJuh182Layout()
+        public void TheTabsMatchTheSettingsNavigation()
         {
-            CollectionAssert.AreEqual(new[] { "Her", "AI", "Voice", "Look", "Chat", "Senses", "18+", "App" }, AICompanion.NewUI.SettingsMenu.TabLabels);
+            CollectionAssert.AreEqual(new[] { "Her", "AI", "Voice", "Appearance", "Chat", "Senses", "18+", "App" }, AICompanion.NewUI.SettingsMenu.TabLabels);
             StringAssert.Contains("SettingsMenu.TabLabels", ViewSource());
         }
 
@@ -114,6 +115,15 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("Intimate expressions (18+)", source);
             StringAssert.Contains("Works only in Private mode (local model)", source);
             StringAssert.Contains("portraits-adult", source);
+        }
+
+        [Test]
+        public void PersonaStudioEditsThePortraitFolder()
+        {
+            var path = Path.Combine(Application.dataPath, "_Project/Scripts/UI/NewUI/PersonaStudioView.cs");
+            var studio = File.ReadAllText(path);
+            StringAssert.Contains("p.PortraitFolder = v", studio);
+            StringAssert.Contains("Portrait folder", studio);
         }
 
         [Test]

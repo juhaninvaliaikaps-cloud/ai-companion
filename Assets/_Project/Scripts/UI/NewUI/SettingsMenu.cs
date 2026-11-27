@@ -34,7 +34,6 @@ namespace AICompanion.NewUI
         VoiceEngine,
         VoicePersona,
         VoiceListening,
-        VoiceGames,
 
         LookAvatar,
         LookVideo,
@@ -57,6 +56,8 @@ namespace AICompanion.NewUI
         AppKeys,
         AppData,
         AppDeveloper,
+        AiOllama,
+        AppGeneral,
     }
 
     /// <summary>
@@ -68,10 +69,10 @@ namespace AICompanion.NewUI
     /// </summary>
     public static class SettingsMenu
     {
-        public static readonly string[] TabLabels = { "Her", "AI", "Voice", "Look", "Chat", "Senses", "18+", "App" };
+        public static readonly string[] TabLabels = { "Her", "AI", "Voice", "Appearance", "Chat", "Senses", "18+", "App" };
 
         /// <summary>The most sub-tabs any tab has: the view keeps this many buttons.</summary>
-        public const int MaxPages = 5;
+        public const int MaxPages = 6;
 
         public static int TabCount
         {
@@ -81,13 +82,13 @@ namespace AICompanion.NewUI
         static readonly SettingsPage[][] Pages =
         {
             new[] { SettingsPage.HerPersona, SettingsPage.HerPersonality, SettingsPage.HerTalk, SettingsPage.HerLife, SettingsPage.HerMemories },
-            new[] { SettingsPage.AiMode, SettingsPage.AiChat, SettingsPage.AiPrivate, SettingsPage.AiPisara, SettingsPage.AiPersona },
-            new[] { SettingsPage.VoiceSpeaking, SettingsPage.VoiceEngine, SettingsPage.VoicePersona, SettingsPage.VoiceListening, SettingsPage.VoiceGames },
+            new[] { SettingsPage.AiMode, SettingsPage.AiChat, SettingsPage.AiPrivate, SettingsPage.AiPisara, SettingsPage.AiPersona, SettingsPage.AiOllama },
+            new[] { SettingsPage.VoiceSpeaking, SettingsPage.VoiceEngine, SettingsPage.VoicePersona, SettingsPage.VoiceListening },
             new[] { SettingsPage.LookAvatar, SettingsPage.LookVideo, SettingsPage.Look3d, SettingsPage.LookWindow },
             new[] { SettingsPage.ChatReplies, SettingsPage.ChatText, SettingsPage.ChatHistory },
             new[] { SettingsPage.SensesScreen, SettingsPage.SensesGames, SettingsPage.SensesTools },
             new[] { SettingsPage.AdultStatus, SettingsPage.AdultHer, SettingsPage.AdultSecrets, SettingsPage.AdultTalk },
-            new[] { SettingsPage.AppKeys, SettingsPage.AppData, SettingsPage.AppDeveloper },
+            new[] { SettingsPage.AppGeneral, SettingsPage.AppKeys, SettingsPage.AppData, SettingsPage.AppDeveloper },
         };
 
         public static string Label(SettingsPage page)
@@ -96,19 +97,19 @@ namespace AICompanion.NewUI
             {
                 case SettingsPage.HerPersona: return "Persona";
                 case SettingsPage.HerPersonality: return "Personality";
-                case SettingsPage.HerTalk: return "How she talks";
+                case SettingsPage.HerTalk: return "Writing style";
                 case SettingsPage.HerLife: return "Her life";
                 case SettingsPage.HerMemories: return "Memories";
                 case SettingsPage.AiMode: return "Mode";
-                case SettingsPage.AiChat: return "Chat model";
+                case SettingsPage.AiChat: return "Public model";
                 case SettingsPage.AiPrivate: return "Private model";
-                case SettingsPage.AiPisara: return "Pisara";
+                case SettingsPage.AiPisara: return "Persona reading";
+                case SettingsPage.AiOllama: return "Ollama";
                 case SettingsPage.AiPersona: return "This persona";
                 case SettingsPage.VoiceSpeaking: return "Speaking";
                 case SettingsPage.VoiceEngine: return "Engine";
                 case SettingsPage.VoicePersona: return "This persona";
                 case SettingsPage.VoiceListening: return "Listening";
-                case SettingsPage.VoiceGames: return "In games";
                 case SettingsPage.LookAvatar: return "Avatar";
                 case SettingsPage.LookVideo: return "2D video";
                 case SettingsPage.Look3d: return "3D model";
@@ -123,7 +124,8 @@ namespace AICompanion.NewUI
                 case SettingsPage.AdultHer: return "Her";
                 case SettingsPage.AdultSecrets: return "Secrets";
                 case SettingsPage.AdultTalk: return "How she talks";
-                case SettingsPage.AppKeys: return "Keys";
+                case SettingsPage.AppKeys: return "Shortcuts";
+                case SettingsPage.AppGeneral: return "General";
                 case SettingsPage.AppData: return "Data";
                 case SettingsPage.AppDeveloper: return "Developer";
                 default: return page.ToString();

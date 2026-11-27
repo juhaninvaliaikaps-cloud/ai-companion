@@ -435,6 +435,18 @@ namespace AICompanion.Settings
     /// </summary>
     public static class PersonaApply
     {
+        public static CompanionSettings Resolve(CompanionSettings defaults, PersonaDefinition persona,
+            Func<string, bool> fileExists, Func<string, bool> directoryExists)
+        {
+            if (defaults == null)
+                return null;
+            var effective = defaults.Copy();
+            effective.Normalize();
+            if (persona != null)
+                Overlay(effective, persona, fileExists, directoryExists);
+            return effective;
+        }
+
         public static void Overlay(CompanionSettings settings, PersonaDefinition persona, Func<string, bool> fileExists, Func<string, bool> directoryExists)
         {
             if (settings == null || persona == null)
@@ -553,16 +565,12 @@ namespace AICompanion.Settings
                 Application.persistentDataPath);
         }
 
-        public static void ApplySelected(CompanionSettings settings, string settingsFolder)
+        public static CompanionSettings ResolveSelected(CompanionSettings settings, string settingsFolder)
         {
-            if (settings == null || string.IsNullOrWhiteSpace(settings.PersonaId))
-                return;
-
-            var persona = PersonaCatalog.LoadDefault(settingsFolder).Find(settings.PersonaId);
-            if (persona == null)
-                return;
-
-            PersonaApply.Overlay(settings, persona, File.Exists, Directory.Exists);
+            var persona = settings == null || string.IsNullOrWhiteSpace(settings.PersonaId)
+                ? null
+                : PersonaCatalog.LoadDefault(settingsFolder).Find(settings.PersonaId);
+            return PersonaApply.Resolve(settings, persona, File.Exists, Directory.Exists);
         }
 
         /// <summary>

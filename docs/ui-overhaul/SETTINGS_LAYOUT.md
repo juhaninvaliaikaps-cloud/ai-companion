@@ -11,6 +11,24 @@ The table of tabs and pages, and when each page shows, is `NewUI/SettingsMenu.cs
 
 No settings key changed, so existing settings files load as before. The 18+ items show under the same conditions as before.
 
+### Ribbon Settings preview (JUH-205)
+
+Launch with `--ribbon-ui`. Settings uses the clipped charcoal frame, mint edges, yellow title mark, and cyan selected navigation. At wider sizes, categories sit in a sidebar beside the current page. At narrower sizes they appear above the page and wrap when needed. The frame fits inside the overlay's visible work area. Existing pages, provider routes and visibility rules continue to work.
+
+Screen has one action that changes from Look at screen to Stop look while capture is active. Tools exposes its actual permission choices. First-use consent is shown when an action requests it.
+
+The Settings content pass keeps saved global defaults separate from the active persona's provider, model, voice, name, portrait and avatar overrides. Existing settings load as the saved defaults. The app resolves overrides into a runtime copy each time settings are applied. Previous builds may already have saved a persona's values as global values, and older files do not store the overwritten values separately.
+
+Persona Studio edits identity and portrait folders. Settings keeps the persona picker, import and export. The card menu confirms deletion. Her life shows the three behavior switches together. Memories links to Profile for reading and groups its reset separately from routine controls.
+
+Ollama has one shared editor linked from Public model and Private model. Mode leads with the effective chat route and explains the Persona reading exception. Voice shows the active engine, offers a voice sample, and groups engine files and Whisper setup under disclosures. Keyboard, mouse and controller push-to-talk are on Listening.
+
+Appearance keeps the overlay and avatar controls. App → General owns startup, taskbar and developer visibility. Chat text has a font preview, while transcript retention and clearing stay on History. Screen puts the source and destination before the preview and capture action, with tuning below. Tools has one permission choice per tool and keeps web diagnostics on the Developer page. The 18+ subpages require the existing gate and link to Profile for discoveries.
+
+Ctrl+Tab and Ctrl+Shift+Tab cycle pages. Ctrl+Left and Ctrl+Right switch categories. Page Up, Page Down, Home and End move the current page. The Ribbon view restores each page's scroll position and gives focused buttons a mint outline.
+
+The old settings renderer has been removed. The SettingsPanel component still applies preferences, owns saved data, and forwards F12, tray and wheel requests to the same Settings view.
+
 | Tab | Sub-tabs: what is on them |
 | --- | --- |
 | **Her** | **Persona:** the persona grid, New or import, Edit (Studio, display name, portrait folder), Export, Delete. **Personality:** what the reading found and Re-read, Correct the relationship, Temperament (Auto and presets), Custom temperament (nine sliders). **How she talks:** the reading, her voice, by mood, by closeness, her lines. **Her life:** Relationship changes, Life while you are away, Her own world. **Memories:** the summary, Start over, Smarter memory search. |

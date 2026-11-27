@@ -81,7 +81,7 @@ namespace AICompanion.Settings
         CompanionSettings CurrentSettings()
         {
             var panel = GetComponent<SettingsPanel>();
-            return panel != null ? panel.CurrentSettings : null;
+            return panel != null ? panel.EffectiveSettings ?? panel.CurrentSettings : null;
         }
 
         CapturedWindowFrame CaptureSelected()
@@ -655,7 +655,7 @@ namespace AICompanion.Settings
         void Fill(ScreenLookInput input)
         {
             var settings = GetComponent<SettingsPanel>();
-            var current = settings != null ? settings.CurrentSettings : null;
+            var current = settings != null ? settings.EffectiveSettings ?? settings.CurrentSettings : null;
             var privateMode = current != null && current.PrivateMode;
             var selected = current != null ? current.ProviderId : ChatDefaults.GrokId;
             input.FeatureEnabled = current != null && current.ScreenLookEnabled;
@@ -686,7 +686,7 @@ namespace AICompanion.Settings
             var cts = new CancellationTokenSource();
             _visionCancel = cts;
             var panel = GetComponent<SettingsPanel>();
-            var current = panel != null ? panel.CurrentSettings : null;
+            var current = panel != null ? panel.EffectiveSettings ?? panel.CurrentSettings : null;
             var vision = current != null ? current.LocalVisionModel : string.Empty;
             Touch("Vision engine: " + vision + " on this PC. The chat model is not reading the picture.");
             try

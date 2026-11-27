@@ -72,7 +72,7 @@ namespace AICompanion.Settings
             }
 
             SetStatusMessage(result.Message);
-            _rebuild = true;
+            SettingsRevision++;
         }
 
         public void CancelSpeechModelDownload()

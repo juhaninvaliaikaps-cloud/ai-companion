@@ -340,6 +340,8 @@ namespace AICompanion.Settings
             return new CompanionSettings();
         }
 
+        internal CompanionSettings Copy() => (CompanionSettings)MemberwiseClone();
+
         public void Normalize()
         {
             Version = CurrentVersion;

@@ -626,7 +626,7 @@ namespace AICompanion.Settings
         {
             if (_settings == null)
                 _settings = GetComponent<SettingsPanel>();
-            return _settings != null ? _settings.CurrentSettings : null;
+            return _settings != null ? _settings.EffectiveSettings ?? _settings.CurrentSettings : null;
         }
 
         ChatSettings Chat()
