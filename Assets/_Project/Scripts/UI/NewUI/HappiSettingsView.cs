@@ -35,6 +35,7 @@ namespace AICompanion.NewUI
         const float PlaneDistance = 0.36f;
         static readonly Color SettingsInk = new Color32(18, 22, 29, 255);
         static readonly Color SettingsCard = new Color32(36, 42, 53, 255);
+        static readonly Color SettingsControl = new Color32(50, 61, 77, 255);
         static readonly Color SettingsGold = new Color32(255, 202, 34, 255);
 
         SettingsPanel _settings;
@@ -53,6 +54,7 @@ namespace AICompanion.NewUI
         readonly List<HappiButton> _pageButtons = new List<HappiButton>();
         readonly List<SettingsPage> _shownPages = new List<SettingsPage>(SettingsMenu.MaxPages);
         readonly SettingsPage[] _pageFor = new SettingsPage[SettingsMenu.TabCount];
+        Scrollbar _ribbonScrollbar;
         float _pagesY;
         float _pagesX;
         float _pagesW;
@@ -342,6 +344,18 @@ namespace AICompanion.NewUI
             _body.sizeDelta = new Vector2(0f, 8f);
             _body.anchoredPosition = Vector2.zero;
             _scroll.content = _body;
+            if (RibbonMenu.Enabled)
+            {
+                var track = HappiUiKit.Panel(_panel, "Settings scrollbar", SettingsCard, true);
+                var thumb = HappiUiKit.Panel(track.transform, "Thumb", new Color32(114, 238, 207, 225), true);
+                HappiUiKit.Stretch(thumb.rectTransform, 0f, 0f, 0f, 0f);
+                _ribbonScrollbar = track.gameObject.AddComponent<Scrollbar>();
+                _ribbonScrollbar.targetGraphic = thumb;
+                _ribbonScrollbar.handleRect = thumb.rectTransform;
+                _ribbonScrollbar.direction = Scrollbar.Direction.BottomToTop;
+                _scroll.verticalScrollbar = _ribbonScrollbar;
+                _scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+            }
             _status = HappiUiKit.Text(_panel, "Status", string.Empty, _theme.FontSmall, _theme.TextMuted, TextAlignmentOptions.MidlineLeft, false);
             _status.fontStyle = FontStyles.Italic;
         }
@@ -411,9 +425,9 @@ namespace AICompanion.NewUI
             _panel.sizeDelta = layout.Frame.size;
 
             PlaceInFrame(_title.rectTransform, layout.Title);
-            _title.fontSize = 23f * _s;
-            HappiUiKit.Place(_ribbonTitleAccent, layout.Title.x - 13f * _s, layout.Title.y + 1f * _s,
-                9f * _s, layout.Title.height - 2f * _s);
+            _title.fontSize = 22f * _s;
+            HappiUiKit.Place(_ribbonTitleAccent, layout.Title.x - 13f * _s, layout.Title.y + 3f * _s,
+                9f * _s, layout.Title.height - 6f * _s);
             PlaceInFrame(_close.Rect, layout.Close);
             HappiUiKit.Place(_ribbonCloseIcon.rectTransform, 5f * _s, 5f * _s, 18f * _s, 18f * _s);
             for (var i = 0; i < _tabs.Count; i++)
@@ -429,6 +443,8 @@ namespace AICompanion.NewUI
             _ribbonPageColumns = layout.PageColumns;
             PlacePages();
             PlaceInFrame((RectTransform)_scroll.transform, layout.Body);
+            HappiUiKit.Place((RectTransform)_ribbonScrollbar.transform, layout.Body.xMax + 2f * _s,
+                layout.Body.y + 6f, 5f * _s, Mathf.Max(1f, layout.Body.height - 12f));
             PlaceInFrame(_status.rectTransform, layout.Status);
             _status.fontSize = _theme.FontSmall * _s;
             _width = layout.Body.width - 12f;
@@ -454,7 +470,7 @@ namespace AICompanion.NewUI
         static void RefreshRibbonNavigation(HappiButton button, bool selected, Color inactiveText)
         {
             var colors = button.Button.colors;
-            colors.normalColor = selected ? RibbonMenu.Cyan : SettingsCard;
+            colors.normalColor = selected ? RibbonMenu.Cyan : SettingsControl;
             colors.highlightedColor = RibbonMenu.Cyan;
             colors.pressedColor = SettingsGold;
             colors.selectedColor = colors.normalColor;
@@ -2571,6 +2587,8 @@ namespace AICompanion.NewUI
                     action();
             });
             button.Label.overflowMode = TextOverflowModes.Ellipsis;
+            if (RibbonMenu.Enabled)
+                StyleRibbonNavigation(button);
             if (danger)
             {
                 var colors = button.Button.colors;
@@ -2586,7 +2604,9 @@ namespace AICompanion.NewUI
         void Choice(string label, bool selected, Action action)
         {
             var button = Button(selected ? HappiTheme.SelectedMark + StripMarks(label) : StripMarks(label), action);
-            if (selected)
+            if (RibbonMenu.Enabled)
+                RefreshRibbonNavigation(button, selected, _theme.Text);
+            else if (selected)
             {
                 var colors = button.Button.colors;
                 colors.normalColor = _theme.Selected;
@@ -2738,7 +2758,12 @@ namespace AICompanion.NewUI
             pill.Rect.pivot = new Vector2(1f, 0.5f);
             pill.Rect.anchoredPosition = Vector2.zero;
             pill.Rect.sizeDelta = new Vector2(62f * _s, 0f);
-            if (value)
+            if (RibbonMenu.Enabled)
+            {
+                StyleRibbonNavigation(pill);
+                RefreshRibbonNavigation(pill, value, _theme.Text);
+            }
+            else if (value)
             {
                 var colors = pill.Button.colors;
                 colors.normalColor = _theme.Selected;

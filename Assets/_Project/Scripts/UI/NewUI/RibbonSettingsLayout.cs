@@ -50,7 +50,7 @@ namespace AICompanion.NewUI
             Status = new Rect(bodyX, height - _pad - statusHeight, bodyW, statusHeight);
             Body = new Rect(bodyX, bodyY, bodyW, Mathf.Max(1f, Status.y - bodyY - _gap));
             Close = new Rect(width - _pad - _tabHeight, _pad, _tabHeight, _tabHeight);
-            Title = new Rect(_pad + 13f * s, _pad, Close.x - _pad - 23f * s, _tabHeight);
+            Title = new Rect(_pad + 13f * s, _pad - 2f * s, Close.x - _pad - 23f * s, 34f * s);
         }
 
         public Rect Tab(int i)
