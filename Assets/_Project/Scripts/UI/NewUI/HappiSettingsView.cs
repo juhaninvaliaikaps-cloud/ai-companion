@@ -1282,6 +1282,9 @@ namespace AICompanion.NewUI
                 if (!custom)
                 {
                     Button("Configure Ollama", () => TryOpenPage(SettingsPage.AiOllama));
+                    Section("Local Ollama model");
+                    OllamaModelChoice("Local model", S.LocalModel, v => Change(s => s.LocalModel = v));
+                    Note("This is the same local model used by AI → Ollama.");
                 }
                 else
                 {
@@ -1340,10 +1343,49 @@ namespace AICompanion.NewUI
             Field("Model override (blank uses the global model)", persona.Model, false, v => Save(id, p => p.Model = v));
         }
 
+        /// <summary>
+        /// JUH-230: the installed tags from the configured Ollama server, with the typed tag as
+        /// a fallback when discovery is unavailable. The list is fetched once per settings visit;
+        /// Refresh asks again after the user installs another model.
+        /// </summary>
+        void OllamaModelChoice(string caption, string value, Action<string> changed)
+        {
+            _settings.EnsureOllamaModelsLoaded();
+            var options = new List<string>();
+            if (!string.IsNullOrWhiteSpace(value))
+                options.Add(value.Trim());
+            var installed = _settings.OllamaModels;
+            for (var i = 0; i < installed.Count; i++)
+            {
+                var model = installed[i];
+                if (!string.IsNullOrWhiteSpace(model) && !options.Contains(model))
+                    options.Add(model);
+            }
+
+            if (options.Count > 0)
+            {
+                Dropdown(caption, value, options, v => v, changed);
+                Field("Or type a model tag", value, false, changed);
+            }
+            else
+            {
+                Field(caption, value, false, changed);
+            }
+
+            Button(_settings.OllamaModelsLoading ? "Refreshing models..." : "Refresh installed models", () =>
+            {
+                _settings.RefreshOllamaModels();
+                _rebuild = true;
+            });
+            var status = _settings.OllamaModelsStatus;
+            if (!string.IsNullOrEmpty(status))
+                Note(status);
+        }
+
         void BuildLocalOllama()
         {
             Section("Shared Ollama configuration");
-            Field("Local model", S.LocalModel, false, v => Change(s => s.LocalModel = v));
+            OllamaModelChoice("Local model", S.LocalModel, v => Change(s => s.LocalModel = v));
             Field("Local address", S.LocalBaseUrl, false, v => Change(s => s.LocalBaseUrl = v));
             Note("The default address runs Ollama on this PC. If you enter another address, Happi sends requests to that server.");
             Button(_settings.ConnectionTestRunning ? "Testing…" : "Test Ollama connection", () => { _settings.TestConfiguredConnection(true); _rebuild = true; });
