@@ -492,7 +492,11 @@ namespace AICompanion.NewUI.Wheel
                     if (p.HasSliders)
                     {
                         for (var i = 0; i < TemperamentAxes.Count; i++)
-                            Row(TemperamentAxes.Names[i], ProfilePersonality.SliderWord(i, p.Sliders[i]));
+                        {
+                            var value = p.Sliders[i];
+                            var step = TemperamentSteps.DisplayStep(value);
+                            Row(TemperamentAxes.Names[i], $"{ProfilePersonality.SliderWord(i, value)} · {step}/{TemperamentSteps.Max}");
+                        }
                         Paragraph("Curiosity does not affect her mood yet.", true);
                     }
                     else
