@@ -8,6 +8,7 @@ namespace AICompanion.NewUI.Wheel
     {
         static readonly Color ProfilePink = new Color32(255, 128, 174, 255);
         static readonly Color ProfileTrack = new Color32(21, 26, 34, 255);
+        static readonly Color SecretTileBorder = new Color32(63, 75, 90, 255);
 
         internal bool ShowsRibbonFeelings => _ribbon && Visible && _tab == Tab.Feelings && _data?.Feelings != null;
 
@@ -23,13 +24,14 @@ namespace AICompanion.NewUI.Wheel
             var tint = MoodTint(mood);
             var title = ProfileFeelings.Capital(CompanionMoodNames.Name(mood));
             var box = Begin();
-            var iconSize = 42f * _scale;
+            var iconSize = 46f * _scale;
             var titleX = Pad + iconSize + Gap;
             CardIcon(_content, RibbonGlyph.MoodMark(mood), tint, Pad, _y, iconSize);
             CardText(_content, "Mood label", "Mood now", titleX, _y, TextWidth - iconSize - Gap, 17f * _scale, 12f, _theme.TextMuted);
-            CardText(_content, "Current mood", title, titleX, _y + 16f * _scale,
-                TextWidth - iconSize - Gap, 29f * _scale, 25f, _theme.Text, true);
-            _y += iconSize + Gap;
+            var headline = CardText(_content, "Current mood", title, titleX, _y + 15f * _scale,
+                TextWidth - iconSize - Gap, 35f * _scale, 25f, _theme.Text, true);
+            var headlineHeight = 15f * _scale + FitCardText(headline, 35f * _scale);
+            _y += Mathf.Max(iconSize, headlineHeight) + Gap;
 
             foreach (var row in feelings.Moods)
             {
@@ -114,18 +116,19 @@ namespace AICompanion.NewUI.Wheel
             CardIcon(_content, RibbonGlyph.Mark.Key, SecretGold, Pad, _y, 42f * _scale);
             var infoX = Pad + 53f * _scale;
             var infoWidth = TextWidth - (infoX - Pad);
-            CardText(_content, "Secrets title", "Her secrets", infoX, _y, infoWidth, 25f * _scale, 21f, _theme.Text, true);
+            var title = CardText(_content, "Secrets title", "Her secrets", infoX, _y, infoWidth, 30f * _scale, 21f, _theme.Text, true);
+            var titleHeight = FitCardText(title, 30f * _scale);
             if (secrets.Total == 0)
             {
-                _y += 46f * _scale;
+                _y += Mathf.Max(46f * _scale, titleHeight + Gap);
                 Paragraph("Her description has not been read yet, so she has no secrets to find.", true);
                 End(box);
                 return;
             }
 
             CardText(_content, "Discovery count", secrets.Found + " of " + secrets.Total + " discovered", infoX,
-                _y + 26f * _scale, infoWidth, 18f * _scale, 13f, _theme.TextMuted);
-            _y += 50f * _scale;
+                _y + titleHeight, infoWidth, 19f * _scale, 13f, _theme.TextMuted);
+            _y += titleHeight + 23f * _scale;
             var cellGap = 4f * _scale;
             var cellWidth = Mathf.Max(1f, (TextWidth - (secrets.Total - 1) * cellGap) / secrets.Total);
             for (var i = 0; i < secrets.Total; i++)
@@ -194,7 +197,7 @@ namespace AICompanion.NewUI.Wheel
             var newest = item.Found && item.Newest;
             var text = locked ? "Undiscovered" : item.Text;
             var iconColor = locked ? _theme.TextMuted : newest ? SecretGold : (Color)RibbonMint;
-            var tile = HappiUiKit.Panel(card, "Secret tile", newest ? SecretGold : _theme.Border, false);
+            var tile = HappiUiKit.Panel(card, "Secret tile", newest ? SecretGold : SecretTileBorder, false);
             var inset = _scale;
             var face = HappiUiKit.Panel(tile.transform, "Secret tile surface", ProfileTrack, false);
             CardIcon(face.transform, locked ? RibbonGlyph.Mark.Lock : RibbonGlyph.Mark.OpenLock, iconColor,
