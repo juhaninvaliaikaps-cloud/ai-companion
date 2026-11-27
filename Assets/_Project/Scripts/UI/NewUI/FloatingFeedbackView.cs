@@ -342,8 +342,8 @@ namespace AICompanion.NewUI
                     iconColor = Grey;
                     break;
                 case FeedbackKind.CritUp:
-                    border = Gold;
-                    amountColor = Gold;
+                    border = RibbonMenu.Enabled ? Pink : Gold;
+                    amountColor = border;
                     break;
                 case FeedbackKind.CritDown:
                     border = Grey;
@@ -376,7 +376,7 @@ namespace AICompanion.NewUI
             }
 
             slot.Border.color = border;
-            slot.Glow.color = HappiTheme.WithAlpha(Gold, 0.35f);
+            slot.Glow.color = HappiTheme.WithAlpha(border, 0.35f);
             slot.Glow.gameObject.SetActive(piece.Kind == FeedbackKind.CritUp || piece.Discovery);
             slot.Icon.gameObject.SetActive(icon != null);
             slot.Icon.sprite = icon;

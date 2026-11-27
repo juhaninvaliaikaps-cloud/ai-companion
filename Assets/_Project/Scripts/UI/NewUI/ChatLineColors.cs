@@ -33,7 +33,7 @@ namespace AICompanion.NewUI
             switch ((FeedbackKind)line.Change)
             {
                 case FeedbackKind.Up: return Up;
-                case FeedbackKind.CritUp:
+                case FeedbackKind.CritUp: return RibbonMenu.Enabled ? Up : Gold;
                 case FeedbackKind.Secret: return Gold;
                 case FeedbackKind.Familiarity: return RibbonMenu.Enabled ? RibbonFamiliarity : Familiarity;
                 case FeedbackKind.DesireUp: return DesireUp;
