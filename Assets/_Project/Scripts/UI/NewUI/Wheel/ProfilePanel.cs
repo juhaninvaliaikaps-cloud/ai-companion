@@ -491,12 +491,9 @@ namespace AICompanion.NewUI.Wheel
                     Heading("Temperament");
                     if (p.HasSliders)
                     {
-                        for (var i = 0; i < TemperamentAxes.Count; i++)
-                        {
-                            var value = p.Sliders[i];
-                            var step = TemperamentSteps.DisplayStep(value);
-                            Row(TemperamentAxes.Names[i], $"{ProfilePersonality.SliderWord(i, value)} · {step}/{TemperamentSteps.Max}");
-                        }
+                        var scale = new RibbonTemperamentScale(_content, _theme, TextWidth, _scale, axis => p.Sliders[axis]);
+                        HappiUiKit.Place(scale.Root, Pad, _y, TextWidth, scale.Height);
+                        _y += scale.Height + Gap;
                         Paragraph("Curiosity does not affect her mood yet.", true);
                     }
                     else

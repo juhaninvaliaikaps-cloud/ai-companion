@@ -14,6 +14,7 @@ using AICompanion.UI;
 using AICompanion.Voice;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace AICompanion.NewUI
@@ -64,6 +65,7 @@ namespace AICompanion.NewUI
         string _openDropdown;
         bool _building;
         bool _focusClaimed;
+        RectTransform _temperamentControls;
         bool _framePreview;
         bool _frameFit = true;
         string _webSearchQuery = string.Empty;
@@ -169,6 +171,7 @@ namespace AICompanion.NewUI
             _confirm.Cancel();
             _framePreview = false;
             BlurFields();
+            ClearTemperamentFocus();
             ReleaseFocus();
             if (_canvasObject != null)
                 _canvasObject.SetActive(false);
@@ -202,8 +205,8 @@ namespace AICompanion.NewUI
 
             SyncFocus();
             var signature = Signature();
-            // Not while a field has focus or a slider is being dragged (the Size slider changes the window).
-            if (signature != _signature && !AnyFieldFocused() && !Input.GetMouseButton(0))
+            // Keep the edited control alive while typing, dragging, or stepping through temperament.
+            if (signature != _signature && !AnyFieldFocused() && !TemperamentFocused() && !Input.GetMouseButton(0))
             {
                 _signature = signature;
                 _rebuild = true;
@@ -369,6 +372,8 @@ namespace AICompanion.NewUI
                 return;
             _building = true;
             BlurFields();
+            ClearTemperamentFocus();
+            _temperamentControls = null;
             _readingTrack = null;
             _readingFill = null;
             _readingLabel = null;
@@ -587,23 +592,28 @@ namespace AICompanion.NewUI
             }
 
             Section("Custom temperament");
-            Note("Moving a slider overrides Auto and the presets.");
+            Note(RibbonMenu.Enabled ? "Choose a step to override Auto or the current preset." : "Moving a slider overrides Auto and the presets.");
             var editing = (view.Axes ?? TemperamentAxes.Neutral()).Clone();
+            void ChooseStep(int axis, int step)
+            {
+                if (!TemperamentSteps.IsNewStep(editing.Value(axis), step))
+                    return;
+                editing.Set(axis, TemperamentSteps.ValueForStep(step));
+                _settings.SetPersonaTemperamentAxes(id, editing);
+            }
+            if (RibbonMenu.Enabled)
+            {
+                var scale = new RibbonTemperamentScale(_body, _theme, W, _s, axis => editing.Value(axis), ChooseStep);
+                _temperamentControls = scale.Root;
+                Place(scale.Root, scale.Height);
+                return;
+            }
             for (var axis = 0; axis < TemperamentAxes.Count; axis++)
             {
                 var index = axis;
                 var shown = TemperamentSteps.DisplayStep(editing.Value(index));
                 Slider(v => TemperamentSteps.Label(index, Mathf.RoundToInt(v)), shown,
-                    TemperamentSteps.Min, TemperamentSteps.Max, true, v =>
-                    {
-                        var step = Mathf.RoundToInt(v);
-                        // Reselecting the displayed step is not an edit. It must not turn a
-                        // stored 11/15 (both shown as 2) into a new quantized value.
-                        if (!TemperamentSteps.IsNewStep(editing.Value(index), step))
-                            return;
-                        editing.Set(index, TemperamentSteps.ValueForStep(step));
-                        _settings.SetPersonaTemperamentAxes(id, editing);
-                    });
+                    TemperamentSteps.Min, TemperamentSteps.Max, true, v => ChooseStep(index, Mathf.RoundToInt(v)));
             }
         }
 
@@ -2725,9 +2735,23 @@ namespace AICompanion.NewUI
             }
         }
 
+        bool TemperamentFocused()
+        {
+            if (_temperamentControls == null || EventSystem.current == null)
+                return false;
+            var selected = EventSystem.current.currentSelectedGameObject;
+            return selected != null && selected.transform.IsChildOf(_temperamentControls);
+        }
+
+        void ClearTemperamentFocus()
+        {
+            if (TemperamentFocused())
+                EventSystem.current.SetSelectedGameObject(null);
+        }
+
         void SyncFocus()
         {
-            var focused = AnyFieldFocused();
+            var focused = AnyFieldFocused() || TemperamentFocused();
             if (focused && !_focusClaimed)
             {
                 DebugInputGuard.ClaimTextField();

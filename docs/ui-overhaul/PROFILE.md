@@ -16,7 +16,7 @@ Mockup: https://claude.ai/artifact/3Za6cHCRA24ozNUnTz6ceD. Jussi picked Feelings
 Launch with `--ribbon-ui`. Profile uses the charcoal frame, the full-width Happi-Mood banner, and cyan tabs. The banner keeps its original proportions with Close in the upper-right corner. The frame fits the visible work area, and the tabs use a second row when needed. Both the Ribbon and radial wheel open the same Profile view. Ctrl+Tab and Ctrl+Shift+Tab cycle through the tabs. Page Up and Page Down scroll the current tab, and Home and End jump to its edges. Each tab keeps its reading position while Profile stays open.
 
 - Feelings starts with her current mood, then shows the relationship and recent changes.
-- Personality shows her temperament in words alongside a score out of ten. Edit temperament opens the Personality settings with the same ten-step scale. Discoveries and gated details keep their existing sections.
+- Personality shows an icon, ten numbered steps, and a description for each trait. Reached steps turn from cyan to pink at 8, and the current step is taller. Edit temperament opens the same tracks as controls. Click a step or focus a track and use Left and Right. Up and Down move between tracks. Discoveries and gated details keep their existing sections.
 - Her world puts current activity, open threads, events while away, recent days, and backstory in distinct cards.
 - Memories separates what she remembers about you from the relationship timeline. Manage memories opens the Memories settings directly.
 
