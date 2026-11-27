@@ -1207,7 +1207,7 @@ namespace AICompanion.NewUI
             Section("Local Ollama");
             Field("Local model", S.LocalModel, false, v => Change(s => s.LocalModel = v));
             Field("Local address", S.LocalBaseUrl, false, v => Change(s => s.LocalBaseUrl = v));
-            Note("Default: Ollama at http://127.0.0.1:11434/v1. Nothing leaves this PC.");
+            Note("The default address runs Ollama on this PC. If you enter another address, Happi sends requests to that server.");
             if (test)
                 Button(_settings.ConnectionTestRunning ? "Testing..." : "Test local connection", () => { _settings.TestConnectionNow(); _rebuild = true; });
         }

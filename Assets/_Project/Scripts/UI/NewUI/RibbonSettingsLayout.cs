@@ -32,7 +32,7 @@ namespace AICompanion.NewUI
             _pad = 16f * s;
             _gap = 5f * s;
             _tabHeight = 28f * s;
-            _navTop = _pad + 43f * s;
+            _navTop = _pad + (height < 430f * s ? 38f : 43f) * s;
             Sidebar = width >= 660f * s;
             _columns = Sidebar ? 1 : width >= 532f * s ? 8 : 4;
             _navWidth = Sidebar ? 120f * s : width - 2f * _pad;
