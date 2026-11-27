@@ -500,7 +500,7 @@ namespace AICompanion.NewUI.Wheel
                         var scale = new RibbonTemperamentScale(_content, _theme, TextWidth, _scale, axis => p.Sliders[axis]);
                         HappiUiKit.Place(scale.Root, Pad, _y, TextWidth, scale.Height);
                         _y += scale.Height + Gap;
-                        Paragraph("Curiosity does not affect her mood yet.", true);
+                        Paragraph(PersonaManner.CuriosityHelp, true);
                     }
                     else
                         Radar(p.Axes);
@@ -542,10 +542,10 @@ namespace AICompanion.NewUI.Wheel
                 {
                     var value = p.Sliders[i];
                     Row(TemperamentAxes.Names[i], ProfilePersonality.SliderWord(i, value) + "  " + Mathf.RoundToInt(value));
-                    FillBar(value / 100f, i == TemperamentAxes.Curiosity ? _theme.Disabled : _theme.Hover);
+                    FillBar(value / 100f, _theme.Hover);
                 }
 
-                Paragraph("Each runs from 0 to 100. Curiosity does not change her mood yet. Set them on Settings → Her → Personality.", true);
+                Paragraph("Each runs from 0 to 100. " + PersonaManner.CuriosityHelp + " Set it in Settings → Her → Personality.", true);
             }
             else if (p.HasReading)
             {
