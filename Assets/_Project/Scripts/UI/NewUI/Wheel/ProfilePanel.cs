@@ -160,7 +160,7 @@ namespace AICompanion.NewUI.Wheel
             HappiUiKit.Place(_role.rectTransform, x, _headerPad + _headerNameH, width, _headerRoleH);
         }
 
-        public void Show(Func<ProfileData> source, Vector2 center, float scale, Vector2 screen)
+        public void Show(Func<ProfileData> source, Vector2 center, float scale, Vector2 screen, Tab? initialTab = null)
         {
             _source = source;
             _scale = Mathf.Max(1f, scale);
@@ -203,7 +203,7 @@ namespace AICompanion.NewUI.Wheel
             HappiUiKit.Place((RectTransform)_scroll.transform, pad, bodyY, _inner, height - bodyY - pad);
             _root.gameObject.SetActive(true);
             _root.SetAsLastSibling();
-            Select(_tab);
+            Select(initialTab ?? _tab);
         }
 
         public void Hide()

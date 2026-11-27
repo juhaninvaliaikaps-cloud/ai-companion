@@ -1,4 +1,5 @@
 using System;
+using AICompanion.Core;
 using UnityEngine;
 
 namespace AICompanion.NewUI
@@ -79,7 +80,7 @@ namespace AICompanion.NewUI
         /// Windows system font tried first (dynamic TMP font asset from the OS). When it is
         /// missing, the TMP default (LiberationSans SDF from TMP Essential Resources) is used.
         /// </summary>
-        public string FontFamily = "Segoe UI";
+        public string FontFamily = HappiTypeface.Family;
         public string FontStyleRegular = "Regular";
         public string FontStyleBold = "Bold";
 

@@ -1,4 +1,5 @@
 using System;
+using AICompanion.Core;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -7,8 +8,7 @@ using UnityEngine.UI;
 namespace AICompanion.NewUI
 {
     /// <summary>
-    /// TextMeshPro fonts for the new UI: the theme's Windows font (dynamic, from the OS) when
-    /// present, otherwise the TMP default (LiberationSans SDF, TMP Essential Resources).
+    /// TextMeshPro fonts for the new UI. Uses the bundled family or a selected OS font, with the TMP default as fallback.
     /// </summary>
     public static class HappiFonts
     {
@@ -27,7 +27,7 @@ namespace AICompanion.NewUI
             }
         }
 
-        /// <summary>A bold face when the OS has one; otherwise null and callers use FontStyles.Bold.</summary>
+        /// <summary>A bold face when available; otherwise null and callers use FontStyles.Bold.</summary>
         public static TMP_FontAsset Bold
         {
             get
@@ -44,39 +44,49 @@ namespace AICompanion.NewUI
             _tried = true;
             var theme = HappiTheme.Current;
             var fallback = TMP_Settings.defaultFontAsset;
-            _regular = TryOs(theme.FontFamily, theme.FontStyleRegular, fallback);
-            _bold = TryOs(theme.FontFamily, theme.FontStyleBold, fallback);
+            _regular = TryFace(theme.FontFamily, theme.FontStyleRegular, fallback);
+            _bold = TryFace(theme.FontFamily, theme.FontStyleBold, fallback);
             if (_regular == null)
                 _regular = fallback;
         }
 
         /// <summary>
-        /// A named OS font for the chat box. Cached because TMP creates an atlas per asset.
+        /// A named bundled or OS font for the chat box. Cached because TMP creates an atlas per asset.
         /// Missing fonts fall back to the UI's normal regular face.
         /// </summary>
         public static TMP_FontAsset For(string family, string style = null)
         {
             Ensure();
-            var name = string.IsNullOrWhiteSpace(family) ? "Segoe UI" : family.Trim();
+            var name = string.IsNullOrWhiteSpace(family) ? HappiTheme.Current.FontFamily : family.Trim();
             var face = string.IsNullOrWhiteSpace(style) ? "Regular" : style.Trim();
+            var theme = HappiTheme.Current;
+            if (string.Equals(name, theme.FontFamily, StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.Equals(face, theme.FontStyleRegular, StringComparison.OrdinalIgnoreCase))
+                    return _regular;
+                if (string.Equals(face, theme.FontStyleBold, StringComparison.OrdinalIgnoreCase))
+                    return _bold ?? _regular;
+            }
             var key = name + "|" + face;
             TMP_FontAsset cached;
             if (Named.TryGetValue(key, out cached))
                 return cached != null ? cached : _regular;
-            var created = TryOs(name, face, TMP_Settings.defaultFontAsset);
+            var created = TryFace(name, face, TMP_Settings.defaultFontAsset);
             Named[key] = created;
             return created != null ? created : _regular;
         }
 
-        static TMP_FontAsset TryOs(string family, string style, TMP_FontAsset fallback)
+        static TMP_FontAsset TryFace(string family, string style, TMP_FontAsset fallback)
         {
             try
             {
-                var asset = TMP_FontAsset.CreateFontAsset(family, style, 90);
+                var bundled = string.Equals(family, HappiTypeface.Family, StringComparison.OrdinalIgnoreCase);
+                var source = bundled ? HappiTypeface.Load(style) : null;
+                var asset = source != null ? TMP_FontAsset.CreateFontAsset(source) : TMP_FontAsset.CreateFontAsset(family, style, 90);
                 if (asset == null)
                     return null;
                 asset.hideFlags = HideFlags.DontSave;
-                asset.name = family + " " + style + " (OS)";
+                asset.name = family + " " + style;
                 if (fallback != null)
                 {
                     if (asset.fallbackFontAssetTable == null)
@@ -169,7 +179,18 @@ namespace AICompanion.NewUI
         public Color Normal = Color.white;
         public Color Hover = Color.black;
         public Color Disabled = Color.gray;
+        public bool HoldHoverColor
+        {
+            get => _holdHoverColor;
+            set
+            {
+                _holdHoverColor = value;
+                Apply();
+            }
+        }
+        bool _holdHoverColor;
         bool _over;
+        public bool PointerOver => _over;
 
         public void OnPointerEnter(PointerEventData eventData)
         {
@@ -198,7 +219,7 @@ namespace AICompanion.NewUI
             if (Label == null)
                 return;
             var interactable = Target == null || Target.IsInteractable();
-            var color = !interactable ? Disabled : _over ? Hover : Normal;
+            var color = !interactable ? Disabled : (_over || HoldHoverColor) ? Hover : Normal;
             if (Label.color != color)
                 Label.color = color;
         }

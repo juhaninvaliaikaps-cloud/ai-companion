@@ -1776,7 +1776,7 @@ namespace AICompanion.UI
 
         static Font BuiltinFont()
         {
-            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            var font = HappiTypeface.Load() ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (font == null)
                 font = Resources.GetBuiltinResource<Font>("Arial.ttf");
             return font;

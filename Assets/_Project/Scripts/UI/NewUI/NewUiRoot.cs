@@ -62,6 +62,9 @@ namespace AICompanion.NewUI
                 settingsView = gameObject.AddComponent<HappiSettingsView>();
             settingsView.Attach(settings, chat);
 
+            if (RibbonMenu.Enabled)
+                gameObject.AddComponent<RibbonMenu>().Attach(chat, settings);
+
             // JUH-150: the Persona Studio window, opened from the Persona tab.
             var studio = GetComponent<PersonaStudioView>();
             if (studio == null)
@@ -83,6 +86,10 @@ namespace AICompanion.NewUI
 
         void TurnOff()
         {
+            var ribbon = GetComponent<RibbonMenu>();
+            if (ribbon != null)
+                Destroy(ribbon);
+
             var consent = GetComponent<DesktopToolConsentView>();
             if (consent != null)
                 consent.Detach();

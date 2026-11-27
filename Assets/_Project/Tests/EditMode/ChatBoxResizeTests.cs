@@ -8,6 +8,15 @@ namespace AICompanion.Tests.EditMode
     /// <summary>JUH-127: the chat box resized by its edges and corners.</summary>
     public sealed class ChatBoxResizeTests
     {
+        [TestCase(480f, 1f, 256f, 196f)]
+        [TestCase(900f, 1f, 392f, 320f)]
+        [TestCase(1400f, 1.5f, 588f, 480f)]
+        public void RibbonAutomaticHeightMakesRoomForConversation(float bodyHeight, float scale, float ribbon, float classic)
+        {
+            Assert.That(ChatBoxResize.AutomaticHeight(bodyHeight, scale, 1f, true), Is.EqualTo(ribbon));
+            Assert.That(ChatBoxResize.AutomaticHeight(bodyHeight, scale, 1f, false), Is.EqualTo(classic));
+        }
+
         static readonly Rect Start = new Rect(100f, 100f, 300f, 200f); // x 100..400, y 100..300
         static readonly Vector2 Min = new Vector2(260f, 160f);
         static readonly Rect ScreenArea = new Rect(0f, 0f, 1920f, 1080f);
