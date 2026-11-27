@@ -67,7 +67,8 @@ namespace AICompanion.NewUI.Wheel
             _profile = new ProfilePanel(_canvasObject.transform, _theme)
             {
                 OnClose = Back,
-                OpenSettings = () => Do(() => { if (OpenSettings != null) OpenSettings(); }),
+                OpenSettings = () => OpenProfileSettings(SettingsPage.HerMemories),
+                EditTemperament = () => OpenProfileSettings(SettingsPage.HerPersonality),
             };
             if (OpenSettings == null)
                 OpenSettings = () => { if (_settings != null) _settings.Open(); };
@@ -555,11 +556,21 @@ namespace AICompanion.NewUI.Wheel
             var visibleArea = OverlayVisibleArea.Get(_window);
             HappiUiKit.FollowCamera(_canvas, PlaneDistance);
             _profile.Show(BuildProfileData, visibleArea.center, _scale,
-                new Vector2(Screen.width, Screen.height), tab);
+                new Vector2(Screen.width, Screen.height), tab, visibleArea);
 
             var typing = GetComponent<ITypingFocus>();
             if (typing != null)
                 typing.FocusForTyping();
+        }
+
+        void OpenProfileSettings(SettingsPage page)
+        {
+            Do(() =>
+            {
+                var settingsView = GetComponent<HappiSettingsView>();
+                if (!RibbonMenu.Enabled || settingsView == null || !settingsView.TryOpenPage(page))
+                    OpenSettings?.Invoke();
+            });
         }
 
         void ShowProfile()
@@ -569,7 +580,8 @@ namespace AICompanion.NewUI.Wheel
             if (_wheel != null)
                 _wheel.Root.gameObject.SetActive(false);
             var center = _wheel != null ? _wheel.Center : _clickPoint;
-            _profile.Show(BuildProfileData, center, Mathf.Max(1f, _scale), new Vector2(Screen.width, Screen.height));
+            _profile.Show(BuildProfileData, center, Mathf.Max(1f, _scale), new Vector2(Screen.width, Screen.height),
+                visibleArea: OverlayVisibleArea.Get(_window));
             Debug.Log("Wheel: opened the Profile panel");
         }
 

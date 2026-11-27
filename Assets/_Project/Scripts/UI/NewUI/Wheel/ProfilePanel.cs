@@ -53,8 +53,20 @@ namespace AICompanion.NewUI.Wheel
 
         static readonly string[] TabLabels = { "Feelings", "Personality", "Her world", "Memories" };
         const int MaxBackstoryCollapsed = 6;
+        static readonly Color32 RibbonInk = new(14, 18, 24, 255);
+        static readonly Color32 RibbonCard = new(36, 42, 53, 255);
+        static readonly Color32 RibbonMint = new(114, 238, 207, 255);
 
         readonly HappiTheme _theme;
+        readonly bool _ribbon;
+        readonly RectTransform _ribbonHeaderRoot;
+        readonly RibbonShape _ribbonHeader;
+        readonly RectTransform _ribbonHeaderRule;
+        readonly RectTransform _ribbonTitleStripe;
+        readonly RawImage _ribbonArt;
+        readonly RibbonShape _ribbonArtShape;
+        readonly RibbonGlyph _ribbonClose;
+        readonly Scrollbar _ribbonScroll;
         readonly RectTransform _root;
         readonly TextMeshProUGUI _name;
         readonly TextMeshProUGUI _role;
@@ -80,26 +92,66 @@ namespace AICompanion.NewUI.Wheel
 
         /// <summary>"Manage in Settings" on the Memories tab.</summary>
         public Action OpenSettings;
+        public Action EditTemperament;
 
         public ProfilePanel(Transform parent, HappiTheme theme)
         {
             _theme = theme;
-            var panel = HappiUiKit.Panel(parent, "ProfilePanel", theme.PanelBackground, true);
+            _ribbon = RibbonMenu.Enabled;
+            var panel = HappiUiKit.Panel(parent, "ProfilePanel", _ribbon ? (Color)RibbonInk : theme.PanelBackground, true);
             _root = panel.rectTransform;
             _root.anchorMin = _root.anchorMax = Vector2.zero;
             _root.pivot = new Vector2(0.5f, 0.5f);
-            var outline = panel.gameObject.AddComponent<Outline>();
-            outline.effectColor = theme.Border;
-            outline.effectDistance = new Vector2(1f, -1f);
+            if (_ribbon)
+            {
+                RibbonShape.Apply(panel, RibbonShape.Kind.ChatFrame);
+                var header = HappiUiKit.Panel(_root, "Profile header", new Color32(25, 30, 39, 255), false);
+                _ribbonHeaderRoot = header.rectTransform;
+                _ribbonHeader = RibbonShape.Apply(header, RibbonShape.Kind.ChatHeader);
+                _ribbonHeaderRule = HappiUiKit.Panel(_root, "Header rule", new Color32(112, 131, 146, 155), false).rectTransform;
+                _ribbonArt = HappiUiKit.Rect(_root, "Yellow Profile artwork").gameObject.AddComponent<RawImage>();
+                _ribbonArt.texture = Resources.Load<Texture2D>("RibbonArt/Profile");
+                _ribbonArt.raycastTarget = false;
+                _ribbonArtShape = RibbonShape.Apply(_ribbonArt, RibbonShape.Kind.HeaderArt);
+                _ribbonTitleStripe = HappiUiKit.Panel(_root, "Title stripe", new Color32(255, 202, 34, 255), false).rectTransform;
+                RibbonShape.Apply(_ribbonTitleStripe.GetComponent<Image>(), true);
+            }
+            else
+            {
+                var outline = panel.gameObject.AddComponent<Outline>();
+                outline.effectColor = theme.Border;
+                outline.effectDistance = new Vector2(1f, -1f);
+            }
             _picture = PersonaPictureCache.Frame(_root, "Picture", theme, out _pictureFrame);
             _pictureFrame.gameObject.SetActive(false);
             _name = HappiUiKit.Text(_root, "Name", string.Empty, theme.FontTitle, theme.Text, TextAlignmentOptions.TopLeft, true);
             _role = HappiUiKit.Text(_root, "Role", string.Empty, theme.FontSmall, theme.Text, TextAlignmentOptions.TopLeft, false);
             _close = HappiUiKit.Button(_root, "Close", "X", theme.FontTitle, () => { if (OnClose != null) OnClose(); });
+            if (_ribbon)
+            {
+                _name.font = HappiFonts.For(HappiTypeface.Family, "ExtraBold Italic");
+                _name.fontStyle = FontStyles.Normal;
+                _name.enableAutoSizing = true;
+                _name.textWrappingMode = TextWrappingModes.NoWrap;
+                _name.overflowMode = TextOverflowModes.Ellipsis;
+                _role.color = theme.TextMuted;
+                _role.overflowMode = TextOverflowModes.Ellipsis;
+                StyleRibbonButton(_close);
+                _close.Label.gameObject.SetActive(false);
+                _ribbonClose = RibbonGlyph.Add(_close.Rect, "Close profile", RibbonGlyph.Mark.Close, theme.Text);
+                _ribbonClose.Label = _close.Label;
+            }
             for (var i = 0; i < TabLabels.Length; i++)
             {
                 var index = i;
-                _tabs.Add(HappiUiKit.Button(_root, "Tab" + TabLabels[i], TabLabels[i], theme.FontSmall, () => Select((Tab)index)));
+                var tab = HappiUiKit.Button(_root, "Tab" + TabLabels[i], TabLabels[i], theme.FontSmall, () => Select((Tab)index));
+                if (_ribbon)
+                {
+                    StyleRibbonButton(tab);
+                    tab.Label.enableAutoSizing = true;
+                    tab.Label.overflowMode = TextOverflowModes.Ellipsis;
+                }
+                _tabs.Add(tab);
             }
 
             var body = HappiUiKit.Panel(_root, "Body", new Color(0f, 0f, 0f, 0f), true);
@@ -119,6 +171,20 @@ namespace AICompanion.NewUI.Wheel
             _content.sizeDelta = new Vector2(0f, 8f);
             _scroll.content = _content;
 
+            if (_ribbon)
+            {
+                var track = HappiUiKit.Panel(_root, "Profile scrollbar", new Color32(39, 49, 60, 255), true);
+                _ribbonScroll = track.gameObject.AddComponent<Scrollbar>();
+                var trackArea = HappiUiKit.Rect(track.transform, "Track");
+                HappiUiKit.Stretch(trackArea, 0f, 0f, 0f, 0f);
+                var thumb = HappiUiKit.Panel(trackArea, "Thumb", new Color32(114, 238, 207, 225), true);
+                _ribbonScroll.targetGraphic = thumb;
+                _ribbonScroll.handleRect = thumb.rectTransform;
+                _ribbonScroll.direction = Scrollbar.Direction.BottomToTop;
+                _scroll.verticalScrollbar = _ribbonScroll;
+                _scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+            }
+
             // JUH-133: a readable popup for the small secret/kink chips. It lives on the
             // profile root, outside the masked scroll body, so it is not clipped.
             var tip = HappiUiKit.Panel(_root, "SecretTip", theme.PanelBackground, false);
@@ -131,6 +197,8 @@ namespace AICompanion.NewUI.Wheel
             _tipText.overflowMode = TextOverflowModes.Overflow;
             _tipText.raycastTarget = false;
             _tip.gameObject.SetActive(false);
+            if (_ribbon)
+                RibbonChatFrameEdge.Add(_root);
             _root.gameObject.SetActive(false);
         }
 
@@ -160,11 +228,24 @@ namespace AICompanion.NewUI.Wheel
             HappiUiKit.Place(_role.rectTransform, x, _headerPad + _headerNameH, width, _headerRoleH);
         }
 
-        public void Show(Func<ProfileData> source, Vector2 center, float scale, Vector2 screen, Tab? initialTab = null)
+        public void Show(Func<ProfileData> source, Vector2 center, float scale, Vector2 screen, Tab? initialTab = null,
+            Rect? visibleArea = null)
         {
             _source = source;
             _scale = Mathf.Max(1f, scale);
             _allBackstory = false;
+            if (_ribbon)
+                ShowRibbon(center, scale, visibleArea ?? new Rect(Vector2.zero, screen));
+            else
+                ShowClassic(center, screen);
+
+            _root.gameObject.SetActive(true);
+            _root.SetAsLastSibling();
+            Select(initialTab ?? _tab);
+        }
+
+        void ShowClassic(Vector2 center, Vector2 screen)
+        {
             var s = _scale;
             var pad = _theme.Padding * s;
             var gap = _theme.Spacing * s;
@@ -201,9 +282,72 @@ namespace AICompanion.NewUI.Wheel
 
             var bodyY = tabsY + rowH + gap;
             HappiUiKit.Place((RectTransform)_scroll.transform, pad, bodyY, _inner, height - bodyY - pad);
-            _root.gameObject.SetActive(true);
-            _root.SetAsLastSibling();
-            Select(initialTab ?? _tab);
+        }
+
+        void ShowRibbon(Vector2 center, float scale, Rect visibleArea)
+        {
+            var layout = new RibbonProfileLayout(visibleArea, center, scale);
+            _scale = layout.Scale;
+            var s = _scale;
+            var frame = layout.Frame;
+            var pad = layout.Padding;
+            _inner = frame.width - 2f * pad;
+            _root.sizeDelta = frame.size;
+            _root.anchoredPosition = frame.center;
+            var corners = RibbonShape.ChatFrameCorners(frame.width, frame.height);
+            _ribbonHeader.SetHeaderCorners(corners);
+            HappiUiKit.Place(_ribbonHeaderRoot, 0f, 0f, frame.width, layout.HeaderHeight);
+            HappiUiKit.Place(_ribbonHeaderRule, 0f, layout.HeaderHeight - s, frame.width, s);
+            var artWidth = _ribbonArt.texture != null ? layout.ArtWidth : 0f;
+            _ribbonArt.gameObject.SetActive(artWidth > 0f);
+            if (artWidth > 0f)
+            {
+                _ribbonArtShape.SetHeaderCorners(corners);
+                HappiUiKit.Place(_ribbonArt.rectTransform, frame.width - artWidth, 0f, artWidth, layout.HeaderHeight);
+                var source = _ribbonArt.texture;
+                var cropWidth = artWidth / layout.HeaderHeight * source.height / source.width;
+                _ribbonArt.uvRect = new Rect(0.64f - cropWidth * 0.5f, 0f, cropWidth, 1f);
+            }
+
+            var closeSize = 30f * s;
+            var closeX = frame.width - artWidth - pad - closeSize;
+            HappiUiKit.Place(_close.Rect, closeX, (layout.HeaderHeight - closeSize) * 0.5f, closeSize, closeSize);
+            HappiUiKit.Place(_ribbonClose.rectTransform, 5f * s, 5f * s, 20f * s, 20f * s);
+            _headerPad = pad + 4f * s;
+            _headerGap = 9f * s;
+            _headerNameH = 34f * s;
+            _headerRoleH = 21f * s;
+            _headerClose = frame.width - closeX - pad;
+            _name.fontSizeMin = 17f * s;
+            _name.fontSizeMax = 29f * s;
+            _role.fontSize = 13f * s;
+            HappiUiKit.Place(_ribbonTitleStripe, pad - s, _headerPad, 3f * s, _headerNameH + _headerRoleH);
+            PlaceHeader(false);
+
+            for (var i = 0; i < _tabs.Count; i++)
+            {
+                var tab = layout.Tab(i);
+                HappiUiKit.Place(_tabs[i].Rect, tab.x, tab.y, tab.width, tab.height);
+                _tabs[i].Label.fontSizeMin = 10f * s;
+                _tabs[i].Label.fontSizeMax = 14f * s;
+            }
+
+            HappiUiKit.Place((RectTransform)_scroll.transform, pad, layout.BodyTop, _inner,
+                frame.height - layout.BodyTop - pad);
+            HappiUiKit.Place((RectTransform)_ribbonScroll.transform, frame.width - pad + 4f * s, layout.BodyTop,
+                5f * s, frame.height - layout.BodyTop - pad);
+        }
+
+        static void StyleRibbonButton(HappiButton button)
+        {
+            RibbonShape.Apply(button.Image, true);
+            var colors = button.Button.colors;
+            colors.normalColor = RibbonInk;
+            colors.highlightedColor = RibbonMenu.Cyan;
+            colors.pressedColor = new Color32(255, 202, 34, 255);
+            colors.selectedColor = colors.normalColor;
+            button.Button.colors = colors;
+            button.Button.GetComponent<HappiHoverText>().Hover = RibbonMenu.Ink;
         }
 
         public void Hide()
@@ -235,9 +379,13 @@ namespace AICompanion.NewUI.Wheel
             for (var i = 0; i < _tabs.Count; i++)
             {
                 var colors = _tabs[i].Button.colors;
-                colors.normalColor = i == (int)tab ? _theme.Selected : _theme.Button;
+                var selected = i == (int)tab;
+                colors.normalColor = _ribbon ? (selected ? RibbonMenu.Cyan : (Color)RibbonInk)
+                    : selected ? _theme.Selected : _theme.Button;
                 colors.selectedColor = colors.normalColor;
                 _tabs[i].Button.colors = colors;
+                if (_ribbon)
+                    _tabs[i].Button.GetComponent<HappiHoverText>().HoldHoverColor = selected;
             }
 
             Rebuild();
@@ -247,7 +395,12 @@ namespace AICompanion.NewUI.Wheel
         {
             HideTip();
             for (var i = _content.childCount - 1; i >= 0; i--)
-                UnityEngine.Object.Destroy(_content.GetChild(i).gameObject);
+            {
+                var oldRow = _content.GetChild(i).gameObject;
+                oldRow.SetActive(false);
+                UnityEngine.Object.Destroy(oldRow);
+            }
+            _scroll.StopMovement();
             _y = 0f;
             switch (_tab)
             {
@@ -272,30 +425,37 @@ namespace AICompanion.NewUI.Wheel
                 return;
             }
 
+            if (_ribbon)
+                BuildMood(f);
             var box = Begin();
-            Heading("How she feels about you");
+            Heading(_ribbon ? "Your relationship" : "How she feels about you");
             Row("Affection", f.AffectionValue);
             AffectionBar(f.AffectionMarker);
             Row("Familiarity", f.FamiliarityValue);
             FillBar(f.FamiliarityFill, _theme.Hover);
             End(box);
 
+            if (!_ribbon)
+                BuildMood(f);
+
             box = Begin();
+            Heading(_ribbon ? "Recent changes" : "Why it moved recently");
+            if (f.Reasons.Count == 0)
+                Paragraph(f.ReasonsNote, true);
+            for (var i = 0; i < f.Reasons.Count; i++)
+                Paragraph("• " + f.Reasons[i], false);
+            End(box);
+        }
+
+        void BuildMood(ProfileFeelings f)
+        {
+            var box = Begin();
             Heading(f.MoodTitle);
             for (var i = 0; i < f.Moods.Count; i++)
             {
                 Row(f.Moods[i].Label, f.Moods[i].Value);
                 FillBar(f.Moods[i].Fill, _theme.Hover);
             }
-
-            End(box);
-
-            box = Begin();
-            Heading("Why it moved recently");
-            if (f.Reasons.Count == 0)
-                Paragraph(f.ReasonsNote, true);
-            for (var i = 0; i < f.Reasons.Count; i++)
-                Paragraph("• " + f.Reasons[i], false);
             End(box);
         }
 
@@ -310,6 +470,55 @@ namespace AICompanion.NewUI.Wheel
 
             var box = Begin();
             Heading(p.Title);
+            if (_ribbon)
+            {
+                Paragraph(p.Reason, !p.HasReading);
+                if (EditTemperament != null)
+                    Button("Edit temperament", EditTemperament);
+                End(box);
+                if (p.HasSliders || p.HasReading)
+                {
+                    box = Begin();
+                    Heading("Temperament");
+                    if (p.HasSliders)
+                    {
+                        for (var i = 0; i < TemperamentAxes.Count; i++)
+                            Row(TemperamentAxes.Names[i], ProfilePersonality.SliderWord(i, p.Sliders[i]));
+                        Paragraph("Curiosity does not affect her mood yet.", true);
+                    }
+                    else
+                        Radar(p.Axes);
+                    End(box);
+                }
+            }
+            else
+                BuildClassicTemperament(p, box);
+
+            BuildSecrets(_data.Secrets);
+
+            if (p.ShowInnocence)
+            {
+                box = Begin();
+                Heading("Innocent to Perverted (18+)");
+                Row("Innocent", p.InnocenceValue + "   Perverted");
+                FillBar(p.Innocence / 100f, _theme.Intimate);
+                if (p.ShowDesire)
+                {
+                    Row("Desire", p.DesireValue);
+                    FillBar(p.Desire / 100f, _theme.Intimate);
+                    Row("Libido", p.LibidoValue);
+                    FillBar(p.Libido / 100f, _theme.Hover);
+                }
+
+                Paragraph("Set innocence and libido on Settings → 18+ → Her. Desire moves on its own.", true);
+                End(box);
+            }
+
+            BuildIntimateSecrets(_data.IntimateSecrets);
+        }
+
+        void BuildClassicTemperament(ProfilePersonality p, RectTransform box)
+        {
             if (p.HasSliders)
             {
                 // JUH-136 (Jussi): the nine sliders she runs on, instead of the 5-axis radar.
@@ -330,29 +539,6 @@ namespace AICompanion.NewUI.Wheel
             if (p.Reason.Length > 0)
                 Paragraph(p.Reason, !p.HasReading);
             End(box);
-
-            BuildSecrets(_data.Secrets);
-
-            if (p.ShowInnocence)
-            {
-                box = Begin();
-                Heading("Innocent to Perverted (18+)");
-                Row("Innocent", p.InnocenceValue + "   Perverted");
-                FillBar(p.Innocence / 100f, _theme.Intimate);
-                if (p.ShowDesire)
-                {
-                    // JUH-170: desire moves on its own; libido is how relentless her needs are.
-                    Row("Desire", p.DesireValue);
-                    FillBar(p.Desire / 100f, _theme.Intimate);
-                    Row("Libido", p.LibidoValue);
-                    FillBar(p.Libido / 100f, _theme.Hover);
-                }
-
-                Paragraph("Set innocence and libido on Settings → 18+ → Her. Desire moves on its own.", true);
-                End(box);
-            }
-
-            BuildIntimateSecrets(_data.IntimateSecrets);
         }
 
         /// <summary>
@@ -574,13 +760,13 @@ namespace AICompanion.NewUI.Wheel
                 End(box);
             }
 
-            if (w.Waiting.Count > 0 || w.WhileAway.Count > 0)
+            if (w.Waiting.Count > 0 || (!_ribbon && w.WhileAway.Count > 0))
             {
                 var box = Begin();
-                Heading("Things she is waiting for");
+                Heading(_ribbon ? "Open threads" : "Things she is waiting for");
                 for (var i = 0; i < w.Waiting.Count; i++)
                     Paragraph("• " + w.Waiting[i], false);
-                if (w.WhileAway.Count > 0)
+                if (!_ribbon && w.WhileAway.Count > 0)
                 {
                     SubHeading("While you were away");
                     for (var i = 0; i < w.WhileAway.Count; i++)
@@ -590,10 +776,19 @@ namespace AICompanion.NewUI.Wheel
                 End(box);
             }
 
+            if (_ribbon && w.WhileAway.Count > 0)
+            {
+                var box = Begin();
+                Heading("While you were away");
+                for (var i = 0; i < w.WhileAway.Count; i++)
+                    Paragraph(w.WhileAway[i].When + ": " + w.WhileAway[i].Text, false);
+                End(box);
+            }
+
             if (w.Week.Count > 0)
             {
                 var box = Begin();
-                Heading("Her last days");
+                Heading(_ribbon ? "Recent days" : "Her last days");
                 for (var i = 0; i < w.Week.Count; i++)
                     Paragraph(w.Week[i].When + ": " + w.Week[i].Text, false);
                 End(box);
@@ -617,11 +812,18 @@ namespace AICompanion.NewUI.Wheel
             var box = Begin();
             Heading("What she remembers about you");
             Paragraph(_data.MemoriesSummary, true);
+            if (_ribbon && OpenSettings != null)
+                Button("Manage memories", OpenSettings);
             for (var i = 0; i < _data.Memories.Count; i++)
                 Paragraph("• " + _data.Memories[i], false);
             if (_data.MemoryCount > _data.Memories.Count)
                 Paragraph("And " + (_data.MemoryCount - _data.Memories.Count) + " more.", true);
 
+            if (_ribbon)
+            {
+                End(box);
+                box = Begin();
+            }
             Heading("Relationship timeline");
             if (_data.TimelineCount == 0)
             {
@@ -635,7 +837,8 @@ namespace AICompanion.NewUI.Wheel
                     Paragraph("And " + (_data.TimelineCount - _data.Timeline.Count) + " earlier.", true);
             }
 
-            Button("Manage in Settings", () => { if (OpenSettings != null) OpenSettings(); });
+            if (!_ribbon)
+                Button("Manage in Settings", () => { if (OpenSettings != null) OpenSettings(); });
             End(box);
         }
 
@@ -647,8 +850,14 @@ namespace AICompanion.NewUI.Wheel
         /// <summary>Starts an inset box; its background is sized by <see cref="End"/>.</summary>
         RectTransform Begin()
         {
-            var bg = HappiUiKit.Panel(_content, "Box", _theme.PanelInset, false);
+            var bg = HappiUiKit.Panel(_content, "Box", _ribbon ? (Color)RibbonCard : _theme.PanelInset, false);
             HappiUiKit.Place(bg.rectTransform, 0f, _y, _inner, 0f);
+            if (_ribbon)
+            {
+                RibbonShape.Apply(bg, RibbonShape.Kind.Panel);
+                var accent = HappiUiKit.Panel(bg.transform, "Section accent", RibbonMint, false);
+                HappiUiKit.Place(accent.rectTransform, 0f, 0f, 3f * _scale, 30f * _scale);
+            }
             _y += Pad;
             return bg.rectTransform;
         }
@@ -665,7 +874,7 @@ namespace AICompanion.NewUI.Wheel
 
         void Heading(string text)
         {
-            AddText(text, _theme.FontBody, _theme.Text, true);
+            AddText(text, _ribbon ? 17f : _theme.FontBody, _theme.Text, true);
         }
 
         void SubHeading(string text)
@@ -677,7 +886,7 @@ namespace AICompanion.NewUI.Wheel
         {
             if (string.IsNullOrEmpty(text))
                 return;
-            AddText(text, _theme.FontSmall, muted ? _theme.TextMuted : _theme.Text, false);
+            AddText(text, _ribbon ? 14f : _theme.FontSmall, muted ? _theme.TextMuted : _theme.Text, false);
         }
 
         void AddText(string value, float size, Color color, bool bold)
@@ -692,12 +901,22 @@ namespace AICompanion.NewUI.Wheel
         /// <summary>A label on the left and its value on the right, on one line.</summary>
         void Row(string label, string value)
         {
-            var size = _theme.FontSmall * _scale;
+            var size = (_ribbon ? 14f : _theme.FontSmall) * _scale;
             var height = size * 1.45f;
             var left = HappiUiKit.Text(_content, "RowLabel", HappiUiKit.Literal(label), size, _theme.Text, TextAlignmentOptions.MidlineLeft, false);
-            HappiUiKit.Place(left.rectTransform, Pad, _y, TextWidth * 0.4f, height);
+            var labelWidth = _ribbon ? 0.44f : 0.4f;
+            HappiUiKit.Place(left.rectTransform, Pad, _y, TextWidth * labelWidth, height);
             var right = HappiUiKit.Text(_content, "RowValue", HappiUiKit.Literal(value), size, _theme.Text, TextAlignmentOptions.MidlineRight, true);
-            HappiUiKit.Place(right.rectTransform, Pad + TextWidth * 0.3f, _y, TextWidth * 0.7f, height);
+            if (_ribbon)
+            {
+                right.textWrappingMode = TextWrappingModes.NoWrap;
+                right.overflowMode = TextOverflowModes.Ellipsis;
+                right.enableAutoSizing = true;
+                right.fontSizeMin = 10f * _scale;
+                right.fontSizeMax = size;
+            }
+            var split = _ribbon ? 0.46f : 0.3f;
+            HappiUiKit.Place(right.rectTransform, Pad + TextWidth * split, _y, TextWidth * (1f - split), height);
             _y += height + Gap * 0.3f;
         }
 
@@ -709,7 +928,7 @@ namespace AICompanion.NewUI.Wheel
             var amount = Mathf.Clamp01(float.IsNaN(fill) ? 0f : fill);
             if (amount > 0.005f)
             {
-                var bar = HappiUiKit.Panel(_content, "Fill", color, false);
+                var bar = HappiUiKit.Panel(_content, "Fill", _ribbon && color == _theme.Hover ? RibbonMenu.Cyan : color, false);
                 HappiUiKit.Place(bar.rectTransform, Pad, _y, Mathf.Max(height, TextWidth * amount), height);
             }
 
@@ -773,6 +992,8 @@ namespace AICompanion.NewUI.Wheel
         {
             var rowH = _theme.ButtonHeight * _scale;
             var button = HappiUiKit.Button(_content, "Button", HappiUiKit.Literal(label), _theme.FontSmall * _scale, onClick);
+            if (_ribbon)
+                StyleRibbonButton(button);
             var width = Mathf.Min(TextWidth, 200f * _scale);
             HappiUiKit.Place(button.Rect, Pad, _y, width, rowH);
             _y += rowH + Gap;

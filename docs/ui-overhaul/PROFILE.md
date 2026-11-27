@@ -11,6 +11,15 @@ Mockup: https://claude.ai/artifact/3Za6cHCRA24ozNUnTz6ceD. Jussi picked Feelings
 | **Her world** | What she is doing right now, what she is waiting for (open threads), what happened while you were away, her last days, and her backstory (6 shown, "Show all"). | `Memory/ProfileWorld.cs` `ProfileWorld` |
 | **Memories** | What she remembers about you, newest first (8 shown), and Manage in Settings. Her own life is on Her world, not here. | `ProfileMemories` |
 
+### Ribbon preview
+
+Launch with `--ribbon-ui`. Profile uses the charcoal frame, yellow illustration and cyan tabs. The frame fits the visible work area, and the tabs use a second row when needed. Both the Ribbon and radial wheel open the same Profile view.
+
+- Feelings starts with her current mood, then shows the relationship and recent changes.
+- Personality shows her temperament in words. Edit temperament opens the Personality settings. Discoveries and gated details keep their existing sections.
+- Her world puts current activity, open threads, events while away, recent days, and backstory in distinct cards.
+- Memories separates what she remembers about you from the relationship timeline. Manage memories opens the Memories settings directly.
+
 The header shows her name and who she is to you, for example "Stepsister (family) · you share a past" (`ProfileHeader`).
 
 The data is gathered when the panel or a tab opens (`HappiWheelHost.BuildProfileData`), never per frame. Nothing in the panel is sent anywhere.
