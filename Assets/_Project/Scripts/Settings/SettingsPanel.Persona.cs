@@ -4,7 +4,6 @@ using AICompanion.AI;
 using AICompanion.UI;
 using AICompanion.Voice;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace AICompanion.Settings
 {
@@ -14,127 +13,6 @@ namespace AICompanion.Settings
     /// </summary>
     public sealed partial class SettingsPanel
     {
-        void BuildPersona()
-        {
-            var catalog = PersonaCatalog.LoadDefault(Folder());
-            Note("Built-ins ship with the app. Edits save outside the repo.");
-            AddLabel("Active now: " + ActiveModelText());
-            Note(VoiceRoute.UsesCloudTts(_settings.PrivateMode, _settings.ProviderId, _settings.BaseUrl)
-                ? "The xAI cloud voice is used while chat is the cloud AI API on xAI."
-                : "A local voice is used while chat is local or private: Piper, or Kokoro when you picked it. That audio stays on this PC.");
-            Note("Cue instructions are added after the persona on every reply.");
-            Note("Each persona keeps its own chat history, so switching characters starts a different conversation.");
-            var active = _settings.PersonaId ?? string.Empty;
-            AddButton(string.IsNullOrEmpty(active) ? "Setup name (active)" : "Use setup name", ClearActivePersona);
-
-            for (var i = 0; i < catalog.Entries.Count; i++)
-                AddPersonaButton(catalog.Entries[i], active);
-
-            AddButton("New persona", CreatePersona);
-            if (string.IsNullOrEmpty(active))
-            {
-                Note("Pick a persona, or keep the name from setup.");
-                Note("A blank voice, model, or avatar keeps the current one.");
-                return;
-            }
-
-            var current = catalog.FindEntry(active);
-            if (current == null || current.Persona == null)
-            {
-                Note("The selected persona file is missing. Voice and model stay as they are.");
-                return;
-            }
-
-            var persona = current.Persona;
-            if (current.BuiltIn)
-                Note(current.UserFile ? "Editing your saved copy." : "Editing saves a copy. The built-in file stays.");
-            Note("Id " + persona.Id);
-            var idFixed = persona.Id;
-            AddField("Display name", persona.DisplayName, false, value => SaveActive(idFixed, item => item.DisplayName = value));
-            AddArea("Personality", persona.Personality, 78f, PersonaDefinition.MaxPersonalityLength, value => SaveActive(idFixed, item => item.Personality = value));
-            AddArea("Speaking style", persona.SpeakingStyle, 52f, PersonaDefinition.MaxSpeakingStyleLength, value => SaveActive(idFixed, item => item.SpeakingStyle = value));
-            AddField("Piper voice id (local)", persona.PiperVoiceId, false, value => SaveActive(idFixed, item => item.PiperVoiceId = value));
-            AddField("Kokoro voice id (local)", persona.KokoroVoiceId, false, value => SaveActive(idFixed, item => item.KokoroVoiceId = value));
-            AddField("Cloud voice id (xAI)", persona.CloudVoiceId, false, value => SaveActive(idFixed, item => item.CloudVoiceId = value));
-            Note("Blank voice, model, or avatar keeps the current one.");
-            AddButton(PersonaChoiceLabel(ChatDefaults.CloudName, persona.ProviderId, ChatDefaults.GrokId), () => SaveActive(idFixed, item => item.ProviderId = ChatDefaults.GrokId));
-            AddButton(PersonaChoiceLabel("Local Ollama", persona.ProviderId, ChatDefaults.LocalId), () => SaveActive(idFixed, item => item.ProviderId = ChatDefaults.LocalId));
-            AddButton(string.IsNullOrEmpty(persona.ProviderId) ? "Leave provider unchanged (selected)" : "Leave provider unchanged", () => SaveActive(idFixed, item => item.ProviderId = string.Empty));
-            AddField("Model name", persona.Model, false, value => SaveActive(idFixed, item => item.Model = value));
-            Note("That name is the cloud AI API model, or the local Ollama tag, for the provider above.");
-            AddButton(PersonaChoiceLabel("Avatar auto", persona.AvatarSource, AvatarSourceNames.Auto), () => SaveActive(idFixed, item => item.AvatarSource = AvatarSourceNames.Auto));
-            AddButton(PersonaChoiceLabel("Avatar local", persona.AvatarSource, AvatarSourceNames.Local), () => SaveActive(idFixed, item => item.AvatarSource = AvatarSourceNames.Local));
-            AddButton(PersonaChoiceLabel("Avatar VRM", persona.AvatarSource, AvatarSourceNames.Vrm), () => SaveActive(idFixed, item => item.AvatarSource = AvatarSourceNames.Vrm));
-            AddButton(PersonaChoiceLabel("Avatar FBX", persona.AvatarSource, AvatarSourceNames.Fbx), () => SaveActive(idFixed, item => item.AvatarSource = AvatarSourceNames.Fbx));
-            AddButton(string.IsNullOrEmpty(persona.AvatarSource) ? "Leave avatar unchanged (selected)" : "Leave avatar unchanged", () => SaveActive(idFixed, item => item.AvatarSource = string.Empty));
-            AddField("Portrait folder", persona.PortraitFolder, false, value => SaveActive(idFixed, item => item.PortraitFolder = value));
-            Note("A missing portrait folder uses the standard portraits folder.");
-            AddTemperamentPicker(idFixed);
-            if (current.UserFile || !string.Equals(current.Persona.Id, PersonaDefaults.HappiId, StringComparison.OrdinalIgnoreCase))
-                AddButton("Delete persona", DeleteActivePersona);
-        }
-
-        /// <summary>
-        /// JUH-103 phase 3 presets, plus the nine sliders (JUH-136). Auto and a preset stay.
-        /// Moving a slider saves a custom profile and overrides both.
-        /// </summary>
-        void AddTemperamentPicker(string id)
-        {
-            // JUH-118: what the model read from her description, then the picker. A pick overrides the reading.
-            var view = PisaraView();
-            var picked = view.Custom ? "\0" : AICompanion.Core.PersonaTemperaments.Normalize(view.TemperamentId);
-            Note("Temperament: how quickly her moods build and fade. Auto reads it from her description; a pick below overrides it.");
-            Note(view.TemperamentLine);
-            Note(view.RelationshipLine);
-            Note(view.Status);
-            AddButton(view.Reading ? "Re-read (reading...)" : "Re-read", RereadPersona);
-            AddButton(view.Manual ? "Temperament: Auto" : "Temperament: Auto (selected)", () => SetPersonaTemperamentAuto(id));
-            for (var i = 0; i < AICompanion.Core.PersonaTemperaments.Ids.Length; i++)
-            {
-                var preset = AICompanion.Core.PersonaTemperaments.Get(AICompanion.Core.PersonaTemperaments.Ids[i]);
-                var stored = AICompanion.Core.PersonaTemperaments.Normalize(preset.Id);
-                var selected = view.Manual && !view.Custom && string.Equals(picked, stored, StringComparison.OrdinalIgnoreCase);
-                AddButton("Temperament: " + preset.Name + (selected ? " (selected)" : string.Empty),
-                    () => SetPersonaTemperament(id, stored));
-            }
-
-            Note("Custom profile. 50 is the middle. Moving a slider overrides Auto and the presets. It changes how her moods build and fade.");
-            var editing = (view.Axes ?? AICompanion.Core.TemperamentAxes.Neutral()).Clone();
-            for (var axis = 0; axis < AICompanion.Core.TemperamentAxes.Count; axis++)
-            {
-                var index = axis;
-                var label = AddLabel(AICompanion.Core.TemperamentAxes.SliderLabel(index, editing.Value(index)));
-                AddSlider(editing.Value(index), AICompanion.Core.TemperamentAxes.Min, AICompanion.Core.TemperamentAxes.Max, true, value =>
-                {
-                    editing.Set(index, value);
-                    label.text = AICompanion.Core.TemperamentAxes.SliderLabel(index, editing.Value(index));
-                    SetPersonaTemperamentAxes(id, editing);
-                });
-            }
-        }
-
-        int _pisaraRevision = -1;
-
-        /// <summary>Rebuilds the open Persona tab when a reading starts or comes back.</summary>
-        void TrackPisara()
-        {
-            var keeper = GetComponent<PisaraReadingKeeper>();
-            var revision = keeper != null ? keeper.Revision : 0;
-            if (revision == _pisaraRevision)
-                return;
-            if (_pisaraRevision < 0)
-            {
-                _pisaraRevision = revision;
-                return;
-            }
-
-            // While a field has the keyboard the rebuild waits, so typing is not interrupted.
-            if (AnyFieldFocused())
-                return;
-            _pisaraRevision = revision;
-            _rebuild = true;
-        }
-
         void ReloadMoodTemperament()
         {
             var keeper = GetComponent<CompanionMoodKeeper>();
@@ -149,29 +27,13 @@ namespace AICompanion.Settings
             return ActiveChatLabel.Format(provider, active.PrivateMode, active.Model, active.LocalModel, active.PrivateModel);
         }
 
-        static string ProviderButton(string name, bool remembered, bool overridden)
-        {
-            if (!remembered)
-                return name;
-            return overridden ? name + " (remembered)" : name + " (active)";
-        }
-
-        void AddPersonaButton(PersonaEntry entry, string activeId)
-        {
-            if (entry == null || entry.Persona == null)
-                return;
-
-            var id = entry.Persona.Id;
-            AddButton(PersonaButtonLabel(entry, activeId), () => UsePersona(id));
-        }
-
         void UsePersona(string id)
         {
             var persona = PersonaCatalog.LoadDefault(Folder()).Find(id);
             if (persona == null)
             {
                 SetStatus("That persona could not be read. Keeping the current setup.");
-                _rebuild = true;
+                SettingsRevision++;
                 return;
             }
 
@@ -182,12 +44,11 @@ namespace AICompanion.Settings
             // The same id can come back with another temperament (a deleted saved copy of a
             // built-in). A different id is loaded by the keeper with its mood.
             ReloadMoodTemperament();
-            _rebuild = true;
+            SettingsRevision++;
             SetStatus(UseStatus(persona, beforeVoice));
         }
 
         int _temperamentRevision;
-        bool _temperamentUiPending;
 
         /// <summary>Bumps when a temperament preset or slider is saved, so the new settings view can refresh after a drag.</summary>
         public int TemperamentRevision
@@ -215,7 +76,7 @@ namespace AICompanion.Settings
             if (current == null)
             {
                 SetStatus("That persona is not on this PC anymore.");
-                _rebuild = true;
+                SettingsRevision++;
                 return;
             }
 
@@ -231,7 +92,7 @@ namespace AICompanion.Settings
             if (saved == null)
             {
                 SetStatus("Could not read the persona back.");
-                _rebuild = true;
+                SettingsRevision++;
                 return;
             }
 
@@ -253,9 +114,7 @@ namespace AICompanion.Settings
 
             _temperamentRevision++;
             if (rebuild)
-                _rebuild = true;
-            else if (_open)
-                _temperamentUiPending = true;
+                SettingsRevision++;
         }
 
         void CreatePersona()
@@ -312,8 +171,7 @@ namespace AICompanion.Settings
         {
             SwitchPersonaHistory(string.Empty);
             ApplyLive();
-            GreetIfEmpty();
-            _rebuild = true;
+            SettingsRevision++;
             SetStatus("Using the setup name and global voice and model defaults.");
         }
 
@@ -347,60 +205,5 @@ namespace AICompanion.Settings
             return string.IsNullOrEmpty(persona.DisplayName) ? persona.Id : persona.DisplayName;
         }
 
-        static string PersonaButtonLabel(PersonaEntry entry, string activeId)
-        {
-            var persona = entry.Persona;
-            var label = string.IsNullOrEmpty(persona.DisplayName) ? persona.Id : persona.DisplayName;
-            if (string.Equals(persona.Id, activeId, StringComparison.OrdinalIgnoreCase))
-                return label + " (active)";
-            if (entry.UserFile && entry.BuiltIn)
-                return label + " (saved)";
-            return label;
-        }
-
-        static string PersonaChoiceLabel(string caption, string current, string value)
-        {
-            return string.Equals(current, value, StringComparison.OrdinalIgnoreCase)
-                ? caption + " (selected)"
-                : caption;
-        }
-
-        InputField AddArea(string placeholder, string value, float height, int characterLimit, Action<string> onEnd)
-        {
-            var field = new GameObject("Area");
-            field.transform.SetParent(_body, false);
-            var rect = field.AddComponent<RectTransform>();
-            Place(rect, height);
-            var image = field.AddComponent<Image>();
-            image.sprite = _white;
-            image.color = new Color(0.18f, 0.16f, 0.22f, 1f);
-            var input = field.AddComponent<InputField>();
-            input.lineType = InputField.LineType.MultiLineNewline;
-            input.characterLimit = characterLimit;
-            input.targetGraphic = image;
-            var text = CreateText(field.transform, _font, 14, TextAnchor.UpperLeft, string.Empty);
-            Stretch(text.rectTransform, 6f, 4f, 6f, 4f);
-            text.supportRichText = false;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Truncate;
-            var hint = CreateText(field.transform, _font, 13, TextAnchor.UpperLeft, placeholder);
-            Stretch(hint.rectTransform, 6f, 4f, 6f, 4f);
-            hint.fontStyle = FontStyle.Italic;
-            hint.color = new Color(0.75f, 0.70f, 0.78f, 0.9f);
-            hint.supportRichText = false;
-            hint.horizontalOverflow = HorizontalWrapMode.Wrap;
-            input.textComponent = text;
-            input.placeholder = hint;
-            input.text = value ?? string.Empty;
-            var generation = _fieldGeneration;
-            input.onEndEdit.AddListener(textValue =>
-            {
-                if (_building || generation != _fieldGeneration || onEnd == null)
-                    return;
-                onEnd(textValue ?? string.Empty);
-            });
-            _fields.Add(input);
-            return input;
-        }
     }
 }

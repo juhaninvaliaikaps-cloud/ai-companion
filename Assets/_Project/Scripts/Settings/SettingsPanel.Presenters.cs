@@ -69,7 +69,9 @@ namespace AICompanion.Settings
         public string DataFolder => Folder();
 
         /// <summary>True while the old settings panel is open.</summary>
-        public bool IsOpen => _open;
+        public bool IsOpen => IsViewOpen?.Invoke() == true;
+
+        public int SettingsRevision { get; private set; }
 
         CompanionSettings ISettingsHost.Settings
         {
@@ -95,8 +97,7 @@ namespace AICompanion.Settings
 
         void ISettingsHost.RequestRefresh()
         {
-            if (_open)
-                _rebuild = true;
+            SettingsRevision++;
         }
 
         string ISettingsHost.ActiveModelText => ActiveModelText();
@@ -250,11 +251,6 @@ namespace AICompanion.Settings
         public bool ConnectionTestRunning => _probeBusy;
 
         /// <summary>Same as "Test connection" on the AI tab (the key and header are never logged).</summary>
-        public void TestConnectionNow()
-        {
-            if (!_probeBusy)
-                TestConnection();
-        }
 
         /// <summary>Same as "Save chat history" on the Privacy tab.</summary>
         public void SetChatHistory(bool on)
@@ -337,7 +333,7 @@ namespace AICompanion.Settings
                 return;
             keeper.ReadAgain();
             SetStatus("Reading how she talks again. Her description is read first if it is still being read.");
-            _rebuild = true;
+            SettingsRevision++;
         }
 
         /// <summary>The "Re-read" button: asks the model again for the active persona's sheet.</summary>
@@ -348,7 +344,7 @@ namespace AICompanion.Settings
                 return;
             keeper.Reread();
             SetStatus("Reading her description again. This can take a minute with a local model.");
-            _rebuild = true;
+            SettingsRevision++;
         }
 
         /// <summary>The active persona's character sheet, or null. Read only; correct it with <see cref="CorrectPersonaRelationship"/>.</summary>
@@ -372,7 +368,7 @@ namespace AICompanion.Settings
             }
 
             SetStatus("Relationship corrected. A new reading keeps your correction.");
-            _rebuild = true;
+            SettingsRevision++;
         }
 
         /// <summary>JUH-116: the active persona's Innocent–Perverted keeper, or null. Adult mode only.</summary>
@@ -397,7 +393,7 @@ namespace AICompanion.Settings
                 return;
             keeper.UseReading();
             SetStatus("Innocence is back to the reading of her description.");
-            _rebuild = true;
+            SettingsRevision++;
         }
 
         /// <summary>JUH-170: the active persona's desire keeper, or null. Adult mode only.</summary>
@@ -422,7 +418,7 @@ namespace AICompanion.Settings
                 return;
             keeper.UseLibidoReading();
             SetStatus("Libido is back to the reading of her description.");
-            _rebuild = true;
+            SettingsRevision++;
         }
 
         /// <summary>JUH-125: the active persona's 18+ secrets keeper, or null.</summary>
@@ -439,7 +435,7 @@ namespace AICompanion.Settings
                 return;
             keeper.ReadAgain();
             SetStatus("Reading her 18+ secrets with the local model.");
-            _rebuild = true;
+            SettingsRevision++;
         }
 
         /// <summary>JUH-116: read her innocence again with the local model.</summary>
@@ -450,7 +446,7 @@ namespace AICompanion.Settings
                 return;
             keeper.ReadAgain();
             SetStatus("Reading her innocence with the local model.");
-            _rebuild = true;
+            SettingsRevision++;
         }
 
         /// <summary>Drops the user's relationship correction and reads her description again.</summary>
@@ -461,7 +457,7 @@ namespace AICompanion.Settings
                 return;
             keeper.UseReadingAgain();
             SetStatus("Your correction is dropped. Reading her description again.");
-            _rebuild = true;
+            SettingsRevision++;
         }
 
         /// <summary>Persona temperament: let the reading decide.</summary>
@@ -542,10 +538,11 @@ namespace AICompanion.Settings
         }
 
         /// <summary>
-        /// While set, Open() (F12, the tray, the wheel) shows the new settings view instead of
-        /// this panel. Return true when it handled the request. Null keeps this panel.
+        /// The Settings view handles open requests from F12, the tray and the wheel.
         /// </summary>
         public System.Func<bool> OpenOverride;
+        public System.Func<bool> IsViewOpen;
+        public System.Action CloseView;
 
         public ScreenLookController ScreenController => GetComponent<ScreenLookController>();
 

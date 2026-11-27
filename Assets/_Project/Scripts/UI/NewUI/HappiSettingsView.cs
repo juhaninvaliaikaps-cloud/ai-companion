@@ -94,7 +94,7 @@ namespace AICompanion.NewUI
             bool SemanticMemory, bool PisaraKey, bool PisaraEnvironment, int ScreenRevision,
             bool PublicTest, bool MoodReadout, bool Narration, int PisaraRevision, int TemperamentRevision,
             int GamesRevision, bool Developer, string EffectiveProvider, string EffectiveModel,
-            string EffectiveLocalModel, string EffectiveVoice) _signature;
+            string EffectiveLocalModel, string EffectiveVoice, int SettingsRevision) _signature;
         TextMeshProUGUI _videoStatus;
         RectTransform _readingTrack;
         RectTransform _readingFill;
@@ -117,6 +117,8 @@ namespace AICompanion.NewUI
             _theme = HappiTheme.Current;
             BuildChrome();
             _settings.OpenOverride = OnOpenRequested;
+            _settings.IsViewOpen = () => IsOpen;
+            _settings.CloseView = Close;
             _attached = true;
             Close();
             Debug.Log("New UI: settings view on");
@@ -128,7 +130,11 @@ namespace AICompanion.NewUI
                 return;
             _attached = false;
             if (_settings != null && _settings.OpenOverride == (Func<bool>)OnOpenRequested)
+            {
                 _settings.OpenOverride = null;
+                _settings.IsViewOpen = null;
+                _settings.CloseView = null;
+            }
             ReleaseFocus();
             if (_canvasObject != null)
                 Destroy(_canvasObject);
@@ -269,7 +275,7 @@ namespace AICompanion.NewUI
             bool SemanticMemory, bool PisaraKey, bool PisaraEnvironment, int ScreenRevision,
             bool PublicTest, bool MoodReadout, bool Narration, int PisaraRevision, int TemperamentRevision,
             int GamesRevision, bool Developer, string EffectiveProvider, string EffectiveModel,
-            string EffectiveLocalModel, string EffectiveVoice) Signature()
+            string EffectiveLocalModel, string EffectiveVoice, int SettingsRevision) Signature()
         {
             var s = _settings.CurrentSettings;
             if (s == null)
@@ -288,7 +294,8 @@ namespace AICompanion.NewUI
                 _tab == SettingsTab.Her ? _settings.PisaraRevision : 0,
                 _page == SettingsPage.HerPersonality ? _settings.TemperamentRevision : 0,
                 _page == SettingsPage.SensesGames && _settings.Games != null ? _settings.Games.Revision : 0,
-                s.ShowDeveloperSettings, active.ProviderId, active.Model, active.LocalModel, active.TtsProvider);
+                s.ShowDeveloperSettings, active.ProviderId, active.Model, active.LocalModel, active.TtsProvider,
+                _settings.SettingsRevision);
         }
 
         // ---- Chrome ------------------------------------------------------------------------

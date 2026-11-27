@@ -16,7 +16,7 @@ namespace AICompanion.Settings
             if (ExportFolderDialog.TryPick(out picked) && !string.IsNullOrWhiteSpace(picked))
             {
                 _exportFolder = picked.Trim();
-                _rebuild = true;
+                SettingsRevision++;
                 return;
             }
 
@@ -74,7 +74,7 @@ namespace AICompanion.Settings
             Debug.Log("Start over: " + (persona.Length == 0 ? "(default)" : CompanionMoodStore.PersonaFileId(persona))
                 + ", " + forgotten + " memories forgotten, chat history cleared.");
             SetStatus(StartOverText.Status(name));
-            _rebuild = true;
+            SettingsRevision++;
         }
 
         void ConfirmWipe()
@@ -114,7 +114,6 @@ namespace AICompanion.Settings
             if (chat != null)
                 chat.ClearTranscript();
             _historyRevision = chat != null ? chat.TranscriptRevision : 0;
-            _confirmWipe = false;
             _applying = true;
             try
             {
@@ -126,7 +125,7 @@ namespace AICompanion.Settings
             }
 
             SetStatus("Local data wiped. Built-in personas are still available.");
-            _rebuild = true;
+            SettingsRevision++;
         }
     }
 }

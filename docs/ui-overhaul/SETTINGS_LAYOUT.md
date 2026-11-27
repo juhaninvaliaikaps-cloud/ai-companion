@@ -27,6 +27,8 @@ Appearance keeps the overlay and avatar controls. App → General owns startup, 
 
 Ctrl+Tab and Ctrl+Shift+Tab cycle pages. Ctrl+Left and Ctrl+Right switch categories. Page Up, Page Down, Home and End move the current page. The Ribbon view restores each page's scroll position and gives focused buttons a mint outline.
 
+The old settings renderer has been removed. The SettingsPanel component still applies preferences, owns saved data, and forwards F12, tray and wheel requests to the same Settings view.
+
 | Tab | Sub-tabs: what is on them |
 | --- | --- |
 | **Her** | **Persona:** the persona grid, New or import, Edit (Studio, display name, portrait folder), Export, Delete. **Personality:** what the reading found and Re-read, Correct the relationship, Temperament (Auto and presets), Custom temperament (nine sliders). **How she talks:** the reading, her voice, by mood, by closeness, her lines. **Her life:** Relationship changes, Life while you are away, Her own world. **Memories:** the summary, Start over, Smarter memory search. |

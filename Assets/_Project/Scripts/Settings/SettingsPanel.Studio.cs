@@ -135,7 +135,7 @@ namespace AICompanion.Settings
                 UsePersona(copy.Id);
             message = "Saved " + name + ".";
             SetStatus(message);
-            _rebuild = true;
+            SettingsRevision++;
             return true;
         }
 
