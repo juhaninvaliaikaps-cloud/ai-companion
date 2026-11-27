@@ -92,16 +92,14 @@ namespace AICompanion.Settings
                 return;
 
             var bottom = _line.z;
-            var rise = Mathf.Min(22f, length * .09f);
-            var depth = Mathf.Clamp(length * .027f, 2f, 8f);
+            // The top edge meets the source crop. The angled edge hangs below it.
+            var depth = Mathf.Clamp(length * .065f, 3f, 17f);
             var notch = Mathf.Lerp(_line.x, _line.y, .28f);
             var mint = new Color(114f / 255f, 238f / 255f, 207f / 255f, _opacity);
-            mesh.AddVert(new Vector3(_line.x, bottom + rise * .55f), mint, Vector2.zero);
-            mesh.AddVert(new Vector3(notch, bottom + depth), mint, Vector2.zero);
-            mesh.AddVert(new Vector3(_line.y, bottom + rise), mint, Vector2.zero);
-            mesh.AddVert(new Vector3(notch, bottom), mint, Vector2.zero);
-            mesh.AddTriangle(0, 1, 3);
-            mesh.AddTriangle(1, 2, 3);
+            mesh.AddVert(new Vector3(_line.x, bottom), mint, Vector2.zero);
+            mesh.AddVert(new Vector3(notch, bottom - depth), mint, Vector2.zero);
+            mesh.AddVert(new Vector3(_line.y, bottom), mint, Vector2.zero);
+            mesh.AddTriangle(0, 1, 2);
         }
     }
 }
