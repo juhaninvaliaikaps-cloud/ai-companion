@@ -86,7 +86,15 @@ namespace AICompanion.NewUI
         float _s = 1f;
         float _width;
         string _exportFolder = string.Empty;
-        string _signature;
+        (
+            bool AlwaysOnTop, int Scale, bool Muted, bool Paused, bool HideTaskbar, bool Startup,
+            string AvatarSource, string AvatarMode, string Persona, bool Private, string Provider,
+            bool AdultOpen, bool Undressed, string PrivateEndpoint, string PrivateAddress, string PrivateModel,
+            bool PrivateKey, bool PrivateTest, bool PisaraCloud, string PisaraAddress, string PisaraModel,
+            bool SemanticMemory, bool PisaraKey, bool PisaraEnvironment, int ScreenRevision,
+            bool PublicTest, bool MoodReadout, bool Narration, int PisaraRevision, int TemperamentRevision,
+            int GamesRevision, bool Developer, string EffectiveProvider, string EffectiveModel,
+            string EffectiveLocalModel, string EffectiveVoice) _signature;
         TextMeshProUGUI _videoStatus;
         RectTransform _readingTrack;
         RectTransform _readingFill;
@@ -253,23 +261,34 @@ namespace AICompanion.NewUI
         }
 
         /// <summary>Live values that other places can change (F8, F6, the tray, Ctrl+scroll, the wheel, a screen look).</summary>
-        string Signature()
+        (
+            bool AlwaysOnTop, int Scale, bool Muted, bool Paused, bool HideTaskbar, bool Startup,
+            string AvatarSource, string AvatarMode, string Persona, bool Private, string Provider,
+            bool AdultOpen, bool Undressed, string PrivateEndpoint, string PrivateAddress, string PrivateModel,
+            bool PrivateKey, bool PrivateTest, bool PisaraCloud, string PisaraAddress, string PisaraModel,
+            bool SemanticMemory, bool PisaraKey, bool PisaraEnvironment, int ScreenRevision,
+            bool PublicTest, bool MoodReadout, bool Narration, int PisaraRevision, int TemperamentRevision,
+            int GamesRevision, bool Developer, string EffectiveProvider, string EffectiveModel,
+            string EffectiveLocalModel, string EffectiveVoice) Signature()
         {
             var s = _settings.CurrentSettings;
             if (s == null)
-                return string.Empty;
+                return default;
+
+            var active = _settings.EffectiveSettings ?? s;
             var look = _settings.ScreenController;
-            return s.AlwaysOnTop + "|" + Mathf.RoundToInt(s.Scale * 100f) + "|" + s.Muted + "|" + s.Paused + "|" + s.HideTaskbarButton + "|" + s.StartWithWindows
-                + "|" + s.AvatarSource + "|" + s.AvatarMode + "|" + s.PersonaId + "|" + s.PrivateMode + "|" + s.ProviderId + "|" + IntimateExpressions.Active
-                + "|" + IntimateExpressions.Undressed
-                + "|" + s.PrivateEndpointType + "|" + s.PrivateBaseUrl + "|" + s.PrivateModel
-                + "|" + _settings.PrivateApiKeySaved + "|" + _settings.PrivateEndpointTestRunning
-                + "|" + s.PisaraCloud + "|" + s.PisaraCloudBaseUrl + "|" + s.PisaraCloudModel + "|" + s.MemoryEmbeddings
-                + "|" + _settings.PisaraApiKeySaved + "|" + _settings.PisaraApiKeyFromEnvironment
-                + "|" + (look != null ? look.Revision : 0) + "|" + _settings.ConnectionTestRunning + "|" + s.ShowMoodDebug + "|" + s.VoiceNarration
-                + "|" + _settings.PisaraRevision + "|" + _settings.TemperamentRevision
-                + "|" + (_page == SettingsPage.SensesGames && _settings.Games != null ? _settings.Games.Revision : 0)
-                + "|" + s.ShowDeveloperSettings;
+            return (
+                s.AlwaysOnTop, Mathf.RoundToInt(s.Scale * 100f), s.Muted, s.Paused, s.HideTaskbarButton, s.StartWithWindows,
+                s.AvatarSource, s.AvatarMode, s.PersonaId, s.PrivateMode, s.ProviderId, IntimateExpressions.Active,
+                IntimateExpressions.Undressed, s.PrivateEndpointType, s.PrivateBaseUrl, s.PrivateModel,
+                _settings.PrivateApiKeySaved, _settings.PrivateEndpointTestRunning, s.PisaraCloud, s.PisaraCloudBaseUrl,
+                s.PisaraCloudModel, s.MemoryEmbeddings, _settings.PisaraApiKeySaved, _settings.PisaraApiKeyFromEnvironment,
+                _page == SettingsPage.SensesScreen && look != null ? look.Revision : 0,
+                _settings.ConnectionTestRunning, s.ShowMoodDebug, s.VoiceNarration,
+                _tab == SettingsTab.Her ? _settings.PisaraRevision : 0,
+                _page == SettingsPage.HerPersonality ? _settings.TemperamentRevision : 0,
+                _page == SettingsPage.SensesGames && _settings.Games != null ? _settings.Games.Revision : 0,
+                s.ShowDeveloperSettings, active.ProviderId, active.Model, active.LocalModel, active.TtsProvider);
         }
 
         // ---- Chrome ------------------------------------------------------------------------
@@ -780,8 +799,6 @@ namespace AICompanion.NewUI
                 Note(current.UserFile ? "Editing your saved copy." : "Editing saves a copy. The built-in file stays.");
             Section("Export");
             BuildExport(persona);
-
-
         }
 
         /// <summary>JUH-182: Her → Personality. What the reading found, the relationship, and her temperament.</summary>
@@ -820,12 +837,15 @@ namespace AICompanion.NewUI
                 _temperamentControls = scale.Root;
                 Place(scale.Root, scale.Height);
             }
-            else for (var axis = 0; axis < TemperamentAxes.Count; axis++)
+            else
             {
-                var index = axis;
-                var shown = TemperamentSteps.DisplayStep(editing.Value(index));
-                Slider(v => TemperamentSteps.Label(index, Mathf.RoundToInt(v)), shown,
-                    TemperamentSteps.Min, TemperamentSteps.Max, true, v => ChooseStep(index, Mathf.RoundToInt(v)));
+                for (var axis = 0; axis < TemperamentAxes.Count; axis++)
+                {
+                        var index = axis;
+                        var shown = TemperamentSteps.DisplayStep(editing.Value(index));
+                        Slider(v => TemperamentSteps.Label(index, Mathf.RoundToInt(v)), shown,
+                            TemperamentSteps.Min, TemperamentSteps.Max, true, v => ChooseStep(index, Mathf.RoundToInt(v)));
+                }
             }
 
             // JUH-118: what the model read from her description, then the temperament picker.
@@ -1172,7 +1192,7 @@ namespace AICompanion.NewUI
                 Note("Empty uses the cloud AI API's base URL and model. The Pisara key is below.");
                 Note("Her description goes to this cloud service for the reading. That includes the normal world and seeded memories. The request is built with 18+ off; innocence, 18+ secrets and everything else 18+ stay on the local model.", true);
                 if (S.PrivateMode)
-                    Note("Private mode does not move this reading: it still uses the Pisara cloud service when it is on. Chat, voice, session memories and the 18+ parts stay local.", true);
+                    Note("Private mode still uses the Pisara cloud service for this reading if you enable it. Private chat, speech, memory capture and 18+ processing keep their private configuration.", true);
                 BuildPisaraKey();
             }
         }
@@ -1196,7 +1216,9 @@ namespace AICompanion.NewUI
                 Choice("Ollama", !grok, () => { P.SetProvider(ChatDefaults.LocalId); _rebuild = true; });
                 Note("The cloud AI API runs on the provider's servers: xAI Grok by default, or Claude, DeepSeek or any OpenAI-compatible service. Local Ollama runs on this PC.");
 
-                if (grok)
+                if (!grok)
+                    Button("Configure Ollama", () => TryOpenPage(SettingsPage.AiOllama));
+                if (grok || Disclosure("cloud provider configuration"))
                 {
                     Section(ChatDefaults.CloudName);
                     Field("Model", S.Model, false, v => Change(s => s.Model = v));
@@ -1219,10 +1241,6 @@ namespace AICompanion.NewUI
                         Note("XAI_API_KEY is set and overrides the saved key. Restart the app without that variable to use the saved key.");
                     if (!S.PrivateMode)
                         Button(_settings.ConnectionTestRunning ? "Testing..." : "Test public cloud connection", () => { _settings.TestConfiguredConnection(false); _rebuild = true; });
-                }
-                else
-                {
-                    Button("Configure Ollama", () => TryOpenPage(SettingsPage.AiOllama));
                 }
             }
         }
@@ -1331,7 +1349,7 @@ namespace AICompanion.NewUI
         void BuildVoice()
         {
             Section("Speaking");
-            Label("Active engine: " + ActiveSettings.TtsProvider);
+            Label("Active engine: " + VoiceEngineLabel(ActiveSettings.TtsProvider));
             Toggle("Speak replies", S.TtsEnabled, v => Change(s => s.TtsEnabled = v));
             Toggle("Voice narration", S.VoiceNarration, v => Change(s => s.VoiceNarration = v));
             Note("Off: lines between *asterisks* are shown but not spoken.");
@@ -1348,7 +1366,7 @@ namespace AICompanion.NewUI
             var kokoro = string.Equals(S.TtsProvider, "kokoro", StringComparison.OrdinalIgnoreCase);
             var chatterbox = string.Equals(S.TtsProvider, "chatterbox", StringComparison.OrdinalIgnoreCase);
             Section("Voice engine");
-            Label("Active engine: " + ActiveSettings.TtsProvider);
+            Label("Active engine: " + VoiceEngineLabel(ActiveSettings.TtsProvider));
             var test = Button("Test active voice", PlayVoiceSample);
             test.Interactable = S.TtsEnabled && !S.Muted;
             Note("Explicit engine choices use local speech. Automatic uses xAI when the chat route supports it, with local fallback.");
@@ -1363,17 +1381,17 @@ namespace AICompanion.NewUI
                 Dropdown("Kokoro voice", S.KokoroVoice, KokoroVoiceOptions(), v => v, v => Change(s => s.KokoroVoice = v));
                 if (Disclosure("Kokoro setup"))
                 {
-                Field("Kokoro python", S.KokoroPython, false, v => Change(s => s.KokoroPython = v));
-                Field("Kokoro script", S.KokoroScript, false, v => Change(s => s.KokoroScript = v));
-                Field("Kokoro model", S.KokoroModel, false, v => Change(s => s.KokoroModel = v));
-                Field("Kokoro voices", S.KokoroVoices, false, v => Change(s => s.KokoroVoices = v));
-                // JUH-168: Kokoro runs on the processor; while a game is in front it gets fewer cores.
-                Section("Kokoro in games");
-                Toggle("Kokoro: fewer cores while a game is in front", S.KokoroGameLimit, v => Change(s => s.KokoroGameLimit = v));
-                if (S.KokoroGameLimit)
-                    Slider(v => "Kokoro cores in games: " + Mathf.RoundToInt(v), S.KokoroGameCores, 1f, Mathf.Min(KokoroCpuLimit.MaxCores, Mathf.Max(1, SystemInfo.processorCount)), true,
-                        v => Change(s => s.KokoroGameCores = Mathf.RoundToInt(v)));
-                Note("Kokoro runs on the processor and, left alone, keeps almost every core busy for each sentence. While a game is in front she uses only this many, at below-normal priority, so the PC's power draw doesn't jump on top of the game. With 2 she still speaks about twice as fast as real time, a second or two later per sentence. It needs the kokoro_server.py from this version (docs/OFFLINE_TTS.md).");
+                    Field("Kokoro python", S.KokoroPython, false, v => Change(s => s.KokoroPython = v));
+                    Field("Kokoro script", S.KokoroScript, false, v => Change(s => s.KokoroScript = v));
+                    Field("Kokoro model", S.KokoroModel, false, v => Change(s => s.KokoroModel = v));
+                    Field("Kokoro voices", S.KokoroVoices, false, v => Change(s => s.KokoroVoices = v));
+                    // JUH-168: Kokoro runs on the processor; while a game is in front it gets fewer cores.
+                    Section("Kokoro in games");
+                    Toggle("Kokoro: fewer cores while a game is in front", S.KokoroGameLimit, v => Change(s => s.KokoroGameLimit = v));
+                    if (S.KokoroGameLimit)
+                        Slider(v => "Kokoro cores in games: " + Mathf.RoundToInt(v), S.KokoroGameCores, 1f, Mathf.Min(KokoroCpuLimit.MaxCores, Mathf.Max(1, SystemInfo.processorCount)), true,
+                            v => Change(s => s.KokoroGameCores = Mathf.RoundToInt(v)));
+                    Note("Kokoro runs on the processor and, left alone, keeps almost every core busy for each sentence. While a game is in front she uses only this many, at below-normal priority, so the PC's power draw doesn't jump on top of the game. With 2 she still speaks about twice as fast as real time, a second or two later per sentence. It needs the kokoro_server.py from this version (docs/OFFLINE_TTS.md).");
                 }
             }
             else if (chatterbox)
@@ -1382,11 +1400,11 @@ namespace AICompanion.NewUI
                 Dropdown("Chatterbox voice", S.ChatterboxVoice, ChatterboxVoiceOptions(false, S.ChatterboxVoice), v => v, v => Change(s => s.ChatterboxVoice = v));
                 if (Disclosure("Chatterbox setup"))
                 {
-                Field("Chatterbox device (auto/cuda/cpu)", S.ChatterboxDevice, false, v => Change(s => s.ChatterboxDevice = v));
-                Field("Chatterbox voices folder", S.ChatterboxVoices, false, v => Change(s => s.ChatterboxVoices = v));
-                Field("Chatterbox python", S.ChatterboxPython, false, v => Change(s => s.ChatterboxPython = v));
-                Field("Chatterbox script", S.ChatterboxScript, false, v => Change(s => s.ChatterboxScript = v));
-                Note("Slower than Kokoro but more expressive. It uses the GPU when device is cuda or auto; if a game is using most of the GPU, pick cpu or use Kokoro.");
+                    Field("Chatterbox device (auto/cuda/cpu)", S.ChatterboxDevice, false, v => Change(s => s.ChatterboxDevice = v));
+                    Field("Chatterbox voices folder", S.ChatterboxVoices, false, v => Change(s => s.ChatterboxVoices = v));
+                    Field("Chatterbox python", S.ChatterboxPython, false, v => Change(s => s.ChatterboxPython = v));
+                    Field("Chatterbox script", S.ChatterboxScript, false, v => Change(s => s.ChatterboxScript = v));
+                    Note("Slower than Kokoro but more expressive. It uses the GPU when device is cuda or auto; if a game is using most of the GPU, pick cpu or use Kokoro.");
                 }
             }
             else if (piper)
@@ -1414,7 +1432,16 @@ namespace AICompanion.NewUI
                 var id = persona.Id;
                 Section(string.IsNullOrEmpty(persona.DisplayName) ? id : persona.DisplayName);
                 var engine = ActiveSettings.TtsProvider;
-                Label("Active engine: " + engine);
+                Label("Active engine: " + VoiceEngineLabel(engine));
+                var voice = engine switch
+                {
+                    "piper" => FileLabel(ActiveSettings.PiperVoice),
+                    "kokoro" => ActiveSettings.KokoroVoice,
+                    "chatterbox" => ActiveSettings.ChatterboxVoice,
+                    _ => ActiveSettings.VoiceId,
+                };
+                if (!string.IsNullOrWhiteSpace(voice))
+                    Label("Active voice: " + voice);
                 var otherEngines = Disclosure("other engines");
                 if (otherEngines || engine == "piper")
                     Field("Piper voice id (local)", persona.PiperVoiceId, false, v => Save(id, p => p.PiperVoiceId = v));
@@ -1426,7 +1453,7 @@ namespace AICompanion.NewUI
                     v => Save(id, p => p.ChatterboxVoiceId = v));
                 if (otherEngines || engine == "xai")
                     Field("Cloud voice id (xAI)", persona.CloudVoiceId, false, v => Save(id, p => p.CloudVoiceId = v));
-                Note("Empty keeps the Engine page's voice.");
+                Note("Leave a voice blank to use its global default.");
             }
         }
 
@@ -1490,6 +1517,15 @@ namespace AICompanion.NewUI
             speaker.Append("Hi. This is how I sound with these settings.");
             speaker.CompleteUtterance();
         }
+
+        static string VoiceEngineLabel(string engine) => engine switch
+        {
+            "piper" => "Piper",
+            "kokoro" => "Kokoro",
+            "chatterbox" => "Chatterbox",
+            "xai" => "xAI",
+            _ => engine,
+        };
 
         /// <summary>JUH-182: Voice → In games. JUH-162: push-to-talk while a game has the focus.</summary>
         void BuildTalkWhileGaming()
@@ -2028,11 +2064,14 @@ namespace AICompanion.NewUI
             Label("Space or click   Next line in Step mode");
             Label("Drag title bar   Move or dock the chat box");
             Label("Drag an edge   Resize chat or portrait");
-            Section("Profile and Settings");
-            Label("Ctrl + Tab   Next tab or Settings page");
-            Label("Ctrl + Shift + Tab   Previous tab or Settings page");
-            Label("Ctrl + Left/Right   Previous or next Settings category");
-            Label("Page Up/Down, Home/End   Scroll");
+            if (RibbonMenu.Enabled)
+            {
+                Section("Profile and Settings");
+                Label("Ctrl + Tab   Next tab or Settings page");
+                Label("Ctrl + Shift + Tab   Previous tab or Settings page");
+                Label("Ctrl + Left/Right   Previous or next Settings category");
+                Label("Page Up/Down, Home/End   Scroll");
+            }
             Section("Microphone and games");
             Label(S.PushToTalkKey + " hold   Push to talk");
             Button("Configure mouse and controller bindings", () => TryOpenPage(SettingsPage.VoiceListening));
@@ -2559,7 +2598,7 @@ namespace AICompanion.NewUI
                 Toggle("Pause automatic looks", S.ScreenAutoLookPaused, v => Change(s => s.ScreenAutoLookPaused = v));
                 Note(S.ScreenAutoLookPaused
                     ? "Paused. The permission is still granted, but she cannot look until you unpause."
-                    : "She may ask for one look while replying, at most once per reply and no more than once every " + Mathf.RoundToInt(ScreenLookController.AutoLookCooldownSeconds) + " seconds. It stays on this PC.");
+                    : "She may ask for one look per reply, with at least " + Mathf.RoundToInt(ScreenLookController.AutoLookCooldownSeconds) + " seconds between looks. Automatic looks use the configured local vision server.");
             }
             else
             {
@@ -2774,7 +2813,14 @@ namespace AICompanion.NewUI
                 button.Button.colors = colors;
             }
 
-            Place(button.Rect, _theme.ButtonHeight * _s);
+            var height = _theme.ButtonHeight * _s;
+            if (RibbonMenu.Enabled)
+            {
+                button.Label.textWrappingMode = TextWrappingModes.Normal;
+                height = Mathf.Max(height, button.Label.GetPreferredValues(button.Label.text, Mathf.Max(1f, W - 14f * _s), 0f).y + 6f * _s);
+                HappiUiKit.Stretch(button.Label.rectTransform, 7f * _s, 1f, 7f * _s, 1f);
+            }
+            Place(button.Rect, height);
             return button;
         }
 
@@ -2922,9 +2968,12 @@ namespace AICompanion.NewUI
         void Toggle(string label, bool value, Action<bool> changed)
         {
             var row = HappiUiKit.Rect(_body, "Toggle");
-            Place(row, _theme.ButtonHeight * _s);
             var text = HappiUiKit.Text(row, "Label", HappiUiKit.Literal(label), _theme.FontBody * _s, _theme.Text, TextAlignmentOptions.MidlineLeft, false);
-            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.textWrappingMode = RibbonMenu.Enabled ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
+            var height = _theme.ButtonHeight * _s;
+            if (RibbonMenu.Enabled)
+                height = Mathf.Max(height, text.GetPreferredValues(text.text, Mathf.Max(1f, W - 70f * _s), 0f).y + 4f * _s);
+            Place(row, height);
             HappiUiKit.Stretch(text.rectTransform, 0f, 0f, 70f * _s, 0f);
             var pill = HappiUiKit.Button(row, "Switch", value ? "On" : "Off", _theme.FontSmall * _s, () =>
             {
