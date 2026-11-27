@@ -29,6 +29,21 @@ namespace AICompanion.NewUI
         /// <summary>The smallest box at 100% scaling: every row still fits (header, reply, controls, input).</summary>
         public const float MinWidth = 260f;
         public const float MinHeight = 160f;
+        public const float RibbonWidth = 560f;
+        const float RibbonAspect = 10f / 7f;
+
+        public static float FitRibbonScale(float uiScale, Vector2 workSize, bool keyRow)
+        {
+            const float margins = 16f;
+            var widthScale = workSize.x / (MinWidth + margins);
+            var heightScale = workSize.y / (MinHeight + (keyRow ? 32f : 0f) + margins);
+            return Mathf.Clamp(Mathf.Min(widthScale, heightScale), 0.5f, uiScale);
+        }
+
+        public static float RibbonHeight(float width, float uiScale, float heightSetting)
+        {
+            return Mathf.Max(MinHeight * uiScale, width / RibbonAspect * heightSetting);
+        }
 
         /// <summary>The handles: edges this thick, corners this big, at 100% scaling.</summary>
         public const float EdgeThickness = 6f;

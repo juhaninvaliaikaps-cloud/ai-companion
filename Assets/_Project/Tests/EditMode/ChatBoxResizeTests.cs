@@ -17,6 +17,23 @@ namespace AICompanion.Tests.EditMode
             Assert.That(ChatBoxResize.AutomaticHeight(bodyHeight, scale, 1f, false), Is.EqualTo(classic));
         }
 
+        [TestCase(560f, 1f, 1f, 392f)]
+        [TestCase(840f, 1.5f, 1f, 588f)]
+        [TestCase(400f, 1f, 1f, 280f)]
+        [TestCase(230f, 1f, 0.6f, 160f)]
+        public void RibbonHeightTracksWidthUntilItReachesTheControlMinimum(float width, float scale, float setting, float expected)
+        {
+            Assert.That(ChatBoxResize.RibbonHeight(width, scale, setting), Is.EqualTo(expected).Within(0.01f));
+        }
+
+        [Test]
+        public void CompactWorkAreaReducesScaleToLeaveRoomForControls()
+        {
+            var scale = ChatBoxResize.FitRibbonScale(1.5f, new Vector2(360f, 260f), true);
+            Assert.That(scale, Is.EqualTo(1.25f).Within(0.01f));
+            Assert.That(ChatBoxResize.FitRibbonScale(1.5f, new Vector2(1920f, 1040f), true), Is.EqualTo(1.5f));
+        }
+
         static readonly Rect Start = new Rect(100f, 100f, 300f, 200f); // x 100..400, y 100..300
         static readonly Vector2 Min = new Vector2(260f, 160f);
         static readonly Rect ScreenArea = new Rect(0f, 0f, 1920f, 1080f);

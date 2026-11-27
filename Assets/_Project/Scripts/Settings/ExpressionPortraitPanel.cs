@@ -89,6 +89,9 @@ namespace AICompanion.Settings
         /// <summary>JUH-104: where the new UI wants the portrait (window pixels from the top-left, any size). Empty = automatic.</summary>
         public static Rect NewUiTarget;
 
+        /// <summary>Ribbon chat can temporarily take all of the available work area.</summary>
+        public static bool NewUiSuppressForChat;
+
         /// <summary>Where the portrait is drawn now (window pixels from the top-left); empty while it is hidden.</summary>
         public static Rect ShownRect;
 
@@ -139,7 +142,7 @@ namespace AICompanion.Settings
 
             BindHooks();
             var delta = Time.unscaledDeltaTime;
-            if (!WantsPortrait())
+            if (!WantsPortrait() || NewUiSuppressForChat)
             {
                 _logged = false;
                 _loggedReason = PortraitHideReason.None;
@@ -372,6 +375,12 @@ namespace AICompanion.Settings
                 _library.Merge(PortraitLibrary.Load(adultFolder, true));
             _map = ReadMap(_folder);
             DropFailedSprites();
+            if (RibbonCutouts && !_intimateMode)
+            {
+                var neutral = _library.Existing(_map.Resolve("neutral").Open);
+                var sprite = neutral != null ? AssetFor(neutral).Sprite : null;
+                NativeSize = sprite != null ? sprite.rect.size : new Vector2(PortraitPlacement.Width, PortraitPlacement.Height);
+            }
         }
 
         void DropFailedSprites()
@@ -486,7 +495,8 @@ namespace AICompanion.Settings
             any |= ApplySlot(_front, ref _frontPath, view.Front, view.FrontAlpha);
             if (any)
             {
-                UpdateNativeSize();
+                if (!RibbonCutouts || _intimateMode)
+                    UpdateNativeSize();
                 ApplyPortraitStyle();
             }
             return any;
