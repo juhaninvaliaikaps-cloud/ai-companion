@@ -819,7 +819,7 @@ namespace AICompanion.NewUI
             var view = _settings.PisaraView();
             Section("Temperament");
             Label(view.TemperamentLine);
-            Note("How quickly her moods build and fade. Auto takes it from her description.");
+            Note("Shapes her moods and how she talks. Auto uses her description.");
             Choice("Auto", !view.Manual, () => { _settings.SetPersonaTemperamentAuto(id); _rebuild = true; });
             for (var i = 0; i < PersonaTemperaments.Ids.Length; i++)
             {
@@ -830,6 +830,7 @@ namespace AICompanion.NewUI
 
             Section("Custom temperament");
             Note(RibbonMenu.Enabled ? "Choose a step to override Auto or the current preset." : "Moving a slider overrides Auto and the presets.");
+            Note(PersonaManner.ConversationStyleHelp);
             var editing = (view.Axes ?? TemperamentAxes.Neutral()).Clone();
             void ChooseStep(int axis, int step)
             {

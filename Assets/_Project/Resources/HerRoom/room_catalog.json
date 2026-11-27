@@ -1,0 +1,586 @@
+{
+  "units": "pixels on a 1024 by 1024 room shell",
+  "anchorOrigin": "top-left, front floor contact; wall items have an attachment point",
+  "floorGrid": [
+    12,
+    9
+  ],
+  "floorBoundsPx": [
+    77,
+    242,
+    952,
+    930
+  ],
+  "windowAperturePx": [
+    399,
+    68,
+    624,
+    174
+  ],
+  "windowLayerBoundsPx": [
+    371,
+    54,
+    654,
+    211
+  ],
+  "artAnchors": "Initial anchor and tile proposals. Validate collision footprints in the placement build.",
+  "furniture": [
+    {
+      "id": "room_bed",
+      "file": "furniture/room_bed.png",
+      "sizePx": [
+        197,
+        338
+      ],
+      "anchorPx": [
+        98,
+        323
+      ],
+      "suggestedTile": [
+        0,
+        0
+      ],
+      "suggestedFootprint": [
+        3,
+        3
+      ],
+      "placement": "floor",
+      "walkable": false,
+      "defaultAnchorRoomPx": [
+        202,
+        464
+      ]
+    },
+    {
+      "id": "room_desk_pc",
+      "file": "furniture/room_desk_pc.png",
+      "sizePx": [
+        210,
+        214
+      ],
+      "anchorPx": [
+        105,
+        201
+      ],
+      "suggestedTile": [
+        7,
+        0
+      ],
+      "suggestedFootprint": [
+        3,
+        1
+      ],
+      "placement": "floor",
+      "walkable": false,
+      "defaultAnchorRoomPx": [
+        756,
+        352
+      ]
+    },
+    {
+      "id": "room_desk_chair",
+      "file": "furniture/room_desk_chair.png",
+      "sizePx": [
+        91,
+        108
+      ],
+      "anchorPx": [
+        45,
+        98
+      ],
+      "suggestedTile": [
+        8,
+        1
+      ],
+      "suggestedFootprint": [
+        1,
+        1
+      ],
+      "placement": "floor",
+      "walkable": false,
+      "defaultAnchorRoomPx": [
+        756,
+        420
+      ]
+    },
+    {
+      "id": "room_rug",
+      "file": "furniture/room_rug.png",
+      "sizePx": [
+        335,
+        348
+      ],
+      "anchorPx": [
+        167,
+        330
+      ],
+      "suggestedTile": [
+        4,
+        3
+      ],
+      "suggestedFootprint": [
+        5,
+        5
+      ],
+      "placement": "floor",
+      "walkable": true,
+      "defaultAnchorRoomPx": [
+        552,
+        745
+      ]
+    },
+    {
+      "id": "room_pouf",
+      "file": "furniture/room_pouf.png",
+      "sizePx": [
+        111,
+        112
+      ],
+      "anchorPx": [
+        55,
+        102
+      ],
+      "suggestedTile": [
+        7,
+        3
+      ],
+      "suggestedFootprint": [
+        1,
+        1
+      ],
+      "placement": "floor",
+      "walkable": false,
+      "defaultAnchorRoomPx": [
+        686,
+        536
+      ]
+    },
+    {
+      "id": "room_bookshelf",
+      "file": "furniture/room_bookshelf.png",
+      "sizePx": [
+        98,
+        248
+      ],
+      "anchorPx": [
+        49,
+        236
+      ],
+      "suggestedTile": [
+        11,
+        1
+      ],
+      "suggestedFootprint": [
+        1,
+        3
+      ],
+      "placement": "floor",
+      "walkable": false,
+      "defaultAnchorRoomPx": [
+        906,
+        547
+      ]
+    },
+    {
+      "id": "room_wardrobe",
+      "file": "furniture/room_wardrobe.png",
+      "sizePx": [
+        153,
+        323
+      ],
+      "anchorPx": [
+        76,
+        309
+      ],
+      "suggestedTile": [
+        0,
+        4
+      ],
+      "suggestedFootprint": [
+        2,
+        4
+      ],
+      "placement": "floor",
+      "walkable": false,
+      "defaultAnchorRoomPx": [
+        154,
+        845
+      ]
+    },
+    {
+      "id": "room_wardrobe_open",
+      "file": "furniture/room_wardrobe_open.png",
+      "sizePx": [
+        191,
+        323
+      ],
+      "anchorPx": [
+        115,
+        310
+      ],
+      "suggestedTile": [
+        0,
+        4
+      ],
+      "suggestedFootprint": [
+        2,
+        4
+      ],
+      "placement": "floor",
+      "walkable": false,
+      "variantOf": "room_wardrobe",
+      "defaultAnchorRoomPx": [
+        154,
+        845
+      ]
+    },
+    {
+      "id": "room_lamp",
+      "file": "furniture/room_lamp.png",
+      "sizePx": [
+        63,
+        150
+      ],
+      "anchorPx": [
+        31,
+        141
+      ],
+      "suggestedTile": [
+        3,
+        0
+      ],
+      "suggestedFootprint": [
+        1,
+        1
+      ],
+      "placement": "floor",
+      "walkable": false,
+      "defaultAnchorRoomPx": [
+        352,
+        332
+      ]
+    },
+    {
+      "id": "room_hobby_piano",
+      "file": "furniture/room_hobby_piano.png",
+      "sizePx": [
+        136,
+        263
+      ],
+      "anchorPx": [
+        68,
+        250
+      ],
+      "suggestedTile": [
+        10,
+        5
+      ],
+      "suggestedFootprint": [
+        2,
+        3
+      ],
+      "placement": "floor",
+      "walkable": false,
+      "defaultAnchorRoomPx": [
+        897,
+        849
+      ]
+    },
+    {
+      "id": "room_hobby_squat_rack",
+      "file": "furniture/room_hobby_squat_rack.png",
+      "sizePx": [
+        153,
+        166
+      ],
+      "anchorPx": [
+        76,
+        156
+      ],
+      "suggestedTile": [
+        10,
+        5
+      ],
+      "suggestedFootprint": [
+        2,
+        2
+      ],
+      "placement": "floor",
+      "walkable": false
+    },
+    {
+      "id": "room_hobby_easel",
+      "file": "furniture/room_hobby_easel.png",
+      "sizePx": [
+        99,
+        198
+      ],
+      "anchorPx": [
+        49,
+        188
+      ],
+      "suggestedTile": [
+        10,
+        5
+      ],
+      "suggestedFootprint": [
+        2,
+        2
+      ],
+      "placement": "floor",
+      "walkable": false
+    },
+    {
+      "id": "room_hobby_guitar_stand",
+      "file": "furniture/room_hobby_guitar_stand.png",
+      "sizePx": [
+        94,
+        198
+      ],
+      "anchorPx": [
+        47,
+        188
+      ],
+      "suggestedTile": [
+        10,
+        5
+      ],
+      "suggestedFootprint": [
+        2,
+        2
+      ],
+      "placement": "floor",
+      "walkable": false
+    },
+    {
+      "id": "room_hobby_plant_table",
+      "file": "furniture/room_hobby_plant_table.png",
+      "sizePx": [
+        129,
+        159
+      ],
+      "anchorPx": [
+        64,
+        150
+      ],
+      "suggestedTile": [
+        10,
+        5
+      ],
+      "suggestedFootprint": [
+        2,
+        2
+      ],
+      "placement": "floor",
+      "walkable": false
+    },
+    {
+      "id": "room_hobby_telescope",
+      "file": "furniture/room_hobby_telescope.png",
+      "sizePx": [
+        115,
+        198
+      ],
+      "anchorPx": [
+        57,
+        188
+      ],
+      "suggestedTile": [
+        10,
+        5
+      ],
+      "suggestedFootprint": [
+        2,
+        2
+      ],
+      "placement": "floor",
+      "walkable": false
+    },
+    {
+      "id": "room_piano_bench",
+      "file": "furniture/room_piano_bench.png",
+      "sizePx": [
+        93,
+        84
+      ],
+      "anchorPx": [
+        46,
+        76
+      ],
+      "suggestedTile": [
+        10,
+        7
+      ],
+      "suggestedFootprint": [
+        1,
+        1
+      ],
+      "placement": "floor",
+      "walkable": false,
+      "defaultAnchorRoomPx": [
+        795,
+        815
+      ]
+    },
+    {
+      "id": "room_wall_shelf_left",
+      "file": "furniture/room_wall_shelf_left.png",
+      "sizePx": [
+        150,
+        140
+      ],
+      "anchorPx": [
+        75,
+        130
+      ],
+      "suggestedTile": [
+        1,
+        0
+      ],
+      "suggestedFootprint": [
+        0,
+        0
+      ],
+      "placement": "wall",
+      "walkable": true,
+      "defaultAnchorRoomPx": [
+        206,
+        207
+      ]
+    },
+    {
+      "id": "room_wall_shelf_right",
+      "file": "furniture/room_wall_shelf_right.png",
+      "sizePx": [
+        128,
+        108
+      ],
+      "anchorPx": [
+        64,
+        98
+      ],
+      "suggestedTile": [
+        10,
+        0
+      ],
+      "suggestedFootprint": [
+        0,
+        0
+      ],
+      "placement": "wall",
+      "walkable": true,
+      "defaultAnchorRoomPx": [
+        855,
+        176
+      ]
+    },
+    {
+      "id": "room_potted_plant",
+      "file": "furniture/room_potted_plant.png",
+      "sizePx": [
+        81,
+        98
+      ],
+      "anchorPx": [
+        40,
+        92
+      ],
+      "suggestedTile": [
+        1,
+        4
+      ],
+      "suggestedFootprint": [
+        0,
+        0
+      ],
+      "placement": "surface",
+      "walkable": false,
+      "defaultAnchorRoomPx": [
+        138,
+        601
+      ]
+    },
+    {
+      "id": "room_bed_together",
+      "file": "furniture/room_bed_together.png",
+      "sizePx": [
+        197,
+        338
+      ],
+      "anchorPx": [
+        98,
+        332
+      ],
+      "suggestedTile": [
+        0,
+        0
+      ],
+      "suggestedFootprint": [
+        3,
+        3
+      ],
+      "placement": "floor",
+      "walkable": false,
+      "variantOf": "room_bed",
+      "defaultAnchorRoomPx": [
+        202,
+        464
+      ]
+    }
+  ],
+  "characterFrames": {
+    "sizePx": [
+      256,
+      256
+    ],
+    "feetPivotPx": [
+      128,
+      240
+    ],
+    "animationFps": 8,
+    "directions": [
+      "down",
+      "up",
+      "left",
+      "right"
+    ],
+    "idlePattern": "characters/{character}_idle_{frame}.png",
+    "idleFrameOrder": [
+      0,
+      1,
+      3,
+      2,
+      3,
+      1,
+      0
+    ],
+    "walkPattern": "characters/{character}_walk_{direction}_{frame}.png",
+    "walkFrameOrder": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "activityPattern": "characters/{character}_{activity}_{frame}.png",
+    "activityFrameOrder": [
+      0,
+      1
+    ],
+    "activities": {
+      "happi": [
+        "sit",
+        "read",
+        "sleep",
+        "look_window",
+        "use_pc",
+        "wardrobe",
+        "hobby_piano",
+        "hobby_squat_rack"
+      ],
+      "player": [
+        "sit",
+        "sleep"
+      ]
+    }
+  }
+}
