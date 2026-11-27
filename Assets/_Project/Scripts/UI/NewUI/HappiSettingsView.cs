@@ -1123,7 +1123,7 @@ namespace AICompanion.NewUI
                 Note("Install the embedding model in Ollama with: ollama pull nomic-embed-text (about 274 MB).");
 
             Section("Reset this persona");
-            Note("Clears chat, memories about you, mood and relationship. Keeps her persona and her own world.", true);
+            Note("Clears this persona’s chat, memories, timeline, mood and relationship. Her persona stays. Her world is rebuilt from her character sheet when Her own world is enabled.", true);
             Button("Reset chat, memories and relationship", () => { _confirm.Request(PrivacyConfirmKind.StartOver); _rebuild = true; }, true);
         }
 

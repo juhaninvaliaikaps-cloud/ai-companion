@@ -10,24 +10,6 @@ namespace AICompanion.Settings
 {
     public sealed partial class SettingsPanel
     {
-        void ChooseExportFolder()
-        {
-            string picked;
-            if (ExportFolderDialog.TryPick(out picked) && !string.IsNullOrWhiteSpace(picked))
-            {
-                _exportFolder = picked.Trim();
-                SettingsRevision++;
-                return;
-            }
-
-            SetStatus("Type an export folder. The folder window is unavailable here.");
-        }
-
-        void ExportLocal(bool zip)
-        {
-            SetStatus(Presenters.LocalDataPresenter.Export(Folder(), _exportFolder, zip, LocalDataPortal.ExportFolder, LocalDataPortal.ExportZip));
-        }
-
         /// <summary>
         /// "Start over with this persona" (JUH-117): clears the active persona's chat history,
         /// everything she remembers (her own life is seeded again from her character sheet),
