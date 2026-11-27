@@ -138,6 +138,8 @@ The prompt that is hashed and sent is the persona text the chat uses (personalit
 
 The character sheet may also carry `temperament.axes` with `axesSet: true`. When any mood slider is off 50, that profile is what Auto runs, and the five preset weights stay for the profile radar. Curiosity alone does not replace them. All 50s, or a sheet from before the sliders, still uses the preset weights and the blend. A manual preset or manual sliders always win.
 
+**Curiosity in chat (JUH-220).** Values at displayed steps 1–3 ask the model to let the user lead. Steps 4–6 use its usual judgment. Steps 7–8 allow a specific follow-up where the user opens a thread, and steps 9–10 encourage exploring it with one grounded question. Ordinary typed and spoken chat get the current instruction even with a cached voice reading. Screen and game requests keep their existing prompts. The 1–10 editor still represents stored 0–100 values, with 50 between the two central steps. Curiosity has no mood multiplier or relationship effect.
+
 **Persona settings** (old and new settings window) show, for the active persona:
 
 - `Temperament: Auto (Shy 60%, Cheerful 40%): <reason>`, or `Temperament: Tsundere (your pick)`, or `Temperament: Cheerful (built-in)`;

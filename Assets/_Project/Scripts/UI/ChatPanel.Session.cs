@@ -74,9 +74,10 @@ namespace AICompanion.UI
             // JUH-150: the persona's 18+ notes; empty while the gate is closed.
             prompt = AdultNotesNow.Append(prompt);
             prompt = WorldPromptNow.Append(prompt, chatMessage && ConversationIsEmpty());
-            // JUH-171: how she talks, last, where a small local model follows it best. Its 18+
-            // part is only there while the gate is open (and the chat is local then).
-            return VoiceNow.Append(prompt);
+            // The voice block explains how she talks. Live curiosity follows it for ordinary
+            // conversation only, so changing the slider takes effect with a cached voice reading.
+            prompt = VoiceNow.Append(prompt);
+            return chatMessage ? PersonaMannerNow.AppendCuriosity(prompt) : prompt;
         }
 
         bool ConversationIsEmpty()
