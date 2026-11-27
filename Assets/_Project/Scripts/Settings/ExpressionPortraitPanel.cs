@@ -822,12 +822,13 @@ namespace AICompanion.Settings
             _front = Photo(maskObject.transform, "Front");
 
             var accent = new GameObject("Ribbon portrait base", typeof(RectTransform));
-            accent.transform.SetParent(maskObject.transform, false);
+            accent.transform.SetParent(plate.transform, false);
             _ribbonBase = accent.AddComponent<RibbonPortraitBase>();
             var accentRect = _ribbonBase.rectTransform;
             accentRect.anchorMin = Vector2.zero;
             accentRect.anchorMax = Vector2.one;
-            accentRect.offsetMin = accentRect.offsetMax = Vector2.zero;
+            accentRect.offsetMin = new Vector2(PortraitPlacement.Border, PortraitPlacement.Border);
+            accentRect.offsetMax = -accentRect.offsetMin;
             _ribbonBase.raycastTarget = false;
             _ribbonBase.maskable = false;
         }

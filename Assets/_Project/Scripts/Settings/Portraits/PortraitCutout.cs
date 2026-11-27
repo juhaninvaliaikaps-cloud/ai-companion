@@ -69,6 +69,7 @@ namespace AICompanion.Settings
         static int Sample(int cell, int size) => (2 * cell + 1) * size / (2 * Grid);
     }
 
+    [RequireComponent(typeof(CanvasRenderer))]
     sealed class RibbonPortraitBase : MaskableGraphic
     {
         Vector3 _line;
