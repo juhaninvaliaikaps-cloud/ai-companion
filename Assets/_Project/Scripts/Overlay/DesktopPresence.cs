@@ -169,6 +169,10 @@ namespace AICompanion.Overlay
             if (!chrome.TryGetWorkArea(out var areaLeft, out var areaTop, out var areaRight, out var areaBottom))
                 return;
 
+            // JUH-228: she doesn't walk across the desktop while she's in her room; she waits where she is.
+            if (HerRoomNow.IsOpen)
+                return;
+
             // The new UI's side room is not part of her: walk with her own part of the window.
             var side = _window.SideRoom;
             left += side;

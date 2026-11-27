@@ -49,6 +49,7 @@ namespace AICompanion.NewUI
         RibbonGlyph _menuGlyph;
         RectTransform _roomPreview;
         RectTransform _roomHint;
+        HerRoomView _room;
         RibbonClickAccent _clickAccent;
         Action _pendingSelection;
         float _selectionReadyAt;
@@ -127,6 +128,7 @@ namespace AICompanion.NewUI
             _settingsView = GetComponent<HappiSettingsView>();
             _chatView = GetComponent<HappiChatView>();
             _wheel = GetComponent<HappiWheelHost>();
+            _room = GetComponent<HerRoomView>();
             _head = new HeadLocator(gameObject);
             _window = GetComponent<OverlayWindow>();
             _cursor = GetComponent<IScreenCursor>();
@@ -146,7 +148,7 @@ namespace AICompanion.NewUI
             triggerColors.normalColor = new Color32(16, 19, 24, 105);
             _trigger.Button.colors = triggerColors;
 
-            var room = HappiUiKit.Panel(root, "Her Room preview", new Color32(16, 19, 24, 110), false);
+            var room = HappiUiKit.Panel(root, "Her Room preview", new Color32(16, 19, 24, 110), true);
             _roomPreview = room.rectTransform;
             RibbonShape.Apply(room, false);
             var door = RibbonGlyph.Add(_roomPreview, "Door glyph", RibbonGlyph.Mark.Door, new Color32(176, 191, 197, 230));
@@ -154,7 +156,7 @@ namespace AICompanion.NewUI
             var hint = HappiUiKit.Panel(root, "Her Room preview hint", Ink, false);
             _roomHint = hint.rectTransform;
             RibbonShape.Apply(hint, false);
-            var hintText = HappiUiKit.Text(_roomHint, "Label", "Her Room · Planned", 13f,
+            var hintText = HappiUiKit.Text(_roomHint, "Label", "Her Room", 13f,
                 HappiTheme.Current.Text, TextAlignmentOptions.Center, false);
             HappiUiKit.Stretch(hintText.rectTransform, 4f, 0f, 4f, 0f);
             _roomHint.gameObject.SetActive(false);
@@ -528,6 +530,14 @@ namespace AICompanion.NewUI
             }
             var pointer = ReadPointer();
             var overTrigger = _triggerBounds.Contains(pointer);
+            // JUH-228: the door glyph opens her room, or closes it.
+            if (leftDown && _room != null && _roomBounds.Contains(pointer))
+            {
+                Close();
+                _room.Toggle();
+                return;
+            }
+
             var keyboardShortcut = Input.GetKeyDown(KeyCode.DownArrow) && CanTakeKeyboard()
                 && (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt));
             if (keyboardShortcut || (leftDown && overTrigger))

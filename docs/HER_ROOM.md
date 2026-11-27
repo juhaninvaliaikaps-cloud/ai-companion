@@ -2,7 +2,10 @@
 
 Her Room is a small 2D top-down room that she and the player share. It is reached through a door on the desktop, opened from the Ribbon menu's "Her room" element. The design and its decisions are in Linear JUH-175. The art brief and the art reviews are in JUH-225.
 
-**Status:** phase 1a, the room logic (JUH-226), is in the code. The room window and its drawing (phase 1b) are not built yet.
+**Status:**
+- **Phase 1a, the room logic (JUH-226):** built.
+- **Phase 1b, the room window (JUH-228):** built, using Codex's draft art as stand-ins. Launch with `--ribbon-ui` and click the door glyph beside the Ribbon menu.
+- **Phase 2, slots and activities:** not started.
 
 ## v1 in short
 
@@ -25,4 +28,47 @@ Her Room is a small 2D top-down room that she and the player share. It is reache
 | `RoomClock` | From the local time: a tint that blends smoothly between night, morning (from 05:30), day (09:00–17:00), dusk (to 21:00) and night. Also the sky colour, the lamp (on 18:30–07:00, with half-hour fades) and bedtime (22:30–06:30). |
 | `RoomWindowSize` | Keeps the square window between 480 px and the work-area height, and converts a click in the window to a point on the room picture. |
 
-Tests: `RoomLogicTests`.
+Tests: `RoomLogicTests`, `RoomWanderTests` and `WallpaperCropTests`.
+
+## The room window (phase 1b, NewUI assembly)
+
+**Opening and closing**
+- `HerRoomView` is added by `NewUiRoot` when the Ribbon is on.
+- A click on the Ribbon's door glyph opens it; a second click closes it. The × and Esc also close it.
+
+**The door**
+- `DesktopWallpaper` loads Windows' wallpaper file, trying `TranscodedWallpaper` first and then the picked file. It never captures the screen.
+- `WallpaperCrop` (Core) picks the part of the wallpaper that sits behind the door. It assumes Windows' "Fill" mode, and uses the work area as the monitor.
+- When there is no wallpaper, the door is plain wood.
+- The door panel swings on its left hinge, then the room window grows out of the doorway and fades in. Closing runs it backwards.
+
+**The window**
+- It is centred in the visible part of Happi's window and square.
+- It can be resized from the cyan corner. The size is saved in PlayerPrefs `HerRoom.Side` and limited by `RoomWindowSize`.
+- The frame is Ribbon-style: dark panel, clipped corners, gold accent, "Her Room" and ×.
+
+**Inside**
+- The sky colour sits behind the shell's open window. The shell is tinted by `RoomClock`.
+- Two 256 px figures stand with their feet on the tile's front edge. They're drawn back to front, and bob while walking until walk frames exist.
+
+**Input**
+- **Clicking:** a click on the floor walks the player there.
+- **Arrow keys:** they step the player while nothing else owns the keyboard (chat input, Settings, the wheel). Because the room implements `IOverlayKeepAwake`, the 2D avatar's own arrow keys are off while it is open (the JUH-200 guard).
+
+**Her (`RoomWander`)**
+- She walks in through the door.
+- After 6–14 s she strolls to a random free tile.
+- She stays and faces the player while he is within two steps.
+- At bedtime she goes to the tile at the foot of the bed and stays there.
+
+**The desktop**
+- `HerRoomNow.IsOpen` pauses her desktop walking (`DesktopPresence`) while the room is open.
+- Her desktop figure is behind the room window. It is not hidden separately.
+
+**Stand-in art** (`Resources/HerRoom/`, from Codex's drafts in JUH-225)
+- `room_shell.png`: 1024 px, with the window opening made transparent.
+- `happi_idle.png` and `player_idle.png`: 256 px, with the feet at y = 240.
+- Happi's room outfit is the swimsuit (Jussi).
+- The finished art replaces these files in place.
+
+**Not yet:** chat docking and her speech bubble, slots and activities, walk frames, and the lamp glow.
