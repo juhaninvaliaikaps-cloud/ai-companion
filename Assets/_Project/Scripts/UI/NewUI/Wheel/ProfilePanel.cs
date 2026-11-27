@@ -178,6 +178,7 @@ namespace AICompanion.NewUI.Wheel
                 var trackArea = HappiUiKit.Rect(track.transform, "Track");
                 HappiUiKit.Stretch(trackArea, 0f, 0f, 0f, 0f);
                 var thumb = HappiUiKit.Panel(trackArea, "Thumb", new Color32(114, 238, 207, 225), true);
+                HappiUiKit.Stretch(thumb.rectTransform, 0f, 0f, 0f, 0f);
                 _ribbonScroll.targetGraphic = thumb;
                 _ribbonScroll.handleRect = thumb.rectTransform;
                 _ribbonScroll.direction = Scrollbar.Direction.BottomToTop;
@@ -412,6 +413,8 @@ namespace AICompanion.NewUI.Wheel
 
             _content.sizeDelta = new Vector2(0f, _y + 8f);
             _scroll.verticalNormalizedPosition = 1f;
+            if (_ribbon)
+                _ribbonScroll.gameObject.SetActive(_content.sizeDelta.y > ((RectTransform)_scroll.transform).rect.height);
         }
 
         // ---- Tabs ------------------------------------------------------------------------
