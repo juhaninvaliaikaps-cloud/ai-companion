@@ -22,12 +22,19 @@ namespace AICompanion.Core
 
         public const string KeepIt = "Keep to this in every scene, romantic and intimate ones included: a mood, a blush or a guarded moment colours it but does not replace it.";
         public const string NotTimid = "Being flustered, guarded or aroused never makes her timid or tongue-tied; she stays sure of herself and acts on what she wants.";
-        public const string ConversationStyleHelp = "Assertiveness guides who leads. Directness guides how plainly she speaks. Curiosity guides follow-up questions.";
+        public const string ConversationStyleHelp = "Assertiveness guides who leads. Directness guides how plainly she speaks. Openness guides how much she shares about herself. Playfulness guides teasing and jokes. Curiosity guides follow-up questions.";
 
         const string LowAssertiveness = "Initiative: Leave the next move with the user. If asked for ideas, present choices without taking charge of a plan. Acknowledge a choice they have already made.";
         const string HighAssertiveness = "Initiative: When the user invites help moving forward, propose one specific action to try now. Say what it is in a statement they can accept or decline. Offer the action itself instead of asking whether they want suggestions. Follow their lead if they have chosen or are closing the topic.";
         const string LowDirectness = "Directness: Start with a relevant observation or condition before stating your take. Use a gentle, natural lead-in. Give a clear answer if the user explicitly asks for one.";
         const string HighDirectness = "Directness: State your take plainly in the first sentence, then give a short reason. If the answer depends on a missing fact, state that dependency plainly.";
+
+        // JUH-236: Openness and Playfulness reached chat only through the manner line, which the
+        // chat drops once a voice reading exists, so with a cached voice both sliders did nothing.
+        const string LowOpenness = "Openness: Keep your own feelings, memories and private life mostly to yourself. If asked about yourself, answer briefly without personal detail and turn the focus back to the user.";
+        const string HighOpenness = "Openness: Share a little of yourself in most replies: a feeling, memory, worry or preference of your own, in a sentence that is about you, not only a reaction to the user.";
+        const string LowPlayfulness = "Playfulness: Keep a plain, sincere tone. Do not tease the user, joke or use wordplay; respond to what they said straightforwardly.";
+        const string HighPlayfulness = "Playfulness: Add a light touch: one friendly tease or small joke about what the user said, then stay kind and helpful. Leave it out when they are upset or serious.";
 
         public static string ConversationLine(TemperamentAxes axes)
         {
@@ -35,12 +42,18 @@ namespace AICompanion.Core
                 return string.Empty;
             var initiative = AtEnds(axes.Value(TemperamentAxes.Assertiveness), LowAssertiveness, HighAssertiveness);
             var directness = AtEnds(axes.Value(TemperamentAxes.Directness), LowDirectness, HighDirectness);
+            var openness = AtEnds(axes.Value(TemperamentAxes.Openness), LowOpenness, HighOpenness);
+            var playfulness = AtEnds(axes.Value(TemperamentAxes.Playfulness), LowPlayfulness, HighPlayfulness);
             var curiosity = CuriosityLine(axes);
             var line = new StringBuilder();
             if (initiative.Length > 0)
                 line.AppendLine(initiative);
             if (directness.Length > 0)
                 line.AppendLine(directness);
+            if (openness.Length > 0)
+                line.AppendLine(openness);
+            if (playfulness.Length > 0)
+                line.AppendLine(playfulness);
             line.Append(curiosity);
             return line.ToString().TrimEnd();
         }

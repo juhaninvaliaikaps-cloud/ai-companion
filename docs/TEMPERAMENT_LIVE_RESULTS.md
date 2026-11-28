@@ -69,6 +69,23 @@ Noise (the neutral control's gap) was 0–17 points in most cells, with 33–50 
 - **Directness separates without cached voice, but not reliably with it.** Low Directness with a voice block still often led with her take. This was borderline across runs.
 - **Assertiveness separates on both models, weaker on some paths.**
 
-## After
+## After 1: Openness and Playfulness lines in `ConversationLine`
 
-Measured with the JUH-236 change; see the section below once it's run.
+`PersonaManner.ConversationLine` got an Openness and a Playfulness line at the same ends as Assertiveness and Directness: stored 30 or less (steps 1–3) and 70 or more (steps 8–10), with no line in between. It's appended after the voice block for ordinary chat only, so both sliders now reach the cached-voice path.
+
+| Slider | Line |
+| --- | --- |
+| Openness, low | Keep your own feelings, memories and private life mostly to yourself. If asked about yourself, answer briefly without personal detail and turn the focus back to the user. |
+| Openness, high | Share a little of yourself in most replies: a feeling, memory, worry or preference of your own, in a sentence that is about you, not only a reaction to the user. |
+| Playfulness, low | Keep a plain, sincere tone. Do not tease the user, joke or use wordplay; respond to what they said straightforwardly. |
+| Playfulness, high | Add a light touch: one friendly tease or small joke about what the user said, then stay kind and helpful. Leave it out when they are upset or serious. |
+
+Measured again, with the same settings. Raw data: `tools/temperament-live/results/after-lines/`.
+
+| Slider | Cloud, no cached voice | Cloud, cached voice | Local, no cached voice | Local, cached voice |
+| --- | --- | --- | --- | --- |
+| Openness | 33% → 100%: noticeable | 50% → 100%: **noticeable** (was prompt identical) | 67% → 100%: weak (was not noticeable) | 67% → 100%: weak (was prompt identical) |
+| Playfulness | 0% → 100%: noticeable | 83% → 100%: **not noticeable** (was prompt identical) | 67% → 100%: weak (was not noticeable) | 67% → 100%: not noticeable (was prompt identical) |
+
+- The high end works everywhere now.
+- The low end is the gap that's left. With a cached voice, low Playfulness still joked in 5 of 6 cloud replies. On the local model, low Openness still shared in 4 of 6 and low Playfulness still joked in 4 of 6, on both voice paths.
