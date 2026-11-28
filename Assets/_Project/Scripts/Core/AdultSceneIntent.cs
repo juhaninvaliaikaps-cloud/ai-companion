@@ -25,14 +25,6 @@ namespace AICompanion.Core
                     return AvatarInteractionCatalog.MakeOut;
                 if (value.Contains("kiss"))
                     return AvatarInteractionCatalog.Kiss;
-                if (value.Contains("breast") || value.Contains("breasts") || value.Contains("chest"))
-                    return value.Contains(" keeps ") || value.Contains("loop")
-                        ? AvatarInteractionCatalog.TouchBreastLoop
-                        : AvatarInteractionCatalog.TouchBreast;
-                if (value.Contains("butt") || value.Contains("ass "))
-                    return value.Contains(" keeps ") || value.Contains("loop")
-                        ? AvatarInteractionCatalog.TouchButtLoop
-                        : AvatarInteractionCatalog.TouchButt;
                 return string.Empty;
             }
 

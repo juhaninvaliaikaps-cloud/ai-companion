@@ -151,12 +151,9 @@ namespace AICompanion.Settings
         public static bool IsPublicCue(string name)
         {
             var id = Normalize(name);
+            // JUH-234: kissing is public; breast and butt touches need the 18+ gate.
             return id == "make_out" || id == "kiss_loop" || id == "happi_kiss_loop"
-                || id == "kiss" || id == "kiss_pov"
-                || id == "touch_breast" || id == "breast_touch" || id == "breast_touch_clip_v3"
-                || id == "touch_breast_loop" || id == "breast_touch_loop"
-                || id == "touch_butt" || id == "butt_touch" || id == "butt_squeeze"
-                || id == "butt_squeeze_clip_v3" || id == "touch_butt_loop" || id == "butt_squeeze_loop";
+                || id == "kiss" || id == "kiss_pov";
         }
 
         public static void Play(string cue)
