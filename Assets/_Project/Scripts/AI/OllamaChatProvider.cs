@@ -131,6 +131,14 @@ namespace AICompanion.AI
         /// </summary>
         public const string RoleplayOptions = ",\"repeat_penalty\":1.08,\"repeat_last_n\":1024,\"min_p\":0.05";
 
+        /// <summary>
+        /// JUH-238: without it, Ollama 0.40 lets a model with the thinking capability think first,
+        /// and the hidden thinking used the whole reply budget: happi-qwen35-9b, happi-defiant-9b and
+        /// happi-gemma12b-heretic all returned no visible text (17-19 s for 512 tokens). A model
+        /// that can't think accepts the field and answers the same.
+        /// </summary>
+        public const string ThinkingOff = ",\"think\":false";
+
         public static string Build(
             string model,
             float temperature,
@@ -155,7 +163,9 @@ namespace AICompanion.AI
             var sb = new StringBuilder(512);
             sb.Append("{\"model\":");
             JsonText.AppendString(sb, model ?? ChatDefaults.LocalModel);
-            sb.Append(",\"stream\":true,\"messages\":[");
+            sb.Append(",\"stream\":true");
+            sb.Append(ThinkingOff);
+            sb.Append(",\"messages\":[");
             var first = true;
             if (!string.IsNullOrWhiteSpace(systemPrompt))
             {
