@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- JUH-236: prints the real chat-style prompt lines from the production code, so the
+       paired runner never copies them by hand. Not part of the Unity project. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>CS8632;CS0414;CS0169;CS0649</NoWarn>
+    <!-- The Unity install's managed folder; override with -p:UnityManaged=... -->
+    <UnityManaged Condition="'$(UnityManaged)' == ''">E:\Unity Editor\6000.6.6f1\Editor\Data\Managed\UnityEngine</UnityManaged>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <!-- The whole Core assembly, as Unity builds it. Only PersonaManner, TemperamentAxes and
+         TemperamentSteps run; the Unity references are there so the rest compiles. -->
+    <Compile Include="../../../Assets/_Project/Scripts/Core/**/*.cs" />
+    <Reference Include="$(UnityManaged)\*.dll" />
+  </ItemGroup>
+</Project>

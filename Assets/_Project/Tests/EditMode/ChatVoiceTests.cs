@@ -199,6 +199,126 @@ namespace AICompanion.Tests.EditMode
             }
         }
 
+        // JUH-236: Openness and Playfulness, live in ordinary chat like the three above, with the same
+        // ends as Assertiveness and Directness: stored 30 or less (steps 1-3) and 70 or more (steps 8-10).
+        [TestCase(TemperamentAxes.Openness, 2, "Keep your own feelings, memories and private life mostly to yourself")]
+        [TestCase(TemperamentAxes.Openness, 3, "Keep your own feelings, memories and private life mostly to yourself")]
+        [TestCase(TemperamentAxes.Openness, 5, "")]
+        [TestCase(TemperamentAxes.Openness, 7, "")]
+        [TestCase(TemperamentAxes.Openness, 8, "Share a little of yourself in most replies")]
+        [TestCase(TemperamentAxes.Openness, 9, "Share a little of yourself in most replies")]
+        [TestCase(TemperamentAxes.Playfulness, 2, "Do not tease the user, joke or use wordplay")]
+        [TestCase(TemperamentAxes.Playfulness, 3, "Do not tease the user, joke or use wordplay")]
+        [TestCase(TemperamentAxes.Playfulness, 5, "")]
+        [TestCase(TemperamentAxes.Playfulness, 7, "")]
+        [TestCase(TemperamentAxes.Playfulness, 8, "one friendly tease or small joke")]
+        [TestCase(TemperamentAxes.Playfulness, 9, "one friendly tease or small joke")]
+        public void OpennessAndPlayfulness_HaveALineOnlyAtTheEnds(int axis, int step, string expected)
+        {
+            var axes = TemperamentAxes.Neutral();
+            axes.Set(axis, TemperamentSteps.ValueForStep(step));
+            var line = PersonaManner.ConversationLine(axes);
+            var label = axis == TemperamentAxes.Openness ? "Openness:" : "Playfulness:";
+            if (expected.Length == 0)
+                StringAssert.DoesNotContain(label, line, "the middle keeps her current behaviour");
+            else
+                StringAssert.Contains(expected, line);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void OpennessAndPlayfulness_ReachOrdinaryChat_WithAndWithoutCachedVoice(bool cachedVoice)
+        {
+            var host = new GameObject("Openness and playfulness prompt test");
+            host.SetActive(false);
+            try
+            {
+                var chat = host.AddComponent<ChatPanel>();
+                var prompt = typeof(ChatPanel).GetMethod("PersonaPrompt", BindingFlags.Instance | BindingFlags.NonPublic);
+                string Build(bool ordinary, bool interaction = false) =>
+                    (string)prompt.Invoke(chat, new object[] { ordinary, interaction });
+                VoiceNow.Set(cachedVoice ? "Fixed voice calibration." : string.Empty, null, null);
+                var axes = TemperamentAxes.Neutral();
+                axes.Set(TemperamentAxes.Openness, TemperamentSteps.ValueForStep(9));
+                axes.Set(TemperamentAxes.Playfulness, TemperamentSteps.ValueForStep(2));
+                PersonaMannerNow.Set(axes);
+                var first = Build(true);
+                StringAssert.Contains("Share a little of yourself in most replies", first);
+                StringAssert.Contains("Do not tease the user, joke or use wordplay", first);
+                if (cachedVoice)
+                    StringAssert.Contains("Fixed voice calibration.\n\nOpenness:", first, "after the voice block, so the slider wins");
+                StringAssert.DoesNotContain("Openness:", Build(false), "not for screen, game or other requests");
+                StringAssert.DoesNotContain("Playfulness:", Build(true, interaction: true), "not for avatar interactions");
+
+                axes.Set(TemperamentAxes.Openness, TemperamentSteps.ValueForStep(2));
+                axes.Set(TemperamentAxes.Playfulness, TemperamentSteps.ValueForStep(9));
+                PersonaMannerNow.Set(axes);
+                var second = Build(true);
+                StringAssert.Contains("Keep your own feelings, memories and private life mostly to yourself", second);
+                StringAssert.Contains("one friendly tease or small joke", second);
+                StringAssert.DoesNotContain("Share a little of yourself", second);
+            }
+            finally
+            {
+                PersonaMannerNow.Reset();
+                VoiceNow.Reset();
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        // JUH-236: the local route's per-turn rule for the low ends.
+        [Test]
+        public void LocalTurnRule_NamesOnlyTheLowEnds()
+        {
+            var axes = TemperamentAxes.Neutral();
+            Assert.AreEqual(string.Empty, PersonaTurnRule.ForLocal(axes), "the middle adds nothing");
+            Assert.AreEqual(string.Empty, PersonaTurnRule.ForLocal(null));
+
+            axes.Set(TemperamentAxes.Openness, TemperamentSteps.ValueForStep(9));
+            axes.Set(TemperamentAxes.Playfulness, TemperamentSteps.ValueForStep(9));
+            axes.Set(TemperamentAxes.Curiosity, TemperamentSteps.ValueForStep(9));
+            Assert.AreEqual(string.Empty, PersonaTurnRule.ForLocal(axes), "the high ends work from the system prompt");
+
+            axes.Set(TemperamentAxes.Openness, TemperamentSteps.ValueForStep(2));
+            Assert.AreEqual("(For this reply: " + PersonaTurnRule.NothingAboutHerself + ".)", PersonaTurnRule.ForLocal(axes));
+
+            axes.Set(TemperamentAxes.Playfulness, TemperamentSteps.ValueForStep(3));
+            axes.Set(TemperamentAxes.Curiosity, TemperamentSteps.ValueForStep(2));
+            Assert.AreEqual("(For this reply: " + PersonaTurnRule.NothingAboutHerself + "; " + PersonaTurnRule.NoJokes + "; "
+                + PersonaTurnRule.NoQuestion + ".)", PersonaTurnRule.ForLocal(axes), "one instruction");
+
+            axes.Set(TemperamentAxes.Openness, TemperamentSteps.ValueForStep(4));
+            axes.Set(TemperamentAxes.Playfulness, TemperamentSteps.ValueForStep(4));
+            axes.Set(TemperamentAxes.Curiosity, TemperamentSteps.ValueForStep(4));
+            Assert.AreEqual(string.Empty, PersonaTurnRule.ForLocal(axes), "step 4 is not an end");
+        }
+
+        [Test]
+        public void LocalTurnRule_GoesOnTheLocalRouteOnly_AfterTheReminder()
+        {
+            const string reminder = "(Start your reply with your cue tag.)";
+            const string rule = "(For this reply: no jokes or teasing.)";
+            Assert.AreEqual(reminder + "\n" + rule, PersonaTurnRule.Reminder(reminder, rule, true, false));
+            Assert.AreEqual(reminder, PersonaTurnRule.Reminder(reminder, rule, false, false), "the cloud model keeps its own judgment");
+            Assert.AreEqual(reminder, PersonaTurnRule.Reminder(reminder, rule, true, true), "not for avatar interactions");
+            Assert.AreEqual(reminder, PersonaTurnRule.Reminder(reminder, string.Empty, true, false));
+            Assert.AreEqual(rule, PersonaTurnRule.Reminder(null, rule, true, false));
+
+            var axes = TemperamentAxes.Neutral();
+            axes.Set(TemperamentAxes.Playfulness, TemperamentSteps.ValueForStep(2));
+            try
+            {
+                PersonaMannerNow.Set(axes);
+                Assert.AreEqual("(For this reply: " + PersonaTurnRule.NoJokes + ".)", PersonaMannerNow.LocalTurnRule);
+                PersonaMannerNow.Reset();
+                Assert.AreEqual(string.Empty, PersonaMannerNow.LocalTurnRule);
+            }
+            finally
+            {
+                PersonaMannerNow.Reset();
+            }
+        }
+
         // ---- Sampler settings -------------------------------------------------------------------
 
         [Test]
