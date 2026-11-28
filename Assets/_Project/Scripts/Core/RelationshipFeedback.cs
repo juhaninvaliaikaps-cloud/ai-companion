@@ -98,6 +98,11 @@ namespace AICompanion.Core
 
         /// <summary>JUH-174: 18+ (a desire change, or one of her 18+ secrets): its chat line shows only while the gate is open.</summary>
         public bool Adult;
+        internal bool Ribbon;
+
+        public bool Discovery => Ribbon && Kind == FeedbackKind.Secret;
+
+        public bool Milestone => Ribbon && Kind == FeedbackKind.Familiarity;
 
         /// <summary>JUH-170: a desire piece, shown only while the 18+ gate is open.</summary>
         public bool IsDesire
@@ -147,6 +152,8 @@ namespace AICompanion.Core
 
         public const float LifeSeconds = 1.5f;
         public const float CritLifeSeconds = 2.2f;
+        public const float DiscoveryLifeSeconds = 3.3f;
+        public const float MilestoneLifeSeconds = 2.5f;
         public const float RisePixels = 30f;
         public const float CritRisePixels = 36f;
 
@@ -160,8 +167,14 @@ namespace AICompanion.Core
         public const float PunchSeconds = 0.3f;
 
         readonly FeedbackPiece[] _pieces = new FeedbackPiece[Capacity];
+        readonly bool _ribbon;
         int _count;
         int _nextId = 1;
+
+        public RelationshipFeedback(bool ribbon = false)
+        {
+            _ribbon = ribbon;
+        }
 
         public int Count
         {
@@ -207,6 +220,15 @@ namespace AICompanion.Core
             }
 
             return false;
+        }
+
+        public void DropAdult()
+        {
+            var write = 0;
+            for (var read = 0; read < _count; read++)
+                if (!_pieces[read].Adult)
+                    _pieces[write++] = _pieces[read];
+            _count = write;
         }
 
         /// <summary>The smallest desire change that gets a piece, unless it is a release.</summary>
@@ -303,7 +325,7 @@ namespace AICompanion.Core
         /// neither. Returns how many were added. Nothing shows while <paramref name="enabled"/>
         /// is false (the setting is off, or "Relationship changes" is off).
         /// </summary>
-        public int Add(RelationshipNotice notice, float now, bool enabled)
+        public int Add(RelationshipNotice notice, float now, bool enabled, bool adultAllowed = true)
         {
             if (!enabled)
                 return 0;
@@ -323,7 +345,7 @@ namespace AICompanion.Core
             }
 
             // JUH-123: a secret found comes with the affection piece, after it.
-            if (AddSecret(notice.SecretFound, now, true, notice.SecretAdult))
+            if ((!notice.SecretAdult || adultAllowed) && AddSecret(notice.SecretFound, now, true, notice.SecretAdult))
                 added++;
 
             if (notice.NewBand && notice.Band > 0)
@@ -355,7 +377,7 @@ namespace AICompanion.Core
                 Kind = FeedbackKind.Secret,
                 Amount = string.Empty,
                 Label = SecretText(what),
-                    Adult = adult,
+                Adult = adult,
                 StartTime = now,
                 RetiredAt = float.NaN,
             }, now);
@@ -384,7 +406,7 @@ namespace AICompanion.Core
                 var n = 0;
                 for (var i = 0; i < _count; i++)
                 {
-                    if (!_pieces[i].IsCritical && float.IsNaN(_pieces[i].RetiredAt))
+                    if (!StaysOnScreen(_pieces[i]) && float.IsNaN(_pieces[i].RetiredAt))
                         n++;
                 }
 
@@ -394,14 +416,15 @@ namespace AICompanion.Core
 
         void Push(FeedbackPiece piece, float now)
         {
-            if (!piece.IsCritical)
+            piece.Ribbon = _ribbon;
+            if (!StaysOnScreen(piece))
             {
                 // At most two normal pieces: the oldest one still showing fades out early.
                 while (NormalShown >= MaxNormalOnScreen)
                 {
                     for (var i = 0; i < _count; i++)
                     {
-                        if (!_pieces[i].IsCritical && float.IsNaN(_pieces[i].RetiredAt))
+                        if (!StaysOnScreen(_pieces[i]) && float.IsNaN(_pieces[i].RetiredAt))
                         {
                             _pieces[i].RetiredAt = now;
                             break;
@@ -421,6 +444,8 @@ namespace AICompanion.Core
             piece.Id = _nextId++;
             _pieces[_count++] = piece;
         }
+
+        static bool StaysOnScreen(FeedbackPiece piece) => piece.IsCritical || piece.Discovery;
 
         /// <summary>
         /// True when a view slot that last set up <paramref name="shownId"/> must set up this piece
@@ -456,9 +481,11 @@ namespace AICompanion.Core
             }
         }
 
+        public const string SecretPrefix = "Secret found: ";
+
         public static string SecretText(string what)
         {
-            return "Secret found: " + (what ?? string.Empty).Trim();
+            return SecretPrefix + (what ?? string.Empty).Trim();
         }
 
         /// <summary>The small caption over a crit's name.</summary>
@@ -468,6 +495,10 @@ namespace AICompanion.Core
 
         public static float Life(FeedbackPiece piece)
         {
+            if (piece.Discovery)
+                return DiscoveryLifeSeconds;
+            if (piece.Milestone)
+                return MilestoneLifeSeconds;
             return piece.IsCritical ? CritLifeSeconds : LifeSeconds;
         }
 
@@ -505,11 +536,20 @@ namespace AICompanion.Core
         /// </summary>
         public static float Punch(FeedbackPiece piece, float now)
         {
-            if (!piece.IsCritical)
+            var peak = piece.Kind switch
+            {
+                FeedbackKind.Secret when piece.Discovery => 1.16f,
+                FeedbackKind.Familiarity when piece.Milestone => 1.06f,
+                FeedbackKind.Up when piece.Ribbon => 1.08f,
+                FeedbackKind.CritUp when piece.Ribbon => 1.22f,
+                FeedbackKind.CritDown when piece.Ribbon => 1f,
+                _ => piece.IsCritical ? PunchFrom : 1f,
+            };
+            if (peak == 1f)
                 return 1f;
             var t = Clamp01((now - piece.StartTime) / PunchSeconds);
             var eased = 1f - (1f - t) * (1f - t) * (1f - t);
-            return PunchFrom + (1f - PunchFrom) * eased;
+            return peak + (1f - peak) * eased;
         }
 
         static float Progress(FeedbackPiece piece, float now)
