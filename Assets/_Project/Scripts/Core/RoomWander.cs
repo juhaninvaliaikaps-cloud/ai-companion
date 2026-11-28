@@ -1,4 +1,3 @@
-using UnityEngine;
 using System;
 
 namespace AICompanion.Core
@@ -90,10 +89,10 @@ namespace AICompanion.Core
         /// JUH-239: the room window's frame while it is open, in Unity screen pixels (origin
         /// bottom-left), so the chat box can dock beside it. Zero-sized when closed.
         /// </summary>
-        public static Rect Window { get; set; }
+        public static UnityEngine.Rect Window { get; set; }
 
         /// <summary>JUH-239: the chat box's size in screen pixels while it shows (zero when hidden), so the room leaves room for it.</summary>
-        public static Vector2 ChatSize { get; set; }
+        public static UnityEngine.Vector2 ChatSize { get; set; }
 
         /// <summary>The frame <see cref="ChatSize"/> was last set; a stale size (chat hidden) is ignored.</summary>
         public static int ChatSeenFrame { get; set; } = -100;
@@ -116,7 +115,7 @@ namespace AICompanion.Core
         public static void Reset()
         {
             IsOpen = false;
-            Window = default(Rect);
+            Window = default(UnityEngine.Rect);
             Say(null);
         }
     }
