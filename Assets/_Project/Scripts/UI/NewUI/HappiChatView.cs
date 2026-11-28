@@ -25,7 +25,7 @@ namespace AICompanion.NewUI
     /// the new UI is on.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class HappiChatView : MonoBehaviour, IOverlayKeepAwake
+    public sealed partial class HappiChatView : MonoBehaviour, IOverlayKeepAwake
     {
         RawImage _ribbonHeaderArt;
         RibbonShape _ribbonHeaderArtShape;
@@ -416,6 +416,7 @@ namespace AICompanion.NewUI
                 var overPicture = _avatarShown && !_dragging && !_resizing && _avatarFrame != null && Contains(_avatarFrame.rectTransform);
                 _picturePreview.Tick(overPicture, _avatar != null ? _avatar.texture : null, _avatarFrame != null ? _avatarFrame.rectTransform : null, Time.unscaledTime);
             }
+            SyncMemoryLinkContext();
             RefreshDialogue();
             ApplyGlow(settings);
             RefreshHistory();
@@ -1921,7 +1922,8 @@ namespace AICompanion.NewUI
             if (line.Kind != ChatLineKind.Assistant && line.Kind != ChatLineKind.User)
                 return ChatLineColors.Format(line, HappiUiKit.Literal(line.Text));
             var segments = VnScriptParser.Parse(line.Text, true).Segments;
-            return VnRender.Dialogue(segments, segments.Count, -1, _theme, false);
+            return VnRender.Dialogue(segments, segments.Count, -1, _theme, false,
+                _ribbonLatest != null && line.MemoryLinks != null ? part => FormatMemoryLinks(part, line.MemoryLinks) : null);
         }
 
         void RefreshDialogue()
@@ -2076,6 +2078,7 @@ namespace AICompanion.NewUI
                 {
                     if (rowObject.activeSelf)
                     {
+                        BindMemoryLinks(text, null);
                         text.text = string.Empty;
                         rowObject.SetActive(false);
                         if (ribbon)
@@ -2097,6 +2100,8 @@ namespace AICompanion.NewUI
                     // reply finished, while the live reply was body size. Keep one size.
                     text.fontSize = HistoryFontSize();
                     text.text = HistoryEntry(_transcript.Entry(i), showBadge);
+                    if (ribbon)
+                        BindMemoryLinks(text, _transcript.SourceAt(i));
                     _historyHeights[i] = Mathf.Max(8f, text.GetPreferredValues(text.text, textWidth, 0f).y);
                 }
 

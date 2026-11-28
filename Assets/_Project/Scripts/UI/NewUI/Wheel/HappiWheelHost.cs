@@ -359,6 +359,7 @@ namespace AICompanion.NewUI.Wheel
 
         public void Close()
         {
+            _linkedMemory = null;
             _open = false;
             _back.Clear();
             _currentBuilder = null;
@@ -565,12 +566,21 @@ namespace AICompanion.NewUI.Wheel
             ShowCard("Pick a monitor", note, buttons);
         }
 
-        internal void OpenProfileFromRibbon(ProfilePanel.Tab tab)
+        Func<string> _linkedMemory;
+
+        internal void CloseLinkedMemory(bool onlyMissing)
+        {
+            if (_linkedMemory != null && (!onlyMissing || string.IsNullOrEmpty(_linkedMemory())))
+                Close();
+        }
+
+        internal void OpenProfileFromRibbon(ProfilePanel.Tab tab, Func<string> linkedMemory = null)
         {
             if (!_attached)
                 return;
 
             Close();
+            _linkedMemory = linkedMemory;
             _open = true;
             _leftWas = LeftHeld();
             _rightWas = RightHeld();
@@ -578,7 +588,12 @@ namespace AICompanion.NewUI.Wheel
             _scale = _theme.UiScale(Screen.dpi);
             var visibleArea = OverlayVisibleArea.Get(_window);
             HappiUiKit.FollowCamera(_canvas, PlaneDistance);
-            _profile.Show(BuildProfileData, visibleArea.center, _scale,
+            _profile.Show(linkedMemory == null ? BuildProfileData : () =>
+            {
+                var data = BuildProfileData();
+                data.LinkedMemory = linkedMemory();
+                return data;
+            }, visibleArea.center, _scale,
                 new Vector2(Screen.width, Screen.height), tab, visibleArea);
 
             var typing = GetComponent<ITypingFocus>();

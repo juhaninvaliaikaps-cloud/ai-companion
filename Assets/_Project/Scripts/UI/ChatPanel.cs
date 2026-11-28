@@ -597,6 +597,7 @@ namespace AICompanion.UI
             // JUH-122: local models follow this reminder more than the system prompt, so it also
             // asks for landed="..." while relationship changes are on (otherwise nothing ever lands).
             _exchange.TurnReminder = PisaraSwitches.Relationship ? LandingEvents.TurnReminder : AnimationCueParser.TurnReminder;
+            _exchange.IncludeMemoryLinks = Array.IndexOf(Environment.GetCommandLineArgs(), "--ribbon-ui") >= 0 && !interactionLine;
             // JUH-179: while the 18+ gate is open (the chat is local then), the reminder also asks for heat.
             if (IntimateExpressions.Active)
                 _exchange.TurnReminder = DesireHeats.WithReminder(_exchange.TurnReminder);

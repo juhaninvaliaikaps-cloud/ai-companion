@@ -44,7 +44,8 @@ namespace AICompanion.Memory
         /// their own sub-headings, so she never mistakes the user's dislike for her own. A list
         /// of one kind stays flat.
         /// </summary>
-        public static string Build(IReadOnlyList<MemoryEntry> entries, System.DateTime nowUtc)
+        public static string Build(IReadOnlyList<MemoryEntry> entries, System.DateTime nowUtc,
+            System.Func<MemoryEntry, string> reference = null)
         {
             if (entries == null || entries.Count == 0)
                 return string.Empty;
@@ -66,13 +67,13 @@ namespace AICompanion.Memory
             if (hers > 0 && theirs > 0)
             {
                 builder.Append("\n").Append(AboutUserHeader);
-                AppendEntries(builder, entries, nowUtc, false);
+                AppendEntries(builder, entries, nowUtc, false, reference);
                 builder.Append("\n").Append(OwnLifeHeader);
-                AppendEntries(builder, entries, nowUtc, true);
+                AppendEntries(builder, entries, nowUtc, true, reference);
             }
             else
             {
-                AppendEntries(builder, entries, nowUtc, null);
+                AppendEntries(builder, entries, nowUtc, null, reference);
             }
 
             return builder.Length <= Header.Length ? string.Empty : builder.ToString();
@@ -86,7 +87,8 @@ namespace AICompanion.Memory
             return entry.origin == MemoryOrigins.Seeded || entry.origin == MemoryOrigins.Away || entry.origin == MemoryOrigins.Life;
         }
 
-        static void AppendEntries(StringBuilder builder, IReadOnlyList<MemoryEntry> entries, System.DateTime nowUtc, bool? herOwn)
+        static void AppendEntries(StringBuilder builder, IReadOnlyList<MemoryEntry> entries, System.DateTime nowUtc,
+            bool? herOwn, System.Func<MemoryEntry, string> reference)
         {
             for (var i = 0; i < entries.Count; i++)
             {
@@ -97,6 +99,8 @@ namespace AICompanion.Memory
                     continue;
 
                 builder.Append("\n- ");
+                if (reference != null)
+                    builder.Append(reference(entry));
                 var when = WorldMemory.When(entry, nowUtc);
                 if (when.Length > 0)
                     builder.Append('(').Append(when).Append(") ");
@@ -129,7 +133,8 @@ namespace AICompanion.Memory
         /// <see cref="AlreadyRaisedNote"/> on the entries she already brought up, so she keeps the
         /// topic in mind without turning it into a verbal tic.
         /// </summary>
-        public static string BuildTimeline(IReadOnlyList<TimelineHit> hits, System.DateTime nowUtc)
+        public static string BuildTimeline(IReadOnlyList<TimelineHit> hits, System.DateTime nowUtc,
+            System.Func<TimelineEntry, string> reference = null)
         {
             if (hits == null || hits.Count == 0)
                 return string.Empty;
@@ -142,15 +147,16 @@ namespace AICompanion.Memory
                     raised.Add(hits[i].Entry);
             }
 
-            return BuildTimeline(entries, nowUtc, raised);
+            return BuildTimeline(entries, nowUtc, raised, reference);
         }
 
         public static string BuildTimeline(IReadOnlyList<TimelineEntry> entries, System.DateTime nowUtc)
         {
-            return BuildTimeline(entries, nowUtc, null);
+            return BuildTimeline(entries, nowUtc, null, null);
         }
 
-        static string BuildTimeline(IReadOnlyList<TimelineEntry> entries, System.DateTime nowUtc, HashSet<TimelineEntry> raised)
+        static string BuildTimeline(IReadOnlyList<TimelineEntry> entries, System.DateTime nowUtc,
+            HashSet<TimelineEntry> raised, System.Func<TimelineEntry, string> reference)
         {
             if (entries == null || entries.Count == 0)
                 return string.Empty;
@@ -163,6 +169,8 @@ namespace AICompanion.Memory
                     continue;
 
                 builder.Append("\n- ");
+                if (reference != null)
+                    builder.Append(reference(entry));
                 System.DateTime at;
                 if (System.DateTime.TryParse(entry.happenedAtUtc, out at))
                     builder.Append('(').Append(at.ToLocalTime().ToString("d.M.yyyy")).Append(") ");

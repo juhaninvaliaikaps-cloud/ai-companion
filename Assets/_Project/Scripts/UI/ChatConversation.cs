@@ -72,6 +72,7 @@ namespace AICompanion.UI
         /// 18+ gate is open (<see cref="ChatConversation.Shows"/>), and kept as a local-only line.
         /// </summary>
         public bool Adult { get; internal set; }
+        public IReadOnlyList<ChatMemoryLink> MemoryLinks { get; internal set; }
 
         internal void Append(string piece)
         {
@@ -223,7 +224,7 @@ namespace AICompanion.UI
         /// text is the source of truth, so a tag that slipped into a delta cannot
         /// stay in the transcript or the next request.
         /// </summary>
-        public bool ReplaceStreamingAssistant(int generation, string text)
+        public bool ReplaceStreamingAssistant(int generation, string text, ChatMemoryLink[] memories = null)
         {
             if (generation != Generation)
                 return false;
@@ -233,10 +234,14 @@ namespace AICompanion.UI
                 return false;
 
             var clean = text ?? string.Empty;
-            if (line.Text == clean)
+            if (line.Text == clean && memories == null)
                 return true;
 
             line.SetText(clean);
+            line.MemoryLinks = memories;
+            if (memories != null)
+                foreach (var memory in memories)
+                    line.LocalOnly |= memory.privateEntry;
             Touch();
             return true;
         }
@@ -430,7 +435,8 @@ namespace AICompanion.UI
         }
 
         /// <summary>JUH-174: as above, with a note's tag, change kind and 18+ flag from the history file.</summary>
-        public bool ImportLine(ChatLineKind kind, string text, bool localOnly, ChatLineTag tag, int change, bool adult)
+        public bool ImportLine(ChatLineKind kind, string text, bool localOnly, ChatLineTag tag, int change, bool adult,
+            ChatMemoryLink[] memories = null)
         {
             if (kind != ChatLineKind.User && kind != ChatLineKind.Assistant && kind != ChatLineKind.System)
                 return false;
@@ -442,6 +448,22 @@ namespace AICompanion.UI
                 clean = clean.Substring(0, 4000);
             var line = new ChatLine(kind, clean, false);
             line.LocalOnly = localOnly || adult;
+            if (kind == ChatLineKind.Assistant && memories != null)
+            {
+                var valid = new List<ChatMemoryLink>(2);
+                foreach (var memory in memories)
+                {
+                    if (memory == null || string.IsNullOrEmpty(memory.id) || string.IsNullOrEmpty(memory.store) ||
+                        ChatMemoryLink.UniquePosition(clean, memory.phrase) < 0)
+                        continue;
+                    valid.Add(memory);
+                    line.LocalOnly |= memory.privateEntry;
+                    if (valid.Count == 2)
+                        break;
+                }
+                if (valid.Count > 0)
+                    line.MemoryLinks = valid;
+            }
             if (kind == ChatLineKind.System)
             {
                 // A history file from before JUH-174 has no tags: its scene notes are known by their start.
@@ -588,6 +610,8 @@ namespace AICompanion.UI
         /// display or memory. Empty sends the message as typed.
         /// </summary>
         public string TurnReminder;
+        public bool IncludeMemoryLinks;
+        ChatMemorySources _memorySources;
 
         CueStreamFilter _filter;
         int _generation;
@@ -622,6 +646,13 @@ namespace AICompanion.UI
             AddTurnReminder(request, TurnReminder);
             var generation = _conversation.Generation;
             _generation = generation;
+            _memorySources = null;
+            if (IncludeMemoryLinks && (options == null || !options.Ephemeral && !options.SingleTurn))
+                request.MemorySources = sources =>
+                {
+                    if (_conversation.Generation == generation)
+                        _memorySources = sources;
+                };
             _filter = new CueStreamFilter();
             _sawPiece = false;
             LastCue = AnimationCueParser.NeutralCue;
@@ -734,7 +765,8 @@ namespace AICompanion.UI
                     LastCueTag = _filter.RawTag;
                     LastCueStatus = _filter.Status;
                     CueSerial++;
-                    _conversation.ReplaceStreamingAssistant(_generation, _filter.Text);
+                    var links = _memorySources?.Verify(_filter.Text, LastCue.Memory, LastCue.Memory2);
+                    _conversation.ReplaceStreamingAssistant(_generation, _filter.Text, links);
                     result = ChatResult.Success(_filter.Text);
                 }
             }

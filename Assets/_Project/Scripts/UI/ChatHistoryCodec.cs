@@ -2,15 +2,23 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using AICompanion.AI;
+using AICompanion.Core;
+using UnityEngine;
 
 namespace AICompanion.UI
 {
     /// <summary>
-    /// Transcript file. It stores roles and text only. Secret fields are ignored.
+    /// Transcript file. Memory links store only local references and their displayed phrases.
     /// </summary>
     public static class ChatHistoryCodec
     {
         public const int MaxLines = 1000;
+
+        [Serializable]
+        sealed class MemoryLinksFile
+        {
+            public ChatMemoryLink[] links;
+        }
 
         public static string Write(IReadOnlyList<ChatLine> lines)
         {
@@ -52,6 +60,14 @@ namespace AICompanion.UI
                         sb.Append(",\"tag\":\"change\",\"change\":").Append(line.Change.ToString(System.Globalization.CultureInfo.InvariantCulture));
                     if (line.Adult)
                         sb.Append(",\"adult\":true");
+                    if (line.MemoryLinks != null && line.MemoryLinks.Count > 0)
+                    {
+                        var links = new ChatMemoryLink[line.MemoryLinks.Count];
+                        for (var j = 0; j < links.Length; j++)
+                            links[j] = line.MemoryLinks[j];
+                        sb.Append(",\"memoryLinks\":");
+                        JsonText.AppendString(sb, JsonUtility.ToJson(new MemoryLinksFile { links = links }));
+                    }
                     sb.Append('}');
                     written++;
                 }
@@ -96,10 +112,20 @@ namespace AICompanion.UI
                     change = ReadInt(json, "\"change\":", textAt, end);
                 }
 
-                if (conversation.ImportLine(ParseRole(role), text, localOnly, tag, change, adult))
+                if (conversation.ImportLine(ParseRole(role), text, localOnly, tag, change, adult, ReadLinks(json, textAt, end)))
                     count++;
                 i = textAt + 6;
             }
+        }
+
+        static ChatMemoryLink[] ReadLinks(string json, int start, int end)
+        {
+            var marker = json.IndexOf("\"memoryLinks\"", start, end - start, StringComparison.Ordinal);
+            if (marker < 0 || !JsonText.TryReadStringField(json.Substring(marker, end - marker), "memoryLinks", out var data)
+                || string.IsNullOrEmpty(data) || data.Length > 1024)
+                return null;
+            try { return JsonUtility.FromJson<MemoryLinksFile>(data)?.links; }
+            catch (ArgumentException) { return null; }
         }
 
         /// <summary>The whole number after <paramref name="key"/> between <paramref name="from"/> and <paramref name="end"/>, or 0.</summary>
