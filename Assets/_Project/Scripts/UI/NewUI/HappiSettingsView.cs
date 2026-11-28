@@ -1345,8 +1345,8 @@ namespace AICompanion.NewUI
 
         /// <summary>
         /// JUH-230: the installed tags from the configured Ollama server, with the typed tag as
-        /// a fallback when discovery is unavailable. The list is fetched once per settings visit;
-        /// Refresh asks again after the user installs another model.
+        /// a fallback when discovery is unavailable. The list is fetched once per app session;
+        /// Refresh asks again after the user installs another model or changes the address.
         /// </summary>
         void OllamaModelChoice(string caption, string value, Action<string> changed)
         {
@@ -1386,7 +1386,12 @@ namespace AICompanion.NewUI
         {
             Section("Shared Ollama configuration");
             OllamaModelChoice("Local model", S.LocalModel, v => Change(s => s.LocalModel = v));
-            Field("Local address", S.LocalBaseUrl, false, v => Change(s => s.LocalBaseUrl = v));
+            Field("Local address", S.LocalBaseUrl, false, v =>
+            {
+                Change(s => s.LocalBaseUrl = v);
+                _settings.InvalidateOllamaModels();
+                _rebuild = true;
+            });
             Note("The default address runs Ollama on this PC. If you enter another address, Happi sends requests to that server.");
             Button(_settings.ConnectionTestRunning ? "Testing…" : "Test Ollama connection", () => { _settings.TestConfiguredConnection(true); _rebuild = true; });
         }

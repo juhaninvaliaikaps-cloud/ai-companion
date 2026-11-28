@@ -41,7 +41,7 @@ namespace AICompanion.Settings
             }
         }
 
-        /// <summary>Fetches once per page visit; a user Refresh can always retry.</summary>
+        /// <summary>Fetches once per app session; Refresh always retries.</summary>
         public void EnsureOllamaModelsLoaded()
         {
             if (_ollamaModelsLoaded || _ollamaModelsLoading || _ollamaModelsError.Length > 0)
@@ -83,7 +83,7 @@ namespace AICompanion.Settings
                 if (request.result != UnityWebRequest.Result.Success)
                 {
                     _ollamaModels.Clear();
-                    _ollamaModelsError = "Could not read installed models from " + url + " (" + request.error + ").";
+                    _ollamaModelsError = "Could not read installed models from " + url + " (" + request.error + "). Press Refresh installed models to try again.";
                 }
                 else
                 {
