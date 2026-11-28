@@ -13,15 +13,27 @@ namespace AICompanion.Core
     {
         public const string ProjectFolder = "ProjectLeia";
         public const string FolderName = "reaction-voices";
+        public const string AdultFolderName = "reaction-voices-adult-18plus";
         public const string ManifestFileName = "manifest.json";
+        public const string AdultManifestFileName = "manifest-adult.json";
 
         public static string Expected(string applicationData, string persistentDataPath)
         {
+            return Expected(applicationData, persistentDataPath, FolderName);
+        }
+
+        public static string AdultExpected(string applicationData, string persistentDataPath)
+        {
+            return Expected(applicationData, persistentDataPath, AdultFolderName);
+        }
+
+        static string Expected(string applicationData, string persistentDataPath, string folderName)
+        {
             if (!string.IsNullOrEmpty(applicationData))
-                return Path.Combine(applicationData, ProjectFolder, FolderName);
+                return Path.Combine(applicationData, ProjectFolder, folderName);
             if (string.IsNullOrEmpty(persistentDataPath))
                 return null;
-            return Path.Combine(persistentDataPath, ProjectFolder, FolderName);
+            return Path.Combine(persistentDataPath, ProjectFolder, folderName);
         }
 
         /// <summary>The pack folder that exists, or null. The roaming folder wins over the save folder.</summary>
@@ -125,12 +137,17 @@ namespace AICompanion.Core
         /// </summary>
         public static ReactionVoiceCatalog Load(string folder, out List<string> warnings)
         {
+            return Load(folder, ReactionVoicePaths.ManifestFileName, out warnings);
+        }
+
+        public static ReactionVoiceCatalog Load(string folder, string manifestName, out List<string> warnings)
+        {
             warnings = new List<string>();
             if (string.IsNullOrEmpty(folder))
                 return Empty;
 
-            var manifest = ReactionVoicePaths.Manifest(folder);
-            if (string.IsNullOrEmpty(manifest) || !File.Exists(manifest))
+            var manifest = Path.Combine(folder, string.IsNullOrEmpty(manifestName) ? ReactionVoicePaths.ManifestFileName : manifestName);
+            if (!File.Exists(manifest))
             {
                 warnings.Add("Reaction voice: manifest.json is missing. Reactions stay quiet.");
                 return Empty;
