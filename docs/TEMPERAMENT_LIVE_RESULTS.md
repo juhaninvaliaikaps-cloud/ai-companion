@@ -128,8 +128,8 @@ The latest measurement for each slider: After 2 for the three above, and the bas
 | Slider | Cloud, no cached voice | Cloud, cached voice | Local, no cached voice | Local, cached voice |
 | --- | --- | --- | --- | --- |
 | Curiosity | noticeable | noticeable | noticeable | noticeable |
-| Assertiveness | noticeable | weak | weak | noticeable |
-| Directness | noticeable | **not noticeable** | noticeable | **not noticeable** |
+| Assertiveness (baseline, unchanged) | noticeable | weak | weak | noticeable |
+| Directness (baseline, unchanged) | noticeable | **not noticeable** | noticeable | **not noticeable** |
 | Openness | noticeable | noticeable | noticeable | noticeable |
 | Playfulness | noticeable | noticeable | noticeable | noticeable |
 
@@ -137,3 +137,5 @@ Still open:
 
 - **Directness with a cached voice**, on both models. Low Directness still leads with her take (cloud 83%, local 50%).
 - **Assertiveness**, weak on two cells. JUH-224 already tried stronger wording for both without a consistent gain, so these need their own pass rather than more wording.
+
+Both are a follow-up issue ("Temperament: Directness with a cached voice, and Assertiveness"), not this PR.

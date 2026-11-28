@@ -138,7 +138,9 @@ namespace AICompanion.Core
         /// <summary>
         /// The turn reminder with the rule after it, on the local route only (any provider that is not
         /// the Cloud AI API: the local model, or a private custom endpoint). Avatar interactions keep
-        /// their reminder as it is.
+        /// their reminder as it is. Any provider that isn't the Cloud AI API gets the rule, which
+        /// includes a custom endpoint that is itself a cloud service; that's harmless, since the rule
+        /// only adds restraint.
         /// </summary>
         public static string Reminder(string reminder, string rule, bool localRoute, bool interaction)
         {
