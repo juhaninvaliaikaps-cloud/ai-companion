@@ -50,6 +50,21 @@ namespace AICompanion.Tests.EditMode
             StringAssert.Contains("\"role\":\"system\"", transport.Last.Body);
             StringAssert.Contains("\"content\":\"persona\"", transport.Last.Body);
             StringAssert.Contains("\"role\":\"user\"", transport.Last.Body);
+            StringAssert.Contains("\"think\":false", transport.Last.Body, "JUH-238: the request the provider sends");
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Build_TurnsThinkingOff_AtTheTopLevel(bool roleplay)
+        {
+            // JUH-238: a thinking model otherwise spends the whole reply budget thinking.
+            var json = OllamaChatJson.Build("demo", 0.7f, 512, "persona",
+                new List<ChatMessage> { new ChatMessage(ChatRole.User, "hi") }, 8192, roleplay);
+            StringAssert.Contains("\"stream\":true,\"think\":false,\"messages\":[", json);
+            var options = json.IndexOf("\"options\":{", StringComparison.Ordinal);
+            Assert.Greater(options, 0);
+            StringAssert.DoesNotContain("think", json.Substring(options), "not inside options, where Ollama ignores it");
+            Assert.AreEqual(1, json.Split(new[] { "\"think\"" }, StringSplitOptions.None).Length - 1, "sent once");
         }
 
         [Test]
