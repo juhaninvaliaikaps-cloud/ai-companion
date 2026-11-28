@@ -2092,8 +2092,12 @@ namespace AICompanion.NewUI
             Section("Readouts");
             Toggle("Show debug info", S.ShowDebugInfo, v => Change(s => s.ShowDebugInfo = v));
             Note("Top-left: topmost, frame rate, emotion, key hints, rotate, size and zoom. The hotkeys work either way.");
-            Toggle("Show mood readout", S.ShowMoodDebug, v => Change(s => s.ShowMoodDebug = v));
-            Note("Her current mood and the three strongest moods, top left. Mood changes are also in Player.log.");
+            if (!RibbonMenu.Enabled)
+            {
+                Toggle("Show mood readout", S.ShowMoodDebug, v => Change(s => s.ShowMoodDebug = v));
+                Note("Her current mood and the three strongest moods, top left.");
+            }
+            Note("Mood changes are logged in Player.log.");
             Section("Generation");
             Field("Timeout seconds", S.TimeoutSeconds.ToString("0.###", CultureInfo.InvariantCulture), false, v =>
             {
