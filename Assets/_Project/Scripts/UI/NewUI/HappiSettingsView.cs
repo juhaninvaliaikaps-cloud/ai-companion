@@ -1341,7 +1341,13 @@ namespace AICompanion.NewUI
             Choice(ChatDefaults.CloudName, Same(persona.ProviderId, ChatDefaults.GrokId), () => Save(id, p => p.ProviderId = ChatDefaults.GrokId));
             Choice("Local Ollama", Same(persona.ProviderId, ChatDefaults.LocalId), () => Save(id, p => p.ProviderId = ChatDefaults.LocalId));
             Choice("Use global provider", string.IsNullOrEmpty(persona.ProviderId), () => Save(id, p => p.ProviderId = string.Empty));
-            Field("Model override (blank uses the global model)", persona.Model, false, v => Save(id, p => p.Model = v));
+            // JUH-243: on the local route the override is a choice of the installed models.
+            var local = Same(persona.ProviderId, ChatDefaults.LocalId)
+                || (string.IsNullOrEmpty(persona.ProviderId) && S.ProviderId == ChatDefaults.LocalId);
+            if (local)
+                OllamaModelChoice("Model override", persona.Model, v => Save(id, p => p.Model = v), true, S.LocalModel);
+            else
+                Field("Model override (blank uses the global model)", persona.Model, false, v => Save(id, p => p.Model = v));
         }
 
         /// <summary>
@@ -1349,28 +1355,23 @@ namespace AICompanion.NewUI
         /// a fallback when discovery is unavailable. The list is fetched once per app session;
         /// Refresh asks again after the user installs another model or changes the address.
         /// </summary>
-        void OllamaModelChoice(string caption, string value, Action<string> changed)
+        void OllamaModelChoice(string caption, string value, Action<string> changed, bool withGlobal = false, string globalModel = null)
         {
             _settings.EnsureOllamaModelsLoaded();
-            var options = new List<string>();
-            if (!string.IsNullOrWhiteSpace(value))
-                options.Add(value.Trim());
             var installed = _settings.OllamaModels;
-            for (var i = 0; i < installed.Count; i++)
+            var loaded = installed.Count > 0;
+            // JUH-243: "name" and "name:latest" are one model; the current choice keeps its place
+            // (marked when Ollama doesn't list it); a persona can go back to the global model.
+            var options = OllamaModelCatalog.Options(value, installed, withGlobal);
+            if (options.Count > (withGlobal ? 1 : 0))
             {
-                var model = installed[i];
-                if (!string.IsNullOrWhiteSpace(model) && !options.Contains(model))
-                    options.Add(model);
-            }
-
-            if (options.Count > 0)
-            {
-                Dropdown(caption, value, options, v => v, changed);
+                Dropdown(caption, OllamaModelCatalog.Selected(value, options), options,
+                    o => OllamaModelCatalog.Label(o, installed, loaded, globalModel), changed);
                 Field("Or type a model tag", value, false, changed);
             }
             else
             {
-                Field(caption, value, false, changed);
+                Field(caption + (withGlobal ? " (blank uses the global model)" : string.Empty), value, false, changed);
             }
 
             Button(_settings.OllamaModelsLoading ? "Refreshing models..." : "Refresh installed models", () =>
@@ -1383,10 +1384,25 @@ namespace AICompanion.NewUI
                 Note(status);
         }
 
+        /// <summary>JUH-243: which local model Happi uses now, and the persona that overrides the global one.</summary>
+        void LocalModelInUse()
+        {
+            var effective = _settings.EffectiveSettings;
+            if (effective == null)
+                return;
+            PersonaEntry current;
+            var name = ActivePersona(_settings.PersonaCatalogNow(), out current) ? current.Persona.DisplayName : string.Empty;
+            var line = OllamaModelCatalog.InUse(S.LocalModel, effective.LocalModel, name,
+                string.Equals(effective.ProviderId, ChatDefaults.LocalId, StringComparison.OrdinalIgnoreCase));
+            if (line.Length > 0)
+                Note(line);
+        }
+
         void BuildLocalOllama()
         {
             Section("Shared Ollama configuration");
             OllamaModelChoice("Local model", S.LocalModel, v => Change(s => s.LocalModel = v));
+            LocalModelInUse();
             Field("Local address", S.LocalBaseUrl, false, v =>
             {
                 Change(s => s.LocalBaseUrl = v);
