@@ -137,4 +137,46 @@ namespace AICompanion.Core
             return RoomActivity.None;
         }
     }
+
+    /// <summary>
+    /// JUH-237: the player using a spot (he can sit on the rug, the pouf and the desk chair). He
+    /// plans it by clicking the furniture, walks there and uses it; any other move ends it.
+    /// </summary>
+    public sealed class RoomPlayerUse
+    {
+        public RoomActivity Planned { get; private set; }
+        public RoomActivity Doing { get; private set; }
+
+        public void Plan(RoomActivity activity)
+        {
+            Planned = activity;
+            Doing = RoomActivity.None;
+        }
+
+        public void Cancel()
+        {
+            Planned = RoomActivity.None;
+            Doing = RoomActivity.None;
+        }
+
+        /// <summary>
+        /// Called every frame. True once, when he arrives at the planned spot and starts using it;
+        /// the slot says where to face. A walk that ends elsewhere drops the plan.
+        /// </summary>
+        public bool Arrive(RoomSlots slots, RoomTile tile, bool walking, out RoomSlot slot)
+        {
+            slot = default(RoomSlot);
+            if (Planned == RoomActivity.None || walking)
+                return false;
+            if (slots != null && slots.TryGet(Planned, out slot) && tile == slot.Stand)
+            {
+                Doing = Planned;
+                Planned = RoomActivity.None;
+                return true;
+            }
+
+            Planned = RoomActivity.None;
+            return false;
+        }
+    }
 }

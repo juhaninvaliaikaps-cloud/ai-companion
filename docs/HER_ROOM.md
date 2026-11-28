@@ -5,7 +5,7 @@ Her Room is a small 2D top-down room that she and the player share. It is reache
 **Status:**
 - **Phase 1a, the room logic (JUH-226):** built.
 - **Phase 1b, the room window (JUH-228):** built, using Codex's draft art as stand-ins. Launch with `--ribbon-ui` and click the door glyph beside the Ribbon menu.
-- **Phase 2a, activities, slots and her hobby, the logic (JUH-231):** built. Phase 2b, drawing them, waits for the Windows check of the v1 art.
+- **Phase 2a, activities, slots and her hobby, the logic (JUH-231):** built. **Phase 2b, drawing them (JUH-237):** built. The pose points still need lining up by eye.
 
 ## v1 in short
 
@@ -28,7 +28,7 @@ Her Room is a small 2D top-down room that she and the player share. It is reache
 | `RoomClock` | From the local time: a tint that blends smoothly between night, morning (from 05:30), day (09:00–17:00), dusk (to 21:00) and night. Also the sky colour, the lamp (on 18:30–07:00, with half-hour fades) and bedtime (22:30–06:30). |
 | `RoomWindowSize` | Keeps the square window between 480 px and the work-area height, and converts a click in the window to a point on the room picture. |
 
-Tests: `RoomLogicTests`, `RoomWanderTests`, `WallpaperCropTests`, `RoomArtTests` and `RoomActivityTests`.
+Tests: `RoomLogicTests`, `RoomWanderTests`, `WallpaperCropTests`, `RoomArtTests`, `RoomActivityTests` and `RoomViewLogicTests`.
 
 ## The room window (phase 1b, NewUI assembly)
 
@@ -132,3 +132,27 @@ The player can sit on the rug, the pouf and the desk chair (he has a sit pose). 
 - With the player beside her she stays.
 - **Night:** she goes to bed and sleeps until the night ends.
 - **Requests:** the player can ask for an activity. That's refused at night, for sleep, and for a spot he is standing on.
+
+## Activities in the room window (phase 2b, JUH-237)
+
+**Her routine**
+- `HerRoomView` now ticks `RoomRoutine`, not `RoomWander`. On arriving at a spot she turns to it.
+- While she does an activity, the two-frame pose (`happi_<pose>_0/1`, 2 fps) is drawn at the slot's pose point, in front of the piece it uses (`RoomDepth.Pose`).
+- An activity without a pose (the hobbies other than piano and squat rack) shows her standing and facing it.
+- **The wardrobe:** `room_wardrobe_open` replaces the wardrobe while she uses it, on the same spot (`RoomCatalog.VariantAt`).
+
+**Her hobby piece**
+- `RoomCatalog.RoomFor(hobby)` puts her hobby piece on the piano's spot, and keeps the bench only with the piano.
+- The hobby comes from the active persona's Pisara reading through `PisaraReadingKeeper` (`Sheet`, and `Prompt` for the guess).
+- When she has another hobby, the next Open builds the room again.
+
+**Clicks** (`RoomCatalog.PieceAt`: the frontmost floor or surface piece under the pointer; the rug and wall pieces count as floor; the window's glass means looking out)
+
+| Click | On furniture | On the floor |
+|---|---|---|
+| Left | The player walks to its spot (`RoomPlayerUse`). On the rug, the pouf or the desk chair he sits (`player_sit`); elsewhere he faces it. | He walks there. |
+| Right | She is asked to use it (`RoomRoutine.Request`). That's refused at night and while he is on its spot. | Nothing. |
+
+Clicking the floor or an arrow key ends his use. The bed is left out for him until phase 3.
+
+**Needs a look on Windows:** where each pose sits on its furniture. The first values are the catalogue anchors in `RoomSlots.V1`.

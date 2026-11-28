@@ -120,6 +120,15 @@ namespace AICompanion.Core
         /// <summary>Standing still facing away or sideways: the walk frame with the legs together.</summary>
         public const int StandFrame = 1;
 
+        /// <summary>Activity poses have two frames; they breathe slowly rather than at the walk's 8 fps.</summary>
+        public const float PoseFps = 2f;
+
+        public static int Pose(float time)
+        {
+            var frame = (int)Mathf.Floor(time * PoseFps) % 2;
+            return frame < 0 ? frame + 2 : frame;
+        }
+
         public static int Walk(float time)
         {
             var frame = (int)Mathf.Floor(time * Fps) % 4;
@@ -139,6 +148,15 @@ namespace AICompanion.Core
     /// <summary>JUH-229: the drawing order of the furniture and the two characters.</summary>
     public static class RoomDepth
     {
+        /// <summary>
+        /// JUH-237: the depth of a character in a pose on a piece of furniture: in front of the
+        /// piece she uses (on the bed, on the pouf), and never behind her own pose point.
+        /// </summary>
+        public static float Pose(float poseY, float pieceDepth)
+        {
+            return Mathf.Max(poseY, pieceDepth + 0.001f);
+        }
+
         /// <summary>
         /// Fills <paramref name="order"/> back to front. Furniture are 0..n-1 (their depths sorted
         /// ascending), her is n and the player n+1. A character goes in front of every piece whose
