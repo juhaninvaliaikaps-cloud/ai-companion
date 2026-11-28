@@ -28,7 +28,7 @@ Her Room is a small 2D top-down room that she and the player share. It is reache
 | `RoomClock` | From the local time: a tint that blends smoothly between night, morning (from 05:30), day (09:00–17:00), dusk (to 21:00) and night. Also the sky colour, the lamp (on 18:30–07:00, with half-hour fades) and bedtime (22:30–06:30). |
 | `RoomWindowSize` | Keeps the square window between 480 px and the work-area height, and converts a click in the window to a point on the room picture. |
 
-Tests: `RoomLogicTests`, `RoomWanderTests`, `WallpaperCropTests`, `RoomArtTests`, `RoomActivityTests` and `RoomViewLogicTests`.
+Tests: `RoomLogicTests`, `RoomWanderTests`, `WallpaperCropTests`, `RoomArtTests`, `RoomActivityTests`, `RoomViewLogicTests` and `RoomChatDockTests`.
 
 ## The room window (phase 1b, NewUI assembly)
 
@@ -156,3 +156,19 @@ The player can sit on the rug, the pouf and the desk chair (he has a sit pose). 
 Clicking the floor or an arrow key ends his use. The bed is left out for him until phase 3.
 
 **Needs a look on Windows:** where each pose sits on its furniture. The first values are the catalogue anchors in `RoomSlots.V1`.
+
+## Talking in the room (JUH-239)
+
+**Docking**
+- While the room is open, `HappiChatView` docks the chat box beside the room window (`RoomChatDock.Center`): bottoms level, on the right if there's space, otherwise on the left, otherwise under the room, otherwise over its lower edge.
+- The room makes space for it (`HerRoomView.Layout`):
+  - When the chat box shows (`HerRoomNow.ChatSize`), the room and the box are centred together, the room on the left.
+  - If the overlay is too narrow, the room shrinks down to `RoomWindowSize.Min` (`RoomChatDock.FitBeside`); below that they overlap.
+- A drag while the room is open doesn't save a new desktop spot. When the room closes, the box goes back to its saved spot beside her.
+- `HerRoomNow.Window` carries the room frame in screen pixels (bottom-left origin) while it is open.
+
+**Her speech bubble**
+- The chat view publishes the line she is saying (`HerRoomNow.Say`). That's only spoken lines (no narration or thoughts), and nothing while the 18+ gate is open: 18+ stays out of the room.
+- The room draws it in a Ribbon-style bubble over her head, kept inside the room and following her as she moves.
+- Lines over 140 characters are cut at a word (`RoomChatDock.BubbleText`).
+- The text and size are set only when the line changes.

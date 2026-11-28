@@ -1,3 +1,4 @@
+using UnityEngine;
 using System;
 
 namespace AICompanion.Core
@@ -84,5 +85,39 @@ namespace AICompanion.Core
     public static class HerRoomNow
     {
         public static bool IsOpen { get; set; }
+
+        /// <summary>
+        /// JUH-239: the room window's frame while it is open, in Unity screen pixels (origin
+        /// bottom-left), so the chat box can dock beside it. Zero-sized when closed.
+        /// </summary>
+        public static Rect Window { get; set; }
+
+        /// <summary>JUH-239: the chat box's size in screen pixels while it shows (zero when hidden), so the room leaves room for it.</summary>
+        public static Vector2 ChatSize { get; set; }
+
+        /// <summary>The frame <see cref="ChatSize"/> was last set; a stale size (chat hidden) is ignored.</summary>
+        public static int ChatSeenFrame { get; set; } = -100;
+
+        /// <summary>JUH-239: the line she is saying now, for her speech bubble in the room; empty when she is quiet.</summary>
+        public static string Line { get; private set; } = string.Empty;
+
+        /// <summary>Goes up whenever <see cref="Line"/> changes, so the bubble sets its text only then.</summary>
+        public static int LineRevision { get; private set; }
+
+        public static void Say(string line)
+        {
+            line = line ?? string.Empty;
+            if (string.Equals(line, Line, System.StringComparison.Ordinal))
+                return;
+            Line = line;
+            LineRevision++;
+        }
+
+        public static void Reset()
+        {
+            IsOpen = false;
+            Window = default(Rect);
+            Say(null);
+        }
     }
 }

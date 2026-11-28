@@ -44,6 +44,14 @@ namespace AICompanion.NewUI
 
         static readonly Color NightShade = new Color(0.03f, 0.04f, 0.12f, 1f);
 
+        /// <summary>JUH-239: the gap between the room window and the docked chat box, and the bubble's limits.</summary>
+        const float ChatGap = 10f;
+        const int BubbleChars = 140;
+        const float BubbleWidth = 0.46f;
+        const float BubblePad = 7f;
+        /// <summary>Her head is about this far above her feet, as a fraction of the 256 px frame (the figures are about 128 px tall).</summary>
+        const float HeadAbove = 0.56f;
+
         /// <summary>The feet line of a character frame, from the bottom (frames have feet at y = 240 of 256).</summary>
         const float FeetPivot = 16f / 256f;
 
@@ -64,6 +72,10 @@ namespace AICompanion.NewUI
         RawImage _shadePool;
         Image _shadePlain;
         RawImage _glow;
+        RectTransform _bubble;
+        TextMeshProUGUI _bubbleText;
+        int _bubbleRevision = -1;
+        Vector2 _bubbleSize;
         readonly List<Graphic> _tinted = new List<Graphic>();
         RectTransform[] _drawn;
         float[] _depths;
@@ -248,6 +260,18 @@ namespace AICompanion.NewUI
             var shade = RoomLighting.LampShade;
             Anchor(_glow.rectTransform, shade.x - GlowSize * 0.5f, shade.y - GlowSize * 0.5f, shade.x + GlowSize * 0.5f, shade.y + GlowSize * 0.5f);
             _glow.gameObject.SetActive(_glow.texture != null);
+
+            // JUH-239: her speech bubble, over everything in the room (not shaded at night).
+            var bubble = HappiUiKit.Panel(_content, "Her speech bubble", RibbonMenu.Ink, false);
+            RibbonShape.Apply(bubble, false);
+            _bubble = bubble.rectTransform;
+            _bubble.pivot = new Vector2(0.5f, 0f);
+            _bubbleText = HappiUiKit.Text(_bubble, "Line", string.Empty, HappiTheme.Current.FontBody,
+                HappiTheme.Current.Text, TextAlignmentOptions.Center, false);
+            HappiUiKit.Stretch(_bubbleText.rectTransform, BubblePad, BubblePad, BubblePad, BubblePad);
+            _bubbleText.textWrappingMode = TextWrappingModes.Normal;
+            _bubbleRevision = -1;
+            _bubble.gameObject.SetActive(false);
 
             var corner = HappiUiKit.Panel(_frame, "Resize", RibbonMenu.Cyan, true).rectTransform;
             corner.anchorMin = corner.anchorMax = new Vector2(1f, 0f);
@@ -443,7 +467,7 @@ namespace AICompanion.NewUI
             {
                 _canvas.gameObject.SetActive(false);
                 ReleaseWallpaper();
-                HerRoomNow.IsOpen = false;
+                HerRoomNow.Reset();
                 return;
             }
 
@@ -526,14 +550,25 @@ namespace AICompanion.NewUI
             var title = TitleHeight * _scale;
             var room = Mathf.Min(area.width - 2f * pad, area.height - title - 2f * pad);
             var side = RoomWindowSize.Clamp(_wantedSide * _scale, room);
+
+            // JUH-239: leave space beside the room for the chat box when it shows (shrinking the
+            // room down to its minimum if needed); otherwise the chat box sits over its lower edge.
+            var chat = HerRoomNow.ChatSeenFrame >= Time.frameCount - 2 ? HerRoomNow.ChatSize : Vector2.zero;
+            var gap = ChatGap * _scale;
+            float besideSide;
+            var beside = RoomChatDock.FitBeside(area.width, side, pad, chat.x, gap, RoomWindowSize.Min * _scale, out besideSide);
+            if (beside)
+                side = besideSide;
             var width = side + 2f * pad;
             var height = side + title + 2f * pad;
-            _frameRect = new Rect(area.center.x - width * 0.5f, area.center.y - height * 0.5f, width, height);
+            _frameRect = new Rect(RoomChatDock.FrameLeft(area, width, chat.x, gap, beside), area.center.y - height * 0.5f, width, height);
 
             // The door stands at the room's front wall, where the shell's doorway is.
             var doorWidth = side * 0.16f;
             var doorHeight = side * 0.32f;
-            _doorRect = new Rect(area.center.x - doorWidth * 0.5f, _frameRect.yMax - pad - doorHeight, doorWidth, doorHeight);
+            _doorRect = new Rect(_frameRect.center.x - doorWidth * 0.5f, _frameRect.yMax - pad - doorHeight, doorWidth, doorHeight);
+            HerRoomNow.Window = _door.IsClosed ? default(Rect)
+                : new Rect(_frameRect.x, Screen.height - _frameRect.yMax, _frameRect.width, _frameRect.height);
         }
 
         /// <summary>The door swings open on its hinge, then the room grows out of the doorway.</summary>
@@ -610,6 +645,39 @@ namespace AICompanion.NewUI
                 if (item.GetSiblingIndex() != k)
                     item.SetSiblingIndex(k);
             }
+
+            PlaceBubble(side);
+        }
+
+        /// <summary>JUH-239: her current line over her head while the room is open; the text is set only when it changes.</summary>
+        void PlaceBubble(float side)
+        {
+            if (_bubble == null)
+                return;
+            var show = _door.IsOpen && HerRoomNow.Line.Length > 0;
+            if (_bubble.gameObject.activeSelf != show)
+                _bubble.gameObject.SetActive(show);
+            if (!show)
+                return;
+
+            var pad = BubblePad * _scale;
+            if (_bubbleRevision != HerRoomNow.LineRevision)
+            {
+                _bubbleRevision = HerRoomNow.LineRevision;
+                _bubbleText.fontSize = HappiTheme.Current.FontBody * _scale;
+                _bubbleText.text = RoomChatDock.BubbleText(HerRoomNow.Line, BubbleChars);
+                var maxWidth = side * BubbleWidth;
+                var preferred = _bubbleText.GetPreferredValues(_bubbleText.text, maxWidth - 2f * pad, 0f);
+                _bubbleSize = new Vector2(Mathf.Min(maxWidth, preferred.x + 2f * pad), preferred.y + 2f * pad);
+            }
+
+            // Over her head, kept inside the room.
+            var her = _her.rectTransform;
+            var x = Mathf.Clamp(her.anchorMin.x * side, _bubbleSize.x * 0.5f, side - _bubbleSize.x * 0.5f);
+            var y = Mathf.Min(her.anchorMin.y * side + side * FigureFrame * HeadAbove, side - _bubbleSize.y);
+            _bubble.anchorMin = _bubble.anchorMax = Vector2.zero;
+            _bubble.anchoredPosition = new Vector2(x, y);
+            _bubble.sizeDelta = _bubbleSize;
         }
 
         /// <summary>Places a character and returns its drawing depth.</summary>
@@ -801,12 +869,12 @@ namespace AICompanion.NewUI
 
         void OnDisable()
         {
-            HerRoomNow.IsOpen = false;
+            HerRoomNow.Reset();
         }
 
         void OnDestroy()
         {
-            HerRoomNow.IsOpen = false;
+            HerRoomNow.Reset();
             ReleaseWallpaper();
             if (_poolMask != null)
                 Destroy(_poolMask);
