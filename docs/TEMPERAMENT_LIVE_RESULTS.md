@@ -89,3 +89,51 @@ Measured again, with the same settings. Raw data: `tools/temperament-live/result
 
 - The high end works everywhere now.
 - The low end is the gap that's left. With a cached voice, low Playfulness still joked in 5 of 6 cloud replies. On the local model, low Openness still shared in 4 of 6 and low Playfulness still joked in 4 of 6, on both voice paths.
+
+## After 2: stronger low ends, and a per-turn rule on the local route
+
+Two changes, for the low ends that the first round left weak.
+
+1. **Stronger low lines, both routes.**
+
+   | Slider | Line |
+   | --- | --- |
+   | Playfulness, low | Keep a plain, sincere tone. Do not tease the user, joke or use wordplay, **even about a small mishap or a funny situation**; respond to what they said straightforwardly. |
+   | Curiosity, step 3 or below | Let the user lead. **Respond to what they said and end there, without a question. Ask one only if you cannot answer without it.** (It was: "Respond directly and usually leave it there. Ask a clarifying question if you need one to answer.") |
+
+2. **`PersonaTurnRule`, local route only.** Code decides the low ends for the turn and gives the model one plain instruction. `ChatPanel` adds it to the turn reminder, which `ChatConversation.AddTurnReminder` puts after the user's last message, where local models listen most.
+   - **When it applies:** the provider is anything but the Cloud AI API (the local model, or a private custom endpoint), and the turn isn't an avatar interaction.
+   - **What it says:** one instruction joining whichever apply, for example `(For this reply: say nothing about your own feelings, memories or life; no jokes or teasing; do not end with a question.)`.
+     - Openness stored 30 or less: say nothing about your own feelings, memories or life.
+     - Playfulness stored 30 or less: no jokes or teasing.
+     - Curiosity at step 3 or below: do not end with a question.
+   - **What it leaves alone:** the middle and the high ends add nothing, because the high ends already worked from the system prompt. The cloud model gets no turn rule; it keeps its own judgment.
+
+The runner adds the same rule to the local model's user message (and only there). It doesn't add the app's cue-tag reminder or the animation catalog; those are the same for every condition, and were left out of the baseline too.
+
+Measured again for the three sliders this touches. Raw data: `tools/temperament-live/results/after-turn-rule/`.
+
+| Slider | Cloud, no cached voice | Cloud, cached voice | Local, no cached voice | Local, cached voice |
+| --- | --- | --- | --- | --- |
+| Curiosity | 0% → 100%: **noticeable** | 33% → 100%: **noticeable** | 0% → 100%: **noticeable** | 0% → 100%: **noticeable** |
+| Openness | 50% → 100%: noticeable | 50% → 100%: noticeable | 33% → 100%: **noticeable** | 0% → 100%: **noticeable** |
+| Playfulness | 0% → 100%: noticeable | 17% → 100%: **noticeable** | 0% → 100%: **noticeable** | 17% → 100%: **noticeable** |
+
+For example, at Curiosity step 2 the local model now answered the guitar message with "That's amazing! Playing a whole song despite the finger pain shows real dedication. Your hard work is definitely paying off already." That's no question, where before it asked one in every reply.
+
+## Where every slider stands now
+
+The latest measurement for each slider: After 2 for the three above, and the baseline for Assertiveness and Directness, which this issue didn't change.
+
+| Slider | Cloud, no cached voice | Cloud, cached voice | Local, no cached voice | Local, cached voice |
+| --- | --- | --- | --- | --- |
+| Curiosity | noticeable | noticeable | noticeable | noticeable |
+| Assertiveness | noticeable | weak | weak | noticeable |
+| Directness | noticeable | **not noticeable** | noticeable | **not noticeable** |
+| Openness | noticeable | noticeable | noticeable | noticeable |
+| Playfulness | noticeable | noticeable | noticeable | noticeable |
+
+Still open:
+
+- **Directness with a cached voice**, on both models. Low Directness still leads with her take (cloud 83%, local 50%).
+- **Assertiveness**, weak on two cells. JUH-224 already tried stronger wording for both without a consistent gain, so these need their own pass rather than more wording.
