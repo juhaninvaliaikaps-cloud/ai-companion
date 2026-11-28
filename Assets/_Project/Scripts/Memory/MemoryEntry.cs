@@ -51,7 +51,11 @@ namespace AICompanion.Memory
         /// <summary>True for something she is in the middle of, waiting for or dreading.</summary>
         public bool isThread;
 
-        /// <summary>JUH-188: kind of session this came from ("intimate"), or empty.</summary>
+        /// <summary>
+        /// JUH-188: kind of session this came from ("intimate"), or empty. Metadata only: no code
+        /// reads it yet (JUH-232). It is kept so memories can later be filtered or shown by kind;
+        /// a public memory carries it only when "What public mode may know" allows the kind (JUH-233).
+        /// </summary>
         public string moment = string.Empty;
 
         /// <summary>For a thread: one line each for how it could turn out.</summary>

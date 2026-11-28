@@ -105,7 +105,9 @@ namespace AICompanion.Settings
                 : settings != null && !string.IsNullOrWhiteSpace(settings.localModel) ? settings.localModel.Trim() : ChatDefaults.LocalModel;
             var system = !string.IsNullOrEmpty(promptFile) && File.Exists(promptFile) ? File.ReadAllText(promptFile) : null;
 
-            var companion = GetComponent<SettingsPanel>() != null ? GetComponent<SettingsPanel>().CurrentSettings : null;
+            // JUH-240: the persona's own provider and model, as every other reader uses (EffectiveSettings, JUH-205).
+            var panel = GetComponent<SettingsPanel>();
+            var companion = panel != null ? panel.EffectiveSettings ?? panel.CurrentSettings : null;
             var keys = new PisaraApiKeySource();
             var ownKey = keys.TryGetOwn(out var ownValue) ? ownValue : null;
             var grokKey = keys.TryGetGrok(out var grokValue) ? grokValue : null;
