@@ -320,7 +320,7 @@ namespace AICompanion.UI
                 provider, pending.transcript, pending.herName, pending.userMessages,
                 pending.keepsLocal, pending.intimateActive, store,
                 SessionMemories.DefaultTimeoutSeconds, CancellationToken.None, false, PendingLocalDate(pending),
-                pending.momentKind);
+                pending.momentKind, PrivateChapterPrompt.Normalize(pending.publicHint));
 
             Debug.Log("Session handoff: finished " + pending.why + " with " + stored.Memories.Count + " memories (answered=" + stored.Answered + ")");
 
@@ -366,7 +366,8 @@ namespace AICompanion.UI
                 if (_registry.TryGet(id, out var provider))
                     SessionHandoff.SaveAt(SessionHandoff.PathFor(MemoryPaths.Folder(), SessionId + "pub"),
                         publicTranscript, WorldPromptNow.HerName, provider.ProviderId, MemoryRuntime.Store,
-                        "a rolling checkpoint", _sessionUserMessages, false, false, SessionId, momentKind);
+                        "a rolling checkpoint", _sessionUserMessages, false, false, SessionId, momentKind,
+                        (int)PrivateChapterNow.Hint);
             }
 
             if (privateTranscript.Length > 0)
@@ -501,7 +502,7 @@ namespace AICompanion.UI
                 publicPending = SessionHandoff.SaveAt(
                     SessionHandoff.PathFor(MemoryPaths.Folder(), sessionId + "pub"),
                     publicTranscript, WorldPromptNow.HerName, publicProvider.ProviderId, store,
-                    why, userMessages, false, false, sessionId, momentKind);
+                    why, userMessages, false, false, sessionId, momentKind, (int)PrivateChapterNow.Hint);
             }
 
             if (privateProvider != null)
@@ -513,26 +514,29 @@ namespace AICompanion.UI
             }
 
             _sessionsCapturing.Add(sessionId);
+            // JUH-233: the store and the setting of this session, read now. A persona switch ends
+            // the session just before the switch, and the private part runs after an await, when
+            // MemoryRuntime.Store is already the next persona's.
             CaptureSplit(publicProvider, publicTranscript, privateProvider, privateTranscript,
-                WorldPromptNow.HerName, userMessages, timeoutSeconds, why, momentKind,
-                publicPending, privatePending, sessionId, done);
+                WorldPromptNow.HerName, userMessages, timeoutSeconds, why, momentKind, PrivateChapterNow.Hint,
+                store, publicPending, privatePending, sessionId, done);
             return true;
         }
 
         async void CaptureSplit(IChatProvider publicProvider, string publicTranscript,
             IChatProvider privateProvider, string privateTranscript, string herName,
-            int userMessages, float timeoutSeconds, string why, string momentKind,
-            PendingSession publicPending, PendingSession privatePending, string sessionId, Action done)
+            int userMessages, float timeoutSeconds, string why, string momentKind, PrivateChapterHint publicHint,
+            MemoryStore store, PendingSession publicPending, PendingSession privatePending, string sessionId, Action done)
         {
             try
             {
                 if (publicProvider != null && publicTranscript.Length > 0)
                     await CapturePart(publicProvider, publicTranscript, herName, userMessages, false, false,
-                        momentKind, MemoryRuntime.Store, timeoutSeconds, why, publicPending);
+                        momentKind, publicHint, store, timeoutSeconds, why, publicPending);
                 if (privateProvider != null && privateTranscript.Length > 0)
                     await CapturePart(privateProvider, privateTranscript, herName, userMessages, true,
                         string.Equals(momentKind, "intimate", StringComparison.OrdinalIgnoreCase),
-                        momentKind, MemoryRuntime.Store, timeoutSeconds, why, privatePending);
+                        momentKind, publicHint, store, timeoutSeconds, why, privatePending);
             }
             catch (Exception e)
             {
@@ -547,13 +551,13 @@ namespace AICompanion.UI
         }
 
         async System.Threading.Tasks.Task CapturePart(IChatProvider provider, string transcript, string herName,
-            int userMessages, bool keepsLocal, bool intimateActive, string momentKind, MemoryStore store,
-            float timeoutSeconds, string why, PendingSession pending)
+            int userMessages, bool keepsLocal, bool intimateActive, string momentKind, PrivateChapterHint publicHint,
+            MemoryStore store, float timeoutSeconds, string why, PendingSession pending)
         {
             var askThread = keepsLocal && herName.Length > 0 && PisaraSwitches.World && PisaraSwitches.AwayEvents;
             var stored = await SessionMemories.CaptureAsync(
                 provider, transcript, herName, userMessages, keepsLocal, intimateActive, store,
-                timeoutSeconds, CancellationToken.None, askThread, null, momentKind);
+                timeoutSeconds, CancellationToken.None, askThread, null, momentKind, publicHint);
             Debug.Log("Session memories (" + (keepsLocal ? "private" : "public") + "): "
                 + stored.Memories.Count + " stored after " + why + " (" + userMessages + " messages)"
                 + (askThread ? ", new thread: " + (stored.Thread != null ? "yes" : "no") : string.Empty));

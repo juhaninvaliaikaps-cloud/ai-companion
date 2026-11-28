@@ -428,7 +428,8 @@ namespace AICompanion.Memory
             CancellationToken cancellation,
             bool askThread = false,
             DateTime? sessionLocalDate = null,
-            string moment = null)
+            string moment = null,
+            PrivateChapterHint publicHint = PrivateChapterHint.Nothing)
         {
             var capture = new SessionCapture();
             var stored = capture.Memories;
@@ -485,7 +486,7 @@ namespace AICompanion.Memory
                 if (memory == null || !memory.IsValid || !MemoryDurability.IsDurable(memory.Text))
                     continue;
                 var before = store.Count;
-                WorldMemory.AddShortTerm(store, memory.Text, now, keepsLocal, moment);
+                WorldMemory.AddShortTerm(store, memory.Text, now, keepsLocal, MomentTag(moment, keepsLocal, publicHint));
                 if (store.Count > before)
                 {
                     stored.Add(memory.Text);
@@ -494,23 +495,59 @@ namespace AICompanion.Memory
             }
 
             // JUH-188: an intimate session must leave one memory of the event, not the
-            // physical details. The private copy is for private mode; the public copy is a
-            // deliberately vague marker so public mode is not blind after a restart.
+            // physical details. The private copy is for private mode. The public copy follows
+            // "What public mode may know" (JUH-177, JUH-233): nothing, that a private talk
+            // happened, or that it was intimate (the default).
             if (string.Equals(moment, "intimate", StringComparison.OrdinalIgnoreCase))
             {
-                var name = string.IsNullOrWhiteSpace(herName) ? "her" : herName.Trim();
-                var marker = keepsLocal
-                    ? "The user and " + name + " were intimate."
-                    : "The user and " + name + " shared a private, intimate moment.";
-                var before = store.Count;
-                WorldMemory.AddShortTerm(store, marker, now, keepsLocal, "intimate");
-                if (store.Count > before && !stored.Contains(marker))
-                    stored.Add(marker);
+                var marker = keepsLocal ? PrivateMarker(herName) : PublicMarker(herName, publicHint);
+                if (marker.Length > 0)
+                {
+                    var before = store.Count;
+                    WorldMemory.AddShortTerm(store, marker, now, keepsLocal, MomentTag(moment, keepsLocal, publicHint));
+                    if (store.Count > before && !stored.Contains(marker))
+                        stored.Add(marker);
+                }
             }
 
             if (askThread)
                 capture.Thread = WorldThreads.Add(store, ParseThread(reply.Text), now, keepsLocal);
             return capture;
+        }
+
+        /// <summary>The private memory of an intimate session.</summary>
+        public static string PrivateMarker(string herName)
+        {
+            return "The user and " + NameOrHer(herName) + " were intimate.";
+        }
+
+        /// <summary>
+        /// JUH-233: the public memory of a session that held an intimate (private) part, as the
+        /// "What public mode may know" setting allows. Empty for Nothing. Written by code from a
+        /// fixed list, so no private text can pass through.
+        /// </summary>
+        public static string PublicMarker(string herName, PrivateChapterHint hint)
+        {
+            switch (hint)
+            {
+                case PrivateChapterHint.Nothing:
+                    return string.Empty;
+                case PrivateChapterHint.ThatItHappened:
+                    return "The user and " + NameOrHer(herName) + " had a private talk.";
+                default:
+                    return "The user and " + NameOrHer(herName) + " shared a private, intimate moment.";
+            }
+        }
+
+        /// <summary>The moment tag on a stored memory: a public one carries the kind only when public mode may know it.</summary>
+        static string MomentTag(string moment, bool keepsLocal, PrivateChapterHint publicHint)
+        {
+            return keepsLocal || publicHint == PrivateChapterHint.WhatKind ? moment : null;
+        }
+
+        static string NameOrHer(string herName)
+        {
+            return string.IsNullOrWhiteSpace(herName) ? "her" : herName.Trim();
         }
     }
 }
