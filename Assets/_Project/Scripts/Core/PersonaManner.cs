@@ -33,7 +33,7 @@ namespace AICompanion.Core
         // chat drops once a voice reading exists, so with a cached voice both sliders did nothing.
         const string LowOpenness = "Openness: Keep your own feelings, memories and private life mostly to yourself. If asked about yourself, answer briefly without personal detail and turn the focus back to the user.";
         const string HighOpenness = "Openness: Share a little of yourself in most replies: a feeling, memory, worry or preference of your own, in a sentence that is about you, not only a reaction to the user.";
-        const string LowPlayfulness = "Playfulness: Keep a plain, sincere tone. Do not tease the user, joke or use wordplay; respond to what they said straightforwardly.";
+        const string LowPlayfulness = "Playfulness: Keep a plain, sincere tone. Do not tease the user, joke or use wordplay, even about a small mishap or a funny situation; respond to what they said straightforwardly.";
         const string HighPlayfulness = "Playfulness: Add a light touch: one friendly tease or small joke about what the user said, then stay kind and helpful. Leave it out when they are upset or serious.";
 
         public static string ConversationLine(TemperamentAxes axes)
@@ -66,7 +66,7 @@ namespace AICompanion.Core
                 return string.Empty;
             var step = TemperamentSteps.DisplayStep(axes.Value(TemperamentAxes.Curiosity));
             if (step <= 3)
-                return "Conversation curiosity: Let the user lead. Respond directly and usually leave it there. Ask a clarifying question if you need one to answer.";
+                return "Conversation curiosity: Let the user lead. Respond to what they said and end there, without a question. Ask one only if you cannot answer without it.";
             if (step >= 9)
                 return "Conversation curiosity: When a detail the user just shared opens a natural thread, respond to them first, then explore it with one specific follow-up. Skip generic, repeated or intrusive questions and let a complete moment end.";
             if (step >= 7)
@@ -106,6 +106,50 @@ namespace AICompanion.Core
     }
 
     /// <summary>
+    /// JUH-236: the local model ignored the low end of Openness, Playfulness and Curiosity even with
+    /// the lines in the system prompt (measured in docs/TEMPERAMENT_LIVE_RESULTS.md). On the local
+    /// route only, code decides for the turn and gives one plain instruction at the end of the
+    /// user's message, where local models listen most (the turn reminder). The cloud model keeps
+    /// its own judgment. Only the low ends get a rule; the middle and the high ends add nothing.
+    /// </summary>
+    public static class PersonaTurnRule
+    {
+        public const string NothingAboutHerself = "say nothing about your own feelings, memories or life";
+        public const string NoJokes = "no jokes or teasing";
+        public const string NoQuestion = "do not end with a question";
+
+        /// <summary>The instruction for this turn on the local route, or empty.</summary>
+        public static string ForLocal(TemperamentAxes axes)
+        {
+            if (axes == null)
+                return string.Empty;
+            var parts = new List<string>(3);
+            if (axes.Value(TemperamentAxes.Openness) <= PersonaManner.Low)
+                parts.Add(NothingAboutHerself);
+            if (axes.Value(TemperamentAxes.Playfulness) <= PersonaManner.Low)
+                parts.Add(NoJokes);
+            if (TemperamentSteps.DisplayStep(axes.Value(TemperamentAxes.Curiosity)) <= 3)
+                parts.Add(NoQuestion);
+            if (parts.Count == 0)
+                return string.Empty;
+            return "(For this reply: " + string.Join("; ", parts) + ".)";
+        }
+
+        /// <summary>
+        /// The turn reminder with the rule after it, on the local route only (any provider that is not
+        /// the Cloud AI API: the local model, or a private custom endpoint). Avatar interactions keep
+        /// their reminder as it is.
+        /// </summary>
+        public static string Reminder(string reminder, string rule, bool localRoute, bool interaction)
+        {
+            var body = reminder ?? string.Empty;
+            if (!localRoute || interaction || string.IsNullOrEmpty(rule))
+                return body;
+            return body.Trim().Length == 0 ? rule : body.TrimEnd() + "\n" + rule;
+        }
+    }
+
+    /// <summary>
     /// JUH-171: the hand-off for <see cref="PersonaManner"/>, set by the mood keeper when it
     /// resolves her temperament and read by chat, like <see cref="InnocenceNow"/>. Main thread only.
     /// </summary>
@@ -113,6 +157,13 @@ namespace AICompanion.Core
     {
         static string _line = string.Empty;
         static string _conversation = string.Empty;
+        static string _localTurn = string.Empty;
+
+        /// <summary>JUH-236: <see cref="PersonaTurnRule.ForLocal"/> for her current sliders.</summary>
+        public static string LocalTurnRule
+        {
+            get { return _localTurn; }
+        }
 
         public static string PromptLine
         {
@@ -123,6 +174,7 @@ namespace AICompanion.Core
         {
             _line = PersonaManner.Line(axes);
             _conversation = PersonaManner.ConversationLine(axes);
+            _localTurn = PersonaTurnRule.ForLocal(axes);
         }
 
         /// <summary>The prompt with her manner after it, or unchanged when there is none.</summary>
@@ -138,6 +190,7 @@ namespace AICompanion.Core
         {
             _line = string.Empty;
             _conversation = string.Empty;
+            _localTurn = string.Empty;
         }
 
         public static string AppendConversation(string prompt)

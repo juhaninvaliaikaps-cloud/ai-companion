@@ -48,6 +48,7 @@ static class Program
               .Append(",\"manner\":").Append(Quote(PersonaManner.Line(axes)))
               .Append(",\"conversation\":").Append(Quote(PersonaManner.ConversationLine(axes)))
               .Append(",\"voice\":").Append(Quote(block))
+              .Append(",\"local_turn\":").Append(Quote(PersonaTurnRule.ForLocal(axes)))
               .Append('}');
         }
 

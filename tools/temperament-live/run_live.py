@@ -316,7 +316,8 @@ def main() -> int:
     for axis in axes:
         for cached in (False, True):
             for side, k in (("low", axis + ":2"), ("high", axis + ":9")):
-                prompts[(axis, cached, side)] = system_prompt(fx, lines[k], cached)
+                # The local turn rule counts as part of the prompt for "prompt differs".
+                prompts[(axis, cached, side)] = system_prompt(fx, lines[k], cached) + "\n[local turn] " + lines[k].get("local_turn", "")
 
     out_dir = ROOT / "results" / args.label
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -324,7 +325,14 @@ def main() -> int:
 
     def one(model: str, item: dict) -> dict:
         system = system_prompt(fx, lines[item["lines_key"]], item["cached_voice"])
-        reply = ask_local(args, fx, system, item["user"], item["seed"]) if model == "local" else ask_cloud(args, fx, key, system, item["user"], item["seed"])
+        if model == "local":
+            # PersonaTurnRule: the local route's per-turn rule goes after the user's message, as
+            # ChatConversation.AddTurnReminder appends the turn reminder. The judge sees the message alone.
+            rule = lines[item["lines_key"]].get("local_turn", "")
+            user = item["user"] + ("\n\n" + rule if rule else "")
+            reply = ask_local(args, fx, system, user, item["seed"])
+        else:
+            reply = ask_cloud(args, fx, key, system, item["user"], item["seed"])
         answer, reason = judge(args, key, fx, fx["axes"][item["axis"]]["question"], item["user"], reply)
         row = dict(item)
         row.update({"model": model, "prompt_sha": hashlib.sha256(system.encode("utf-8")).hexdigest()[:12],

@@ -601,6 +601,9 @@ namespace AICompanion.UI
             // JUH-179: while the 18+ gate is open (the chat is local then), the reminder also asks for heat.
             if (IntimateExpressions.Active)
                 _exchange.TurnReminder = DesireHeats.WithReminder(_exchange.TurnReminder);
+            // JUH-236: on the local route, code decides the low ends of her sliders for this turn.
+            _exchange.TurnReminder = PersonaTurnRule.Reminder(_exchange.TurnReminder, PersonaMannerNow.LocalTurnRule,
+                !string.Equals(providerId, ChatDefaults.GrokId, StringComparison.OrdinalIgnoreCase), interactionLine);
 
             // JUH-21: read the user's mood on this machine. The face reacts now, before
             // the reply, and the model gets one hint line. The reply cue replaces the face.

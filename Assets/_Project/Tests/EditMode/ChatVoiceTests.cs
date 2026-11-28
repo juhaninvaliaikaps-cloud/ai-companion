@@ -266,6 +266,59 @@ namespace AICompanion.Tests.EditMode
             }
         }
 
+        // JUH-236: the local route's per-turn rule for the low ends.
+        [Test]
+        public void LocalTurnRule_NamesOnlyTheLowEnds()
+        {
+            var axes = TemperamentAxes.Neutral();
+            Assert.AreEqual(string.Empty, PersonaTurnRule.ForLocal(axes), "the middle adds nothing");
+            Assert.AreEqual(string.Empty, PersonaTurnRule.ForLocal(null));
+
+            axes.Set(TemperamentAxes.Openness, TemperamentSteps.ValueForStep(9));
+            axes.Set(TemperamentAxes.Playfulness, TemperamentSteps.ValueForStep(9));
+            axes.Set(TemperamentAxes.Curiosity, TemperamentSteps.ValueForStep(9));
+            Assert.AreEqual(string.Empty, PersonaTurnRule.ForLocal(axes), "the high ends work from the system prompt");
+
+            axes.Set(TemperamentAxes.Openness, TemperamentSteps.ValueForStep(2));
+            Assert.AreEqual("(For this reply: " + PersonaTurnRule.NothingAboutHerself + ".)", PersonaTurnRule.ForLocal(axes));
+
+            axes.Set(TemperamentAxes.Playfulness, TemperamentSteps.ValueForStep(3));
+            axes.Set(TemperamentAxes.Curiosity, TemperamentSteps.ValueForStep(2));
+            Assert.AreEqual("(For this reply: " + PersonaTurnRule.NothingAboutHerself + "; " + PersonaTurnRule.NoJokes + "; "
+                + PersonaTurnRule.NoQuestion + ".)", PersonaTurnRule.ForLocal(axes), "one instruction");
+
+            axes.Set(TemperamentAxes.Openness, TemperamentSteps.ValueForStep(4));
+            axes.Set(TemperamentAxes.Playfulness, TemperamentSteps.ValueForStep(4));
+            axes.Set(TemperamentAxes.Curiosity, TemperamentSteps.ValueForStep(4));
+            Assert.AreEqual(string.Empty, PersonaTurnRule.ForLocal(axes), "step 4 is not an end");
+        }
+
+        [Test]
+        public void LocalTurnRule_GoesOnTheLocalRouteOnly_AfterTheReminder()
+        {
+            const string reminder = "(Start your reply with your cue tag.)";
+            const string rule = "(For this reply: no jokes or teasing.)";
+            Assert.AreEqual(reminder + "\n" + rule, PersonaTurnRule.Reminder(reminder, rule, true, false));
+            Assert.AreEqual(reminder, PersonaTurnRule.Reminder(reminder, rule, false, false), "the cloud model keeps its own judgment");
+            Assert.AreEqual(reminder, PersonaTurnRule.Reminder(reminder, rule, true, true), "not for avatar interactions");
+            Assert.AreEqual(reminder, PersonaTurnRule.Reminder(reminder, string.Empty, true, false));
+            Assert.AreEqual(rule, PersonaTurnRule.Reminder(null, rule, true, false));
+
+            var axes = TemperamentAxes.Neutral();
+            axes.Set(TemperamentAxes.Playfulness, TemperamentSteps.ValueForStep(2));
+            try
+            {
+                PersonaMannerNow.Set(axes);
+                Assert.AreEqual("(For this reply: " + PersonaTurnRule.NoJokes + ".)", PersonaMannerNow.LocalTurnRule);
+                PersonaMannerNow.Reset();
+                Assert.AreEqual(string.Empty, PersonaMannerNow.LocalTurnRule);
+            }
+            finally
+            {
+                PersonaMannerNow.Reset();
+            }
+        }
+
         // ---- Sampler settings -------------------------------------------------------------------
 
         [Test]
