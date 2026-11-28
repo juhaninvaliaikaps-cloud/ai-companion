@@ -1,0 +1,4 @@
+# JUH-236: .NET build output of the prompt-lines tool
+PromptLines/bin/
+PromptLines/obj/
+__pycache__/
