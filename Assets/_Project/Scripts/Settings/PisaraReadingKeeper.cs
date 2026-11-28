@@ -64,6 +64,12 @@ namespace AICompanion.Settings
             get { return _sheet; }
         }
 
+        /// <summary>JUH-237: the active persona's prompt (her description), as last checked. Read-only.</summary>
+        public string Prompt
+        {
+            get { return _prompt ?? string.Empty; }
+        }
+
         /// <summary>The sheet for a persona if it is the active one (looked up now), else null.</summary>
         public CharacterSheet SheetFor(string personaId)
         {

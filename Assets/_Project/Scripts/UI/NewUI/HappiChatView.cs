@@ -594,7 +594,8 @@ namespace AICompanion.NewUI
                     ShowSnapMarkers(false, body, gap, 0, under);
                     var offset = ChatSnapSpots.OffsetFor(_boxCenter, body, scale);
                     snap = near;
-                    if (_settings != null)
+                    // JUH-239: beside her room the box is docked; a drag there doesn't move its saved desktop spot.
+                    if (_settings != null && !HerRoomNow.IsOpen)
                         _settings.SaveLayoutSetting(s =>
                         {
                             s.ChatBoxSnap = near;
@@ -615,8 +616,15 @@ namespace AICompanion.NewUI
                 snap = ChatSnapSpots.Fit(snap, body, _boxSize, gap, _visibleArea, _boxMargin, under);
                 _placedSnap = snap;
                 var offset = settings != null ? new Vector2(settings.ChatBoxOffsetX, settings.ChatBoxOffsetY) : Vector2.zero;
-                _boxCenter = ChatBoxPlacement.Clamp(ChatSnapSpots.Resolve(snap, offset, scale, body, _boxSize, gap, under), _boxSize, _visibleArea, _boxMargin);
+                var room = HerRoomNow.Window;
+                // JUH-239: while her room is open the box docks beside the room window.
+                _boxCenter = HerRoomNow.IsOpen && room.width > 0f
+                    ? RoomChatDock.Center(room, _boxSize, _visibleArea, gap, _boxMargin)
+                    : ChatBoxPlacement.Clamp(ChatSnapSpots.Resolve(snap, offset, scale, body, _boxSize, gap, under), _boxSize, _visibleArea, _boxMargin);
             }
+
+            HerRoomNow.ChatSize = _boxSize;
+            HerRoomNow.ChatSeenFrame = Time.frameCount;
 
             if (resized)
                 _placedSnap = ChatSnapSpots.Effective(snap, under);
@@ -1941,6 +1949,20 @@ namespace AICompanion.NewUI
                 _ribbonLatest != null && line.MemoryLinks != null ? part => FormatMemoryLinks(part, line.MemoryLinks) : null);
         }
 
+        /// <summary>
+        /// JUH-239: the line she is saying, for her speech bubble in the room. Only spoken lines,
+        /// and none while the 18+ gate is open: 18+ stays out of the room.
+        /// </summary>
+        void SayInRoom(int current, bool finished)
+        {
+            var segments = _player.Segments;
+            var line = !finished && current >= 0 && current < segments.Count
+                && segments[current].Kind == VnSegmentKind.Speech && !IntimateExpressions.Active
+                ? segments[current].Text
+                : string.Empty;
+            HerRoomNow.Say(line);
+        }
+
         void RefreshDialogue()
         {
             var revision = _chat.TranscriptRevision;
@@ -1958,6 +1980,7 @@ namespace AICompanion.NewUI
 
             _shownRevision = revision;
             _shownSerial = serial;
+            SayInRoom(current, finished);
             _shownCurrent = current;
             _shownRevealed = revealed;
             _shownFinished = finished;

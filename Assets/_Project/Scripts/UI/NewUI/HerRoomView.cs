@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using AICompanion.Core;
 using AICompanion.NewUI.Wheel;
 using AICompanion.Overlay;
+using AICompanion.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -21,6 +22,10 @@ namespace AICompanion.NewUI
     /// characters, furniture drawn back to front with them, and picture-layer lighting: the clock
     /// tint, the tinted sky, a sunbeam on the floor, the night shade with the lamp's pool of light,
     /// and the lamp glow (RoomLighting).
+    /// JUH-237, phase 2b: her routine (RoomRoutine) instead of the random stroll, her poses on
+    /// the furniture, the open wardrobe, her hobby piece in the hobby slot, and clicks on
+    /// furniture: left-click and the player uses it (he sits on the rug, the pouf or the desk
+    /// chair), right-click and she is asked to.
     /// </summary>
     public sealed class HerRoomView : MonoBehaviour, IOverlayKeepAwake
     {
@@ -38,6 +43,14 @@ namespace AICompanion.NewUI
         const float GlowSize = 384f / 1024f;
 
         static readonly Color NightShade = new Color(0.03f, 0.04f, 0.12f, 1f);
+
+        /// <summary>JUH-239: the gap between the room window and the docked chat box, and the bubble's limits.</summary>
+        const float ChatGap = 10f;
+        const int BubbleChars = 140;
+        const float BubbleWidth = 0.46f;
+        const float BubblePad = 7f;
+        /// <summary>Her head is about this far above her feet, as a fraction of the 256 px frame (the figures are about 128 px tall).</summary>
+        const float HeadAbove = 0.56f;
 
         /// <summary>The feet line of a character frame, from the bottom (frames have feet at y = 240 of 256).</summary>
         const float FeetPivot = 16f / 256f;
@@ -59,6 +72,10 @@ namespace AICompanion.NewUI
         RawImage _shadePool;
         Image _shadePlain;
         RawImage _glow;
+        RectTransform _bubble;
+        TextMeshProUGUI _bubbleText;
+        int _bubbleRevision = -1;
+        Vector2 _bubbleSize;
         readonly List<Graphic> _tinted = new List<Graphic>();
         RectTransform[] _drawn;
         float[] _depths;
@@ -78,7 +95,19 @@ namespace AICompanion.NewUI
         RoomLayout _layout;
         RoomWalker _herWalk;
         RoomWalker _playerWalk;
-        RoomWander _wander;
+        RoomSlots _slots;
+        RoomRoutine _routine;
+        readonly RoomPlayerUse _playerUse = new RoomPlayerUse();
+        RoomHobby _hobby;
+        RoomActivity _herPosed;
+        List<RoomPiece> _room;
+        readonly Dictionary<string, float> _pieceDepth = new Dictionary<string, float>(StringComparer.Ordinal);
+        RawImage _wardrobe;
+        Texture _wardrobeClosed;
+        Texture _wardrobeOpen;
+        Rect _wardrobeClosedRect;
+        Rect _wardrobeOpenRect;
+        bool _wardrobeIsOpen;
         readonly RoomDoor _door = new RoomDoor();
         OverlayWindow _overlay;
         HappiSettingsView _settingsView;
@@ -112,6 +141,9 @@ namespace AICompanion.NewUI
 
         public void Open()
         {
+            // Her hobby comes from her Pisara reading; another persona may have another one.
+            if (_built && _door.IsClosed && CurrentHobby() != _hobby)
+                Teardown();
             if (!Build())
                 return;
             if (_door.IsClosed)
@@ -120,7 +152,10 @@ namespace AICompanion.NewUI
                 _herWalk.Place(_layout.HerEntry, RoomFacing.Up);
                 _playerWalk.Place(_layout.PlayerEntry, RoomFacing.Up);
                 _herWalk.WalkTo(new RoomTile(_layout.HerEntry.X, _layout.HerEntry.Y - 2));
-                _wander = new RoomWander(_layout, Environment.TickCount, Time.unscaledTime);
+                _routine = new RoomRoutine(_layout, _slots, Environment.TickCount, Time.unscaledTime);
+                _playerUse.Cancel();
+                _herPosed = RoomActivity.None;
+                SetWardrobe(false);
                 LoadWallpaper();
             }
 
@@ -151,7 +186,9 @@ namespace AICompanion.NewUI
                 return false;
             }
 
-            _layout = RoomLayout.V1();
+            _hobby = CurrentHobby();
+            _layout = RoomLayout.V1(_hobby);
+            _slots = RoomSlots.V1(_layout, _hobby);
             _herWalk = new RoomWalker(_layout, _layout.HerEntry, RoomFacing.Up);
             _playerWalk = new RoomWalker(_layout, _layout.PlayerEntry, RoomFacing.Up);
 
@@ -224,6 +261,18 @@ namespace AICompanion.NewUI
             Anchor(_glow.rectTransform, shade.x - GlowSize * 0.5f, shade.y - GlowSize * 0.5f, shade.x + GlowSize * 0.5f, shade.y + GlowSize * 0.5f);
             _glow.gameObject.SetActive(_glow.texture != null);
 
+            // JUH-239: her speech bubble, over everything in the room (not shaded at night).
+            var bubble = HappiUiKit.Panel(_content, "Her speech bubble", RibbonMenu.Ink, false);
+            RibbonShape.Apply(bubble, false);
+            _bubble = bubble.rectTransform;
+            _bubble.pivot = new Vector2(0.5f, 0f);
+            _bubbleText = HappiUiKit.Text(_bubble, "Line", string.Empty, HappiTheme.Current.FontBody,
+                HappiTheme.Current.Text, TextAlignmentOptions.Center, false);
+            HappiUiKit.Stretch(_bubbleText.rectTransform, BubblePad, BubblePad, BubblePad, BubblePad);
+            _bubbleText.textWrappingMode = TextWrappingModes.Normal;
+            _bubbleRevision = -1;
+            _bubble.gameObject.SetActive(false);
+
             var corner = HappiUiKit.Panel(_frame, "Resize", RibbonMenu.Cyan, true).rectTransform;
             corner.anchorMin = corner.anchorMax = new Vector2(1f, 0f);
             corner.pivot = new Vector2(1f, 0f);
@@ -243,7 +292,9 @@ namespace AICompanion.NewUI
         {
             var asset = Resources.Load<TextAsset>("HerRoom/room_catalog");
             var catalog = RoomCatalog.Parse(asset != null ? asset.text : null);
-            var room = catalog.DefaultRoom();
+            var room = catalog.RoomFor(_hobby);
+            _room = room;
+            _pieceDepth.Clear();
             var drawn = new List<RectTransform>();
             var depths = new List<float>();
             foreach (var piece in room)
@@ -256,11 +307,14 @@ namespace AICompanion.NewUI
                 }
 
                 var depth = RoomCatalog.DepthOf(piece, room);
+                _pieceDepth[piece.id] = depth;
                 var parent = depth < 0f ? back : _things;
                 var image = Raw(parent, piece.id, texture, false);
                 var rect = RoomCatalog.RectOf(piece);
                 Anchor(image.rectTransform, rect.xMin, rect.yMin, rect.xMax, rect.yMax);
                 _tinted.Add(image);
+                if (piece.id == "room_wardrobe")
+                    KeepWardrobe(catalog, piece, image, rect);
                 if (depth < 0f)
                 {
                     // Rugs lie under the wall pieces.
@@ -277,6 +331,8 @@ namespace AICompanion.NewUI
                 drawn.Insert(at, image.rectTransform);
             }
 
+            _herArt.LoadPoses("happi", _slots);
+            _playerArt.LoadPoses("player", null);
             _player = Raw(_things, "Player", _playerArt.Idle[0], false);
             _her = Raw(_things, "Her", _herArt.Idle[0], false);
             Figure(_player.rectTransform);
@@ -289,6 +345,49 @@ namespace AICompanion.NewUI
             _drawn = drawn.ToArray();
             _depths = depths.ToArray();
             _order = new int[_drawn.Length];
+        }
+
+        /// <summary>The wardrobe and its open picture, swapped while she uses it.</summary>
+        void KeepWardrobe(RoomCatalog catalog, RoomPiece piece, RawImage image, Rect rect)
+        {
+            _wardrobe = image;
+            _wardrobeClosed = image.texture;
+            _wardrobeClosedRect = rect;
+            var open = catalog.VariantAt("room_wardrobe_open", piece);
+            _wardrobeOpen = open != null ? Resources.Load<Texture2D>(open.ResourcePath) : null;
+            _wardrobeOpenRect = open != null ? RoomCatalog.RectOf(open) : rect;
+        }
+
+        void SetWardrobe(bool open)
+        {
+            if (_wardrobe == null || _wardrobeOpen == null || open == _wardrobeIsOpen)
+                return;
+            _wardrobeIsOpen = open;
+            var rect = open ? _wardrobeOpenRect : _wardrobeClosedRect;
+            _wardrobe.texture = open ? _wardrobeOpen : _wardrobeClosed;
+            Anchor(_wardrobe.rectTransform, rect.xMin, rect.yMin, rect.xMax, rect.yMax);
+        }
+
+        /// <summary>Her hobby, from the active persona's Pisara reading or a guess from her description.</summary>
+        RoomHobby CurrentHobby()
+        {
+            var keeper = GetComponent<PisaraReadingKeeper>();
+            return keeper != null ? RoomHobbies.For(keeper.Sheet, keeper.Prompt) : RoomHobby.Piano;
+        }
+
+        /// <summary>Drops the built room so the next Open builds it again (another hobby).</summary>
+        void Teardown()
+        {
+            if (_canvas != null)
+                Destroy(_canvas.gameObject);
+            if (_poolMask != null)
+                Destroy(_poolMask);
+            _canvas = null;
+            _poolMask = null;
+            _tinted.Clear();
+            _wardrobe = null;
+            _wardrobeIsOpen = false;
+            _built = false;
         }
 
         /// <summary>The night shade's cover, baked once: clear around the lamp, full elsewhere.</summary>
@@ -368,7 +467,7 @@ namespace AICompanion.NewUI
             {
                 _canvas.gameObject.SetActive(false);
                 ReleaseWallpaper();
-                HerRoomNow.IsOpen = false;
+                HerRoomNow.Reset();
                 return;
             }
 
@@ -396,11 +495,27 @@ namespace AICompanion.NewUI
             _herWalk.Tick(delta);
 
             var night = RoomClock.At(now).Night;
+            var hour = (float)now.TimeOfDay.TotalHours;
             RoomTile target;
-            if (_wander.TryNext(Time.unscaledTime, _herWalk.Tile, _herWalk.Walking, _playerWalk.Tile, night, out target))
+            if (_routine.TryNext(Time.unscaledTime, _herWalk.Tile, _herWalk.Walking, _playerWalk.Tile, _playerUse.Doing,
+                    hour, night, CompanionMoodNow.Effective, out target))
                 _herWalk.WalkTo(target);
-            if (!_herWalk.Walking && RoomWander.Close(_herWalk.Tile, _playerWalk.Tile))
+
+            // She arrived at a spot: turn to it once.
+            var doing = _routine.Doing;
+            RoomSlot slot;
+            if (doing != _herPosed)
+            {
+                _herPosed = doing;
+                if (doing != RoomActivity.None && _slots.TryGet(doing, out slot))
+                    _herWalk.Place(slot.Stand, slot.Facing);
+            }
+            if (doing == RoomActivity.None && !_herWalk.Walking && RoomWander.Close(_herWalk.Tile, _playerWalk.Tile))
                 _herWalk.Face(_playerWalk.Tile);
+            SetWardrobe(doing == RoomActivity.Wardrobe);
+
+            if (_playerUse.Arrive(_slots, _playerWalk.Tile, _playerWalk.Walking, out slot))
+                _playerWalk.Place(slot.Stand, slot.Facing);
 
             PlaceFigures();
         }
@@ -435,14 +550,25 @@ namespace AICompanion.NewUI
             var title = TitleHeight * _scale;
             var room = Mathf.Min(area.width - 2f * pad, area.height - title - 2f * pad);
             var side = RoomWindowSize.Clamp(_wantedSide * _scale, room);
+
+            // JUH-239: leave space beside the room for the chat box when it shows (shrinking the
+            // room down to its minimum if needed); otherwise the chat box sits over its lower edge.
+            var chat = HerRoomNow.ChatSeenFrame >= Time.frameCount - 2 ? HerRoomNow.ChatSize : Vector2.zero;
+            var gap = ChatGap * _scale;
+            float besideSide;
+            var beside = RoomChatDock.FitBeside(area.width, side, pad, chat.x, gap, RoomWindowSize.Min * _scale, out besideSide);
+            if (beside)
+                side = besideSide;
             var width = side + 2f * pad;
             var height = side + title + 2f * pad;
-            _frameRect = new Rect(area.center.x - width * 0.5f, area.center.y - height * 0.5f, width, height);
+            _frameRect = new Rect(RoomChatDock.FrameLeft(area, width, chat.x, gap, beside), area.center.y - height * 0.5f, width, height);
 
             // The door stands at the room's front wall, where the shell's doorway is.
             var doorWidth = side * 0.16f;
             var doorHeight = side * 0.32f;
-            _doorRect = new Rect(area.center.x - doorWidth * 0.5f, _frameRect.yMax - pad - doorHeight, doorWidth, doorHeight);
+            _doorRect = new Rect(_frameRect.center.x - doorWidth * 0.5f, _frameRect.yMax - pad - doorHeight, doorWidth, doorHeight);
+            HerRoomNow.Window = _door.IsClosed ? default(Rect)
+                : new Rect(_frameRect.x, Screen.height - _frameRect.yMax, _frameRect.width, _frameRect.height);
         }
 
         /// <summary>The door swings open on its hinge, then the room grows out of the doorway.</summary>
@@ -508,28 +634,81 @@ namespace AICompanion.NewUI
         void PlaceFigures()
         {
             var side = _content.rect.width;
-            Place(_her, _herWalk, _herArt, side, 0f);
-            Place(_player, _playerWalk, _playerArt, side, 1.7f);
+            var herDepth = Place(_her, _herWalk, _herArt, _routine != null ? _routine.Doing : RoomActivity.None, false, side, 0f);
+            var playerDepth = Place(_player, _playerWalk, _playerArt, _playerUse.Doing, true, side, 1.7f);
 
-            // Back to front with the furniture, by where their feet are on the floor.
-            RoomDepth.Order(_depths, _layout.FeetOf(_herWalk.X, _herWalk.Y).y, _layout.FeetOf(_playerWalk.X, _playerWalk.Y).y, _order);
+            // Back to front with the furniture, by where their feet are on the floor (or on the piece they use).
+            RoomDepth.Order(_depths, herDepth, playerDepth, _order);
             for (var k = 0; k < _order.Length; k++)
             {
                 var item = _drawn[_order[k]];
                 if (item.GetSiblingIndex() != k)
                     item.SetSiblingIndex(k);
             }
+
+            PlaceBubble(side);
         }
 
-        void Place(RawImage image, RoomWalker walker, CharacterArt art, float side, float offset)
+        /// <summary>JUH-239: her current line over her head while the room is open; the text is set only when it changes.</summary>
+        void PlaceBubble(float side)
+        {
+            if (_bubble == null)
+                return;
+            var show = _door.IsOpen && HerRoomNow.Line.Length > 0;
+            if (_bubble.gameObject.activeSelf != show)
+                _bubble.gameObject.SetActive(show);
+            if (!show)
+                return;
+
+            var pad = BubblePad * _scale;
+            if (_bubbleRevision != HerRoomNow.LineRevision)
+            {
+                _bubbleRevision = HerRoomNow.LineRevision;
+                _bubbleText.fontSize = HappiTheme.Current.FontBody * _scale;
+                _bubbleText.text = RoomChatDock.BubbleText(HerRoomNow.Line, BubbleChars);
+                var maxWidth = side * BubbleWidth;
+                var preferred = _bubbleText.GetPreferredValues(_bubbleText.text, maxWidth - 2f * pad, 0f);
+                _bubbleSize = new Vector2(Mathf.Min(maxWidth, preferred.x + 2f * pad), preferred.y + 2f * pad);
+            }
+
+            // Over her head, kept inside the room.
+            var her = _her.rectTransform;
+            var x = Mathf.Clamp(her.anchorMin.x * side, _bubbleSize.x * 0.5f, side - _bubbleSize.x * 0.5f);
+            var y = Mathf.Min(her.anchorMin.y * side + side * FigureFrame * HeadAbove, side - _bubbleSize.y);
+            _bubble.anchorMin = _bubble.anchorMax = Vector2.zero;
+            _bubble.anchoredPosition = new Vector2(x, y);
+            _bubble.sizeDelta = _bubbleSize;
+        }
+
+        /// <summary>Places a character and returns its drawing depth.</summary>
+        float Place(RawImage image, RoomWalker walker, CharacterArt art, RoomActivity doing, bool player, float side, float offset)
         {
             var rect = image.rectTransform;
             var feet = _layout.FeetOf(walker.X, walker.Y);
+            var depth = feet.y;
+            var time = Time.unscaledTime + offset;
+            Texture2D texture = null;
+
+            // In a pose she (or he, sitting) is drawn on the piece, not on the stand tile.
+            RoomSlot slot;
+            if (doing != RoomActivity.None && !walker.Walking && _slots.TryGet(doing, out slot))
+            {
+                var pose = player ? (slot.PlayerSits ? "sit" : string.Empty) : slot.Pose;
+                texture = art.PoseFrame(pose, time);
+                if (texture != null)
+                {
+                    feet = slot.PosePoint;
+                    float pieceDepth;
+                    depth = RoomDepth.Pose(feet.y, _pieceDepth.TryGetValue(slot.Piece, out pieceDepth) ? pieceDepth : feet.y);
+                }
+            }
+
             rect.anchorMin = rect.anchorMax = new Vector2(feet.x, 1f - feet.y);
             rect.anchoredPosition = Vector2.zero;
             var frame = side * FigureFrame;
             rect.sizeDelta = new Vector2(frame, frame);
-            image.texture = art.Frame(walker.Walking, walker.Facing, Time.unscaledTime + offset);
+            image.texture = texture != null ? texture : art.Frame(walker.Walking, walker.Facing, time);
+            return depth;
         }
 
         /// <summary>A character's frames from the art pack: four idle (facing you) and four walking per direction.</summary>
@@ -537,6 +716,40 @@ namespace AICompanion.NewUI
         {
             public readonly Texture2D[] Idle = new Texture2D[4];
             public readonly Texture2D[] Walk = new Texture2D[16];
+            readonly Dictionary<string, Texture2D[]> _poses = new Dictionary<string, Texture2D[]>(StringComparer.Ordinal);
+
+            /// <summary>The two-frame activity poses (JUH-237): hers from the slots, his "sit". Missing ones are skipped.</summary>
+            public void LoadPoses(string who, RoomSlots slots)
+            {
+                if (slots == null)
+                {
+                    AddPose(who, "sit");
+                    return;
+                }
+
+                for (var i = 0; i < slots.Count; i++)
+                    AddPose(who, slots[i].Pose);
+            }
+
+            void AddPose(string who, string pose)
+            {
+                if (string.IsNullOrEmpty(pose) || _poses.ContainsKey(pose))
+                    return;
+                var a = Resources.Load<Texture2D>("HerRoom/characters/" + who + "_" + pose + "_0");
+                if (a == null)
+                    return;
+                var b = Resources.Load<Texture2D>("HerRoom/characters/" + who + "_" + pose + "_1");
+                _poses[pose] = new[] { a, b != null ? b : a };
+            }
+
+            /// <summary>The pose frame now, or null when this pose has no pictures (then she stands and faces it).</summary>
+            public Texture2D PoseFrame(string pose, float time)
+            {
+                Texture2D[] frames;
+                if (string.IsNullOrEmpty(pose) || !_poses.TryGetValue(pose, out frames))
+                    return null;
+                return frames[RoomFrames.Pose(time)];
+            }
 
             static readonly string[] Directions = { "down", "up", "left", "right" };
 
@@ -574,15 +787,48 @@ namespace AICompanion.NewUI
             }
         }
 
+        /// <summary>
+        /// Left-click: on furniture the player goes to use it (he sits where he can, otherwise he
+        /// goes to it and faces it); on the floor he walks there. Right-click on furniture asks
+        /// her to use it.
+        /// </summary>
         void OnFloorPressed(PointerEventData eventData)
         {
-            if (!_door.IsOpen || eventData.button != PointerEventData.InputButton.Left)
+            var left = eventData.button == PointerEventData.InputButton.Left;
+            var right = eventData.button == PointerEventData.InputButton.Right;
+            if (!_door.IsOpen || (!left && !right))
                 return;
             Vector2 local;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(_content, eventData.position, eventData.pressEventCamera, out local))
                 return;
             var r = _content.rect;
             var point = new Vector2((local.x - r.xMin) / r.width, 1f - (local.y - r.yMin) / r.height);
+
+            var activity = _slots.ForPiece(RoomCatalog.PieceAt(_room, point));
+            if (activity == RoomActivity.None && point.x >= _layout.WindowLeft && point.x <= _layout.WindowRight
+                && point.y >= _layout.WindowTop && point.y <= _layout.WindowBottom)
+                activity = RoomActivity.LookWindow;
+
+            RoomSlot slot;
+            RoomTile target;
+            if (right)
+            {
+                if (activity != RoomActivity.None
+                    && _routine.Request(activity, _playerWalk.Tile, RoomClock.At(DateTime.Now).Night, out target))
+                    _herWalk.WalkTo(target);
+                return;
+            }
+
+            // Sleeping together is phase 3; she has the spot while she uses it.
+            var herSpot = _routine.Doing == activity || _routine.Heading == activity;
+            if (activity != RoomActivity.None && activity != RoomActivity.Sleep && !herSpot && _slots.TryGet(activity, out slot))
+            {
+                _playerUse.Plan(activity);
+                _playerWalk.WalkTo(slot.Stand);
+                return;
+            }
+
+            _playerUse.Cancel();
             RoomTile tile;
             if (_layout.TryTileAt(point, out tile))
                 _playerWalk.WalkTo(tile);
@@ -599,6 +845,9 @@ namespace AICompanion.NewUI
         {
             if (_playerWalk.Walking || !CanTakeKeys())
                 return;
+            if (_playerUse.Doing != RoomActivity.None && (Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.RightArrow)
+                    || Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.DownArrow)))
+                _playerUse.Cancel();
             if (Input.GetKey(KeyCode.LeftArrow))
                 _playerWalk.Step(RoomFacing.Left);
             else if (Input.GetKey(KeyCode.RightArrow))
@@ -620,12 +869,12 @@ namespace AICompanion.NewUI
 
         void OnDisable()
         {
-            HerRoomNow.IsOpen = false;
+            HerRoomNow.Reset();
         }
 
         void OnDestroy()
         {
-            HerRoomNow.IsOpen = false;
+            HerRoomNow.Reset();
             ReleaseWallpaper();
             if (_poolMask != null)
                 Destroy(_poolMask);
