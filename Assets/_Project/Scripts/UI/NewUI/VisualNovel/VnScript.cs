@@ -17,11 +17,12 @@ namespace AICompanion.NewUI.VisualNovel
     /// <summary>One line of a reply in the visual-novel chat (JUH-108).</summary>
     public sealed class VnSegment
     {
-        public VnSegment(VnSegmentKind kind, string text, IReadOnlyList<AnimationCue> cues)
+        public VnSegment(VnSegmentKind kind, string text, IReadOnlyList<AnimationCue> cues, IReadOnlyList<VnFaceBeat> faceBeats = null)
         {
             Kind = kind;
             Text = text ?? string.Empty;
             Cues = cues ?? Array.Empty<AnimationCue>();
+            FaceBeats = faceBeats ?? Array.Empty<VnFaceBeat>();
         }
 
         public VnSegmentKind Kind { get; }
@@ -29,6 +30,19 @@ namespace AICompanion.NewUI.VisualNovel
 
         /// <summary>Cue tags written right before or inside this line. They fire when this line starts.</summary>
         public IReadOnlyList<AnimationCue> Cues { get; }
+        public IReadOnlyList<VnFaceBeat> FaceBeats { get; }
+    }
+
+    public readonly struct VnFaceBeat
+    {
+        public readonly int Offset;
+        public readonly string Expression;
+
+        public VnFaceBeat(int offset, string expression)
+        {
+            Offset = offset;
+            Expression = expression;
+        }
     }
 
     /// <summary>The parsed reply: its lines, plus cue tags that had no line after them.</summary>
@@ -62,6 +76,7 @@ namespace AICompanion.NewUI.VisualNovel
     public static class VnScriptParser
     {
         public const int MaxSegments = 64;
+        const int MaxFaceBeats = 2;
         const string TagStart = "<" + AnimationCueParser.TagName;
 
         public static VnScript Parse(string raw, bool final)
@@ -73,6 +88,8 @@ namespace AICompanion.NewUI.VisualNovel
 
             var text = raw.Replace("\r\n", "\n").Replace('\r', '\n');
             var buffer = new StringBuilder();
+            var beats = new List<VnFaceBeat>(MaxFaceBeats);
+            var beatCount = 0;
             var narration = false;
             var i = 0;
             var stopped = false;
@@ -97,12 +114,26 @@ namespace AICompanion.NewUI.VisualNovel
                         continue;
                     }
 
-                    // A tag after some text starts a new line, so its cue fires where that part begins.
-                    if (buffer.ToString().Trim().Length > 0)
-                        Flush(buffer, narration, segments, pending);
-
                     var end = text.IndexOf('>', i);
                     var tag = text.Substring(i, end - i + 1);
+                    if (AnimationCueParser.TryReadFaceBeat(tag, out var expression))
+                    {
+                        i = end + 1;
+                        while (buffer.Length > 0 && HorizontalSpace(buffer[buffer.Length - 1]))
+                            buffer.Length--;
+                        while (i < text.Length && HorizontalSpace(text[i]))
+                            i++;
+                        if (buffer.Length > 0 && i < text.Length && text[i] != '\n')
+                            buffer.Append(' ');
+                        if (expression != null && !narration && beatCount + beats.Count < MaxFaceBeats)
+                            beats.Add(new VnFaceBeat(buffer.Length, expression));
+                        continue;
+                    }
+
+                    // A normal cue after some text starts a new line.
+                    if (buffer.ToString().Trim().Length > 0)
+                        beatCount += Flush(buffer, narration, segments, pending, beats);
+
                     var parsed = AnimationCueParser.Parse(tag);
                     if (parsed.Status == CueParseStatus.Parsed)
                         pending.Add(parsed.Cue);
@@ -114,14 +145,14 @@ namespace AICompanion.NewUI.VisualNovel
                 {
                     while (i < text.Length && text[i] == '*')
                         i++;
-                    Flush(buffer, narration, segments, pending);
+                    beatCount += Flush(buffer, narration, segments, pending, beats);
                     narration = !narration;
                     continue;
                 }
 
                 if (c == '\n')
                 {
-                    Flush(buffer, narration, segments, pending);
+                    beatCount += Flush(buffer, narration, segments, pending, beats);
                     narration = false;
                     i++;
                     continue;
@@ -133,7 +164,7 @@ namespace AICompanion.NewUI.VisualNovel
 
             // Tags after the last line stay in pending: they fire when the reply ends.
             if (final && !stopped)
-                Flush(buffer, narration, segments, pending);
+                Flush(buffer, narration, segments, pending, beats);
 
             KeepThoughtQuotesInternal(segments);
             Cap(segments);
@@ -202,16 +233,36 @@ namespace AICompanion.NewUI.VisualNovel
             return sb.ToString();
         }
 
-        static void Flush(StringBuilder buffer, bool narration, List<VnSegment> segments, List<AnimationCue> pending)
+        static bool HorizontalSpace(char c) => c == ' ' || c == '\t';
+
+        static int Flush(StringBuilder buffer, bool narration, List<VnSegment> segments,
+            List<AnimationCue> pending, List<VnFaceBeat> beats)
         {
-            var text = ScreenLookCue.Strip(buffer.ToString()).Trim();
+            var raw = buffer.ToString();
+            var leading = raw.Length - raw.TrimStart().Length;
+            var text = ScreenLookCue.Strip(raw).Trim();
             buffer.Length = 0;
+            List<VnFaceBeat> valid = null;
+            var spoken = !narration && !StartsThoughtMarker(text);
+            if (spoken && beats.Count > 0 && raw.Trim() == text)
+            {
+                foreach (var beat in beats)
+                {
+                    var offset = beat.Offset - leading;
+                    if (offset <= 0 || offset >= text.Length ||
+                        (valid != null && offset == valid[valid.Count - 1].Offset))
+                        continue;
+                    (valid ??= new List<VnFaceBeat>(MaxFaceBeats)).Add(new VnFaceBeat(offset, beat.Expression));
+                }
+            }
+            beats.Clear();
             if (text.Length == 0)
-                return;
+                return 0;
 
             var cues = pending.Count > 0 ? new List<AnimationCue>(pending) : null;
             pending.Clear();
-            segments.Add(new VnSegment(narration || StartsThoughtMarker(text) ? VnSegmentKind.Narration : VnSegmentKind.Speech, text, cues));
+            segments.Add(new VnSegment(spoken ? VnSegmentKind.Speech : VnSegmentKind.Narration, text, cues, valid));
+            return valid?.Count ?? 0;
         }
 
         /// <summary>

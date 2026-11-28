@@ -272,7 +272,7 @@ namespace AICompanion.NewUI
                 HighlightBackground = new Color32(38, 230, 255, 38)
             } : HappiTheme.Current;
             _voice = new VnVoice(RealVoice, SpeechEnabled);
-            _cues = new VnCueSink(PlayCue);
+            _cues = new VnCueSink(PlayCue, RibbonMenu.Enabled ? PlayPortraitBeat : null);
             _player = new VnPlayer(_voice, _cues, VnTiming.From(_theme));
             _player.Mode = PlayerPrefs.GetInt(ModePref, 0) == 1 ? VnMode.Step : VnMode.Auto;
             _transcript.SetFormatter(FormatHistoryText);
@@ -355,6 +355,13 @@ namespace AICompanion.NewUI
             var director = GetComponent<Director>();
             if (director != null)
                 director.Play(cue);
+        }
+
+        void PlayPortraitBeat(string expression)
+        {
+            var portrait = GetComponent<ExpressionPortraitPanel>();
+            if (portrait != null)
+                portrait.SetDialogueExpression(expression);
         }
 
         void Update()

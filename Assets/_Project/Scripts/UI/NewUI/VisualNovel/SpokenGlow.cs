@@ -35,6 +35,7 @@ namespace AICompanion.NewUI.VisualNovel
         public float SecondsPerLetter = 0.07f;
 
         public int WordCount => _count;
+        public int LatestWordStart { get; private set; } = -1;
 
         /// <summary>First character of word <paramref name="index"/> in the line.</summary>
         public int WordStart(int index) => _start[index];
@@ -88,6 +89,7 @@ namespace AICompanion.NewUI.VisualNovel
             }
 
             _hasSerial = false;
+            LatestWordStart = -1;
             _clipFirst = 0;
             _clipCount = 0;
             _clipWeight = 0f;
@@ -98,6 +100,7 @@ namespace AICompanion.NewUI.VisualNovel
         public void Clear()
         {
             _count = 0;
+            LatestWordStart = -1;
             _hasSerial = false;
             _estimating = false;
         }
@@ -226,6 +229,7 @@ namespace AICompanion.NewUI.VisualNovel
                 var wordEnd = cursor + _word[i];
                 if (position < cursor)
                     break;
+                LatestWordStart = Math.Max(LatestWordStart, _start[i]);
                 if (_litAt[i] < 0f)
                     _litAt[i] = now;
                 if (position >= wordEnd && _endedAt[i] < 0f)

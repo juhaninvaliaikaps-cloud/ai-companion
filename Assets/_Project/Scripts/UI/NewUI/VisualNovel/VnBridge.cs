@@ -11,7 +11,7 @@ namespace AICompanion.NewUI.VisualNovel
     /// the speech origin the chat panel chose for this reply, so private mode, the intimate gate
     /// and the local-voice route apply exactly as before. Prefetch uses the voice's playback hold.
     /// </summary>
-    public sealed class VnVoice : IVnVoice
+    public sealed class VnVoice : IVnVoice, ISpeechProgress
     {
         readonly Func<ISpeechOutput> _real;
         readonly Func<bool> _speechEnabled;
@@ -47,6 +47,16 @@ namespace AICompanion.NewUI.VisualNovel
         }
 
         public bool SupportsPrefetch => _real() is ISpeechPlaybackHold;
+
+        public bool TryGetSpokenClip(out int clipSerial, out string text, out float time, out float length)
+        {
+            if (_real() is ISpeechProgress progress)
+                return progress.TryGetSpokenClip(out clipSerial, out text, out time, out length);
+            clipSerial = 0;
+            text = null;
+            time = length = 0f;
+            return false;
+        }
 
         public void Speak(string text)
         {
@@ -94,14 +104,18 @@ namespace AICompanion.NewUI.VisualNovel
     }
 
     /// <summary>Fires a line's cue: the animation director first, then her mood (as ChatPanel.ApplyCue on main).</summary>
-    public sealed class VnCueSink : IVnCueSink
+    public sealed class VnCueSink : IVnCueSink, IVnFaceSink
     {
         readonly Action<AnimationCue> _play;
+        readonly Action<string> _face;
 
-        public VnCueSink(Action<AnimationCue> play)
+        public VnCueSink(Action<AnimationCue> play, Action<string> face = null)
         {
             _play = play;
+            _face = face;
         }
+
+        public void SetFace(string expression) => _face?.Invoke(expression);
 
         public int Fired { get; private set; }
 

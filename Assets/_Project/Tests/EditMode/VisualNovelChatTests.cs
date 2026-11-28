@@ -8,7 +8,7 @@ namespace AICompanion.Tests.EditMode
 {
     // JUH-108: sequenced visual-novel chat playback.
 
-    sealed class FakeVnVoice : IVnVoice
+    sealed class FakeVnVoice : IVnVoice, ISpeechProgress
     {
         public bool CanSpeak { get; set; } = true;
         public bool IsSpeaking { get; set; }
@@ -17,6 +17,8 @@ namespace AICompanion.Tests.EditMode
         public readonly List<string> Prefetched = new List<string>();
         public int PlayedPrefetched;
         public int Stops;
+        public float ClipTime;
+        public float ClipLength;
 
         public void Speak(string text) { Spoken.Add(text); IsSpeaking = true; }
         public void Prefetch(string text) { Prefetched.Add(text); IsSpeaking = true; }
@@ -25,12 +27,23 @@ namespace AICompanion.Tests.EditMode
 
         /// <summary>The line being synthesized or played has finished.</summary>
         public void Finish() { IsSpeaking = false; }
+
+        public bool TryGetSpokenClip(out int serial, out string text, out float time, out float length)
+        {
+            serial = 1;
+            text = Spoken.Count > 0 ? Spoken[Spoken.Count - 1] : string.Empty;
+            time = ClipTime;
+            length = ClipLength;
+            return IsSpeaking && length > 0f;
+        }
     }
 
-    sealed class FakeCues : IVnCueSink
+    sealed class FakeCues : IVnCueSink, IVnFaceSink
     {
         public readonly List<AnimationCue> Fired = new List<AnimationCue>();
+        public readonly List<string> Faces = new List<string>();
         public void Fire(AnimationCue cue) { Fired.Add(cue); }
+        public void SetFace(string expression) { Faces.Add(expression); }
     }
 
     public sealed class VnScriptParserTests
@@ -55,6 +68,37 @@ namespace AICompanion.Tests.EditMode
         {
             var script = VnScriptParser.Parse("Just talking to you today.", true);
             CollectionAssert.AreEqual(new[] { "S:Just talking to you today." }, Describe(script));
+        }
+
+        [Test]
+        public void FaceBeatsKeepASentenceWholeAndDoNotReplaceTheMainCue()
+        {
+            const string raw = "<animation emotion=\"thinking\" gesture=\"wave\" />\nOne two, <animation portrait_beat=\"surprised\" /> three four, <animation portrait_beat=\"happy\" /> five six.";
+            var script = VnScriptParser.Parse(raw, true);
+            Assert.AreEqual(1, script.Segments.Count);
+            var line = script.Segments[0];
+            Assert.AreEqual("One two, three four, five six.", line.Text);
+            Assert.AreEqual(2, line.FaceBeats.Count);
+            Assert.AreEqual(9, line.FaceBeats[0].Offset);
+            Assert.AreEqual(21, line.FaceBeats[1].Offset);
+            Assert.AreEqual("happy", line.FaceBeats[1].Expression);
+            var clean = AnimationCueParser.Parse(raw);
+            Assert.AreEqual(line.Text, clean.Text);
+            Assert.AreEqual(Emotion.Thinking, clean.Cue.Emotion);
+            Assert.AreEqual("wave", clean.Cue.Gesture);
+        }
+
+        [Test]
+        public void InvalidAndGatedBeatsStaySilentAndTheReplyKeepsOnlyTwo()
+        {
+            const string raw = "One <animation portrait_beat=\"unknown\" landed=\"complimented\" /> two <animation portrait_beat=\"finger_suck\" /> three <animation portrait_beat=\"concerned\" /> four <animation portrait_beat=\"smug\" /> five.\nLater, <animation portrait_beat=\"happy\" /> more.";
+            var script = VnScriptParser.Parse(raw, true);
+            Assert.AreEqual("One two three four five.", script.Segments[0].Text);
+            Assert.AreEqual(2, script.Segments[0].FaceBeats.Count);
+            Assert.AreEqual("concerned", script.Segments[0].FaceBeats[0].Expression);
+            Assert.AreEqual(0, script.Segments[1].FaceBeats.Count);
+            Assert.AreEqual(CueParseStatus.None, AnimationCueParser.Parse(raw).Status);
+            Assert.AreEqual(0, VnScriptParser.Parse("One <animation portrait_beat=\"surp", false).Segments.Count);
         }
 
         [Test]
@@ -146,6 +190,46 @@ namespace AICompanion.Tests.EditMode
 
     public sealed class VnPlayerTests
     {
+        const string FaceReply = "<animation emotion=\"thinking\" />\nOne two, <animation portrait_beat=\"surprised\" /> three four, <animation portrait_beat=\"happy\" /> five six.";
+
+        [Test]
+        public void VoicedFaceBeatsFollowTheClipWithoutSplittingSpeech()
+        {
+            var voice = new FakeVnVoice { SupportsPrefetch = false };
+            var cues = new FakeCues();
+            var player = Make(voice, cues, VnMode.Auto, false);
+            player.Update(VnScriptParser.Parse(FaceReply, true), true);
+            player.Tick(0.5f);
+            Assert.IsEmpty(cues.Faces, "synthesis time is not voice playback");
+            CollectionAssert.AreEqual(new[] { "One two, three four, five six." }, voice.Spoken);
+            voice.ClipLength = 4f;
+            voice.ClipTime = 1.7f;
+            player.Tick(.5f);
+            CollectionAssert.AreEqual(new[] { "surprised" }, cues.Faces);
+            voice.ClipTime = 3.5f;
+            player.Tick(.5f);
+            CollectionAssert.AreEqual(new[] { "surprised", "happy" }, cues.Faces);
+            Assert.AreEqual(1, cues.Fired.Count, "only the reply-wide cue reaches animation and mood");
+        }
+
+        [Test]
+        public void MutedPlaybackTimesTheBeatsAndShowAllUsesOnlyTheLatestPose()
+        {
+            var voice = new FakeVnVoice { CanSpeak = false };
+            var cues = new FakeCues();
+            var player = Make(voice, cues, VnMode.Auto, false);
+            var script = VnScriptParser.Parse(FaceReply, true);
+            player.Update(script, true);
+            var duration = Timing().ReadSeconds(script.Segments[0]);
+            player.Tick(.45f * duration);
+            CollectionAssert.AreEqual(new[] { "surprised" }, cues.Faces);
+            player.ShowAll();
+            CollectionAssert.AreEqual(new[] { "surprised", "happy" }, cues.Faces);
+            player.Tick(.8f);
+            Assert.IsNull(cues.Faces[cues.Faces.Count - 1], "finished beats yield back to normal portrait behavior");
+            Assert.IsEmpty(voice.Spoken);
+        }
+
         [TearDown]
         public void ClearReactionLead()
         {
