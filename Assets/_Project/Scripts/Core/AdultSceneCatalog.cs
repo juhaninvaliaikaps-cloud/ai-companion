@@ -23,8 +23,6 @@ namespace AICompanion.Core
                 + "blowjob_ontop (she is on top and gives him a blowjob), "
                 + "lapdance_facing (cowgirl, missionary, or she is on top facing him), "
                 + "lapdance_behind (doggystyle, anal, or he is fucking her from behind), "
-                + "riding_cowgirl (she is riding him in cowgirl position), "
-                + "riding_cowgirl_short (the same cowgirl position, short 10-second loop), "
                 + "lying_kiss (a kiss while you lie together), "
                 + "lying_make_out or lying_make_out_2 (a longer lying make-out loop). "
                 + "Use them only when the scene is already intimate and both of you clearly want it. "

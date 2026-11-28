@@ -63,22 +63,6 @@ namespace AICompanion.Core
             if (behind)
                 return AvatarInteractionCatalog.LapdanceBehind;
 
-            // JUH-194: cowgirl / riding him. A short clip is available through the wheel.
-            var cowgirl = value.Contains("cowgirl") || value.Contains("girl on top");
-            var ridingHim = value.Contains("riding him") || value.Contains("rides him")
-                || value.Contains("riding the user") || value.Contains("rides the user")
-                || value.Contains("on top of him") || value.Contains("on top of the user")
-                || value.Contains("she's fucking him") || value.Contains("she is fucking him")
-                || value.Contains("she fucks him");
-            if (cowgirl || ridingHim)
-            {
-                var shortLoop = value.Contains("short") || value.Contains("10 second")
-                    || value.Contains("10s") || value.Contains("10 s");
-                return shortLoop
-                    ? AvatarInteractionCatalog.RidingCowgirlShort
-                    : AvatarInteractionCatalog.RidingCowgirl;
-            }
-
             var facing = value.Contains("cowgirl") || value.Contains("missionary")
                 || value.Contains("on top of you") || value.Contains("on top of me")
                 || value.Contains("riding you") || value.Contains("riding me")
@@ -152,7 +136,7 @@ namespace AICompanion.Core
                 return true;
 
             // Intercourse and the positions that only happen during it.
-            if (Regex.IsMatch(value, @"\b(i|we|they|he|she)\b.{0,40}\b(sex|fuck|fucks|fucked|fucking|penetrat|penetrated|riding|rides|rode|straddl|cowgirl|missionary|doggystyle|doggy style|anal|thrust|thrusts|thrusting|on top of you|on top of me|on top of him|on top of the user)\b"))
+            if (Regex.IsMatch(value, @"\b(i|we|they|he|she)\b.{0,40}\b(sex|fuck|fucks|fucked|fucking|penetrat|penetrated|riding|rides|rode|straddl|cowgirl|missionary|doggystyle|doggy style|anal|thrust|thrusts|thrusting|on top of you|on top of me)\b"))
                 return true;
             if (Regex.IsMatch(value, @"\b(cowgirl|missionary|doggystyle|doggy style|from behind|anal sex|penetration)\b"))
                 return true;
