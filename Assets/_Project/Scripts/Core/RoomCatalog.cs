@@ -89,6 +89,87 @@ namespace AICompanion.Core
             return list;
         }
 
+        public const string PianoId = "room_hobby_piano";
+        public const string BenchId = "room_piano_bench";
+
+        /// <summary>The piece with this id, or null.</summary>
+        public RoomPiece Find(string id)
+        {
+            foreach (var piece in Pieces)
+            {
+                if (piece != null && piece.id == id)
+                    return piece;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// JUH-237: the room with her hobby. Her hobby piece takes the piano's spot (only the piano
+        /// has a spot in the catalogue), and the bench is only there with the piano. A missing
+        /// or broken hobby picture leaves the piano.
+        /// </summary>
+        public List<RoomPiece> RoomFor(RoomHobby hobby)
+        {
+            var room = DefaultRoom();
+            if (hobby == RoomHobby.Piano)
+                return room;
+            var piano = room.FindIndex(p => p.id == PianoId);
+            var piece = Find(RoomHobbies.PieceId(hobby));
+            if (piano < 0 || piece == null || !Valid(piece))
+                return room;
+            room[piano] = At(piece, room[piano].defaultAnchorRoomPx);
+            room.RemoveAll(p => p.id == BenchId);
+            return room;
+        }
+
+        /// <summary>An alternate picture (the open wardrobe) on the spot of the piece it replaces.</summary>
+        public RoomPiece VariantAt(string variantId, RoomPiece placed)
+        {
+            var variant = Find(variantId);
+            if (variant == null || placed == null || !placed.HasDefaultSpot || !Valid(variant))
+                return null;
+            return At(variant, placed.defaultAnchorRoomPx);
+        }
+
+        static RoomPiece At(RoomPiece piece, int[] spot)
+        {
+            return new RoomPiece
+            {
+                id = piece.id, file = piece.file, sizePx = piece.sizePx, anchorPx = piece.anchorPx,
+                placement = piece.placement, walkable = piece.walkable, variantOf = piece.variantOf,
+                defaultAnchorRoomPx = new[] { spot[0], spot[1] },
+            };
+        }
+
+        /// <summary>
+        /// JUH-237: the piece a click at this room point (fraction, y down) means: the frontmost
+        /// floor or surface piece whose picture contains it. Rugs and wall pieces are never
+        /// picked, so a click on them walks there. Empty when nothing is there.
+        /// </summary>
+        public static string PieceAt(IList<RoomPiece> room, Vector2 point)
+        {
+            string best = string.Empty;
+            var bestDepth = float.NegativeInfinity;
+            if (room == null)
+                return best;
+            foreach (var piece in room)
+            {
+                if (piece == null || !piece.HasDefaultSpot || piece.walkable || piece.OnWall)
+                    continue;
+                if (!RectOf(piece).Contains(point))
+                    continue;
+                var depth = DepthOf(piece, room);
+                if (depth > bestDepth)
+                {
+                    bestDepth = depth;
+                    best = piece.id;
+                }
+            }
+
+            return best;
+        }
+
         static bool Valid(RoomPiece piece)
         {
             return piece.sizePx != null && piece.sizePx.Length == 2 && piece.anchorPx != null && piece.anchorPx.Length == 2
