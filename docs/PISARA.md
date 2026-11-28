@@ -74,7 +74,8 @@ Every part of the sheet is used: the temperament since JUH-118 section 1, and th
     "lastWeek": [ { "daysAgo": 2, "text": "Failed a quiz." } ],
     "openThreads": [ { "text": "Portfolio review on Friday.", "goodOutcome": "It went well.", "badOutcome": "It went badly." } ],
     "rightNow": "Sketching at her desk, headphones on."
-  }
+  },
+  "roomHobby": "easel"
 }
 ```
 
@@ -92,6 +93,7 @@ Every part of the sheet is used: the temperament since JUH-118 section 1, and th
 | `world.lastWeek` | Small things from the past week | 8; `daysAgo` 0..14 |
 | `world.openThreads` | Things she is in the middle of, with a good and a bad outcome | 3 |
 | `world.rightNow` | What she is doing when the user arrives | 200 characters |
+| `roomHobby` | JUH-231: her hobby in Her Room: `piano`, `squat_rack`, `easel`, `guitar`, `plants` or `telescope` | Anything else becomes empty, and `RoomHobbies.For` guesses it from her description |
 
 ### API
 

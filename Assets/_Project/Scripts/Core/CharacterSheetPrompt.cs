@@ -28,7 +28,8 @@ namespace AICompanion.Core
             "    \"lastWeek\": [ { \"daysAgo\": 0, \"text\": \"\" }, { \"daysAgo\": 1, \"text\": \"\" }, { \"daysAgo\": 2, \"text\": \"\" }, { \"daysAgo\": 3, \"text\": \"\" }, { \"daysAgo\": 5, \"text\": \"\" }, { \"daysAgo\": 6, \"text\": \"\" } ],\n" +
             "    \"openThreads\": [ { \"text\": \"\", \"goodOutcome\": \"\", \"badOutcome\": \"\" }, { \"text\": \"\", \"goodOutcome\": \"\", \"badOutcome\": \"\" } ],\n" +
             "    \"rightNow\": \"\"\n" +
-            "  }\n" +
+            "  },\n" +
+            "  \"roomHobby\": \"piano\"\n" +
             "}\n" +
             "Rules:\n" +
             "- temperament: each value from 0 to 1 says how well that word fits her. calm: steady, composed, patient, hard to rattle (a nervous or timid character is not calm). cheerful: sunny, upbeat, playful. shy: timid, easily flustered, reserved. tsundere: prickly, teasing or bratty on the surface, caring underneath. moody: gloomy, brooding, low or changeable. Give the one word that fits best a high value. A second word gets more than 0.3 only when the description clearly shows that side too; the rest stay at 0.2 or below. Leave all at 0 when the description gives no hint. reason is one short line.\n" +
@@ -41,6 +42,7 @@ namespace AICompanion.Core
             "- world.lastWeek: exactly 6 small things that happened to her in the last week, each with daysAgo from 0 to 7 (0 is today). Count them: 6. Ordinary life, not drama. Each one is a different event.\n" +
             "- world.openThreads: exactly 2 things she is in the middle of, waiting for or dreading, each with one line for how it could go well and one for how it could go badly.\n" +
             "- world.rightNow: one sentence for what she is doing by herself at the moment the user first talks to her. The user is not in it.\n" +
+            "- roomHobby: the one hobby from this list that suits her best, for a corner of her room: piano, squat_rack, easel, guitar, plants, telescope. Take it from her description when it fits one (music, the gym, painting, a band, gardening, the stars); otherwise pick the one that fits her character. Exactly one of the six words.\n" +
             "- When the description has a part headed \"The world and what's going on\", that is the scenario the user chose, and it is fact. Take relationship, sharedHistory and world.rightNow from it instead of inventing them (rightNow is what she is doing there just before the user arrives), and keep her backstory, lastWeek and openThreads inside that world.\n" +
             "- A part headed \"Her lorebook\" holds facts about her world that the user wrote. They are fact too: keep her backstory, lastWeek and openThreads consistent with them.\n" +
             "- Stay inside the description. Do not contradict it or yourself. Invent only what fits it. Invent nothing about the user: no pets, jobs, friends or habits the description does not give them.\n" +
