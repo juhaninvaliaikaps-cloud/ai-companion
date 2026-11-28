@@ -25,7 +25,7 @@ namespace AICompanion.NewUI
     /// the new UI is on.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class HappiChatView : MonoBehaviour, IOverlayKeepAwake
+    public sealed partial class HappiChatView : MonoBehaviour, IOverlayKeepAwake
     {
         RawImage _ribbonHeaderArt;
         RibbonShape _ribbonHeaderArtShape;
@@ -41,7 +41,35 @@ namespace AICompanion.NewUI
         RibbonGlyph _personaArrow;
         RibbonPersonaMenu _personaMenu;
         RibbonPersonaSession _personaSession;
-        TMP_InputField _personaReturnFocus;
+        FieldFocus _menuReturnFocus;
+        FieldFocus _pointerReturnFocus;
+        RectTransform _pointerFocusTrigger;
+
+        readonly struct FieldFocus
+        {
+            public readonly TMP_InputField Field;
+            readonly int _anchor;
+            readonly int _focus;
+
+            public FieldFocus(TMP_InputField field)
+            {
+                Field = field;
+                _anchor = field != null ? field.selectionStringAnchorPosition : 0;
+                _focus = field != null ? field.selectionStringFocusPosition : 0;
+            }
+
+            public bool Restore()
+            {
+                if (Field == null || !Field.isActiveAndEnabled || !Field.interactable)
+                    return false;
+                Field.Select();
+                Field.ActivateInputField();
+                var length = Field.text.Length;
+                Field.selectionStringAnchorPosition = Mathf.Clamp(_anchor, 0, length);
+                Field.selectionStringFocusPosition = Mathf.Clamp(_focus, 0, length);
+                return true;
+            }
+        }
         RectTransform _ribbonHeaderRule;
         RectTransform _ribbonHeaderBacking;
         RectTransform _ribbonHeaderDivider;
@@ -90,7 +118,7 @@ namespace AICompanion.NewUI
         HappiButton _ribbonExtrasMenu;
         RibbonGlyph _ribbonExtrasCheck;
         HappiButton[] _ribbonChatOptions;
-        TMP_InputField _chatOptionsReturnFocus;
+
         bool _ribbonExtras;
         bool _layoutPlayback;
         bool _layoutMic;
@@ -207,6 +235,14 @@ namespace AICompanion.NewUI
         /// <summary>The chat box centre in Unity screen pixels.</summary>
         public Vector2 BoxCenter => _boxCenter;
 
+        internal bool ReplyPresentationPending => _attached && (_sink.Streaming || _player.Active);
+
+        internal Rect FeedbackWorkArea => _visibleArea.width > 0f ? _visibleArea : OverlayVisibleArea.Get(_window);
+
+        internal Rect FeedbackChatFrame => _attached && _chat.ChatVisible && _boxSize.x > 0f
+            ? new Rect(_boxCenter - _boxSize * .5f, _boxSize)
+            : default;
+
         public bool KeepFrameRateActive
         {
             get
@@ -214,7 +250,7 @@ namespace AICompanion.NewUI
                 if (!_attached)
                     return false;
                 return (_player != null && _player.Active)
-                    || (_personaMenu != null && _personaMenu.IsOpen)
+                    || ChatMenuOwnsKeyboard
                     || (_input != null && _input.isFocused)
                     || (_keyInput != null && _keyInput.isFocused);
             }
@@ -236,7 +272,7 @@ namespace AICompanion.NewUI
                 HighlightBackground = new Color32(38, 230, 255, 38)
             } : HappiTheme.Current;
             _voice = new VnVoice(RealVoice, SpeechEnabled);
-            _cues = new VnCueSink(PlayCue);
+            _cues = new VnCueSink(PlayCue, RibbonMenu.Enabled ? PlayPortraitBeat : null);
             _player = new VnPlayer(_voice, _cues, VnTiming.From(_theme));
             _player.Mode = PlayerPrefs.GetInt(ModePref, 0) == 1 ? VnMode.Step : VnMode.Auto;
             _transcript.SetFormatter(FormatHistoryText);
@@ -321,6 +357,13 @@ namespace AICompanion.NewUI
                 director.Play(cue);
         }
 
+        void PlayPortraitBeat(string expression)
+        {
+            var portrait = GetComponent<ExpressionPortraitPanel>();
+            if (portrait != null)
+                portrait.SetDialogueExpression(expression);
+        }
+
         void Update()
         {
             if (!_attached || _chat == null || _canvasObject == null)
@@ -339,7 +382,11 @@ namespace AICompanion.NewUI
             {
                 ClosePersonaMenu();
                 if (_ribbonChatOptions != null)
+                {
                     CloseChatMenu();
+                    ClearChatSelection();
+                    ClearPointerFocus();
+                }
                 _wasVisible = false;
                 _dragging = false;
                 _dragPending = false;
@@ -368,7 +415,8 @@ namespace AICompanion.NewUI
             UpdatePersonaMenu();
             if (_menuOpen && Input.GetMouseButtonDown(0)
                 && !Contains(_chatMenu != null ? (RectTransform)_chatMenu.transform : null)
-                && !Contains(_close != null ? _close.Rect : null))
+                && !Contains(_close != null ? _close.Rect : null)
+                && !Contains(_personaTitle != null ? _personaTitle.Rect : null))
                 CloseChatMenu();
             if (!_wasVisible)
             {
@@ -383,6 +431,7 @@ namespace AICompanion.NewUI
                 var overPicture = _avatarShown && !_dragging && !_resizing && _avatarFrame != null && Contains(_avatarFrame.rectTransform);
                 _picturePreview.Tick(overPicture, _avatar != null ? _avatar.texture : null, _avatarFrame != null ? _avatarFrame.rectTransform : null, Time.unscaledTime);
             }
+            SyncMemoryLinkContext();
             RefreshDialogue();
             ApplyGlow(settings);
             RefreshHistory();
@@ -390,6 +439,13 @@ namespace AICompanion.NewUI
             RefreshRibbonScrollControls();
             ShowResizeCursor();
             SyncFocus();
+        }
+
+        void LateUpdate()
+        {
+            // A header click is delivered on pointer-up, after the field was deselected on pointer-down.
+            if (_pointerFocusTrigger != null && !Input.GetMouseButton(0))
+                ClearPointerFocus();
         }
 
         bool Contains(RectTransform rect)
@@ -405,17 +461,18 @@ namespace AICompanion.NewUI
                 TogglePersonaMenu();
                 return;
             }
-            if (_personaMenu != null && _personaMenu.IsOpen)
-            {
-                if (Input.GetKeyDown(KeyCode.Escape))
-                    ClosePersonaMenu(restoreFocus: true);
-                return;
-            }
+
             if (_ribbonChatOptions != null && Application.isFocused && Input.GetKeyDown(KeyCode.O)
                 && (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)))
             {
                 if (GetComponent<HappiSettingsView>()?.IsOpen != true && GetComponent<PersonaStudioView>()?.IsOpen != true)
                     ToggleChatMenu();
+                return;
+            }
+            if (_personaMenu != null && _personaMenu.IsOpen)
+            {
+                if (Input.GetKeyDown(KeyCode.Escape))
+                    ClosePersonaMenu(restoreFocus: true);
                 return;
             }
             if (_menuOpen && Input.GetKeyDown(KeyCode.Escape))
@@ -1154,7 +1211,7 @@ namespace AICompanion.NewUI
                 _name.textWrappingMode = TextWrappingModes.NoWrap;
             }
             _badge = HappiUiKit.Text(_box, "Badge", string.Empty, _theme.FontSmall, _theme.BadgeCloud, TextAlignmentOptions.MidlineLeft, false);
-            _mute = HappiUiKit.Button(_box, "Mute", ChatPresenter.MuteOffLabel, _theme.FontSmall, () => _chat.Presenter.ToggleMute());
+            _mute = HappiUiKit.Button(_box, "Mute", ChatPresenter.MuteOffLabel, _theme.FontSmall, OnMute);
             if (RibbonMenu.Enabled)
                 _ribbonPrivacyBorder = HappiUiKit.Panel(_box, "Privacy outline", new Color32(160, 172, 187, 255), false).rectTransform;
             _privacy = HappiUiKit.Button(_box, "Privacy", "Public", _theme.FontSmall, OnPrivacy);
@@ -1338,7 +1395,15 @@ namespace AICompanion.NewUI
             }
 
             if (RibbonMenu.Enabled)
+            {
+                // Escape ends editing without rolling back the current unsent draft.
+                _input.restoreOriginalTextOnEscape = false;
+                _input.onFocusSelectAll = false;
+                _keyInput.onFocusSelectAll = false;
+                _input.onDeselect.AddListener(_ => CapturePointerFocus(_input));
+                _keyInput.onDeselect.AddListener(_ => CapturePointerFocus(_keyInput));
                 RibbonChatFrameEdge.Add(_box);
+            }
 
             // JUH-127: the edges and corners, last so they sit above everything in the box.
             var edges = new[]
@@ -1872,7 +1937,8 @@ namespace AICompanion.NewUI
             if (line.Kind != ChatLineKind.Assistant && line.Kind != ChatLineKind.User)
                 return ChatLineColors.Format(line, HappiUiKit.Literal(line.Text));
             var segments = VnScriptParser.Parse(line.Text, true).Segments;
-            return VnRender.Dialogue(segments, segments.Count, -1, _theme, false);
+            return VnRender.Dialogue(segments, segments.Count, -1, _theme, false,
+                _ribbonLatest != null && line.MemoryLinks != null ? part => FormatMemoryLinks(part, line.MemoryLinks) : null);
         }
 
         void RefreshDialogue()
@@ -2027,6 +2093,7 @@ namespace AICompanion.NewUI
                 {
                     if (rowObject.activeSelf)
                     {
+                        BindMemoryLinks(text, null);
                         text.text = string.Empty;
                         rowObject.SetActive(false);
                         if (ribbon)
@@ -2048,6 +2115,8 @@ namespace AICompanion.NewUI
                     // reply finished, while the live reply was body size. Keep one size.
                     text.fontSize = HistoryFontSize();
                     text.text = HistoryEntry(_transcript.Entry(i), showBadge);
+                    if (ribbon)
+                        BindMemoryLinks(text, _transcript.SourceAt(i));
                     _historyHeights[i] = Mathf.Max(8f, text.GetPreferredValues(text.text, textWidth, 0f).y);
                 }
 
@@ -2297,6 +2366,8 @@ namespace AICompanion.NewUI
         {
             _ribbonSendAccent?.Play(_send);
             _ribbonSendFlourish?.PlaySend();
+            if (TryGetComponent<RibbonAudio>(out var audio))
+                audio.Send();
         }
 
         /// <summary>
@@ -2360,7 +2431,7 @@ namespace AICompanion.NewUI
 
             ClosePersonaMenu();
             _input.SetTextWithoutNotify(draft);
-            _input.caretPosition = draft.Length;
+            _input.stringPosition = draft.Length;
             _shownRevision = -1;
             return true;
         }
@@ -2377,10 +2448,10 @@ namespace AICompanion.NewUI
             }
 
             SyncPersonaDraft();
+            var returnFocus = TakeHeaderFocus(_personaTitle.Rect);
             CloseChatMenu();
-            _personaReturnFocus = _input.isFocused ? _input : _keyInput.isFocused ? _keyInput : null;
-            _input.DeactivateInputField();
-            _keyInput.DeactivateInputField();
+            _menuReturnFocus = returnFocus;
+            ClearChatSelection();
             ReleaseFocus();
             GetComponent<ITypingFocus>()?.FocusForTyping();
             _personaMenu.Open(_personaSession.Choices(_settings.PersonaCards(), CompanionName()), PersonaSwitchBusy());
@@ -2389,22 +2460,13 @@ namespace AICompanion.NewUI
 
         void ClosePersonaMenu(bool restoreFocus = false)
         {
-            var wasOpen = _personaMenu != null && _personaMenu.IsOpen;
-            var input = _personaReturnFocus;
-            _personaReturnFocus = null;
-            if (!wasOpen)
+            if (_personaMenu == null || !_personaMenu.IsOpen)
                 return;
+            var focus = _menuReturnFocus;
+            _menuReturnFocus = default;
             _personaMenu.Close();
             _personaArrow.Shape = RibbonGlyph.Mark.ChevronUp;
-            if (!restoreFocus)
-                return;
-
-            if (input != null && input.isActiveAndEnabled && input.interactable)
-            {
-                input.ActivateInputField();
-                input.Select();
-            }
-            else
+            if (restoreFocus && !focus.Restore())
                 _personaTitle.Button.Select();
         }
 
@@ -2412,7 +2474,8 @@ namespace AICompanion.NewUI
         {
             if (_personaMenu == null || !_personaMenu.IsOpen)
                 return;
-            if (Input.GetMouseButtonDown(0) && !Contains(_personaMenu.Viewport) && !Contains(_personaTitle.Rect))
+            if (Input.GetMouseButtonDown(0) && !Contains(_personaMenu.Viewport)
+                && !Contains(_personaTitle.Rect) && !Contains(_close.Rect))
             {
                 ClosePersonaMenu();
                 return;
@@ -2474,6 +2537,7 @@ namespace AICompanion.NewUI
         {
             if (!focused)
             {
+                ClearPointerFocus();
                 ClosePersonaMenu();
                 if (_ribbonChatOptions != null)
                     CloseChatMenu();
@@ -2482,13 +2546,14 @@ namespace AICompanion.NewUI
 
         void ToggleChatMenu()
         {
-            ClosePersonaMenu();
             if (_menuOpen)
             {
                 CloseChatMenu(restoreFocus: true);
                 return;
             }
 
+            var returnFocus = _ribbonChatOptions != null ? TakeHeaderFocus(_close.Rect) : default;
+            ClosePersonaMenu();
             _menuOpen = true;
             _chatMenu.SetActive(true);
             _chatMenu.transform.SetAsLastSibling();
@@ -2500,8 +2565,8 @@ namespace AICompanion.NewUI
 
             if (_ribbonChatOptions == null)
                 return;
-            _chatOptionsReturnFocus = _input.isFocused ? _input : _keyInput.isFocused ? _keyInput : null;
-            _chatOptionsReturnFocus?.DeactivateInputField();
+            _menuReturnFocus = returnFocus;
+            ClearChatSelection();
             ReleaseFocus();
             GetComponent<ITypingFocus>()?.FocusForTyping();
             _ribbonChatOptions[0].Button.Select();
@@ -2509,9 +2574,11 @@ namespace AICompanion.NewUI
 
         void CloseChatMenu(bool restoreFocus = false)
         {
-            var input = _chatOptionsReturnFocus;
-            _chatOptionsReturnFocus = null;
-            if (_ribbonChatOptions != null && _menuOpen)
+            if (!_menuOpen)
+                return;
+            var focus = _menuReturnFocus;
+            _menuReturnFocus = default;
+            if (_ribbonChatOptions != null)
             {
                 var events = EventSystem.current;
                 var selection = events != null ? events.currentSelectedGameObject : null;
@@ -2522,14 +2589,7 @@ namespace AICompanion.NewUI
             if (_chatMenu != null)
                 _chatMenu.SetActive(false);
 
-            if (!restoreFocus || _ribbonChatOptions == null)
-                return;
-            if (input != null && input.isActiveAndEnabled && input.interactable)
-            {
-                input.ActivateInputField();
-                input.Select();
-            }
-            else
+            if (restoreFocus && _ribbonChatOptions != null && !focus.Restore())
                 _close.Button.Select();
         }
 
@@ -2697,6 +2757,57 @@ namespace AICompanion.NewUI
             _keyInput.text = string.Empty;
         }
 
+        TMP_InputField FocusedInput()
+        {
+            if (_input != null && _input.isFocused)
+                return _input;
+            return _keyInput != null && _keyInput.isFocused ? _keyInput : null;
+        }
+
+        void CapturePointerFocus(TMP_InputField field)
+        {
+            if (!Input.GetMouseButton(0))
+                return;
+            var trigger = Contains(_personaTitle?.Rect) ? _personaTitle.Rect
+                : Contains(_close?.Rect) ? _close.Rect
+                : Contains(_mute?.Rect) ? _mute.Rect
+                : null;
+            if (trigger == null)
+                return;
+            _pointerFocusTrigger = trigger;
+            _pointerReturnFocus = new FieldFocus(field);
+        }
+
+        FieldFocus TakeHeaderFocus(RectTransform trigger)
+        {
+            var focus = ChatMenuOwnsKeyboard ? _menuReturnFocus : new FieldFocus(FocusedInput());
+            if (focus.Field == null && _pointerFocusTrigger == trigger)
+                focus = _pointerReturnFocus;
+            ClearPointerFocus();
+            return focus;
+        }
+
+        void ClearPointerFocus()
+        {
+            _pointerFocusTrigger = null;
+            _pointerReturnFocus = default;
+        }
+
+        void ClearChatSelection()
+        {
+            var events = EventSystem.current;
+            var selected = events?.currentSelectedGameObject;
+            if (selected != null && selected.transform.IsChildOf(_canvasObject.transform))
+                events.SetSelectedGameObject(null);
+        }
+
+        void OnMute()
+        {
+            _chat.Presenter.ToggleMute();
+            if (_ribbonVoiceIcon != null && _pointerFocusTrigger == _mute.Rect)
+                TakeHeaderFocus(_mute.Rect).Restore();
+        }
+
         void FocusInput()
         {
             var typing = GetComponent<ITypingFocus>();
@@ -2704,8 +2815,10 @@ namespace AICompanion.NewUI
                 typing.FocusForTyping();
             if (_input != null)
             {
-                _input.ActivateInputField();
                 _input.Select();
+                _input.ActivateInputField();
+                if (_ribbonVoiceIcon != null)
+                    _input.stringPosition = _input.text.Length;
             }
         }
 

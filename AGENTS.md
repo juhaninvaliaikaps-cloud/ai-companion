@@ -54,6 +54,7 @@ Do not mark an issue **Done** until its pull request is merged. Jussi decides wh
 - Private mode and adult mode use the local model only. A cloud call on that path is a blocker.
 - Exception ([JUH-126](https://linear.app/juhani-mustola/issue/JUH-126/pisara-model-an-optional-cloud-model-for-reading-her-description), Jussi): with "Use a cloud model for Pisara readings" on, the character-sheet reading may go to the cloud in private mode and while the 18+ gate is open. This is the only reading that moves; chat, voice, the voice agent, session memories, memory capture, innocence and 18+ secrets stay local in private mode. The request is built gate-closed.
 - Exception (JUH-177, Jussi, 2026-11-22): after a private chapter, a public (cloud) request may carry one sentence written by code from a fixed list. The sentence says that a private part happened and, at most, what kind it was: personal, romantic or intimate. The setting "What public mode may know about a private chapter" chooses Nothing, That it happened, or What kind of moment (the default). No private text, summary or detail is ever sent, and every line said in private mode is local-only.
+- Exception (JUH-234, Jussi, 2026-11-28): a kiss and the make-out loop ("User deepens the kiss") are public romantic cues and work without the 18+ gate. Breast and butt touches, their loops, and everything sexual need the gate (`AvatarInteractionDefinition.Adult`).
 - Never commit API keys, Unity license files, or a filled `Config/appsettings.json`.
 
 ## 5. Where to read more

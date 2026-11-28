@@ -819,7 +819,7 @@ namespace AICompanion.NewUI
             var view = _settings.PisaraView();
             Section("Temperament");
             Label(view.TemperamentLine);
-            Note("How quickly her moods build and fade. Auto takes it from her description.");
+            Note("Shapes her moods and how she talks. Auto uses her description.");
             Choice("Auto", !view.Manual, () => { _settings.SetPersonaTemperamentAuto(id); _rebuild = true; });
             for (var i = 0; i < PersonaTemperaments.Ids.Length; i++)
             {
@@ -830,6 +830,7 @@ namespace AICompanion.NewUI
 
             Section("Custom temperament");
             Note(RibbonMenu.Enabled ? "Choose a step to override Auto or the current preset." : "Moving a slider overrides Auto and the presets.");
+            Note(PersonaManner.ConversationStyleHelp);
             var editing = (view.Axes ?? TemperamentAxes.Neutral()).Clone();
             void ChooseStep(int axis, int step)
             {
@@ -1890,6 +1891,9 @@ namespace AICompanion.NewUI
             Section("Reaction effects");
             Toggle("Show reaction effects", S.ShowRelationshipFeedback, v => Change(s => s.ShowRelationshipFeedback = v));
             Note("Shows a heart when affection changes. Her life controls whether the relationship itself changes.");
+            if (RibbonMenu.Enabled)
+                Slider(v => "UI sound volume " + Mathf.RoundToInt(v * 100f) + "%", S.RibbonSoundVolume, 0f, 1f, false,
+                    v => P.Change(s => s.RibbonSoundVolume = v));
         }
 
         /// <summary>JUH-182: Chat → Text and box.</summary>
@@ -2138,8 +2142,12 @@ namespace AICompanion.NewUI
             Section("Readouts");
             Toggle("Show debug info", S.ShowDebugInfo, v => Change(s => s.ShowDebugInfo = v));
             Note("Top-left: topmost, frame rate, emotion, key hints, rotate, size and zoom. The hotkeys work either way.");
-            Toggle("Show mood readout", S.ShowMoodDebug, v => Change(s => s.ShowMoodDebug = v));
-            Note("Her current mood and the three strongest moods, top left. Mood changes are also in Player.log.");
+            if (!RibbonMenu.Enabled)
+            {
+                Toggle("Show mood readout", S.ShowMoodDebug, v => Change(s => s.ShowMoodDebug = v));
+                Note("Her current mood and the three strongest moods, top left.");
+            }
+            Note("Mood changes are logged in Player.log.");
             Section("Generation");
             Field("Timeout seconds", S.TimeoutSeconds.ToString("0.###", CultureInfo.InvariantCulture), false, v =>
             {

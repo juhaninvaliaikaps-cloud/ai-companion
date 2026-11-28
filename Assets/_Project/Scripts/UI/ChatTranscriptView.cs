@@ -26,6 +26,7 @@ namespace AICompanion.UI
         readonly List<bool> _changed = new List<bool>();
         readonly List<ChatLine> _sources = new List<ChatLine>();
         readonly List<string> _sourceTexts = new List<string>();
+        readonly List<IReadOnlyList<AICompanion.Core.ChatMemoryLink>> _sourceLinks = new();
         readonly List<int> _visible = new List<int>();
         readonly List<bool> _sourceHighlighted = new List<bool>();
         int _hidden = -1;
@@ -49,6 +50,14 @@ namespace AICompanion.UI
         public int HiddenMessages { get; private set; }
 
         public ChatLineKind KindAt(int index) => _sources[index]?.Kind ?? ChatLineKind.System;
+        public ChatLine SourceAt(int index) => _sources[index];
+
+        public void InvalidateFormatting()
+        {
+            for (var i = 0; i < _sources.Count; i++)
+                if (_sources[i]?.MemoryLinks != null)
+                    _sourceTexts[i] = null;
+        }
 
         public string Entry(int index)
         {
@@ -96,6 +105,7 @@ namespace AICompanion.UI
                 _changed.Add(true);
                 _sources.Add(null);
                 _sourceTexts.Add(null);
+                _sourceLinks.Add(null);
                 _sourceHighlighted.Add(false);
             }
 
@@ -106,6 +116,7 @@ namespace AICompanion.UI
                 _changed.RemoveAt(last);
                 _sources.RemoveAt(last);
                 _sourceTexts.RemoveAt(last);
+                _sourceLinks.RemoveAt(last);
                 _sourceHighlighted.RemoveAt(last);
             }
 
@@ -118,6 +129,7 @@ namespace AICompanion.UI
                     _entries[0] = string.Format(HiddenNoteFormat, hidden);
                     _sources[0] = null;
                     _sourceTexts[0] = null;
+                    _sourceLinks[0] = null;
                     _sourceHighlighted[0] = false;
                 }
 
@@ -135,12 +147,14 @@ namespace AICompanion.UI
                 // The text is a new string after every streamed piece, so a reference check is enough.
                 var same = ReferenceEquals(_sources[slot], line)
                     && ReferenceEquals(_sourceTexts[slot], line.Text)
+                    && ReferenceEquals(_sourceLinks[slot], line.MemoryLinks)
                     && _sourceHighlighted[slot] == line.HighlightFeedback;
                 if (!same)
                 {
                     _entries[slot] = FormatEntry(line);
                     _sources[slot] = line;
                     _sourceTexts[slot] = line.Text;
+                    _sourceLinks[slot] = line.MemoryLinks;
                     _sourceHighlighted[slot] = line.HighlightFeedback;
                 }
 

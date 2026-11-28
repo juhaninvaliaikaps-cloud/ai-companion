@@ -33,7 +33,7 @@ namespace AICompanion.Settings
                 Cutout = cutout;
             }
         }
-        readonly PortraitDirector _director = new PortraitDirector();
+        PortraitDirector _director;
 
         SettingsPanel _settings;
         ChatPanel _chat;
@@ -50,6 +50,8 @@ namespace AICompanion.Settings
         RectTransform _frame;
         Image _plate;
         RibbonPortraitBase _ribbonBase;
+        RibbonPortraitBlend _blend;
+        bool _blendShaderChecked;
         Image _back;
         Image _mid;
         Image _front;
@@ -103,8 +105,12 @@ namespace AICompanion.Settings
         PortraitPreview _preview;
         bool _shown;
         bool _logged;
+        string _dialogueExpression;
 
         public bool RibbonCutouts { get; set; }
+
+        /// <summary>A temporary face override for a spoken clause. Body animation and mood keep their own cues.</summary>
+        public void SetDialogueExpression(string expression) => _dialogueExpression = expression;
 
         public Rect InteractiveRect
         {
@@ -116,6 +122,7 @@ namespace AICompanion.Settings
             if (_started)
                 return;
             _started = true;
+            _director = new PortraitDirector(null, CanBlendCutouts);
             BindHooks();
         }
 
@@ -197,6 +204,9 @@ namespace AICompanion.Settings
             {
                 emotion = PortraitHold.ResolveUtterance(live, ref _heldExpression, uttered, delta, ref _quietFor);
             }
+            var reactionExpression = emotion;
+            if (!_preview.Active && _dialogueExpression != null)
+                emotion = _dialogueExpression;
 
             var view = _director.Tick(
                 delta,
@@ -235,7 +245,7 @@ namespace AICompanion.Settings
             _loggedReason = PortraitHideReason.None;
             _shown = true;
             string reaction;
-            if (_portraitVoice.TryChange(emotion, out reaction))
+            if (_portraitVoice.TryChange(reactionExpression, out reaction))
                 ReactionVoiceRequests.Offer(reaction, ReactionVoiceCause.Portrait);
             if (_canvasObject != null && !_canvasObject.activeSelf)
                 _canvasObject.SetActive(true);
@@ -493,6 +503,7 @@ namespace AICompanion.Settings
             any |= ApplySlot(_back, ref _backPath, view.Back, view.BackAlpha);
             any |= ApplySlot(_mid, ref _midPath, view.Mid, view.MidAlpha);
             any |= ApplySlot(_front, ref _frontPath, view.Front, view.FrontAlpha);
+            UpdateBlend();
             if (any)
             {
                 if (!RibbonCutouts || _intimateMode)
@@ -500,6 +511,45 @@ namespace AICompanion.Settings
                 ApplyPortraitStyle();
             }
             return any;
+        }
+
+        bool CanBlendCutouts(string from, string to)
+        {
+            return RibbonCutouts && !_intimateMode && !string.IsNullOrEmpty(from) && !string.IsNullOrEmpty(to)
+                && AssetFor(from).Cutout.Valid && AssetFor(to).Cutout.Valid;
+        }
+
+        void UpdateBlend()
+        {
+            // Each phase of the director's fade has at most two visible layers.
+            var first = _back.enabled ? _back : _mid;
+            var second = _front.enabled ? _front : _mid;
+            var useBlend = RibbonCutouts && !_intimateMode && first != second && first.enabled && second.enabled
+                && !first.maskable && !second.maskable && !(_back.enabled && _mid.enabled && _front.enabled);
+            if (useBlend && !_blendShaderChecked)
+            {
+                _blendShaderChecked = true;
+                _blend = RibbonPortraitBlend.Create(_frame, _ribbonBase.transform.GetSiblingIndex());
+            }
+
+            useBlend &= _blend != null;
+            if (_blend != null)
+            {
+                _blend.enabled = useBlend;
+                if (useBlend)
+                    _blend.SetFrames(first, second);
+            }
+
+            var alpha = useBlend ? 0f : 1f;
+            SetLayerAlpha(_back, alpha);
+            SetLayerAlpha(_mid, alpha);
+            SetLayerAlpha(_front, alpha);
+        }
+
+        static void SetLayerAlpha(Image layer, float alpha)
+        {
+            if (layer.canvasRenderer.GetAlpha() != alpha)
+                layer.canvasRenderer.SetAlpha(alpha);
         }
 
         void ApplyPortraitStyle()

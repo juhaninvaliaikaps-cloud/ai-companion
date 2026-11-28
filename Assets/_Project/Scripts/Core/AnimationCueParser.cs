@@ -119,6 +119,37 @@ namespace AICompanion.Core
             return Scan(reply ?? string.Empty, false);
         }
 
+        /// <summary>A face beat is stripped from dialogue but never counts as a reply-wide cue.</summary>
+        public static bool TryReadFaceBeat(string tag, out string expression)
+        {
+            expression = null;
+            return TryReadTag(tag ?? string.Empty, 0, out _, out var body, out var closed) && closed &&
+                ReadFaceBeat(body, out expression);
+        }
+
+        static bool ReadFaceBeat(string body, out string expression)
+        {
+            expression = null;
+            const string attribute = "portrait_beat";
+            if (body.IndexOf(attribute, StringComparison.OrdinalIgnoreCase) < 0)
+                return false;
+            foreach (Match match in AttributePattern.Matches(body))
+            {
+                if (!string.Equals(match.Groups[1].Value, attribute, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var value = (match.Groups[2].Success ? match.Groups[2].Value :
+                    match.Groups[3].Success ? match.Groups[3].Value : match.Groups[4].Value).Trim();
+                if (IsCueToken(value) && char.IsLetter(value[0]) && !IntimateExpressions.IsIntimateId(value) &&
+                    EmotionNames.TryParse(value, out var emotion))
+                {
+                    var alias = EmotionNames.PortraitAlias(value);
+                    expression = alias.Length > 0 ? alias : emotion.ToString().ToLowerInvariant();
+                }
+                return true;
+            }
+            return false;
+        }
+
         /// <summary>
         /// The part of a still-streaming reply that is safe to show and speak.
         /// A finished cue tag is already removed. A suffix that could still grow
@@ -259,6 +290,11 @@ namespace AICompanion.Core
                 removed = true;
                 if (closed)
                 {
+                    if (ReadFaceBeat(body, out _))
+                    {
+                        i = SkipTag(slice, builder, i, end);
+                        continue;
+                    }
                     AnimationCue parsed;
                     var raw = RawTagText(slice, i, end);
                     if (TryReadCue(body, out parsed))
@@ -304,6 +340,9 @@ namespace AICompanion.Core
         {
             var length = Math.Max(0, Math.Min(end, text.Length) - start);
             var raw = text.Substring(start, length).Replace('\r', ' ').Replace('\n', ' ').Trim();
+            var memory = Regex.Match(raw, @"\bmemory2?\s*=", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (memory.Success)
+                raw = raw.Substring(0, memory.Index) + "[memory details omitted]";
             return raw.Length > MaxRawTagLength ? raw.Substring(0, MaxRawTagLength) + "..." : raw;
         }
 
@@ -452,6 +491,8 @@ namespace AICompanion.Core
             var landed = LandingEvent.Neutral;
             var secret = string.Empty;
             var heat = DesireHeat.None;
+            string memory = null;
+            string memory2 = null;
             var ok = true;
 
             foreach (Match attribute in AttributePattern.Matches(trimmed))
@@ -505,18 +546,24 @@ namespace AICompanion.Core
                         // JUH-170: an unknown word is None, never an unreadable tag.
                         heat = DesireHeats.Parse(value);
                         break;
+                    case "memory":
+                        memory = value;
+                        break;
+                    case "memory2":
+                        memory2 = value;
+                        break;
                 }
             }
 
             if (!ok)
             {
                 // A reaction named in a tag with a bad emotion still plays.
-                cue = new AnimationCue(Emotion.Neutral, NeutralIntensity, string.Empty, 0f, emotionField, reaction, landed, secret, heat);
+                cue = new AnimationCue(Emotion.Neutral, NeutralIntensity, string.Empty, 0f, emotionField, reaction, landed, secret, heat, memory, memory2);
                 return false;
             }
 
             NormalizeMovementCue(ref gesture, ref direction);
-            cue = new AnimationCue(emotion, intensity, gesture, direction, emotionField, reaction, landed, secret, heat);
+            cue = new AnimationCue(emotion, intensity, gesture, direction, emotionField, reaction, landed, secret, heat, memory, memory2);
             return true;
         }
 

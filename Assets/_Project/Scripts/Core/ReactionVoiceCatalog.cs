@@ -68,6 +68,24 @@ namespace AICompanion.Core
 
         public int ClipCount { get; private set; }
 
+        public bool TryFind(string expression, string id, out ReactionVoiceClip clip)
+        {
+            if (expression != null && _byExpression.TryGetValue(expression, out var variants))
+            {
+                for (var i = 0; i < variants.Count; i++)
+                {
+                    if (string.Equals(variants[i].Id, id, StringComparison.Ordinal))
+                    {
+                        clip = variants[i];
+                        return true;
+                    }
+                }
+            }
+
+            clip = default;
+            return false;
+        }
+
         public static ReactionVoiceCatalog FromClips(IEnumerable<ReactionVoiceClip> clips, Func<string, bool> fileExists, List<string> missing)
         {
             var catalog = new ReactionVoiceCatalog();

@@ -47,8 +47,13 @@ namespace AICompanion.NewUI
         HappiWheelHost _wheel;
         HappiButton _trigger;
         RibbonGlyph _menuGlyph;
+        RibbonGlyph _moodGlyph;
+        RectTransform _moodBadge;
+        Rect _moodBounds;
+        CompanionMoodKeeper _moodKeeper;
         RectTransform _roomPreview;
         RectTransform _roomHint;
+        HerRoomView _room;
         RibbonClickAccent _clickAccent;
         Action _pendingSelection;
         float _selectionReadyAt;
@@ -107,6 +112,8 @@ namespace AICompanion.NewUI
         bool _closeHighlighted;
         bool _leftWasHeld;
         int _hoveredDestination = -1;
+        RibbonAudio _audio;
+        RectTransform _soundedRow;
         RibbonFlyoutPress _destinationPress;
         readonly RibbonKeyboard _keyboard = new RibbonKeyboard();
         Vector2 _keyboardPointer;
@@ -116,20 +123,26 @@ namespace AICompanion.NewUI
 
         public bool ContainsDecoration(Vector2 unityScreen)
         {
-            return _flyout != null && _flyout.gameObject.activeInHierarchy
-                && _visiblePaperBounds.Contains(new Vector2(unityScreen.x, Screen.height - unityScreen.y));
+            var point = new Vector2(unityScreen.x, Screen.height - unityScreen.y);
+            return (_flyout != null && _flyout.gameObject.activeInHierarchy && _visiblePaperBounds.Contains(point))
+                || (_moodBadge != null && _moodBadge.gameObject.activeInHierarchy && _moodBounds.Contains(point));
         }
 
         public void Attach(ChatPanel chat, SettingsPanel settings)
         {
+            _audio = GetComponent<RibbonAudio>();
             _chat = chat;
             _settings = settings;
             _settingsView = GetComponent<HappiSettingsView>();
             _chatView = GetComponent<HappiChatView>();
             _wheel = GetComponent<HappiWheelHost>();
+            _room = GetComponent<HerRoomView>();
             _head = new HeadLocator(gameObject);
             _window = GetComponent<OverlayWindow>();
             _cursor = GetComponent<IScreenCursor>();
+            _moodKeeper = GetComponent<CompanionMoodKeeper>();
+            if (_moodKeeper != null)
+                _moodKeeper.SuppressDesktopReadout = true;
             var root = HappiUiKit.CreateCanvas(transform, "HappiRibbon", 65, out _canvas).transform;
             _clickAccent = RibbonClickAccent.Create(root);
             _trigger = Button(root, "Ribbon menu", null);
@@ -146,7 +159,7 @@ namespace AICompanion.NewUI
             triggerColors.normalColor = new Color32(16, 19, 24, 105);
             _trigger.Button.colors = triggerColors;
 
-            var room = HappiUiKit.Panel(root, "Her Room preview", new Color32(16, 19, 24, 110), false);
+            var room = HappiUiKit.Panel(root, "Her Room preview", new Color32(16, 19, 24, 110), true);
             _roomPreview = room.rectTransform;
             RibbonShape.Apply(room, false);
             var door = RibbonGlyph.Add(_roomPreview, "Door glyph", RibbonGlyph.Mark.Door, new Color32(176, 191, 197, 230));
@@ -154,10 +167,17 @@ namespace AICompanion.NewUI
             var hint = HappiUiKit.Panel(root, "Her Room preview hint", Ink, false);
             _roomHint = hint.rectTransform;
             RibbonShape.Apply(hint, false);
-            var hintText = HappiUiKit.Text(_roomHint, "Label", "Her Room · Planned", 13f,
+            var hintText = HappiUiKit.Text(_roomHint, "Label", "Her Room", 13f,
                 HappiTheme.Current.Text, TextAlignmentOptions.Center, false);
             HappiUiKit.Stretch(hintText.rectTransform, 4f, 0f, 4f, 0f);
             _roomHint.gameObject.SetActive(false);
+            var mood = HappiUiKit.Panel(root, "Mood indicator", new Color32(16, 19, 24, 100), false);
+            _moodBadge = mood.rectTransform;
+            RibbonShape.Apply(mood, false);
+            _moodGlyph = RibbonGlyph.Add(_moodBadge, "Current mood", RibbonGlyph.Mark.MoodContent, Cyan);
+            _moodGlyph.raycastTarget = false;
+            HappiUiKit.Stretch(_moodGlyph.rectTransform, 4f, 4f, 4f, 4f);
+            _moodBadge.gameObject.SetActive(false);
             _menu = HappiUiKit.Rect(root, "Ribbon tabs");
             _rows = new[]
             {
@@ -240,6 +260,7 @@ namespace AICompanion.NewUI
                     if (_pendingSelection != null)
                         return;
                     _clickAccent.Play(button);
+                    _audio?.Activate();
                     _pendingSelection = action;
                     _selectionReadyAt = Time.unscaledTime + RibbonClickAccent.ReadableSeconds;
                 });
@@ -371,6 +392,7 @@ namespace AICompanion.NewUI
 
         void Close()
         {
+            _soundedRow = null;
             _pendingSelection = null;
             _clickAccent.Stop();
             EndKeyboard();
@@ -467,6 +489,7 @@ namespace AICompanion.NewUI
                 return;
             HighlightClose(_keyboard.Row == CloseRow);
             var row = _keyboard.Destination >= 0 ? _destinations[_keyboard.Destination] : _rows[_keyboard.Row];
+            SoundRow(row.Button.IsInteractable() ? row.Rect : null);
             if (_keyboardMark.parent != row.Rect)
             {
                 _keyboardMark.SetParent(row.Rect, false);
@@ -500,6 +523,7 @@ namespace AICompanion.NewUI
                 _trigger.Button.gameObject.SetActive(false);
                 _roomPreview.gameObject.SetActive(false);
                 _roomHint.gameObject.SetActive(false);
+                _moodBadge.gameObject.SetActive(false);
                 return;
             }
 
@@ -512,6 +536,7 @@ namespace AICompanion.NewUI
             var scale = RibbonMenuPlacement.FitScale(area.size, new Vector2(MainWidth + FlyoutMinWidth, mainHeight + TriggerSize),
                 HappiTheme.Current.UiScale(Screen.dpi));
             Place(head, area, mainHeight, scale);
+            UpdateMoodBadge();
 
             // Keep the selected row and its flyout on screen until the stamp has registered.
             if (_pendingSelection != null)
@@ -528,6 +553,14 @@ namespace AICompanion.NewUI
             }
             var pointer = ReadPointer();
             var overTrigger = _triggerBounds.Contains(pointer);
+            // JUH-228: the door glyph opens her room, or closes it.
+            if (leftDown && _room != null && _roomBounds.Contains(pointer))
+            {
+                Close();
+                _room.Toggle();
+                return;
+            }
+
             var keyboardShortcut = Input.GetKeyDown(KeyCode.DownArrow) && CanTakeKeyboard()
                 && (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt));
             if (keyboardShortcut || (leftDown && overTrigger))
@@ -593,6 +626,10 @@ namespace AICompanion.NewUI
             }
 
             SetDestinationHover(destination);
+            if (destination >= 0 && _destinations[destination].Button.IsInteractable())
+                SoundRow(_destinations[destination].Rect);
+            else
+                SoundRow(pointerRow >= 0 && _rows[pointerRow].Button.IsInteractable() ? _rows[pointerRow].Rect : null);
             if (nativePointer)
             {
                 var clicked = _destinationPress.Update(destination, leftDown, leftUp);
@@ -663,6 +700,15 @@ namespace AICompanion.NewUI
             _destinationPress.Clear();
         }
 
+        void SoundRow(RectTransform row)
+        {
+            if (_soundedRow == row)
+                return;
+            _soundedRow = row;
+            if (row != null)
+                _audio?.Navigate();
+        }
+
         void SetDestinationHover(int index)
         {
             if (index == _hoveredDestination)
@@ -704,6 +750,8 @@ namespace AICompanion.NewUI
             var (triggerY, menuY) = RibbonMenuPlacement.Stack(Screen.height - head.y, area, trigger, menuHeight);
             _triggerBounds = new Rect(triggerX, triggerY, trigger, trigger);
             HappiUiKit.Place(_trigger.Rect, triggerX, triggerY, trigger, trigger);
+            _moodBounds = RibbonMenuPlacement.MoodBadge(area, head.x,
+                new Rect(triggerX, triggerY, clusterWidth, trigger), 24f * scale, 26f * scale);
             var roomX = triggerX + trigger + 4f * scale;
             _roomBounds = new Rect(roomX, triggerY, trigger, trigger);
             HappiUiKit.Place(_roomPreview, roomX, triggerY, trigger, trigger);
@@ -733,6 +781,23 @@ namespace AICompanion.NewUI
             PlaceArrow(_profileArrow, _rows[2], openRight, scale);
             PlaceArrow(_aiArrow, _rows[3], openRight, scale);
             PlaceArrow(_settingsArrow, _rows[4], openRight, scale);
+        }
+
+        void UpdateMoodBadge()
+        {
+            var visible = _moodBounds.width > 0f
+                && (!_menu.gameObject.activeSelf || !_moodBounds.Overlaps(_menuBounds))
+                && (_activeFlyout == Flyout.None || !_moodBounds.Overlaps(_visiblePaperBounds));
+            if (_moodBadge.gameObject.activeSelf != visible)
+                _moodBadge.gameObject.SetActive(visible);
+            if (!visible)
+                return;
+            HappiUiKit.Place(_moodBadge, _moodBounds.x, _moodBounds.y, _moodBounds.width, _moodBounds.height);
+            var mood = CompanionMoodNow.Effective;
+            _moodGlyph.Shape = RibbonGlyph.MoodMark(mood);
+            var tint = HappiTheme.WithAlpha(RibbonGlyph.MoodTint(mood), 0.88f);
+            if (_moodGlyph.color != tint)
+                _moodGlyph.color = tint;
         }
 
         static void PlaceArrow(RibbonGlyph arrow, HappiButton row, bool openRight, float scale)
@@ -856,6 +921,8 @@ namespace AICompanion.NewUI
 
         void OnDestroy()
         {
+            if (_moodKeeper != null)
+                _moodKeeper.SuppressDesktopReadout = false;
             if (_canvas != null)
                 Destroy(_canvas.gameObject);
             _window?.RefreshClickTargets();

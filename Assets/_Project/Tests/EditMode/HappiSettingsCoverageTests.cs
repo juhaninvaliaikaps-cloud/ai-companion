@@ -77,6 +77,18 @@ namespace AICompanion.Tests.EditMode
         }
 
         [Test]
+        public void RibbonSoundsUseAQuietDefaultAndPersistZero()
+        {
+            var fresh = CompanionSettingsJson.Parse("{}", SettingsLegacyPrefs.None);
+            Assert.AreEqual(0.35f, fresh.RibbonSoundVolume);
+            fresh.RibbonSoundVolume = 0f;
+            Assert.AreEqual(0f, CompanionSettingsJson.Parse(
+                CompanionSettingsJson.Write(fresh), SettingsLegacyPrefs.None).RibbonSoundVolume);
+            Assert.AreEqual(1f, CompanionSettingsJson.Parse(
+                "{\"ribbonSoundVolume\":2}", SettingsLegacyPrefs.None).RibbonSoundVolume);
+        }
+
+        [Test]
         public void ShowDeveloperSettings_DefaultsOff_AndRoundTrips()
         {
             var fresh = CompanionSettings.CreateDefault();

@@ -507,6 +507,7 @@ namespace AICompanion.Memory
 
         public void Save()
         {
+            MemoryRuntime.LinksChanged();
             if (string.IsNullOrEmpty(_path))
                 return;
 

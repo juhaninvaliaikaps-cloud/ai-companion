@@ -43,6 +43,11 @@ namespace AICompanion.NewUI.VisualNovel
         void Fire(AnimationCue cue);
     }
 
+    public interface IVnFaceSink
+    {
+        void SetFace(string expression);
+    }
+
     /// <summary>Reading-time pacing for lines that are not spoken.</summary>
     public struct VnTiming
     {
@@ -96,6 +101,9 @@ namespace AICompanion.NewUI.VisualNovel
 
         readonly IVnVoice _voice;
         readonly IVnCueSink _cues;
+        readonly IVnFaceSink _face;
+        readonly ISpeechProgress _speechProgress;
+        readonly SpokenGlowTracker _faceTiming = new SpokenGlowTracker();
         readonly List<VnSegment> _segments = new List<VnSegment>();
         readonly List<bool> _fired = new List<bool>();
         VnTiming _timing;
@@ -110,12 +118,19 @@ namespace AICompanion.NewUI.VisualNovel
         bool _pendingAdvance;
         bool _anyCueFired;
         bool _endHandled;
+        int _nextFaceBeat;
+        float _clock;
+        float _lastFaceAt;
+        float _clearFaceAt = float.PositiveInfinity;
+        string _expression;
         IReadOnlyList<AnimationCue> _trailing = Array.Empty<AnimationCue>();
 
         public VnPlayer(IVnVoice voice, IVnCueSink cues, VnTiming timing)
         {
             _voice = voice ?? throw new ArgumentNullException(nameof(voice));
             _cues = cues ?? throw new ArgumentNullException(nameof(cues));
+            _face = cues as IVnFaceSink;
+            _speechProgress = voice as ISpeechProgress;
             _timing = timing;
         }
 
@@ -158,6 +173,10 @@ namespace AICompanion.NewUI.VisualNovel
         {
             StopVoice();
             ReactionSpeechLead.Clear();
+            SetFace(null);
+            _clock = 0f;
+            _lastFaceAt = float.NegativeInfinity;
+            _clearFaceAt = float.PositiveInfinity;
             _segments.Clear();
             _fired.Clear();
             _current = -1;
@@ -211,6 +230,12 @@ namespace AICompanion.NewUI.VisualNovel
 
         public void Tick(float deltaTime)
         {
+            _clock += deltaTime;
+            if (_clock >= _clearFaceAt)
+            {
+                SetFace(null);
+                _clearFaceAt = float.PositiveInfinity;
+            }
             if (_current < 0 || _showAll)
                 return;
 
@@ -218,6 +243,9 @@ namespace AICompanion.NewUI.VisualNovel
             {
                 case LineState.WaitingForVoice:
                     _elapsed += deltaTime;
+                    if (_speechProgress != null && HasFaceBeats &&
+                        _speechProgress.TryGetSpokenClip(out var serial, out var words, out var time, out var length))
+                        TrackFace(serial, words, time, length);
                     if (_voice.IsSpeaking)
                         _voiceSeen = true;
                     if (_voiceSeen && !_voice.IsSpeaking)
@@ -232,6 +260,12 @@ namespace AICompanion.NewUI.VisualNovel
                     break;
                 case LineState.Reading:
                     _remaining -= deltaTime;
+                    if (HasFaceBeats)
+                    {
+                        var segment = _segments[_current];
+                        var duration = _timing.ReadSeconds(segment);
+                        TrackFace(0, segment.Text, duration - _remaining, duration);
+                    }
                     TryPrefetch();
                     if (_remaining <= 0f)
                         LineDone();
@@ -281,6 +315,7 @@ namespace AICompanion.NewUI.VisualNovel
         {
             StopVoice();
             ReactionSpeechLead.Clear();
+            SetFace(null);
             _showAll = true;
             _state = LineState.Done;
         }
@@ -303,6 +338,9 @@ namespace AICompanion.NewUI.VisualNovel
                 StopVoice();
 
             _current = index;
+            _nextFaceBeat = 0;
+            if (HasFaceBeats)
+                _faceTiming.BeginLine(_segments[index].Text);
             _elapsed = 0f;
             _voiceSeen = false;
             FireCues(index);
@@ -356,6 +394,41 @@ namespace AICompanion.NewUI.VisualNovel
             HandleEnd();
         }
 
+        bool HasFaceBeats => _face != null && _current >= 0 &&
+            _nextFaceBeat < _segments[_current].FaceBeats.Count;
+
+        void TrackFace(int serial, string words, float time, float length)
+        {
+            if (length <= .05f)
+                return;
+            _faceTiming.Update(_clock, true, true, serial, words, time, length);
+            var beats = _segments[_current].FaceBeats;
+            var next = _nextFaceBeat;
+            while (next < beats.Count && beats[next].Offset <= _faceTiming.LatestWordStart)
+                next++;
+            if (next == _nextFaceBeat)
+                return;
+            // If playback jumps or two beats are nearly simultaneous, show the latest due
+            // expression once the previous one has had time to settle.
+            if (_clock - _lastFaceAt < .38f)
+                return;
+            _nextFaceBeat = next;
+            SetFace(beats[next - 1].Expression);
+        }
+
+        void SetFace(string expression)
+        {
+            if (_face == null || string.Equals(_expression, expression, StringComparison.Ordinal))
+                return;
+            _expression = expression;
+            _face.SetFace(expression);
+            if (expression != null)
+            {
+                _lastFaceAt = _clock;
+                _anyCueFired = true;
+            }
+        }
+
         /// <summary>
         /// While the reader is on a line that is not using the voice, synthesize the next spoken
         /// line so Next plays it at once.
@@ -395,6 +468,8 @@ namespace AICompanion.NewUI.VisualNovel
                 return;
             _fired[index] = true;
             var cues = _segments[index].Cues;
+            if (cues.Count > 0)
+                SetFace(null);
             for (var i = 0; i < cues.Count; i++)
             {
                 _anyCueFired = true;
@@ -407,24 +482,31 @@ namespace AICompanion.NewUI.VisualNovel
         {
             AnimationCue last = default;
             var found = false;
+            string face = null;
             for (var i = 0; i < _segments.Count; i++)
             {
-                if (_fired[i])
-                    continue;
+                var fired = _fired[i];
                 _fired[i] = true;
                 var cues = _segments[i].Cues;
-                if (cues.Count > 0)
+                if (!fired && cues.Count > 0)
                 {
                     last = cues[cues.Count - 1];
                     found = true;
+                    face = null;
                 }
+                var beats = _segments[i].FaceBeats;
+                if ((!fired || i == _current && HasFaceBeats) && beats.Count > 0)
+                    face = beats[beats.Count - 1].Expression;
             }
 
             if (found)
             {
+                SetFace(null);
                 _anyCueFired = true;
                 _cues.Fire(last);
             }
+            if (face != null)
+                SetFace(face);
         }
 
         void HandleEnd()
@@ -437,6 +519,7 @@ namespace AICompanion.NewUI.VisualNovel
             _endHandled = true;
             for (var i = 0; i < _trailing.Count; i++)
             {
+                SetFace(null);
                 _anyCueFired = true;
                 _cues.Fire(_trailing[i]);
             }
@@ -444,6 +527,7 @@ namespace AICompanion.NewUI.VisualNovel
             // Same as the old chat: a reply without a cue tag returns her to neutral.
             if (!_anyCueFired)
                 _cues.Fire(AnimationCueParser.NeutralCue);
+            _clearFaceAt = _clock + .75f;
         }
 
         void StopVoice()

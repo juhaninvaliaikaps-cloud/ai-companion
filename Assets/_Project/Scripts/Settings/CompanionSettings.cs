@@ -269,6 +269,7 @@ namespace AICompanion.Settings
 
         /// <summary>JUH-122: floating pieces near her when the relationship moves. On by default.</summary>
         public bool ShowRelationshipFeedback = true;
+        public float RibbonSoundVolume = RibbonSound.DefaultVolume;
 
         /// <summary>JUH-108: speak narration lines too in the new chat. Off by default, so narration is shown but not voiced.</summary>
         public bool VoiceNarration;
@@ -944,6 +945,8 @@ namespace AICompanion.Settings
                 settings.GsiToken = text;
             if (TryBool(json, "showRelationshipFeedback", out flag))
                 settings.ShowRelationshipFeedback = flag;
+            if (TryNumber(json, "ribbonSoundVolume", out number))
+                settings.RibbonSoundVolume = RibbonSound.ClampVolume(number);
             if (TryBool(json, "voiceNarration", out flag))
                 settings.VoiceNarration = flag;
             if (TryBool(json, "showDeveloperSettings", out flag))
@@ -1111,6 +1114,7 @@ namespace AICompanion.Settings
             Number(sb, "gsiPort", source.GsiPort, true);
             String(sb, "gsiToken", source.GsiToken);
             Bool(sb, "showRelationshipFeedback", source.ShowRelationshipFeedback);
+            Number(sb, "ribbonSoundVolume", RibbonSound.ClampVolume(source.RibbonSoundVolume), false);
             Bool(sb, "voiceNarration", source.VoiceNarration);
             Bool(sb, "showDeveloperSettings", source.ShowDeveloperSettings);
             Number(sb, "chatBoxX", source.ChatBoxX, false);

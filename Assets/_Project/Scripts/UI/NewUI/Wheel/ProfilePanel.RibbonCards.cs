@@ -21,7 +21,7 @@ namespace AICompanion.NewUI.Wheel
         void BuildRibbonFeelings(ProfileFeelings feelings)
         {
             var mood = feelings.CurrentMood;
-            var tint = MoodTint(mood);
+            var tint = RibbonGlyph.MoodTint(mood);
             var title = ProfileFeelings.Capital(CompanionMoodNames.Name(mood));
             var box = Begin();
             var iconSize = 46f * _scale;
@@ -37,7 +37,7 @@ namespace AICompanion.NewUI.Wheel
             {
                 if (row.Mood == CompanionMood.Intimate && !IntimateExpressions.Active)
                     continue;
-                tint = MoodTint(row.Mood);
+                tint = RibbonGlyph.MoodTint(row.Mood);
                 var rowHeight = 23f * _scale;
                 var labelWidth = Mathf.Min(114f * _scale, TextWidth * 0.43f);
                 var valueWidth = 43f * _scale;
@@ -97,18 +97,6 @@ namespace AICompanion.NewUI.Wheel
             End(box);
         }
 
-        static Color MoodTint(CompanionMood mood) => mood switch
-        {
-            CompanionMood.Affectionate => ProfilePink,
-            CompanionMood.Flustered => new Color32(255, 167, 154, 255),
-            CompanionMood.Annoyed => SecretGold,
-            CompanionMood.Sad => new Color32(156, 180, 255, 255),
-            CompanionMood.Anxious => new Color32(224, 174, 255, 255),
-            CompanionMood.Sleepy => new Color32(153, 191, 218, 255),
-            CompanionMood.Intimate => new Color32(255, 151, 203, 255),
-            CompanionMood.Content => RibbonMint,
-            _ => RibbonMenu.Cyan,
-        };
 
         void BuildRibbonSecrets(ProfileSecrets secrets)
         {

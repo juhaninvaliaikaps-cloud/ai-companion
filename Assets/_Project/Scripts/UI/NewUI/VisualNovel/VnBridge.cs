@@ -11,7 +11,7 @@ namespace AICompanion.NewUI.VisualNovel
     /// the speech origin the chat panel chose for this reply, so private mode, the intimate gate
     /// and the local-voice route apply exactly as before. Prefetch uses the voice's playback hold.
     /// </summary>
-    public sealed class VnVoice : IVnVoice
+    public sealed class VnVoice : IVnVoice, ISpeechProgress
     {
         readonly Func<ISpeechOutput> _real;
         readonly Func<bool> _speechEnabled;
@@ -47,6 +47,16 @@ namespace AICompanion.NewUI.VisualNovel
         }
 
         public bool SupportsPrefetch => _real() is ISpeechPlaybackHold;
+
+        public bool TryGetSpokenClip(out int clipSerial, out string text, out float time, out float length)
+        {
+            if (_real() is ISpeechProgress progress)
+                return progress.TryGetSpokenClip(out clipSerial, out text, out time, out length);
+            clipSerial = 0;
+            text = null;
+            time = length = 0f;
+            return false;
+        }
 
         public void Speak(string text)
         {
@@ -94,14 +104,18 @@ namespace AICompanion.NewUI.VisualNovel
     }
 
     /// <summary>Fires a line's cue: the animation director first, then her mood (as ChatPanel.ApplyCue on main).</summary>
-    public sealed class VnCueSink : IVnCueSink
+    public sealed class VnCueSink : IVnCueSink, IVnFaceSink
     {
         readonly Action<AnimationCue> _play;
+        readonly Action<string> _face;
 
-        public VnCueSink(Action<AnimationCue> play)
+        public VnCueSink(Action<AnimationCue> play, Action<string> face = null)
         {
             _play = play;
+            _face = face;
         }
+
+        public void SetFace(string expression) => _face?.Invoke(expression);
 
         public int Fired { get; private set; }
 
@@ -263,7 +277,8 @@ namespace AICompanion.NewUI.VisualNovel
             return start;
         }
 
-        public static string Dialogue(IReadOnlyList<VnSegment> segments, int revealed, int current, HappiTheme theme, bool feedback = false)
+        public static string Dialogue(IReadOnlyList<VnSegment> segments, int revealed, int current, HappiTheme theme,
+            bool feedback = false, Func<string, string> format = null)
         {
             if (segments == null || revealed <= 0)
                 return string.Empty;
@@ -279,13 +294,14 @@ namespace AICompanion.NewUI.VisualNovel
                 if (sb.Length > 0 && !(feedback && i == 0))
                     sb.Append('\n');
                 var segment = segments[i];
+                var body = format == null ? HappiUiKit.Literal(segment.Text) : format(segment.Text);
                 var highlighted = i == current;
                 if (highlighted)
                     sb.Append("<mark=").Append(mark).Append('>');
                 if (segment.Kind == VnSegmentKind.Narration)
-                    sb.Append("<i><color=").Append(narration).Append('>').Append(HappiUiKit.Literal(segment.Text)).Append("</color></i>");
+                    sb.Append("<i><color=").Append(narration).Append('>').Append(body).Append("</color></i>");
                 else
-                    sb.Append(HappiUiKit.Literal(segment.Text));
+                    sb.Append(body);
                 if (highlighted)
                     sb.Append("</mark>");
             }

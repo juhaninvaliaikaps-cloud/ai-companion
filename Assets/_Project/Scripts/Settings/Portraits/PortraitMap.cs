@@ -92,8 +92,10 @@ namespace AICompanion.Settings
     /// </summary>
     public sealed class PortraitMap
     {
+        const string NeutralSmileTransition = "neutral->happy";
         readonly Dictionary<string, PortraitFrameSet> _entries;
         readonly Dictionary<string, string> _transitions;
+        bool _hasBuiltInNeutralSmile;
 
         PortraitMap()
         {
@@ -170,6 +172,7 @@ namespace AICompanion.Settings
             map.Set("smug_wink", new PortraitFrameSet(
                 PortraitStems.SmugWinkAnimated, null, null, PortraitStems.SmugWinkAnimated + "_talk", null));
             map.SetTransition("neutral", "happy", PortraitStems.Smile);
+            map._hasBuiltInNeutralSmile = true;
             return map;
         }
 
@@ -183,10 +186,16 @@ namespace AICompanion.Settings
             return PortraitFrames.NeutralSet();
         }
 
-        public bool TryTransition(string from, string to, out string file)
+        public bool HasBuiltInNeutralSmile(string from, string to)
+        {
+            return _hasBuiltInNeutralSmile && PortraitNames.TransitionKey(from, to) == NeutralSmileTransition;
+        }
+
+        public bool TryTransition(string from, string to, out string file, bool skipBuiltInNeutralSmile = false)
         {
             var key = PortraitNames.TransitionKey(from, to);
-            if (_transitions.TryGetValue(key, out file) && !string.IsNullOrEmpty(file))
+            var skipBuiltIn = skipBuiltInNeutralSmile && _hasBuiltInNeutralSmile && key == NeutralSmileTransition;
+            if (!skipBuiltIn && _transitions.TryGetValue(key, out file) && !string.IsNullOrEmpty(file))
                 return true;
 
             PortraitFrameSet destination;
@@ -203,6 +212,7 @@ namespace AICompanion.Settings
         public void ClearTransitions()
         {
             _transitions.Clear();
+            _hasBuiltInNeutralSmile = false;
         }
 
         public bool Set(string emotion, PortraitFrameSet set)
@@ -230,7 +240,10 @@ namespace AICompanion.Settings
             var toKey = PortraitNames.Normalize(to);
             if (fromKey.Length == 0 || toKey.Length == 0)
                 return false;
-            _transitions[fromKey + "->" + toKey] = PortraitStems.Stem(file);
+            var key = fromKey + "->" + toKey;
+            _transitions[key] = PortraitStems.Stem(file);
+            if (key == NeutralSmileTransition)
+                _hasBuiltInNeutralSmile = false;
             return true;
         }
 

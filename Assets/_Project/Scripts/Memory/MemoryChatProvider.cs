@@ -129,8 +129,14 @@ namespace AICompanion.Memory
             // JUH-118: memories that say when they happened get "(3 days ago)", and a short-term
             // memory that keeps coming up becomes long-term. The fact-extraction request reads the
             // same memories but is not her recalling them.
-            var memoryBlock = MemoryPrompt.Build(memories, DateTime.UtcNow);
-            var timelineBlock = MemoryPrompt.BuildTimeline(timelineHits, DateTime.UtcNow);
+            var sources = request.MemorySources != null && !extraction && store != null
+                ? new AICompanion.Core.ChatMemorySources(System.IO.Path.GetFileName(store.Path)) : null;
+            Func<MemoryEntry, string> memoryRef = sources == null ? null
+                : entry => sources.Add(entry.id, entry.text, false, entry.isPrivate);
+            Func<TimelineEntry, string> timelineRef = sources == null ? null
+                : entry => sources.Add(entry.id, entry.summary, true, entry.isPrivate);
+            var memoryBlock = MemoryPrompt.Build(memories, DateTime.UtcNow, memoryRef);
+            var timelineBlock = MemoryPrompt.BuildTimeline(timelineHits, DateTime.UtcNow, timelineRef);
             if (memoryBlock.Length > 0 && !extraction)
                 WorldMemory.MarkRecalled(store, memories);
             if (timelineBlock.Length > 0 && timeline != null)
@@ -164,6 +170,14 @@ namespace AICompanion.Memory
                 if (builder.Length > 0)
                     builder.Append("\n\n");
                 builder.Append(timelineBlock);
+            }
+
+            if (sources != null && sources.Count > 0)
+            {
+                request.MemorySources(sources);
+                builder.Append("\n\nIf your reply actually uses a numbered recollection above, add memory=\"r1|exact short phrase from your reply\" ")
+                    .Append("to the final animation tag, substituting the matching reference and verbatim reply phrase. ")
+                    .Append("Use memory2 for a second recollection. Keep aliases out of your dialogue and leave these attributes out when no recollection was used.");
             }
 
             return new ChatRequest
@@ -275,6 +289,9 @@ namespace AICompanion.Memory
         static MemoryStore _store;
         static PersonalityStore _personality;
         static MemoryChatDecorator _decorator;
+        static int _linkRevision;
+        public static int LinkRevision => System.Threading.Volatile.Read(ref _linkRevision);
+        internal static void LinksChanged() => Interlocked.Increment(ref _linkRevision);
 
         public static MemoryStore Store
         {
@@ -283,6 +300,31 @@ namespace AICompanion.Memory
                 Ensure();
                 return _store;
             }
+        }
+
+        public static string ResolveLink(AICompanion.Core.ChatMemoryLink link, bool includePrivate)
+            => ResolveLink(Store, link, includePrivate);
+
+        public static string ResolveLink(MemoryStore store, AICompanion.Core.ChatMemoryLink link, bool includePrivate)
+        {
+            if (link == null || string.IsNullOrEmpty(link.id) || (link.privateEntry && !includePrivate))
+                return null;
+            if (store == null || !string.Equals(System.IO.Path.GetFileName(store.Path), link.store, StringComparison.OrdinalIgnoreCase))
+                return null;
+            if (link.timeline)
+            {
+                var entries = RelationshipTimeline.ForStore(store).Entries;
+                foreach (var entry in entries)
+                    if (entry != null && entry.id == link.id && !entry.resolved && (includePrivate || !entry.isPrivate))
+                        return entry.summary;
+            }
+            else
+            {
+                foreach (var entry in store.Entries)
+                    if (entry != null && entry.id == link.id && (includePrivate || !entry.isPrivate))
+                        return entry.text;
+            }
+            return null;
         }
 
         public static PersonalityStore Personality
@@ -313,6 +355,7 @@ namespace AICompanion.Memory
                 _store = null;
                 _personality = null;
                 _decorator = null;
+                LinksChanged();
             }
         }
 
@@ -333,6 +376,7 @@ namespace AICompanion.Memory
                 _store = MemoryStore.CreateDefault(id);
                 _personality = PersonalityStore.CreateDefault();
                 _decorator = LiveDecorator;
+                LinksChanged();
             }
         }
 

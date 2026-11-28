@@ -187,5 +187,87 @@ namespace AICompanion.Tests.EditMode
             Assert.IsNotNull(loaded);
             Assert.AreEqual("intimate", loaded.momentKind);
         }
+        // ---- JUH-233: the public marker follows "What public mode may know" ------------------
+
+        static MemoryStore CapturePublic(string dir, PrivateChapterHint hint)
+        {
+            var store = MemoryStore.Load(Path.Combine(dir, "memory-" + hint + ".json"));
+            SessionMemories.CaptureAsync(new FakeProvider(), "User: hello\nMira: hi",
+                "Mira", 4, false, false, store, 2f, CancellationToken.None, false, null, "intimate", hint)
+                .GetAwaiter().GetResult();
+            return store;
+        }
+
+        static bool AnyText(MemoryStore store, string text)
+        {
+            for (var i = 0; i < store.Entries.Count; i++)
+            {
+                if (store.Entries[i].text == text)
+                    return true;
+            }
+
+            return false;
+        }
+
+        [Test]
+        public void PublicMarker_Nothing_LeavesNoTrace()
+        {
+            var store = CapturePublic(_dir, PrivateChapterHint.Nothing);
+            for (var i = 0; i < store.Entries.Count; i++)
+            {
+                var entry = store.Entries[i];
+                StringAssert.DoesNotContain("intimate", entry.text);
+                StringAssert.DoesNotContain("private", entry.text);
+                Assert.IsTrue(string.IsNullOrEmpty(entry.moment), "a public memory carries no kind: " + entry.text);
+            }
+
+        }
+
+        [Test]
+        public void PublicMarker_ThatItHappened_SaysPrivate_NotIntimate()
+        {
+            var store = CapturePublic(_dir, PrivateChapterHint.ThatItHappened);
+            Assert.IsTrue(AnyText(store, "The user and Mira had a private talk."));
+            for (var i = 0; i < store.Entries.Count; i++)
+            {
+                StringAssert.DoesNotContain("intimate", store.Entries[i].text);
+                Assert.IsTrue(string.IsNullOrEmpty(store.Entries[i].moment));
+                Assert.IsFalse(store.Entries[i].isPrivate);
+            }
+        }
+
+        [Test]
+        public void PublicMarker_WhatKind_SaysIntimate()
+        {
+            var store = CapturePublic(_dir, PrivateChapterHint.WhatKind);
+            Assert.IsTrue(AnyText(store, "The user and Mira shared a private, intimate moment."));
+            Assert.AreEqual(string.Empty, SessionMemories.PublicMarker("Mira", PrivateChapterHint.Nothing));
+        }
+
+        [Test]
+        public void PublicMarker_DefaultsToNothing()
+        {
+            // A caller that does not pass the setting gets the strictest one.
+            var store = MemoryStore.Load(Path.Combine(_dir, "memory-default.json"));
+            SessionMemories.CaptureAsync(new FakeProvider(), "User: hello\nMira: hi",
+                "Mira", 4, false, false, store, 2f, CancellationToken.None, false, null, "intimate")
+                .GetAwaiter().GetResult();
+            for (var i = 0; i < store.Entries.Count; i++)
+                StringAssert.DoesNotContain("intimate", store.Entries[i].text);
+        }
+
+        [Test]
+        public void PublicHint_RoundTripsThroughHandoff_OldFilesReadAsNothing()
+        {
+            var store = MemoryStore.Load(Path.Combine(_dir, "memory.json"));
+            var pendingPath = Path.Combine(_dir, "pending-hint.json");
+            SessionHandoff.SaveAt(pendingPath, "User: hello", "Mira", ChatDefaults.LocalId,
+                store, "test", 4, false, false, "session", "intimate", (int)PrivateChapterHint.ThatItHappened);
+            Assert.AreEqual((int)PrivateChapterHint.ThatItHappened, SessionHandoff.LoadAt(pendingPath).publicHint);
+
+            // A handoff saved before the key existed has no publicHint: it reads as Nothing.
+            var old = UnityEngine.JsonUtility.FromJson<PendingSession>("{\"id\":\"x\",\"transcript\":\"User: hello\",\"momentKind\":\"intimate\"}");
+            Assert.AreEqual(PrivateChapterHint.Nothing, PrivateChapterPrompt.Normalize(old.publicHint));
+        }
     }
 }

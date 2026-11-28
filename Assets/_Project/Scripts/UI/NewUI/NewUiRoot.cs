@@ -50,6 +50,12 @@ namespace AICompanion.NewUI
             var view = GetComponent<HappiChatView>();
             if (view == null)
                 view = gameObject.AddComponent<HappiChatView>();
+            if (RibbonMenu.Enabled)
+            {
+                if (!TryGetComponent<RibbonAudio>(out var audio))
+                    audio = gameObject.AddComponent<RibbonAudio>();
+                audio.Attach(settings);
+            }
             view.Attach(chat, settings);
 
             var wheel = GetComponent<Wheel.HappiWheelHost>();
@@ -64,6 +70,11 @@ namespace AICompanion.NewUI
 
             if (RibbonMenu.Enabled)
             {
+                // JUH-228: her room, opened from the Ribbon's door glyph (added first so the Ribbon finds it).
+                var room = GetComponent<HerRoomView>();
+                if (room == null)
+                    room = gameObject.AddComponent<HerRoomView>();
+                room.Attach();
                 gameObject.AddComponent<RibbonMenu>().Attach(chat, settings);
                 if (TryGetComponent<ExpressionPortraitPanel>(out var portrait))
                     portrait.RibbonCutouts = true;
@@ -93,9 +104,16 @@ namespace AICompanion.NewUI
             if (TryGetComponent<ExpressionPortraitPanel>(out var portrait))
                 portrait.RibbonCutouts = false;
 
+            if (TryGetComponent<RibbonAudio>(out var audio))
+                audio.Detach();
+
             var ribbon = GetComponent<RibbonMenu>();
             if (ribbon != null)
                 Destroy(ribbon);
+
+            var room = GetComponent<HerRoomView>();
+            if (room != null)
+                Destroy(room);
 
             var consent = GetComponent<DesktopToolConsentView>();
             if (consent != null)

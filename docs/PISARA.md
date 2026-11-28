@@ -74,7 +74,8 @@ Every part of the sheet is used: the temperament since JUH-118 section 1, and th
     "lastWeek": [ { "daysAgo": 2, "text": "Failed a quiz." } ],
     "openThreads": [ { "text": "Portfolio review on Friday.", "goodOutcome": "It went well.", "badOutcome": "It went badly." } ],
     "rightNow": "Sketching at her desk, headphones on."
-  }
+  },
+  "roomHobby": "easel"
 }
 ```
 
@@ -92,6 +93,7 @@ Every part of the sheet is used: the temperament since JUH-118 section 1, and th
 | `world.lastWeek` | Small things from the past week | 8; `daysAgo` 0..14 |
 | `world.openThreads` | Things she is in the middle of, with a good and a bad outcome | 3 |
 | `world.rightNow` | What she is doing when the user arrives | 200 characters |
+| `roomHobby` | JUH-231: her hobby in Her Room: `piano`, `squat_rack`, `easel`, `guitar`, `plants` or `telescope` | Anything else becomes empty, and `RoomHobbies.For` guesses it from her description |
 
 ### API
 
@@ -137,6 +139,10 @@ The prompt that is hashed and sent is the persona text the chat uses (personalit
 **Temperament: Auto, a preset, or nine sliders.** The persona file has an optional key `temperamentMode`: `auto`, `manual`, or missing. Missing means: a built-in persona keeps its hand-picked preset; a user persona that names a preset keeps it (it was picked by hand); a user persona without a preset is automatic. Picking a preset in settings writes `manual` and clears any custom sliders; **Auto** writes `auto` and keeps the preset in the file. A custom profile (JUH-136) writes `manual` and `temperamentAxes` (nine numbers, 0 to 100). Old files have no `temperamentAxes` and load the preset's point. Until the reading is back an automatic persona is balanced. The setup name (no persona) stays balanced.
 
 The character sheet may also carry `temperament.axes` with `axesSet: true`. When any mood slider is off 50, that profile is what Auto runs, and the five preset weights stay for the profile radar. Curiosity alone does not replace them. All 50s, or a sheet from before the sliders, still uses the preset weights and the blend. A manual preset or manual sliders always win.
+
+**Curiosity in chat (JUH-220).** Values at displayed steps 1–3 ask the model to let the user lead. Steps 4–6 use its usual judgment. Steps 7–8 allow a specific follow-up where the user opens a thread, and steps 9–10 encourage exploring it with one grounded question. Ordinary typed and spoken chat get the current instruction even with a cached voice reading. Screen and game requests keep their existing prompts. The 1–10 editor still represents stored 0–100 values, with 50 between the two central steps. Curiosity has no mood multiplier or relationship effect.
+
+**Assertiveness and Directness in chat (JUH-224).** Low Assertiveness leaves the next move to the user. High Assertiveness offers one concrete next step when the user is open to it. Low Directness leads with context, and High Directness leads with her take. These use the existing 30 and 70 boundaries. Ordinary chat reads the current guidance after voice calibration, while game, screen and avatar interaction requests retain their prior style. The model interprets the guidance when it replies.
 
 **Persona settings** (old and new settings window) show, for the active persona:
 
@@ -445,6 +451,9 @@ The Mood card on the wheel shows where she stands ("she likes you; you know each
 Without new threads her world runs dry: the two or three seeded ones turn out and nothing else ever happens to her. At session end the model may propose one new thread (`WorldThreads.Instruction`). It is stored with `origin = life`, as a long-term open thread, while fewer than three are open. It is about her, ordinary life, and nothing sexual; a private session's thread stays private.
 
 ### Floating changes (JUH-122)
+
+- **Ribbon feedback** (JUH-216). A normal affection gain gets a brief pink heart pulse. A familiarity milestone appears in mint. A first-time secret gets a gold reveal and a longer reading hold, even if ordinary feedback arrives immediately afterwards. Ribbon chat keeps a colored line for each change. The existing reaction effects setting controls new reveals and chat notes. Persona and privacy switches clear floating effects, and closing the 18+ gate removes gated effects immediately.
+- **Reply timing** (JUH-223). Ribbon affection, familiarity and discovery wait until the reply finishes playing or the user skips it. The complete floating stack stays clear of the chat and portrait and inside the visible work area. Chat notes still appear when there is too little room for a popup.
 
 While you chat, small pieces float up beside her head when a landing moves the relationship, like floating combat text: `+1.5 Compliment` with a pink heart, `-2.4 Brushed off` with a grey one, and `You know each other well now` when familiarity crosses into a new band. Each rises about 30 px and fades in about 1.5 s; older ones keep drifting up while new ones appear.
 

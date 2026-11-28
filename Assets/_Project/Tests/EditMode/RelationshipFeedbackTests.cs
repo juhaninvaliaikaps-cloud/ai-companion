@@ -7,6 +7,22 @@ namespace AICompanion.Tests.EditMode
     /// <summary>JUH-122: critical hits in the relationship math, and the rules for the floating pieces.</summary>
     public sealed class RelationshipFeedbackTests
     {
+        [Test]
+        public void RibbonDiscoveryWinsOverAffectionInEitherOrder()
+        {
+            var affection = RibbonSound.Include(RibbonRewardSound.None, FeedbackKind.Up);
+            Assert.AreEqual(RibbonRewardSound.Affection, affection);
+            Assert.AreEqual(RibbonRewardSound.Affection,
+                RibbonSound.Include(RibbonRewardSound.None, FeedbackKind.CritUp));
+
+            var discovery = RibbonSound.Include(RibbonRewardSound.None, FeedbackKind.Secret);
+            Assert.AreEqual(RibbonRewardSound.Discovery, discovery);
+            Assert.AreEqual(discovery, RibbonSound.Include(affection, FeedbackKind.Secret));
+            Assert.AreEqual(discovery, RibbonSound.Include(discovery, FeedbackKind.Up));
+            Assert.AreEqual(RibbonRewardSound.None,
+                RibbonSound.Include(RibbonRewardSound.None, FeedbackKind.Down));
+        }
+
         static RelationshipChange Change(LandingEvent landing, float delta, bool critical = false, float familiarity = 50f)
         {
             return new RelationshipChange
@@ -201,6 +217,56 @@ namespace AICompanion.Tests.EditMode
             Assert.AreEqual(0, feedback.Add(Notice(Change(LandingEvent.Complimented, 4.8f, true, 80f), 0), 0f, false));
             Assert.IsFalse(feedback.AddSecret("praise", 0f, false));
             Assert.AreEqual(0, feedback.Count);
+        }
+
+        [Test]
+        public void RibbonDiscoveryOutlastsOrdinaryFeedbackAndDoesNotGetPushedOut()
+        {
+            var feedback = new RelationshipFeedback(ribbon: true);
+            var change = Change(LandingEvent.Complimented, 1.5f);
+            Assert.AreEqual(2, feedback.Add(RelationshipNotice.From(change, 3, "design work"), 0f, true));
+            feedback.Add(Notice(change), 0.2f, true);
+            feedback.Add(Notice(change), 0.3f, true);
+            var discovery = feedback.Piece(1);
+            Assert.IsTrue(discovery.Discovery);
+            Assert.IsTrue(float.IsNaN(discovery.RetiredAt));
+            Assert.Greater(RelationshipFeedback.Punch(discovery, 0f),
+                RelationshipFeedback.Punch(feedback.Piece(0), 0f));
+            Assert.AreEqual("Secret found: design work", RelationshipFeedback.ChatText(discovery));
+
+            feedback.Tick(2f);
+            Assert.AreEqual(1, feedback.Count);
+            Assert.IsTrue(feedback.Piece(0).Discovery);
+            feedback.Tick(4f);
+            Assert.AreEqual(0, feedback.Count);
+        }
+
+        [Test]
+        public void ClosingGateRemovesAnAdultDiscoveryAndKeepsPublicFeedback()
+        {
+            var feedback = new RelationshipFeedback(ribbon: true);
+            var change = Change(LandingEvent.Complimented, 1.5f);
+            var notice = RelationshipNotice.From(change, 3, "private detail", secretAdult: true);
+            Assert.AreEqual(2, feedback.Add(notice, 0f, true, adultAllowed: true));
+            Assert.IsTrue(feedback.Piece(1).Adult);
+            feedback.DropAdult();
+            Assert.AreEqual(1, feedback.Count);
+            Assert.AreEqual(FeedbackKind.Up, feedback.Piece(0).Kind);
+            Assert.AreEqual(1, feedback.Add(notice, 0.1f, true, adultAllowed: false));
+            Assert.AreEqual(FeedbackKind.Up, feedback.Piece(1).Kind);
+        }
+
+        [Test]
+        public void RibbonMilestoneIsDistinctFromABriefAffectionPulse()
+        {
+            var feedback = new RelationshipFeedback(ribbon: true);
+            Assert.AreEqual(2, feedback.Add(Notice(Change(LandingEvent.Teased, 1f, false, 70f), 2), 0f, true));
+            var affection = feedback.Piece(0);
+            var milestone = feedback.Piece(1);
+            Assert.IsTrue(milestone.Milestone);
+            Assert.Greater(RelationshipFeedback.Life(milestone), RelationshipFeedback.Life(affection));
+            Assert.Greater(RelationshipFeedback.Punch(affection, 0f), 1f);
+            Assert.AreEqual(1f, RelationshipFeedback.Punch(affection, RelationshipFeedback.PunchSeconds));
         }
 
         /// <summary>The view's slot guard, frame by frame: slot i shows piece i, as FloatingFeedbackView does.</summary>

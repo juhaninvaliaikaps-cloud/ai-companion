@@ -448,6 +448,7 @@ namespace AICompanion.Memory
 
         void Save()
         {
+            MemoryRuntime.LinksChanged();
             if (string.IsNullOrEmpty(_path))
                 return;
             try

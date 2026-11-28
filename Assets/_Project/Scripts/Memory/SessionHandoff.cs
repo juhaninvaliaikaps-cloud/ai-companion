@@ -28,6 +28,12 @@ namespace AICompanion.Memory
         public bool intimateActive;
         /// <summary>JUH-188: "intimate" when the session held an 18+ moment, so it survives a restart.</summary>
         public string momentKind = string.Empty;
+        /// <summary>
+        /// JUH-233: for a public part, the "What public mode may know" setting when it was saved
+        /// (<see cref="PrivateChapterHint"/>). A file from before this key reads as 0, Nothing:
+        /// the strictest choice.
+        /// </summary>
+        public int publicHint;
         /// <summary>The chat session this belongs to; a checkpoint and the final save share it.</summary>
         public string session = string.Empty;
 
@@ -84,7 +90,7 @@ namespace AICompanion.Memory
 
         public static PendingSession SaveAt(string path, string transcript, string herName, string providerId,
             MemoryStore store, string why, int userMessages, bool keepsLocal, bool intimateActive, string sessionId = null,
-            string momentKind = null)
+            string momentKind = null, int publicHint = 0)
         {
             if (string.IsNullOrWhiteSpace(transcript) || store == null || string.IsNullOrEmpty(store.Path))
                 return null;
@@ -102,6 +108,7 @@ namespace AICompanion.Memory
                 keepsLocal = keepsLocal,
                 intimateActive = intimateActive,
                 momentKind = momentKind ?? string.Empty,
+                publicHint = publicHint,
                 session = sessionId ?? string.Empty,
                 path = path ?? string.Empty,
             };

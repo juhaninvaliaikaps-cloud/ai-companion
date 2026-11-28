@@ -86,6 +86,9 @@ namespace AICompanion.AI
         /// (<see cref="OllamaChatJson.RoleplayOptions"/>); other requests keep Ollama's defaults.
         /// </summary>
         public bool Roleplay;
+
+        // Local handoff from the memory decorator to this exchange. Providers serialize only chat fields.
+        public System.Action<AICompanion.Core.ChatMemorySources> MemorySources;
     }
 
     /// <summary>

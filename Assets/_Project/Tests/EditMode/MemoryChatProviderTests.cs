@@ -4,7 +4,9 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using AICompanion.AI;
+using AICompanion.Core;
 using AICompanion.Memory;
+using AICompanion.UI;
 using NUnit.Framework;
 
 namespace AICompanion.Tests.EditMode
@@ -35,6 +37,68 @@ namespace AICompanion.Tests.EditMode
             catch (IOException)
             {
             }
+        }
+
+        [Test]
+        public void RecallTargets_RecheckThePersonaAndCurrentPrivacyAndDisappearAfterDeletion()
+        {
+            _store.AddFact("Prefers oat milk", privateMode: true);
+            var entry = _store.Entries[0];
+            var link = new ChatMemoryLink { id = entry.id, store = "memory.json", privateEntry = false, phrase = "oat milk" };
+            Assert.IsNull(MemoryRuntime.ResolveLink(_store, link, false), "stored privacy is authoritative");
+            Assert.AreEqual(entry.text, MemoryRuntime.ResolveLink(_store, link, true));
+            link.store = "memory-someone-else.json";
+            Assert.IsNull(MemoryRuntime.ResolveLink(_store, link, true));
+            link.store = "memory.json";
+            Assert.IsTrue(_store.Delete(entry.id));
+            Assert.IsNull(MemoryRuntime.ResolveLink(_store, link, true));
+        }
+
+        [Test]
+        public async Task RibbonRecall_OffersOnlyEligibleSourcesAndPersistsAnExactPhraseWithoutSpeakingMetadata()
+        {
+            _store.AddFact("Likes coffee with oat milk", privateMode: false);
+            _store.AddFact("Prefers private almond milk", privateMode: true);
+            var inner = new FakeProvider(ChatDefaults.GrokId)
+            {
+                Deltas = new[] { "I picked up oat milk.", "\n<anim", "ation emotion=\"happy\" memory=\"r1|oat milk\" memory2=\"r2|private almond milk\"/>" }
+            };
+            var provider = new MemoryChatProvider(inner, _store);
+            var conversation = new ChatConversation();
+            var exchange = new ChatExchange(conversation) { IncludeMemoryLinks = true };
+            var spoken = string.Empty;
+            exchange.SpokenDelta = part => spoken += part;
+
+            var result = await exchange.Run(provider, "coffee milk?", "Be kind.", .5f, 128, CancellationToken.None);
+
+            Assert.IsTrue(result.Ok);
+            StringAssert.Contains("[r1] Likes coffee with oat milk", inner.LastRequest.SystemPrompt);
+            StringAssert.DoesNotContain("private almond milk", inner.LastRequest.SystemPrompt);
+            Assert.AreEqual("I picked up oat milk.", result.Text);
+            Assert.AreEqual(result.Text, spoken.Trim());
+            Assert.AreEqual("oat milk", conversation.Lines[1].MemoryLinks[0].phrase);
+            Assert.AreEqual(1, conversation.Lines[1].MemoryLinks.Count);
+            StringAssert.DoesNotContain("oat milk", exchange.LastCueTag);
+
+            var restored = new ChatConversation();
+            ChatHistoryCodec.ReadInto(ChatHistoryCodec.Write(conversation.Lines), restored);
+            Assert.AreEqual(conversation.Lines[1].MemoryLinks[0].id, restored.Lines[1].MemoryLinks[0].id);
+            Assert.AreEqual(result.Text, restored.Lines[1].Text);
+            Assert.AreEqual(result.Text, restored.BuildRequest("base", .5f, 128).Messages[1].Content);
+        }
+
+        [Test]
+        public void RecallVerifier_RejectsUnknownAliasesUnrelatedAndAmbiguousPhrases()
+        {
+            var sources = new ChatMemorySources("memory-happi.json");
+            sources.Add("a", "Likes coffee with oat milk", false, false);
+            sources.Add("b", "Promised to visit the museum", true, false);
+            Assert.IsNull(sources.Verify("oat milk twice, oat milk", "r1|oat milk", null));
+            Assert.IsNull(sources.Verify("I remember your museum", "r1|your museum", "r9|museum"));
+            Assert.IsNull(sources.Verify("an oatmeal cookie", "r1|oat", null));
+            var links = sources.Verify("I brought oat milk to the museum.", "r1|oat milk", "r2|museum");
+            Assert.AreEqual(2, links.Length);
+            Assert.IsTrue(links[1].timeline);
         }
 
         [Test]
@@ -309,6 +373,7 @@ namespace AICompanion.Tests.EditMode
 
         sealed class FakeProvider : IChatProvider
         {
+            public string[] Deltas = { "ok" };
             public FakeProvider(string providerId)
             {
                 ProviderId = providerId;
@@ -332,9 +397,9 @@ namespace AICompanion.Tests.EditMode
             {
                 LastRequest = request;
                 if (onDelta != null)
-                    onDelta("ok");
-
-                return Task.FromResult(ChatResult.Success("ok"));
+                    foreach (var delta in Deltas)
+                        onDelta(delta);
+                return Task.FromResult(ChatResult.Success(string.Concat(Deltas)));
             }
         }
     }
