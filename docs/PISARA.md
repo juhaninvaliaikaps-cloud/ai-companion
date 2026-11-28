@@ -451,6 +451,7 @@ Without new threads her world runs dry: the two or three seeded ones turn out an
 ### Floating changes (JUH-122)
 
 - **Ribbon feedback** (JUH-216). A normal affection gain gets a brief pink heart pulse. A familiarity milestone appears in mint. A first-time secret gets a gold reveal and a longer reading hold, even if ordinary feedback arrives immediately afterwards. Ribbon chat keeps a colored line for each change. The existing reaction effects setting controls new reveals and chat notes. Persona and privacy switches clear floating effects, and closing the 18+ gate removes gated effects immediately.
+- **Reply timing** (JUH-223). Ribbon affection, familiarity and discovery wait until the reply finishes playing or the user skips it. The complete floating stack stays clear of the chat and portrait and inside the visible work area. Chat notes still appear when there is too little room for a popup.
 
 While you chat, small pieces float up beside her head when a landing moves the relationship, like floating combat text: `+1.5 Compliment` with a pink heart, `-2.4 Brushed off` with a grey one, and `You know each other well now` when familiarity crosses into a new band. Each rises about 30 px and fades in about 1.5 s; older ones keep drifting up while new ones appear.
 

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using AICompanion.Core;
 using AICompanion.Settings;
 using AICompanion.UI;
@@ -21,6 +22,7 @@ namespace AICompanion.NewUI
     /// Anchored at her head (3D avatar or 2D video), else at the expression portrait. Nothing
     /// shows while "Show relationship changes while chatting" or "Relationship changes" is off.
     /// </summary>
+    [DefaultExecutionOrder(12300)]
     public sealed class FloatingFeedbackView : MonoBehaviour
     {
         const float PlaneDistance = 0.47f;
@@ -63,8 +65,10 @@ namespace AICompanion.NewUI
 
         SettingsPanel _settings;
         ChatPanel _chat;
+        HappiChatView _chatView;
         Wheel.HeadLocator _head;
         readonly RelationshipFeedback _feedback = new RelationshipFeedback(RibbonMenu.Enabled);
+        readonly List<RelationshipNotice> _pending = new List<RelationshipNotice>(4);
         readonly Slot[] _slots = new Slot[RelationshipFeedback.Capacity];
         GameObject _canvasObject;
         Canvas _canvas;
@@ -77,6 +81,7 @@ namespace AICompanion.NewUI
         {
             _settings = settings;
             _chat = GetComponent<ChatPanel>();
+            _chatView = GetComponent<HappiChatView>();
             _head = new Wheel.HeadLocator(gameObject);
             _attached = true;
             if (_canvasObject == null)
@@ -90,6 +95,7 @@ namespace AICompanion.NewUI
             _attached = false;
             Subscribe(false);
             _feedback.Clear();
+            _pending.Clear();
             if (_canvasObject != null)
                 _canvasObject.SetActive(false);
         }
@@ -104,6 +110,7 @@ namespace AICompanion.NewUI
         {
             Subscribe(false);
             _feedback.Clear();
+            _pending.Clear();
         }
 
         void OnDestroy()
@@ -178,7 +185,19 @@ namespace AICompanion.NewUI
         void OnChanged(RelationshipNotice notice)
         {
             SyncContext();
-            var added = _feedback.Add(notice, Time.unscaledTime, Enabled, IntimateExpressions.Active);
+            if (!Enabled)
+                return;
+            if (ReplyPending || _pending.Count > 0)
+                _pending.Add(notice);
+            else
+                Publish(notice, Time.unscaledTime);
+        }
+
+        bool ReplyPending => RibbonMenu.Enabled && _chatView != null && _chatView.ReplyPresentationPending;
+
+        void Publish(RelationshipNotice notice, float now)
+        {
+            var added = _feedback.Add(notice, now, true, IntimateExpressions.Active);
             if (added > 0)
             {
                 Debug.Log("Relationship feedback: " + DescribeNewest(added));
@@ -195,6 +214,7 @@ namespace AICompanion.NewUI
             _persona = persona;
             _private = isPrivate;
             _feedback.Clear();
+            _pending.Clear();
         }
 
         string DescribeNewest(int added)
@@ -208,12 +228,23 @@ namespace AICompanion.NewUI
             return text;
         }
 
-        void Update()
+        void LateUpdate()
         {
             if (!_attached || _canvasObject == null)
                 return;
             SyncContext();
             var now = Time.unscaledTime;
+            if (_pending.Count > 0)
+            {
+                if (!Enabled)
+                    _pending.Clear();
+                else if (!ReplyPending)
+                {
+                    foreach (var notice in _pending)
+                        Publish(notice, now);
+                    _pending.Clear();
+                }
+            }
             if (_feedback.Count > 0)
             {
                 // JUH-170: desire pieces go the moment the gate closes; the others with their setting.
@@ -236,6 +267,18 @@ namespace AICompanion.NewUI
             var scale = HappiTheme.Current.UiScale(Screen.dpi);
             Vector2 anchor;
             var right = Anchor(out anchor, scale);
+            if (RibbonMenu.Enabled)
+            {
+                var fits = PlaceRibbonStack(ref anchor, right, scale);
+                right = true;
+                if (!fits)
+                {
+                    for (var i = 0; i < _feedback.Count; i++)
+                        _slots[i].Group.alpha = 0f;
+                    HideFrom(_feedback.Count);
+                    return;
+                }
+            }
 
             // Newest at the bottom; each older piece rises and stays above the newer one.
             var floor = float.NegativeInfinity;
@@ -251,13 +294,7 @@ namespace AICompanion.NewUI
                     y = floor;
                 floor = y + height * punch + 6f * scale;
                 slot.Root.pivot = new Vector2(right ? 0f : 1f, 0f);
-                var x = anchor.x;
-                if (RibbonMenu.Enabled)
-                {
-                    var width = slot.Root.rect.width * punch;
-                    x = Mathf.Clamp(x, 8f + (right ? 0f : width), Screen.width - 8f - (right ? width : 0f));
-                }
-                slot.Root.anchoredPosition = new Vector2(x, y);
+                slot.Root.anchoredPosition = new Vector2(anchor.x, y);
                 slot.Root.localScale = new Vector3(punch, punch, 1f);
                 slot.Group.alpha = RelationshipFeedback.Alpha(piece, now);
                 if (piece.Discovery)
@@ -268,6 +305,34 @@ namespace AICompanion.NewUI
             }
 
             HideFrom(_feedback.Count);
+        }
+
+        bool PlaceRibbonStack(ref Vector2 anchor, bool right, float scale)
+        {
+            // Reserve the full sizes and rise before showing anything. The cards can then
+            // animate in place without crossing the chat or portrait edges on a later frame.
+            var size = new Vector2(0f, (_feedback.Count - 1) * 6f * scale);
+            var rise = 0f;
+            for (var i = 0; i < _feedback.Count; i++)
+            {
+                var piece = _feedback.Piece(i);
+                var slot = _slots[i];
+                Show(slot, piece);
+                var peak = RelationshipFeedback.Punch(piece, piece.StartTime) * scale;
+                size.x = Mathf.Max(size.x, slot.Root.rect.width * peak);
+                size.y += slot.Root.rect.height * peak;
+                rise = Mathf.Max(rise, RelationshipFeedback.Rise(piece, piece.StartTime + RelationshipFeedback.Life(piece)) * scale);
+            }
+            size.y += rise;
+            if (!right)
+                anchor.x -= size.x;
+
+            var work = _chatView != null ? _chatView.FeedbackWorkArea : new Rect(0f, 0f, Screen.width, Screen.height);
+            var chat = _chatView != null ? _chatView.FeedbackChatFrame : default;
+            var portrait = ExpressionPortraitPanel.ShownRect;
+            if (portrait.width > 0f)
+                portrait.y = Screen.height - portrait.yMax;
+            return RibbonFeedbackPlacement.TryPlace(work, chat, portrait, size, anchor, 14f * scale, out anchor);
         }
 
         /// <summary>
