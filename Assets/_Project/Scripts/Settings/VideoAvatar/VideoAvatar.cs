@@ -27,7 +27,7 @@ namespace AICompanion.Settings
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(215)]
-    public sealed class VideoAvatar : MonoBehaviour, IOverlayKeepAwake, IAvatarReactions, IAvatarInteractionTarget, IBodyHitZones
+    public sealed class VideoAvatar : MonoBehaviour, IOverlayKeepAwake, IAvatarReactions, IAvatarInteractionTarget, IBodyHitZones, IHandLeadTarget
     {
         const string ShaderResource = "VideoAvatar";
         const float RetrySeconds = 2f;
@@ -93,6 +93,27 @@ namespace AICompanion.Settings
         bool _gaitSet;
         bool _shaderWarned;
         bool _adultGateWasActive;
+
+        enum HandFlow
+        {
+            None = 0,
+            Hold = 1,
+            Pull = 2,
+            Settle = 3,
+            Turn = 4,
+            Walk = 5,
+            TurnBack = 6,
+        }
+
+        HandFlow _handFlow;
+        bool _handRight;
+        bool _handStopPending;
+        float _handSpeed = 1f;
+
+        public bool IsHandHeld
+        {
+            get { return _handFlow != HandFlow.None; }
+        }
 
         public VideoAvatarState State
         {
@@ -222,7 +243,9 @@ namespace AICompanion.Settings
                 case "finger_suck_loop":
                     return TryReaction("flustered");
                 case "hold_hand":
+                    return BeginHandHold();
                 case "let_go":
+                    EndHandHold();
                     return TryReaction("happy");
                 case "touch_shoulder":
                     return TryReaction("concerned");
@@ -239,6 +262,147 @@ namespace AICompanion.Settings
                     return TryReaction("flustered");
                 default:
                     return false;
+            }
+        }
+
+        /// <summary>JUH-194: hold her hand, looping the dedicated hold clip.</summary>
+        bool BeginHandHold()
+        {
+            if (_state != VideoAvatarState.Playing || _director == null || _set == null)
+                return false;
+            if (!_director.PlayHand("hand_hold", false))
+                return false;
+            _handFlow = HandFlow.Hold;
+            _handRight = false;
+            _handStopPending = false;
+            Debug.Log("Hand: hold");
+            return true;
+        }
+
+        /// <summary>The existing release reaction; the hold clips stop.</summary>
+        void EndHandHold()
+        {
+            _handFlow = HandFlow.None;
+            _handStopPending = false;
+            if (_director != null)
+                _director.EndHand();
+            Debug.Log("Hand: release");
+        }
+
+        /// <summary>Held hand dragged toward the user.</summary>
+        public void BeginHandPull()
+        {
+            if (_handFlow != HandFlow.Hold || _director == null)
+                return;
+            if (_director.PlayHand("hand_pull", false))
+            {
+                _handFlow = HandFlow.Pull;
+                ReactionVoiceRequests.Offer("flustered", ReactionVoiceCause.Event);
+                Debug.Log("Hand: pull");
+            }
+        }
+
+        /// <summary>The pull ended: settle back to the hold.</summary>
+        public void EndHandPull()
+        {
+            if ((_handFlow != HandFlow.Pull && _handFlow != HandFlow.Settle) || _director == null)
+                return;
+            _handFlow = HandFlow.Settle;
+            _director.PlayHand("hand_pull_settle", false);
+        }
+
+        /// <summary>Sideways drag past the lead threshold. Mirrors the left-facing side clips for the right.</summary>
+        public void BeginHandLead(bool right)
+        {
+            if (_handFlow != HandFlow.Hold && _handFlow != HandFlow.Pull && _handFlow != HandFlow.Settle)
+                return;
+            if (_director == null)
+                return;
+            _handRight = right;
+            _handStopPending = false;
+            if (_director.PlayHand("hand_led_side_turn", right))
+            {
+                _handFlow = HandFlow.Turn;
+                Debug.Log("Hand: lead " + (right ? "right" : "left"));
+            }
+        }
+
+        /// <summary>Sideways drag reversed while already leading: mirror the turn or walk in place.</summary>
+        public void ChangeHandLeadDirection(bool right)
+        {
+            if ((_handFlow != HandFlow.Turn && _handFlow != HandFlow.Walk && _handFlow != HandFlow.TurnBack)
+                || _handRight == right)
+                return;
+            _handRight = right;
+            if (_director != null)
+                _director.SetHandMirror(right);
+            Debug.Log("Hand: lead direction " + (right ? "right" : "left"));
+        }
+
+        /// <summary>Scale the side-walk playback from cursor speed.</summary>
+        public void SetHandLeadSpeed(float speed)
+        {
+            _handSpeed = Mathf.Clamp(speed, 0.6f, 2.5f);
+        }
+
+        /// <summary>Only the walking hand clip follows the cursor speed; turns stay authored.</summary>
+        void ApplyHandSpeed()
+        {
+            if (_players == null || _shown < 0 || _shown >= _players.Length || _players[_shown] == null)
+                return;
+            _players[_shown].SetPlaybackSpeed(_handFlow == HandFlow.Walk ? _handSpeed : 1f);
+        }
+
+        /// <summary>Lead ended: side-on back to the front hold.</summary>
+        public void EndHandLead()
+        {
+            if (_handFlow != HandFlow.Turn && _handFlow != HandFlow.Walk)
+                return;
+            if (_handFlow == HandFlow.Turn)
+            {
+                // Let the turn finish; AdvanceHand will play the turn-back from there.
+                _handStopPending = true;
+                return;
+            }
+
+            _handFlow = HandFlow.TurnBack;
+            if (_director != null)
+                _director.PlayHand("hand_led_side_turn_back", _handRight);
+            Debug.Log("Hand: turn back");
+        }
+
+        /// <summary>A hand once clip ended: advance the pull or lead chain.</summary>
+        void AdvanceHand()
+        {
+            if (_director == null || _set == null)
+                return;
+            switch (_handFlow)
+            {
+                case HandFlow.Pull:
+                    _handFlow = HandFlow.Settle;
+                    _director.PlayHand("hand_pull_settle", false);
+                    break;
+                case HandFlow.Settle:
+                    _handFlow = HandFlow.Hold;
+                    _director.PlayHand("hand_hold", false);
+                    break;
+                case HandFlow.Turn:
+                    if (_handStopPending)
+                    {
+                        _handStopPending = false;
+                        _handFlow = HandFlow.TurnBack;
+                        _director.PlayHand("hand_led_side_turn_back", _handRight);
+                    }
+                    else
+                    {
+                        _handFlow = HandFlow.Walk;
+                        _director.PlayHand("hand_led_side_walk", _handRight);
+                    }
+                    break;
+                case HandFlow.TurnBack:
+                    _handFlow = HandFlow.Hold;
+                    _director.PlayHand("hand_hold", false);
+                    break;
             }
         }
 
@@ -572,13 +736,19 @@ namespace AICompanion.Settings
                 if (shownEvent == VideoClipEvent.LoopPoint)
                     _director.OnBoundary(QueuedReady());
                 else if (shownEvent == VideoClipEvent.Ended)
-                    _director.OnEnded();
+                {
+                    if (_director.Act == VideoAvatarAct.Hand)
+                        AdvanceHand();
+                    else
+                        _director.OnEnded();
+                }
             }
 
             UpdateSwitch();
             if (_state != VideoAvatarState.Playing)
                 return;
 
+            ApplyHandSpeed();
             RefreshPicture();
             ApplyClipSound(settings);
             ReportSync(delta);

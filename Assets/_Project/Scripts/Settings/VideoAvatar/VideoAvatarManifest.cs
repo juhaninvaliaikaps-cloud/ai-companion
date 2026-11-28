@@ -25,6 +25,9 @@ namespace AICompanion.Settings
 
         /// <summary>A named full-body reaction such as "happy". Played once from the default idle.</summary>
         Reaction = 5,
+
+        /// <summary>JUH-194: a hand-hold, pull or lead clip. Driven by the hand controller, never an idle reaction.</summary>
+        Hand = 6,
     }
 
     /// <summary>One entry of video-avatar.json. Field names are the JSON keys.</summary>
@@ -247,6 +250,21 @@ namespace AICompanion.Settings
                 if (Clips[i].Adult && !IntimateExpressions.Active)
                     return -1;
                 return i;
+            }
+
+            return -1;
+        }
+
+        /// <summary>Index of any loaded clip by name, including a hand clip.</summary>
+        public int FindClip(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return -1;
+            var wanted = name.Trim();
+            for (var i = 0; i < Clips.Count; i++)
+            {
+                if (string.Equals(Clips[i].Name, wanted, StringComparison.OrdinalIgnoreCase))
+                    return i;
             }
 
             return -1;
@@ -619,6 +637,8 @@ namespace AICompanion.Settings
                     return VideoClipRole.SideIdle;
                 case "reaction":
                     return VideoClipRole.Reaction;
+                case "hand":
+                    return VideoClipRole.Hand;
             }
 
             // No role given, or an unknown word: go by the clip name.

@@ -50,6 +50,17 @@ namespace AICompanion.Overlay
         bool _chromeApplied;
         bool _dragging;
         bool _yawDrag;
+        bool _handDrag;
+        bool _handLeading;
+        bool _handPulling;
+        bool _handLeadRight;
+        Vector2 _handStart;
+        Vector2 _handFollow;
+        Vector2Int _handWindowStart;
+        Vector2Int _handCursorStart;
+        Vector2Int _handLastCursor;
+        float _handSpeedSample;
+        IHandLeadTarget _handLead;
         bool _rotating;
         bool _leftWasHeld;
         bool _rightWasHeld;
@@ -320,6 +331,13 @@ namespace AICompanion.Overlay
                     if (_turntable != null)
                         _turntable.CommitYaw();
                 }
+            }
+
+            if (UpdateHandDrag(leftDown, leftHeld, unityScreen, onSilhouette, overUi))
+            {
+                _clickThrough = false;
+                _chrome.SetClickThrough(false);
+                return;
             }
 
             if (!_dragging && !_yawDrag && WindowDragGate.ShouldStart(leftDown, onSilhouette, overPanel, overOtherUi) && _chrome.TryGetWindowPosition(out var origin) && _chrome.TryGetScreenCursor(out var cursor))
@@ -823,6 +841,120 @@ namespace AICompanion.Overlay
             }
 
             return false;
+        }
+
+        IHandLeadTarget HandLead()
+        {
+            if (_handLead != null)
+                return _handLead;
+            var all = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (var i = 0; i < all.Length; i++)
+            {
+                var candidate = all[i] as IHandLeadTarget;
+                if (candidate != null)
+                {
+                    _handLead = candidate;
+                    break;
+                }
+            }
+
+            return _handLead;
+        }
+
+        /// <summary>
+        /// JUH-194: while her hand is held, a drag is a pull or a sideways lead, not a
+        /// window move. The direction picks the clip; the distance keeps a click from
+        /// starting either. This runs before the ordinary window drag.
+        /// </summary>
+        bool UpdateHandDrag(bool leftDown, bool leftHeld, Vector2 unityScreen, bool onSilhouette, bool overUi)
+        {
+            var hand = HandLead();
+            if (hand == null)
+                return false;
+
+            if (leftDown && !_handDrag && onSilhouette && !overUi && hand.IsHandHeld)
+            {
+                _handDrag = true;
+                _handLeading = false;
+                _handPulling = false;
+                _handStart = unityScreen;
+                _handFollow = unityScreen;
+                if (_chrome != null && _chrome.TryGetWindowPosition(out var start))
+                {
+                    _handWindowStart = start;
+                    _handFollow = start;
+                }
+                if (_chrome != null)
+                    _chrome.TryGetScreenCursor(out _handCursorStart);
+                _handLastCursor = _handCursorStart;
+                _handSpeedSample = Time.unscaledTime;
+            }
+
+            if (!_handDrag)
+                return false;
+
+            if (!leftHeld)
+            {
+                if (_handLeading)
+                    hand.EndHandLead();
+                if (_handPulling)
+                    hand.EndHandPull();
+                hand.SetHandLeadSpeed(1f);
+                if (_handLeading)
+                    RememberAnchor();
+                _handDrag = false;
+                _handLeading = false;
+                _handPulling = false;
+                return true;
+            }
+
+            var delta = unityScreen - _handStart;
+            if (!_handLeading && !_handPulling)
+            {
+                var sideways = Mathf.Abs(delta.x) >= 90f
+                    && Mathf.Abs(delta.x) >= Mathf.Abs(delta.y) * 1.15f;
+                var towardUser = delta.y <= -55f
+                    && Mathf.Abs(delta.y) >= Mathf.Abs(delta.x) * 1.15f;
+                if (sideways)
+                {
+                    _handLeadRight = delta.x > 0f;
+                    hand.BeginHandLead(_handLeadRight);
+                    _handLeading = true;
+                }
+                else if (towardUser)
+                {
+                    hand.BeginHandPull();
+                    _handPulling = true;
+                }
+            }
+            else if (_handLeading)
+            {
+                var right = delta.x > 0f;
+                if (right != _handLeadRight)
+                {
+                    _handLeadRight = right;
+                    hand.ChangeHandLeadDirection(right);
+                }
+            }
+
+            if (_handLeading && _chrome != null && _chrome.TryGetScreenCursor(out var cursor))
+            {
+                // Speed the walk with the cursor, not with the distance already covered.
+                var now = Time.unscaledTime;
+                var dt = Mathf.Max(0.001f, now - _handSpeedSample);
+                var velocity = (cursor - _handLastCursor).magnitude / dt;
+                _handLastCursor = cursor;
+                _handSpeedSample = now;
+                hand.SetHandLeadSpeed(Mathf.Clamp(velocity / 650f, 0.75f, 2.2f));
+
+                // Slight lag: the window catches up instead of snapping to the cursor.
+                var target = new Vector2(_handWindowStart.x, _handWindowStart.y)
+                    + new Vector2(cursor.x - _handCursorStart.x, cursor.y - _handCursorStart.y);
+                _handFollow = Vector2.Lerp(_handFollow, target, 1f - Mathf.Exp(-Time.unscaledDeltaTime / 0.04f));
+                _chrome.MoveWindow(Vector2Int.RoundToInt(_handFollow), EffectiveTopmost);
+            }
+
+            return true;
         }
 
         void NotifyAvatarDoubleClick()
