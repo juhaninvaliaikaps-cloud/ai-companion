@@ -66,6 +66,12 @@ namespace AICompanion.NewUI
         SettingsPanel _settings;
         ChatPanel _chat;
         HappiChatView _chatView;
+        RibbonAudio _audio;
+        RibbonRewardSound _rewardSound;
+        RibbonRewardSound _adultRewardSound;
+        RibbonRewardSound _rewardVoice;
+        float _rewardVoiceUntil;
+        bool _rewardVoiceAdult;
         Wheel.HeadLocator _head;
         readonly RelationshipFeedback _feedback = new RelationshipFeedback(RibbonMenu.Enabled);
         readonly List<RelationshipNotice> _pending = new List<RelationshipNotice>(4);
@@ -82,6 +88,7 @@ namespace AICompanion.NewUI
             _settings = settings;
             _chat = GetComponent<ChatPanel>();
             _chatView = GetComponent<HappiChatView>();
+            _audio = GetComponent<RibbonAudio>();
             _head = new Wheel.HeadLocator(gameObject);
             _attached = true;
             if (_canvasObject == null)
@@ -93,6 +100,9 @@ namespace AICompanion.NewUI
         public void Detach()
         {
             _attached = false;
+            _rewardVoice = RibbonRewardSound.None;
+            _rewardSound = RibbonRewardSound.None;
+            _adultRewardSound = RibbonRewardSound.None;
             Subscribe(false);
             _feedback.Clear();
             _pending.Clear();
@@ -108,6 +118,9 @@ namespace AICompanion.NewUI
 
         void OnDisable()
         {
+            _rewardVoice = RibbonRewardSound.None;
+            _rewardSound = RibbonRewardSound.None;
+            _adultRewardSound = RibbonRewardSound.None;
             Subscribe(false);
             _feedback.Clear();
             _pending.Clear();
@@ -202,7 +215,47 @@ namespace AICompanion.NewUI
             {
                 Debug.Log("Relationship feedback: " + DescribeNewest(added));
                 CopyToChat(added);
+                if (_audio != null)
+                {
+                    for (var i = _feedback.Count - added; i < _feedback.Count; i++)
+                    {
+                        var piece = _feedback.Piece(i);
+                        if (piece.Adult)
+                            _adultRewardSound = RibbonSound.Include(_adultRewardSound, piece.Kind);
+                        else
+                            _rewardSound = RibbonSound.Include(_rewardSound, piece.Kind);
+                    }
+                }
             }
+        }
+
+        void PlayReward(float now, bool enabled, bool adultActive)
+        {
+            var adultReward = adultActive && _adultRewardSound > _rewardSound;
+            var sound = adultReward ? _adultRewardSound : _rewardSound;
+            _rewardSound = RibbonRewardSound.None;
+            _adultRewardSound = RibbonRewardSound.None;
+
+            if (!enabled || now > _rewardVoiceUntil || (_rewardVoiceAdult && !adultActive))
+                _rewardVoice = RibbonRewardSound.None;
+
+            if (_audio == null || !enabled)
+                return;
+
+            if (sound != RibbonRewardSound.None)
+            {
+                _audio.Reward(sound);
+                if (sound >= _rewardVoice)
+                {
+                    _rewardVoice = sound;
+                    _rewardVoiceAdult = adultReward;
+                    _rewardVoiceUntil = now + 0.9f;
+                }
+            }
+
+            if (_rewardVoice != RibbonRewardSound.None && !ReplyPending &&
+                _audio.FinishRewardVoice(_rewardVoice))
+                _rewardVoice = RibbonRewardSound.None;
         }
 
         void SyncContext()
@@ -213,6 +266,9 @@ namespace AICompanion.NewUI
                 return;
             _persona = persona;
             _private = isPrivate;
+            _rewardVoice = RibbonRewardSound.None;
+            _rewardSound = RibbonRewardSound.None;
+            _adultRewardSound = RibbonRewardSound.None;
             _feedback.Clear();
             _pending.Clear();
         }
@@ -256,6 +312,8 @@ namespace AICompanion.NewUI
                     _feedback.DropAdult();
             }
             _feedback.Tick(now);
+
+            PlayReward(now, Enabled, IntimateExpressions.Active);
 
             if (_feedback.Count == 0)
             {

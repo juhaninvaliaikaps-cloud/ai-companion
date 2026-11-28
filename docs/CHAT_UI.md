@@ -23,6 +23,8 @@ Launch the Windows player with `--ribbon-ui` to preview the head-side Ribbon men
 
 Across from the head-side controls, a small icon shows the current mood using the Feelings glyphs. It replaces the numeric readout in Ribbon mode and lets clicks pass through.
 
+Ribbon plays a quiet tick when pointer or keyboard focus reaches a menu row, a short confirmation on selection, and a distinct cue when a message is sent. Positive affection gets a warm cue. A secret reveal gets a brighter chime and takes priority when both rewards arrive together. Reward sounds follow the reveal timing. Chat settings has a UI sound volume control, which defaults to 35%. Set it to zero to silence those effects. Happi’s brief hum and surprised reaction use the installed reaction voice pack and follow voice mute and pause. They can wait briefly for another reaction voice to finish.
+
 ## Private and public (JUH-177)
 
 The chat box header has a **Private / Public** switch in the place of "What do you see?" (looking at the screen stays on the wheel: Screen → Look now).

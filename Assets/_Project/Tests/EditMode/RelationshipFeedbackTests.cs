@@ -7,6 +7,22 @@ namespace AICompanion.Tests.EditMode
     /// <summary>JUH-122: critical hits in the relationship math, and the rules for the floating pieces.</summary>
     public sealed class RelationshipFeedbackTests
     {
+        [Test]
+        public void RibbonDiscoveryWinsOverAffectionInEitherOrder()
+        {
+            var affection = RibbonSound.Include(RibbonRewardSound.None, FeedbackKind.Up);
+            Assert.AreEqual(RibbonRewardSound.Affection, affection);
+            Assert.AreEqual(RibbonRewardSound.Affection,
+                RibbonSound.Include(RibbonRewardSound.None, FeedbackKind.CritUp));
+
+            var discovery = RibbonSound.Include(RibbonRewardSound.None, FeedbackKind.Secret);
+            Assert.AreEqual(RibbonRewardSound.Discovery, discovery);
+            Assert.AreEqual(discovery, RibbonSound.Include(affection, FeedbackKind.Secret));
+            Assert.AreEqual(discovery, RibbonSound.Include(discovery, FeedbackKind.Up));
+            Assert.AreEqual(RibbonRewardSound.None,
+                RibbonSound.Include(RibbonRewardSound.None, FeedbackKind.Down));
+        }
+
         static RelationshipChange Change(LandingEvent landing, float delta, bool critical = false, float familiarity = 50f)
         {
             return new RelationshipChange

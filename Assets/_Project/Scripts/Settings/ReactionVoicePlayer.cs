@@ -119,6 +119,27 @@ namespace AICompanion.Settings
             return UnityEngine.Random.Range(0, count);
         }
 
+        // True when the request was consumed, including missing clips or disabled voice.
+        // A busy voice channel is the only case where the caller should try again.
+        public bool FinishRibbonReward(RibbonRewardSound reward)
+        {
+            var now = Time.unscaledTime;
+            if (reward == RibbonRewardSound.None || !Allowed() || _source == null)
+                return true;
+            if (_source.isPlaying || ReactionSpeechLead.NeedsAnswer || ReactionSpeechLead.Blocks(now))
+                return false;
+
+            var discovery = reward == RibbonRewardSound.Discovery;
+            var expression = discovery ? "surprised" : "smile";
+            var id = discovery ? "surprised_oh_1" : "smile_mm_1";
+            if (_catalog.TryFind(expression, id, out var chosen) && TryPlay(chosen))
+            {
+                _playingUntil = now + PlaybackSeconds(_clip, chosen);
+                Debug.Log("Ribbon reward voice: " + chosen.Id);
+            }
+            return true;
+        }
+
         bool Allowed()
         {
             if (!_pauseSearched)
